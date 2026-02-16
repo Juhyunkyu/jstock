@@ -10,6 +10,8 @@ class _ZoneData {
   final Color fillColor;
   final int rangeStart;
   final int rangeEnd;
+  final String koreanName;
+  final String description;
 
   const _ZoneData({
     required this.label,
@@ -17,6 +19,8 @@ class _ZoneData {
     required this.fillColor,
     required this.rangeStart,
     required this.rangeEnd,
+    required this.koreanName,
+    required this.description,
   });
 }
 
@@ -27,6 +31,8 @@ const List<_ZoneData> _zones = [
     fillColor: Color(0xFFFCA5A5),
     rangeStart: 0,
     rangeEnd: 25,
+    koreanName: '극도의 공포',
+    description: '패닉 매도 가능, 역발상 매수 기회',
   ),
   _ZoneData(
     label: 'FEAR',
@@ -34,6 +40,8 @@ const List<_ZoneData> _zones = [
     fillColor: Color(0xFFFDBA74),
     rangeStart: 25,
     rangeEnd: 44,
+    koreanName: '공포',
+    description: '투자자 불안 증가, 하락 압력 주의',
   ),
   _ZoneData(
     label: 'NEUTRAL',
@@ -41,6 +49,8 @@ const List<_ZoneData> _zones = [
     fillColor: Color(0xFFFDE047),
     rangeStart: 44,
     rangeEnd: 56,
+    koreanName: '중립',
+    description: '시장 균형 상태, 방향성 탐색 중',
   ),
   _ZoneData(
     label: 'GREED',
@@ -48,6 +58,8 @@ const List<_ZoneData> _zones = [
     fillColor: Color(0xFFBEF264),
     rangeStart: 56,
     rangeEnd: 75,
+    koreanName: '탐욕',
+    description: '투자 심리 양호, 상승 모멘텀',
   ),
   _ZoneData(
     label: 'EXTREME\nGREED',
@@ -55,8 +67,19 @@ const List<_ZoneData> _zones = [
     fillColor: Color(0xFF86EFAC),
     rangeStart: 75,
     rangeEnd: 100,
+    koreanName: '극도의 탐욕',
+    description: '과열 경고, 조정 가능성 높음',
   ),
 ];
+
+/// Determine which zone index (0-4) a value falls into
+int _getActiveZoneIndex(int value) {
+  if (value < 25) return 0;
+  if (value < 44) return 1;
+  if (value < 56) return 2;
+  if (value < 75) return 3;
+  return 4;
+}
 
 /// CNN-style Fear & Greed Index gauge card
 class FearGreedCard extends StatelessWidget {
@@ -76,6 +99,9 @@ class FearGreedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final clampedValue = value.clamp(0, 100);
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Smooth linear scale: 320px→0.92, 1400px→1.35 (no jumps)
+    final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -86,30 +112,25 @@ class FearGreedCard extends StatelessWidget {
         border: Border.all(color: context.appBorder),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+        padding: EdgeInsets.fromLTRB(14 * fs, 12 * fs, 14 * fs, 10 * fs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Title row
             Row(
               children: [
-                Builder(
-                  builder: (context) {
-                    final isDesktop = MediaQuery.of(context).size.width >= 768;
-                    return Text(
-                      'Fear & Greed Index',
-                      style: TextStyle(
-                        fontSize: isDesktop ? 16 : 14,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextPrimary,
-                      ),
-                    );
-                  },
+                Text(
+                  'Fear & Greed Index',
+                  style: TextStyle(
+                    fontSize: 14 * fs,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8 * fs),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      EdgeInsets.symmetric(horizontal: 6 * fs, vertical: 2 * fs),
                   decoration: BoxDecoration(
                     color: const Color(0xFFDC2626),
                     borderRadius: BorderRadius.circular(4),
@@ -117,7 +138,7 @@ class FearGreedCard extends StatelessWidget {
                   child: Text(
                     'CNN',
                     style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width >= 768 ? 10 : 9,
+                      fontSize: 9 * fs,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                       letterSpacing: 0.5,
@@ -126,10 +147,10 @@ class FearGreedCard extends StatelessWidget {
                 ),
                 const Spacer(),
                 if (isLoading)
-                  const SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
+                  SizedBox(
+                    width: 14 * fs,
+                    height: 14 * fs,
+                    child: const CircularProgressIndicator(
                       strokeWidth: 1.5,
                       color: Color(0xFF9CA3AF),
                     ),
@@ -139,15 +160,15 @@ class FearGreedCard extends StatelessWidget {
                     onTap: onRefresh,
                     child: Icon(
                       Icons.refresh_rounded,
-                      size: MediaQuery.of(context).size.width >= 768 ? 18 : 16,
+                      size: 16 * fs,
                       color: context.appTextHint,
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: 12 * fs),
 
-            // Gauge or error
+            // Gauge + Zone descriptions (responsive layout)
             if (error != null)
               Center(
                 child: Padding(
@@ -162,13 +183,201 @@ class FearGreedCard extends StatelessWidget {
                 ),
               )
             else
-              FearGreedGauge(
-                value: clampedValue,
-                isLoading: isLoading,
-                cardBackgroundColor: context.appCardBackground,
-                textColor: context.appTextPrimary,
-                isDarkMode: context.isDarkMode,
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final useRowLayout = constraints.maxWidth >= 600;
+                  final gauge = FearGreedGauge(
+                    value: clampedValue,
+                    isLoading: isLoading,
+                    cardBackgroundColor: context.appCardBackground,
+                    textColor: context.appTextPrimary,
+                    isDarkMode: context.isDarkMode,
+                  );
+                  final descriptions = _ZoneDescriptionPanel(
+                    value: clampedValue,
+                  );
+
+                  if (useRowLayout) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(flex: 5, child: gauge),
+                        const SizedBox(width: 16),
+                        Expanded(flex: 5, child: descriptions),
+                      ],
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      gauge,
+                      const SizedBox(height: 16),
+                      descriptions,
+                    ],
+                  );
+                },
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Panel showing intro text + all 5 zone descriptions (single-line each)
+class _ZoneDescriptionPanel extends StatelessWidget {
+  final int value;
+
+  const _ZoneDescriptionPanel({required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final activeZone = _getActiveZoneIndex(value);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Intro description
+        Text(
+          'S&P 500 옵션 시장 기반 시장 심리 종합 지표. '
+          'VIX, 모멘텀, 풋/콜 비율 등 7개 지표를 종합하여 '
+          '투자자들의 공포·탐욕 수준을 0~100으로 나타냅니다.',
+          style: TextStyle(
+            fontSize: 13 * fs,
+            color: context.appTextSecondary,
+            height: 1.4,
+          ),
+        ),
+        SizedBox(height: 10 * fs),
+        // Zone items (single-line each)
+        for (int i = 0; i < _zones.length; i++) ...[
+          _ZoneDescriptionItem(
+            zone: _zones[i],
+            isActive: i == activeZone,
+          ),
+          if (i < _zones.length - 1) SizedBox(height: 4 * fs),
+        ],
+      ],
+    );
+  }
+}
+
+/// Single-line zone description: [bar] dot · name · range · description
+class _ZoneDescriptionItem extends StatelessWidget {
+  final _ZoneData zone;
+  final bool isActive;
+
+  const _ZoneDescriptionItem({
+    required this.zone,
+    required this.isActive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.isDarkMode;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        color: isActive
+            ? zone.accentColor.withValues(alpha: isDark ? 0.15 : 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            // Left accent bar
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              width: isActive ? 3 * fs : 0,
+              decoration: BoxDecoration(
+                color: zone.accentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(6),
+                  bottomLeft: Radius.circular(6),
+                ),
+              ),
+            ),
+            // Single-line content
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 6 * fs),
+                child: Row(
+                  children: [
+                    // Color dot
+                    Container(
+                      width: 8 * fs,
+                      height: 8 * fs,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isActive
+                            ? zone.accentColor
+                            : zone.accentColor.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    SizedBox(width: 6 * fs),
+                    // Zone name
+                    Text(
+                      zone.koreanName,
+                      style: TextStyle(
+                        fontSize: 13 * fs,
+                        fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                        color: isActive
+                            ? context.appTextPrimary
+                            : context.appTextHint,
+                      ),
+                    ),
+                    SizedBox(width: 5 * fs),
+                    // Range badge
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 4 * fs,
+                        vertical: 1 * fs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? zone.accentColor.withValues(alpha: isDark ? 0.25 : 0.12)
+                            : context.appIconBg,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        '${zone.rangeStart}-${zone.rangeEnd}',
+                        style: TextStyle(
+                          fontSize: 10 * fs,
+                          fontWeight: FontWeight.w500,
+                          color: isActive
+                              ? zone.accentColor
+                              : context.appTextHint,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 6 * fs),
+                    // Description (fills remaining space)
+                    Expanded(
+                      child: Text(
+                        zone.description,
+                        style: TextStyle(
+                          fontSize: 12 * fs,
+                          color: isActive
+                              ? context.appTextSecondary
+                              : context.appTextHint.withValues(alpha: isDark ? 0.45 : 0.55),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
