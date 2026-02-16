@@ -1,5 +1,0 @@
-[     100ms] [WARNING] Failed to load font Noto Sans Symbols 2 3 at https://fonts.gstatic.com/s/notosanssymbols2/v24/I_uyMoGduATTei9eI8daxVHDyfisHr71-vrgfE71.woff2 @ http://localhost:8080/main.dart.js:38025
-[     130ms] [WARNING] Flutter Web engine failed to complete HTTP request to fetch "https://fonts.gstatic.com/s/notosanssymbols2/v24/I_uyMoGduATTei9eI8daxVHDyfisHr71-vrgfE71.woff2": TypeError: Failed to fetch @ http://localhost:8080/main.dart.js:38025
-[   13230ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0' failed: Error during WebSocket handshake: Unexpected response code: 429 @ http://localhost:8080/main.dart.js:34426
-[   26427ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0' failed: Error during WebSocket handshake: Unexpected response code: 429 @ http://localhost:8080/main.dart.js:34426
-[   43418ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0' failed: Error during WebSocket handshake: Unexpected response code: 429 @ http://localhost:8080/main.dart.js:34426

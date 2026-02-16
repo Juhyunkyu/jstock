@@ -1,2 +1,0 @@
-[  255124ms] [ERROR] Access to XMLHttpRequest at 'https://finnhub.io/api/v1/quote?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0&symbol=AMD' from origin 'http://localhost:8080' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8080/#/stocks:0
-[  255126ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://finnhub.io/api/v1/quote?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0&symbol=AMD:0

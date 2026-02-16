@@ -1,4 +1,0 @@
-[   17895ms] [WARNING] Exception while loading service worker: Error: prepareServiceWorker took more than 4000ms to resolve. Moving on.
-    at http://localhost:8080/flutter_bootstrap.js:1:2980 @ http://localhost:8080/flutter_bootstrap.js:2
-[   55724ms] [ERROR] Access to XMLHttpRequest at 'https://s.yimg.com/rz/stage/p/yahoo_finance_en-US_h_p_finance_2.png' from origin 'http://localhost:8080' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8080/#/index/AAPL?from=watchlist:0
-[   55726ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://s.yimg.com/rz/stage/p/yahoo_finance_en-US_h_p_finance_2.png:0

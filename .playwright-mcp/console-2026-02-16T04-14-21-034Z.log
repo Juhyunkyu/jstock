@@ -1,5 +1,0 @@
-[    4059ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0' failed: Error during WebSocket handshake: Unexpected response code: 429 @ http://localhost:8080/main.dart.js:34912
-[   34670ms] [ERROR] Access to XMLHttpRequest at 'https://img.etimg.com/thumb/msid-128312186,width-1200,height-630,imgsize-102436,overlay-economictimes/articleshow.jpg' from origin 'http://localhost:8080' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8080/#/index/^NDX:0
-[   34671ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://img.etimg.com/thumb/msid-128312186,width-1200,height-630,imgsize-102436,overlay-economictimes/articleshow.jpg:0
-[   82114ms] [WARNING] Exception while loading service worker: Error: prepareServiceWorker took more than 4000ms to resolve. Moving on.
-    at http://localhost:8080/flutter_bootstrap.js:1:2980 @ http://localhost:8080/flutter_bootstrap.js:2

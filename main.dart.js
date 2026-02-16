@@ -8185,7 +8185,7 @@ Gm:function Gm(a,b){this.a=a
 this.c=b},
 qR:function qR(a){this.a=a},
 bch(a,b,c,d,e,f,g,h,i){return new A.l2(g,b,f,a,c,d,i,h,e)},
-bng(){return new A.qS(A.W7(A.SO("https://finnhub.io/api/v1",B.i1,A.aw(["token",""],t.N,t.z),B.nw)))},
+bng(){return new A.qS(A.W7(A.SO("https://finnhub.io/api/v1",B.i1,A.aw(["token","d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0"],t.N,t.z),B.nw)))},
 wH:function wH(a,b,c,d){var _=this
 _.a=a
 _.b=b
@@ -53147,7 +53147,7 @@ s=1
 break}n.f=!0
 p=4
 A.j3("[FinnhubWS] Connecting... (attempt "+(k+1)+")")
-k=A.bkO(A.b2W(A.dG("wss://ws.finnhub.io?token=",0,null),null))
+k=A.bkO(A.b2W(A.dG("wss://ws.finnhub.io?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0",0,null),null))
 n.a=k
 s=7
 return A.t(k.f.a,$async$zx)
@@ -53284,7 +53284,7 @@ l=new A.aT(Date.now(),0,!1).nD(-6048e8)
 k=""+A.bo(l)+"-"+B.e.dD(B.f.j(A.bu(l)),2,"0")+"-"+B.e.dD(B.f.j(A.cm(l)),2,"0")
 d=t.z
 s=7
-return A.t(n.a.mb(0,"https://api.marketaux.com/v1/news/all",A.aw(["api_token","","search",m,"language","en","limit","3","sort","published_on","sort_order","desc","published_after",k,"exclude_domains","finance.yahoo.com"],t.N,d),d),$async$Do)
+return A.t(n.a.mb(0,"https://api.marketaux.com/v1/news/all",A.aw(["api_token","iQTzzGWB1D968TdPsLEmDcVk3iocdYz2U0HeH2Ts","search",m,"language","en","limit","3","sort","published_on","sort_order","desc","published_after",k,"exclude_domains","finance.yahoo.com"],t.N,d),d),$async$Do)
 case 7:j=a5
 d=t.V7
 i=A.a([],d)
@@ -53330,7 +53330,7 @@ m=new A.aT(Date.now(),0,!1)
 l=m.nD(-6048e8)
 d=t.z
 s=7
-return A.t(n.a.mb(0,"https://finnhub.io/api/v1/company-news",A.aw(["token","","symbol",a4.toUpperCase(),"from",""+A.bo(l)+"-"+B.e.dD(B.f.j(A.bu(l)),2,"0")+"-"+B.e.dD(B.f.j(A.cm(l)),2,"0"),"to",""+A.bo(m)+"-"+B.e.dD(B.f.j(A.bu(m)),2,"0")+"-"+B.e.dD(B.f.j(A.cm(m)),2,"0")],t.N,d),d),$async$Dn)
+return A.t(n.a.mb(0,"https://finnhub.io/api/v1/company-news",A.aw(["token","d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0","symbol",a4.toUpperCase(),"from",""+A.bo(l)+"-"+B.e.dD(B.f.j(A.bu(l)),2,"0")+"-"+B.e.dD(B.f.j(A.cm(l)),2,"0"),"to",""+A.bo(m)+"-"+B.e.dD(B.f.j(A.bu(m)),2,"0")+"-"+B.e.dD(B.f.j(A.cm(m)),2,"0")],t.N,d),d),$async$Dn)
 case 7:k=a6
 j=t.kc.a(k.a)
 if(j==null){d=A.a([],t.V7)
@@ -53465,7 +53465,7 @@ var $async$nj=A.A(function(d,e){if(d===1){o.push(e)
 s=p}while(true)switch(s){case 0:p=4
 k=t.z
 s=7
-return A.t(n.a.mb(0,"/time_series",A.aw(["symbol",a.toUpperCase(),"interval",b,"outputsize",c,"apikey",""],t.N,k),k),$async$nj)
+return A.t(n.a.mb(0,"/time_series",A.aw(["symbol",a.toUpperCase(),"interval",b,"outputsize",c,"apikey","c59da47e85524d4b84c59b1eb2c44a9d"],t.N,k),k),$async$nj)
 case 7:m=e
 k=n.auX(a,m.a)
 q=k
