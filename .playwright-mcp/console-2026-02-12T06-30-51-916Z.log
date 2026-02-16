@@ -1,0 +1,3 @@
+[   18279ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://www.coinbase.com/global-experiments:0
+[   21393ms] [ERROR] Failed to load resource: the server responded with a status of 404 () @ https://www.googletagmanager.com/gtm.js?id=GTM-TEST:0
+[   22160ms] [ERROR] Not signed in with the identity provider. @ https://www.coinbase.com/explore:0

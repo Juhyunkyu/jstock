@@ -1,0 +1,8 @@
+[    4149ms] [WARNING] Exception while loading service worker: Error: prepareServiceWorker took more than 4000ms to resolve. Moving on.
+    at http://localhost:8080/flutter_bootstrap.js:1:2980 @ http://localhost:8080/flutter_bootstrap.js:2
+[    5912ms] [WARNING] [.WebGL-0x90c0077cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://localhost:8080/:0
+[    5957ms] [WARNING] [.WebGL-0x90c0077cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://localhost:8080/:0
+[    6032ms] [WARNING] [.WebGL-0x90c0077cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://localhost:8080/:0
+[    6063ms] [WARNING] [.WebGL-0x90c0077cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat) @ http://localhost:8080/:0
+[   77161ms] [ERROR] Access to XMLHttpRequest at 'https://s.yimg.com/rz/stage/p/yahoo_finance_en-US_h_p_finance_2.png' from origin 'http://localhost:8080' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8080/#/index/AAPL?from=watchlist:0
+[   77163ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://s.yimg.com/rz/stage/p/yahoo_finance_en-US_h_p_finance_2.png:0

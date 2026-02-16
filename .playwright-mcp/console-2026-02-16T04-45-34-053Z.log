@@ -1,0 +1,2 @@
+[    4133ms] [WARNING] Exception while loading service worker: Error: prepareServiceWorker took more than 4000ms to resolve. Moving on.
+    at http://localhost:8080/flutter_bootstrap.js:1:2980 @ http://localhost:8080/flutter_bootstrap.js:2

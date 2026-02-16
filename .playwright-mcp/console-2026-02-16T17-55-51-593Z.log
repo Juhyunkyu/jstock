@@ -1,0 +1,6 @@
+[    4099ms] [WARNING] Exception while loading service worker: Error: prepareServiceWorker took more than 4000ms to resolve. Moving on.
+    at http://localhost:8080/flutter_bootstrap.js:1:2980 @ http://localhost:8080/flutter_bootstrap.js:2
+[    6778ms] [WARNING] [.WebGL-0x1c2405619400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://localhost:8080/:0
+[    6840ms] [WARNING] [.WebGL-0x1c2405619400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://localhost:8080/:0
+[    6921ms] [WARNING] [.WebGL-0x1c2405619400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ http://localhost:8080/:0
+[    7024ms] [WARNING] [.WebGL-0x1c2405619400]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat) @ http://localhost:8080/:0

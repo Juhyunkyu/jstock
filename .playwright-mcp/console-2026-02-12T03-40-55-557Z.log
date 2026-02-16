@@ -1,0 +1,2 @@
+[  328118ms] [ERROR] Access to XMLHttpRequest at 'https://static.seekingalpha.com/cdn/s3/uploads/getty_images/1178277803/image_1178277803.jpg?io=getty-c-w1536' from origin 'http://localhost:8080' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8080/#/index/^NDX?from=home:0
+[  328119ms] [ERROR] Failed to load resource: net::ERR_FAILED @ https://static.seekingalpha.com/cdn/s3/uploads/getty_images/1178277803/image_1178277803.jpg?io=getty-c-w1536:0

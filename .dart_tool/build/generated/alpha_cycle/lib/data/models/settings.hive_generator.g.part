@@ -1,0 +1,73 @@
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
+
+class SettingsAdapter extends TypeAdapter<Settings> {
+  @override
+  final int typeId = 3;
+
+  @override
+  Settings read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return Settings(
+      exchangeRate: fields[0] as double,
+      useRealtimeRate: fields[1] as bool,
+      notifyBuySignal: fields[2] as bool,
+      notifySellSignal: fields[3] as bool,
+      notifyPanicSignal: fields[4] as bool,
+      notifyDailySummary: fields[5] as bool,
+      checkIntervalMinutes: fields[6] as int,
+      defaultEntryRatio: fields[7] as double,
+      defaultBuyTrigger: fields[8] as double,
+      defaultSellTrigger: fields[9] as double,
+      defaultPanicTrigger: fields[10] as double,
+      useDarkMode: fields[11] as bool,
+      lastBackupDate: fields[12] as DateTime?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, Settings obj) {
+    writer
+      ..writeByte(13)
+      ..writeByte(0)
+      ..write(obj.exchangeRate)
+      ..writeByte(1)
+      ..write(obj.useRealtimeRate)
+      ..writeByte(2)
+      ..write(obj.notifyBuySignal)
+      ..writeByte(3)
+      ..write(obj.notifySellSignal)
+      ..writeByte(4)
+      ..write(obj.notifyPanicSignal)
+      ..writeByte(5)
+      ..write(obj.notifyDailySummary)
+      ..writeByte(6)
+      ..write(obj.checkIntervalMinutes)
+      ..writeByte(7)
+      ..write(obj.defaultEntryRatio)
+      ..writeByte(8)
+      ..write(obj.defaultBuyTrigger)
+      ..writeByte(9)
+      ..write(obj.defaultSellTrigger)
+      ..writeByte(10)
+      ..write(obj.defaultPanicTrigger)
+      ..writeByte(11)
+      ..write(obj.useDarkMode)
+      ..writeByte(12)
+      ..write(obj.lastBackupDate);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SettingsAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}

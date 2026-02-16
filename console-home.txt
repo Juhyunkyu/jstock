@@ -1,0 +1,5 @@
+Total messages: 18 (Errors: 2, Warnings: 5)
+Returning 2 messages for level "error"
+
+[ERROR] Access to XMLHttpRequest at 'https://www.koreaexim.go.kr/site/program/financial/exchangeJSON?authkey=4pBXELOaEniuCgDbih1wgPb2LFNLASlF&data=AP01' from origin 'http://localhost:8080' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource. @ http://localhost:8080/:0
+[ERROR] Failed to load resource: net::ERR_FAILED @ https://www.koreaexim.go.kr/site/program/financial/exchangeJSON?authkey=4pBXELOaEniuCgDbih1wgPb2LFNLASlF&data=AP01:0

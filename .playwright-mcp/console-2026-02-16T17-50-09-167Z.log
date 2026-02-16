@@ -1,0 +1,5 @@
+[    1278ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://finnhub.io/api/v1/quote?token=&symbol=QQQ:0
+[    1293ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://finnhub.io/api/v1/quote?token=&symbol=SPY:0
+[   12194ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=' failed: HTTP Authentication failed; no valid credentials available @ http://localhost:8080/main.dart.js:34996
+[   23855ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=' failed: HTTP Authentication failed; no valid credentials available @ http://localhost:8080/main.dart.js:34996
+[   44530ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=' failed: HTTP Authentication failed; no valid credentials available @ http://localhost:8080/main.dart.js:34996

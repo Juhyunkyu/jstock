@@ -1,0 +1,2 @@
+[    5279ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0' failed: Error during WebSocket handshake: Unexpected response code: 429 @ http://localhost:8080/main.dart.js:34996
+[   17516ms] [ERROR] WebSocket connection to 'wss://ws.finnhub.io/?token=d60jvdhr01qto1rde9igd60jvdhr01qto1rde9j0' failed: Error during WebSocket handshake: Unexpected response code: 429 @ http://localhost:8080/main.dart.js:34996
