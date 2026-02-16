@@ -1,0 +1,74 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'watchlist_item.dart';
+
+// **************************************************************************
+// TypeAdapterGenerator
+// **************************************************************************
+
+class WatchlistItemAdapter extends TypeAdapter<WatchlistItem> {
+  @override
+  final int typeId = 15;
+
+  @override
+  WatchlistItem read(BinaryReader reader) {
+    final numOfFields = reader.readByte();
+    final fields = <int, dynamic>{
+      for (int i = 0; i < numOfFields; i++) reader.readByte(): reader.read(),
+    };
+    return WatchlistItem(
+      ticker: fields[0] as String,
+      name: fields[1] as String,
+      exchange: fields[2] as String,
+      type: fields[3] as String,
+      addedAt: fields[4] as DateTime?,
+      note: fields[5] as String?,
+      alertPrice: fields[6] as double?,
+      sortOrder: fields[7] == null ? 0 : fields[7] as int,
+      alertType: fields[8] as int?,
+      alertBasePrice: fields[9] as double?,
+      alertPercent: fields[10] as double?,
+      alertDirection: fields[11] as int?,
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, WatchlistItem obj) {
+    writer
+      ..writeByte(12)
+      ..writeByte(0)
+      ..write(obj.ticker)
+      ..writeByte(1)
+      ..write(obj.name)
+      ..writeByte(2)
+      ..write(obj.exchange)
+      ..writeByte(3)
+      ..write(obj.type)
+      ..writeByte(4)
+      ..write(obj.addedAt)
+      ..writeByte(5)
+      ..write(obj.note)
+      ..writeByte(6)
+      ..write(obj.alertPrice)
+      ..writeByte(7)
+      ..write(obj.sortOrder)
+      ..writeByte(8)
+      ..write(obj.alertType)
+      ..writeByte(9)
+      ..write(obj.alertBasePrice)
+      ..writeByte(10)
+      ..write(obj.alertPercent)
+      ..writeByte(11)
+      ..write(obj.alertDirection);
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is WatchlistItemAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
