@@ -1,0 +1,6 @@
+[    3770ms] [WARNING] [.WebGL-0x3b40516cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ https://juhyunkyu.github.io/jstock/:0
+[    3831ms] [WARNING] [.WebGL-0x3b40516cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ https://juhyunkyu.github.io/jstock/:0
+[    3988ms] [WARNING] [.WebGL-0x3b40516cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels @ https://juhyunkyu.github.io/jstock/:0
+[    4050ms] [WARNING] [.WebGL-0x3b40516cd00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat) @ https://juhyunkyu.github.io/jstock/:0
+[    7229ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://finnhub.io/api/v1/quote?token=&symbol=QQQ:0
+[    7234ms] [ERROR] Failed to load resource: the server responded with a status of 401 () @ https://finnhub.io/api/v1/quote?token=&symbol=SPY:0
