@@ -25,6 +25,8 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
   int _selectedTab = 0;
   // 0 = ± 양방향, 1 = ▲ 상승만, 2 = ▼ 하락만
   late int _alertDirection;
+  // 0 = 이상(above), 1 = 이하(below)
+  late int _targetDirection;
   late TextEditingController _targetPriceController;
   late TextEditingController _basePriceController;
   late TextEditingController _percentController;
@@ -41,6 +43,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     }
 
     _alertDirection = item.alertDirection ?? 0;
+    _targetDirection = item.alertTargetDirection ?? 0;
 
     // 목표가: 기존 값 or 현재가
     _targetPriceController = TextEditingController(
@@ -427,6 +430,10 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     final diff = currentPrice != null && currentPrice > 0 && target > 0
         ? ((target - currentPrice) / currentPrice * 100)
         : null;
+    final dirLabel = _targetDirection == 1 ? '이하' : '이상';
+    final previewText = target > 0
+        ? '\$${target.toStringAsFixed(2)} $dirLabel 도달 시 알림'
+        : '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,6 +444,10 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
           controller: _targetPriceController,
           hint: '목표 가격 입력',
         ),
+        const SizedBox(height: 16),
+        _buildLabel('알림 조건'),
+        const SizedBox(height: 6),
+        _buildTargetDirectionSelector(),
         if (diff != null) ...[
           const SizedBox(height: 12),
           Text(
@@ -448,7 +459,73 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
             ),
           ),
         ],
+        if (previewText.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            previewText,
+            style: TextStyle(
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+              color: context.appTextHint,
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _buildTargetDirectionSelector() {
+    return Container(
+      decoration: BoxDecoration(
+        color: context.appIconBg,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        children: [
+          _buildTargetDirectionChip(
+            label: '이상 (≥)',
+            value: 0,
+            color: AppColors.red500,
+          ),
+          _buildTargetDirectionChip(
+            label: '이하 (≤)',
+            value: 1,
+            color: AppColors.blue500,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTargetDirectionChip({
+    required String label,
+    required int value,
+    required Color color,
+  }) {
+    final isActive = _targetDirection == value;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _targetDirection = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? color : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                color: isActive ? Colors.white : context.appTextHint,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -502,6 +579,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
       notifier.setTargetAlert(
         ticker: widget.item.ticker,
         alertPrice: price,
+        alertTargetDirection: _targetDirection,
       );
     } else {
       // 변동률 저장

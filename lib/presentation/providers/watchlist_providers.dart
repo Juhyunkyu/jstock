@@ -157,8 +157,13 @@ class WatchlistNotifier extends StateNotifier<WatchlistState> {
   Future<void> setTargetAlert({
     required String ticker,
     required double alertPrice,
+    int alertTargetDirection = 0,
   }) async {
-    await _repository.setTargetAlert(ticker: ticker, alertPrice: alertPrice);
+    await _repository.setTargetAlert(
+      ticker: ticker,
+      alertPrice: alertPrice,
+      alertTargetDirection: alertTargetDirection,
+    );
     final items = _repository.getAll();
     if (!mounted) return;
     state = state.copyWith(items: items);

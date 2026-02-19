@@ -29,13 +29,14 @@ class WatchlistItemAdapter extends TypeAdapter<WatchlistItem> {
       alertBasePrice: fields[9] as double?,
       alertPercent: fields[10] as double?,
       alertDirection: fields[11] as int?,
+      alertTargetDirection: fields[12] == null ? 0 : fields[12] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, WatchlistItem obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.ticker)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class WatchlistItemAdapter extends TypeAdapter<WatchlistItem> {
       ..writeByte(10)
       ..write(obj.alertPercent)
       ..writeByte(11)
-      ..write(obj.alertDirection);
+      ..write(obj.alertDirection)
+      ..writeByte(12)
+      ..write(obj.alertTargetDirection);
   }
 
   @override

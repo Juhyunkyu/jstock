@@ -90,10 +90,12 @@ class WatchlistRepository {
   Future<void> setTargetAlert({
     required String ticker,
     required double alertPrice,
+    int alertTargetDirection = 0,
   }) async {
     final item = getByTicker(ticker);
     if (item != null) {
       item.alertPrice = alertPrice;
+      item.alertTargetDirection = alertTargetDirection;
       await item.save();
     }
   }

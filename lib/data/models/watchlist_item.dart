@@ -53,6 +53,10 @@ class WatchlistItem extends HiveObject {
   @HiveField(11)
   int? alertDirection;
 
+  /// 목표가 방향: 0=이상(above), 1=이하(below)
+  @HiveField(12, defaultValue: 0)
+  int? alertTargetDirection;
+
   WatchlistItem({
     required this.ticker,
     required this.name,
@@ -66,6 +70,7 @@ class WatchlistItem extends HiveObject {
     this.alertBasePrice,
     this.alertPercent,
     this.alertDirection,
+    this.alertTargetDirection,
   }) : addedAt = addedAt ?? DateTime.now();
 
   /// 목표가 알림 설정 여부
@@ -96,20 +101,26 @@ class WatchlistItem extends HiveObject {
       parts.add('$_directionSymbol${alertPercent!.toStringAsFixed(1)}%');
     }
     if (hasTargetAlert) {
-      parts.add('\$${alertPrice!.toStringAsFixed(2)}');
+      final dir = alertTargetDirection == 1 ? '이하' : '이상';
+      parts.add('\$${alertPrice!.toStringAsFixed(2)} $dir');
     }
     return parts.join('  ·  ');
   }
 
-  /// 목표가 알림 조건 충족 여부 (가격이 목표가를 관통했는지)
+  /// 목표가 알림 조건 충족 여부
   ///
   /// [currentPrice] 현재 가격
-  /// [previousPrice] 이전 가격 (관통 판정에 필요)
+  /// alertTargetDirection: 0=이상(above), 1=이하(below)
   bool isTargetAlertTriggered(double currentPrice, double? previousPrice) {
-    if (!hasTargetAlert || previousPrice == null) return false;
-    // 이전 가격과 현재 가격이 목표가를 사이에 두고 있으면 관통
-    return (previousPrice < alertPrice! && currentPrice >= alertPrice!) ||
-           (previousPrice > alertPrice! && currentPrice <= alertPrice!);
+    if (!hasTargetAlert) return false;
+    final direction = alertTargetDirection ?? 0;
+    if (direction == 1) {
+      // 이하: 현재가가 목표가 이하
+      return currentPrice <= alertPrice!;
+    } else {
+      // 이상: 현재가가 목표가 이상
+      return currentPrice >= alertPrice!;
+    }
   }
 
   /// 변동률 알림 조건 충족 여부
@@ -148,6 +159,7 @@ class WatchlistItem extends HiveObject {
     double? alertBasePrice,
     double? alertPercent,
     int? alertDirection,
+    int? alertTargetDirection,
   }) {
     return WatchlistItem(
       ticker: ticker ?? this.ticker,
@@ -162,6 +174,7 @@ class WatchlistItem extends HiveObject {
       alertBasePrice: alertBasePrice ?? this.alertBasePrice,
       alertPercent: alertPercent ?? this.alertPercent,
       alertDirection: alertDirection ?? this.alertDirection,
+      alertTargetDirection: alertTargetDirection ?? this.alertTargetDirection,
     );
   }
 }

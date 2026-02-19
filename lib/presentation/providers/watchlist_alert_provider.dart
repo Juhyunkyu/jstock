@@ -55,13 +55,13 @@ class WatchlistAlertChecker {
           final previousPrice = _previousPrices[item.ticker];
           if (item.isTargetAlertTriggered(currentPrice, previousPrice)) {
             _triggeredAt[key] = DateTime.now();
-            final direction = currentPrice >= item.alertPrice! ? '도달' : '도달';
+            final dirLabel = (item.alertTargetDirection ?? 0) == 1 ? '이하' : '이상';
             alerts.add(AlertNotification(
               ticker: item.ticker,
-              title: '${item.ticker} 목표가 $direction!',
+              title: '${item.ticker} 목표가 $dirLabel 도달!',
               body:
                   '현재가 \$${currentPrice.toStringAsFixed(2)} | '
-                  '목표가 \$${item.alertPrice!.toStringAsFixed(2)}',
+                  '목표가 \$${item.alertPrice!.toStringAsFixed(2)} $dirLabel',
               type: 'target',
             ));
           }
