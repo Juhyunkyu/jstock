@@ -1,6 +1,6 @@
 # 알파 사이클 앱 설계 문서
 
-> **최종 업데이트**: 2026-02-19 (WebSocket 실시간 가격 버그 수정)
+> **최종 업데이트**: 2026-02-19 (알림 시스템 완성 — 전역 알림 감시, 알림 내역, 벨 배지)
 
 ## 프로젝트 개요
 
@@ -792,6 +792,19 @@ class WatchlistItem {
 }
 ```
 
+### NotificationRecord (알림 내역)
+```dart
+class NotificationRecord {
+  String id;               // 고유 ID (UUID)
+  String ticker;           // 종목 코드
+  String title;            // 알림 제목
+  String body;             // 알림 본문
+  String type;             // 'target' (목표가) or 'percent' (변동률)
+  DateTime triggeredAt;    // 발생 시간
+  bool isRead;             // 읽음 여부 (mutable)
+}
+```
+
 ### Settings (설정)
 ```dart
 class Settings {
@@ -813,6 +826,7 @@ class Settings {
   bool notifyBuySignal;      // true
   bool notifySellSignal;     // true
   bool notifyPanicSignal;    // true
+  bool notifyDailySummary;   // true
 }
 ```
 
@@ -866,6 +880,15 @@ class Settings {
 - **AppTitleLogo** (`widgets/common/app_title_logo.dart`):
   - ∞ Alpha Cycle 브랜딩 (심플 스타일)
   - Props: `fontSize`, `iconColor?`, `textColor?`, `fontWeight` (기본 w700)
+- **NotificationBellButton** (`widgets/common/notification_bell_button.dart`):
+  - 알림 벨 아이콘 + 미읽은 알림 Badge (Material 3)
+  - 홈, 관심종목, My 화면 AppBar에 공통 적용
+  - 탭 시 NotificationHistorySheet 열림
+- **NotificationHistorySheet** (`widgets/common/notification_history_sheet.dart`):
+  - 알림 내역 BottomSheet (화면 60% 높이)
+  - 헤더: "알림" + "모두 읽음" 버튼
+  - 알림 항목: 타입 아이콘(목표가=초록, 변동률=주황) + 미읽은 파란 점 + 상대시간
+  - 빈 상태: "알림이 없습니다" + 전체 삭제 버튼
 
 ### 모듈화된 위젯 (2026-02-17)
 
@@ -907,6 +930,8 @@ class Settings {
 | 익절 신호 | 수익률 >= +20% | "TQQQ +22.3%: 익절 목표 도달!" |
 | 승부수 신호 | 손실률 <= -50% | "FNGU -52.1%: 승부수 W500만원!" |
 | 매수 대기 | -20% 근접 | "TQQQ -18.5%: 매수 구간 근접" |
+| 관심종목 목표가 | 현재가가 설정 목표가 관통 | "NVDA 목표가 도달! 현재가 $190.05" |
+| 관심종목 변동률 | 기준가 대비 N% 변동 | "NVDA 변동률 알림 ▼5.0%" |
 
 ### 알림 우선순위
 
@@ -914,6 +939,18 @@ class Settings {
 2. **익절 신호** (High)
 3. **매수 신호** (Default)
 4. **매수 대기** (Low)
+
+### 알림 아키텍처 (2026-02-19 완성)
+
+- **전역 감시**: `MainShell`(ConsumerStatefulWidget)이 앱 시작 시 `watchlistAlertMonitorProvider` 구독
+  - 모든 탭에서 WebSocket 알림이 활성화됨 (관심종목 탭 한정이 아님)
+- **알림 내역 저장**: `NotificationRecord` (Hive, typeId: 16)에 자동 저장
+  - 30일 경과 시 자동 삭제
+  - `NotificationHistoryProvider`로 상태 관리
+- **배지 표시**: `NotificationBellButton`이 미읽은 알림 수를 Badge로 표시
+- **설정 영속화**: `SettingsNotifier.updateNotificationSettings()`로 Hive에 실제 저장
+- **쿨다운**: 동일 종목/타입 알림은 1시간 쿨다운 (중복 방지)
+- **브라우저 알림**: `WebNotificationService.show()`로 브라우저 네이티브 알림 발송
 
 ---
 
@@ -941,8 +978,11 @@ class Settings {
 ### Phase 4: 알림 시스템 (부분 완료)
 - [ ] 로컬 푸시 알림 (서버 기반 FCM 필요)
 - [ ] 백그라운드 가격 체크 (Service Worker)
-- [x] 알림 설정 UI
-- [x] 관심종목 WebSocket 실시간 알림
+- [x] 알림 설정 UI + 실제 저장 (Hive 영속화)
+- [x] 관심종목 WebSocket 실시간 알림 (전역 감시)
+- [x] 알림 내역 저장 + 표시 (NotificationRecord Hive 모델)
+- [x] 알림 벨 배지 + 알림 내역 BottomSheet (전 화면 공통)
+- [x] 전역 WebSocket 구독 (MainShell → 탭 전환 시 구독 유지)
 
 ### Phase 5: 고도화 (완료)
 - [x] Fear & Greed Index (CNN)
@@ -986,6 +1026,7 @@ class Settings {
 - **v1.1** (2026.02): 다크 모드, ReturnBadge 전역 위젯, 거래내역 리뉴얼, 상세 페이지 모듈화, 종목 로고, UI 개선
 - **v1.2** (2026.02): 코드 품질 개선 — 화면 모듈화 3개 (watchlist, settings, cycle_setup), 반응형 레이아웃 (모바일/태블릿/데스크톱), 2열 그리드, darkAccent 중앙화, 환율 버그 수정, 다크모드 위반 수정, 브랜딩 심플화
 - **v1.3** (2026.02): WebSocket 실시간 가격 버그 수정 — REST 쿨다운 60초 제거, 구독 race condition 수정, 탭 이탈 시 구독 해제 추가
+- **v1.4** (2026.02): 알림 시스템 완성 — 전역 WebSocket 구독 (MainShell), 알림 내역 Hive 저장 (NotificationRecord), NotificationBellButton 벨 배지 (3화면 공통), NotificationHistorySheet 알림 내역 BottomSheet, 알림 설정 실제 영속화
 
 ---
 
@@ -993,7 +1034,7 @@ class Settings {
 
 1. **investing.com 뉴스 썸네일 CORS**: 외부 이미지 서버의 CORS 정책으로 일부 썸네일 미표시 (코드 문제 아님)
 2. **FinnhubWS 재연결**: 무료 API 연결 제한으로 간헐적 끊김 발생 (자동 재연결 정상 동작)
-3. **FinnhubWS 무료 티어 제한**: 동시 구독 ~10-15 심볼, 탭 이탈 시 자동 구독 해제로 관리
+3. **FinnhubWS 무료 티어 제한**: 동시 구독 ~10-15 심볼, MainShell에서 전역 구독 유지 (탭 전환 시 해제 안 함)
 
 ---
 

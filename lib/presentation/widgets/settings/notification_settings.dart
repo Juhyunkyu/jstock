@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../providers/settings_providers.dart';
 
 /// 알림 설정 위젯
 class NotificationSettings extends StatefulWidget {
@@ -166,20 +168,30 @@ class _NotificationToggle extends StatelessWidget {
 }
 
 /// 알림 설정 바텀 시트
-class NotificationSettingsSheet extends StatefulWidget {
+class NotificationSettingsSheet extends ConsumerStatefulWidget {
   const NotificationSettingsSheet({super.key});
 
   @override
-  State<NotificationSettingsSheet> createState() =>
+  ConsumerState<NotificationSettingsSheet> createState() =>
       _NotificationSettingsSheetState();
 }
 
-class _NotificationSettingsSheetState extends State<NotificationSettingsSheet> {
-  // TODO: Provider에서 실제 값 가져오기
-  bool _buySignalEnabled = true;
-  bool _takeProfitEnabled = true;
-  bool _panicBuyEnabled = true;
-  bool _dailySummaryEnabled = false;
+class _NotificationSettingsSheetState
+    extends ConsumerState<NotificationSettingsSheet> {
+  late bool _buySignalEnabled;
+  late bool _takeProfitEnabled;
+  late bool _panicBuyEnabled;
+  late bool _dailySummaryEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    final settings = ref.read(settingsProvider);
+    _buySignalEnabled = settings.notifyBuySignal;
+    _takeProfitEnabled = settings.notifySellSignal;
+    _panicBuyEnabled = settings.notifyPanicSignal;
+    _dailySummaryEnabled = settings.notifyDailySummary;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -220,7 +232,12 @@ class _NotificationSettingsSheetState extends State<NotificationSettingsSheet> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // TODO: 설정 저장
+                  ref.read(settingsProvider.notifier).updateNotificationSettings(
+                    notifyBuySignal: _buySignalEnabled,
+                    notifySellSignal: _takeProfitEnabled,
+                    notifyPanicSignal: _panicBuyEnabled,
+                    notifyDailySummary: _dailySummaryEnabled,
+                  );
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(

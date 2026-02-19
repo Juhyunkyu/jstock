@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../routes/app_router.dart';
+import '../../providers/notification_history_provider.dart';
+import '../../providers/watchlist_alert_provider.dart';
+import '../../providers/watchlist_providers.dart';
 import 'app_title_logo.dart';
 
 /// 메인 쉘 위젯
@@ -12,13 +16,30 @@ import 'app_title_logo.dart';
 /// - 모바일 (<768px): 하단 네비게이션 바
 /// - 태블릿 (768-1199px): 하단 네비게이션 + 중앙 정렬 콘텐츠
 /// - 데스크톱 (≥1200px): 사이드 네비게이션 레일 + 중앙 정렬 콘텐츠
-class MainShell extends StatelessWidget {
+class MainShell extends ConsumerStatefulWidget {
   final Widget child;
 
   const MainShell({
     super.key,
     required this.child,
   });
+
+  @override
+  ConsumerState<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends ConsumerState<MainShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // 전역: 관심종목 로드 + WebSocket 구독
+      ref.read(watchlistProvider.notifier).load();
+      // 전역: 알림 내역 로드
+      ref.read(notificationHistoryProvider.notifier).load();
+    });
+  }
 
   /// 현재 라우트가 메인 탭(홈, 관심종목, My, 거래내역, 설정)인지 확인
   bool _isMainTabRoute(BuildContext context) {
@@ -32,6 +53,9 @@ class MainShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 전역 알림 감시 — 모든 탭에서 활성
+    ref.watch(watchlistAlertMonitorProvider);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -53,7 +77,7 @@ class MainShell extends StatelessWidget {
                     alignment: Alignment.topLeft,
                     child: ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: desktopMaxWidth),
-                      child: child,
+                      child: widget.child,
                     ),
                   ),
                 ),
@@ -71,7 +95,7 @@ class MainShell extends StatelessWidget {
             body: Center(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: tabletMaxWidth),
-                child: child,
+                child: widget.child,
               ),
             ),
             bottomNavigationBar: isMainTab ? const _BottomNavBar() : null,
@@ -80,7 +104,7 @@ class MainShell extends StatelessWidget {
 
         // Mobile (<768px): BottomNav only for main tabs
         return Scaffold(
-          body: child,
+          body: widget.child,
           bottomNavigationBar: isMainTab ? const _BottomNavBar() : null,
         );
       },

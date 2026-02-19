@@ -24,6 +24,7 @@ void main() async {
   Hive.registerAdapter(HoldingTransactionAdapter());
   Hive.registerAdapter(HoldingTransactionTypeAdapter());
   Hive.registerAdapter(WatchlistItemAdapter());
+  Hive.registerAdapter(NotificationRecordAdapter());
 
   // 로고 캐시 초기화
   final logoCache = LogoCacheService();

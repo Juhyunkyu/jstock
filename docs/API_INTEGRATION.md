@@ -93,7 +93,7 @@
 **WebSocket 구독 라이프사이클** (2026-02-19 개선):
 - 캐시된 심볼 → state 반영 즉시 WebSocket 구독
 - 미캐시 심볼 → REST API 응답 후 WebSocket 구독 (race condition 방지)
-- 화면 이탈 시 (`dispose()`) WebSocket 구독 해제 (무료 티어 ~10-15 심볼 제한 관리)
+- **전역 구독 유지**: `MainShell`(ConsumerStatefulWidget)이 앱 시작 시 관심종목 로드 + WS 구독, 탭 전환 시 해제 안 함
 - WebSocket이 REST보다 먼저 도착 시 최소 StockQuote 자동 생성 (데이터 드롭 방지)
 - 보호 필터: 장 마감(`CLOSED`) 시 WS 무시, 5% 이상 급변 시 비정상 데이터 필터링
 
@@ -182,6 +182,8 @@ lib/
 │   └── config/
 │       └── app_config.dart                # API 키 설정
 ├── data/
+│   ├── repositories/
+│   │   └── notification_repository.dart   # 알림 내역 CRUD (Hive)
 │   └── services/
 │       ├── api/
 │       │   ├── api_client.dart            # HTTP 클라이언트
@@ -209,7 +211,8 @@ lib/
         ├── logo_provider.dart             # 종목 로고 Provider
         ├── market_data_providers.dart     # 시장 데이터 Provider
         ├── fear_greed_providers.dart      # 공포탐욕지수 Provider
-        └── watchlist_alert_provider.dart  # 관심종목 알림 Provider
+        ├── notification_history_provider.dart  # 알림 내역 Provider
+        └── watchlist_alert_provider.dart  # 관심종목 알림 Provider + 내역 저장
 ```
 
 ---
@@ -275,4 +278,4 @@ lib/
 
 ---
 
-*최종 수정: 2026-02-19 (WebSocket 실시간 가격 업데이트 버그 수정, 구독 라이프사이클 문서화)*
+*최종 수정: 2026-02-19 (알림 시스템 완성 — 전역 WebSocket 구독, 알림 내역 Hive 저장, 벨 배지)*

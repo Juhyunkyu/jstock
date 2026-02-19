@@ -9,6 +9,7 @@ import '../../widgets/home/unified_portfolio_card.dart';
 import '../../widgets/home/portfolio_allocation_chart.dart';
 import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/holdings/holding_card.dart';
+import '../../widgets/common/notification_bell_button.dart';
 
 /// 종목 관리 화면
 class StocksScreen extends ConsumerStatefulWidget {
@@ -75,13 +76,8 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
         backgroundColor: context.appBackground,
         elevation: 0,
         toolbarHeight: 64,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.notifications_outlined, color: context.appTextPrimary),
-            onPressed: () {
-              // TODO: 알림 화면으로 이동
-            },
-          ),
+        actions: const [
+          NotificationBellButton(),
         ],
       ),
       floatingActionButton: _shouldShowFab(activeCycles.length, activeHoldings.length)

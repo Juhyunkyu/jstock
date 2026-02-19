@@ -11,6 +11,7 @@ import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/watchlist/watchlist_tile.dart';
 import '../../widgets/watchlist/add_watchlist_sheet.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
+import '../../widgets/common/notification_bell_button.dart';
 
 /// 관심종목 화면 (실시간 WebSocket 업데이트 지원)
 class WatchlistScreen extends ConsumerStatefulWidget {
@@ -21,25 +22,6 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
-  late final WatchlistNotifier _watchlistNotifier;
-
-  @override
-  void initState() {
-    super.initState();
-    _watchlistNotifier = ref.read(watchlistProvider.notifier);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _watchlistNotifier.load();
-    });
-  }
-
-  @override
-  void dispose() {
-    // 탭 이탈 시 WebSocket 구독 해제 (무료 티어 제한 관리)
-    _watchlistNotifier.unsubscribeQuotes();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final watchlistState = ref.watch(watchlistProvider);
@@ -97,10 +79,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
             icon: Icon(Icons.refresh, color: context.appTextSecondary),
             onPressed: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
           ),
-          IconButton(
-            icon: Icon(Icons.notifications_outlined, color: context.appTextPrimary),
-            onPressed: () {},
-          ),
+          const NotificationBellButton(),
         ],
       ),
       floatingActionButton: FloatingActionButton.small(

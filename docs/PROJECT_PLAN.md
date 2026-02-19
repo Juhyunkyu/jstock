@@ -273,6 +273,7 @@ lib/
 │   │   ├── cycle.dart (+.g.dart)
 │   │   ├── holding.dart (+.g.dart)
 │   │   ├── holding_transaction.dart (+.g.dart)
+│   │   ├── notification_record.dart (+.g.dart)  # 알림 내역 Hive 모델 (typeId: 16)
 │   │   ├── ohlc_data.dart
 │   │   ├── settings.dart (+.g.dart)
 │   │   ├── stock.dart (+.g.dart)
@@ -282,6 +283,7 @@ lib/
 │   │   ├── repositories.dart
 │   │   ├── cycle_repository.dart
 │   │   ├── holding_repository.dart
+│   │   ├── notification_repository.dart          # 알림 내역 CRUD
 │   │   ├── settings_repository.dart
 │   │   ├── trade_repository.dart
 │   │   └── watchlist_repository.dart
@@ -329,6 +331,7 @@ lib/
     │   ├── holding_providers.dart
     │   ├── logo_provider.dart           # 종목 로고 Provider
     │   ├── market_data_providers.dart
+    │   ├── notification_history_provider.dart  # 알림 내역 State + Notifier
     │   ├── notification_providers.dart
     │   ├── portfolio_providers.dart
     │   ├── settings_providers.dart
@@ -367,7 +370,9 @@ lib/
         ├── common/
         │   ├── app_title_logo.dart              # ∞ Alpha Cycle 브랜딩
         │   ├── date_picker_field.dart
-        │   ├── main_shell.dart                  # 반응형 셸 (모바일/태블릿/데스크톱)
+        │   ├── main_shell.dart                  # 반응형 셸 + 전역 알림 감시 (ConsumerStatefulWidget)
+        │   ├── notification_bell_button.dart     # 알림 벨 배지 위젯 (3화면 공통)
+        │   ├── notification_history_sheet.dart   # 알림 내역 BottomSheet
         │   └── responsive_grid.dart             # 반응형 2열 그리드
         ├── history/
         │   ├── archived_holding_card.dart       # 완료된 보유 카드
@@ -752,6 +757,29 @@ lib/
 - `ConsumerStatefulWidget`의 `dispose()`에서 `ref.read()` 사용 불가 → `initState`에서 notifier 참조 저장
 - Finnhub 무료 티어 동시 구독 제한(~10-15) → 화면 이탈 시 구독 해제 필수
 
+### Phase 14: 알림 시스템 완성 ✅ 완료
+
+**목표**: 전역 WebSocket 알림 감시, 알림 내역 저장/표시, 벨 배지, 설정 영속화
+**완료일**: 2026-02-19
+
+| 순서 | 작업 | 산출물 | 상태 |
+|------|------|--------|------|
+| 14-1 | NotificationRecord Hive 모델 (typeId: 16) | notification_record.dart | ✅ |
+| 14-2 | NotificationRepository (CRUD + 30일 자동 삭제) | notification_repository.dart | ✅ |
+| 14-3 | NotificationHistoryProvider (State + Notifier) | notification_history_provider.dart | ✅ |
+| 14-4 | build_runner + Hive adapter 등록 | main.dart | ✅ |
+| 14-5 | MainShell 전역 알림 감시 (StatelessWidget → ConsumerStatefulWidget) | main_shell.dart | ✅ |
+| 14-6 | WatchlistScreen에서 로컬 WS 관리 제거 (전역으로 이관) | watchlist_screen.dart | ✅ |
+| 14-7 | NotificationBellButton 공용 위젯 (Badge 포함) | notification_bell_button.dart | ✅ |
+| 14-8 | NotificationHistorySheet UI (알림 내역 BottomSheet) | notification_history_sheet.dart | ✅ |
+| 14-9 | 알림 발생 시 내역 자동 저장 (watchlistAlertMonitorProvider) | watchlist_alert_provider.dart | ✅ |
+| 14-10 | 알림 설정 실제 영속화 (ConsumerStatefulWidget 전환) | notification_settings.dart | ✅ |
+| 14-11 | 3화면 벨 아이콘 교체 (홈, 관심종목, My) | home/stocks/watchlist_screen | ✅ |
+| 14-12 | Playwright MCP 빌드/검증 (벨 배지, 내역 시트, 탭 전환 WS 유지) | 에러 0개 | ✅ |
+
+**새 파일 (5개)**: `notification_record.dart`, `notification_repository.dart`, `notification_history_provider.dart`, `notification_bell_button.dart`, `notification_history_sheet.dart`
+**수정 파일 (7개)**: `main_shell.dart`, `watchlist_screen.dart`, `home_screen.dart`, `stocks_screen.dart`, `watchlist_alert_provider.dart`, `notification_settings.dart`, `main.dart`
+
 ---
 
 ## 3. 체크리스트
@@ -800,6 +828,11 @@ lib/
 - [x] 반응형 2열 그리드 (콘텐츠 ≥700px)
 - [x] cycle_setup 환율 버그 수정 (하드코딩 → 실시간)
 - [x] 다크모드 위반 일괄 수정 (watchlist 5곳, settings 4곳)
+- [x] 전역 WebSocket 알림 감시 (MainShell → 모든 탭에서 활성)
+- [x] 알림 내역 Hive 저장 + 30일 자동 삭제
+- [x] NotificationBellButton 벨 배지 (3화면 공통: 홈, 관심종목, My)
+- [x] NotificationHistorySheet 알림 내역 BottomSheet
+- [x] 알림 설정 실제 영속화 (Hive Settings 저장)
 
 ---
 
@@ -838,8 +871,10 @@ lib/
 | 10 | 고급 기능/마무리 | 3일 | ✅ |
 | 11 | 다크 모드/UI 리뉴얼 | 3일 | ✅ |
 | 12 | 코드 품질/반응형 UI | 2일 | ✅ |
+| 13 | WebSocket 실시간 가격 버그 수정 | 1일 | ✅ |
+| 14 | 알림 시스템 완성 | 1일 | ✅ |
 
-**총 개발 기간**: 약 5주 (25 영업일) - **전체 완료**
+**총 개발 기간**: 약 6주 (27 영업일) - **전체 완료**
 
 ---
 

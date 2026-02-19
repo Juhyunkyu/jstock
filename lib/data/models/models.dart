@@ -11,3 +11,4 @@ export 'holding.dart';
 export 'holding_transaction.dart';
 export 'ohlc_data.dart';
 export 'watchlist_item.dart';
+export 'notification_record.dart';

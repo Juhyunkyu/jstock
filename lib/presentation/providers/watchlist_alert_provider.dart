@@ -3,6 +3,7 @@ import '../../data/models/watchlist_item.dart';
 import '../../data/services/api/finnhub_service.dart';
 import '../../data/services/notification/web_notification_service.dart';
 import 'api_providers.dart';
+import 'notification_history_provider.dart';
 import 'watchlist_providers.dart';
 
 /// 알림 트리거 결과
@@ -151,9 +152,10 @@ final watchlistAlertMonitorProvider = Provider<List<AlertNotification>>((ref) {
 
   final alerts = checker.checkAlerts(quoteState.quotes, watchlistState.items);
 
-  // 브라우저 알림 발송
+  // 브라우저 알림 발송 + 내역 저장
   for (final alert in alerts) {
     WebNotificationService.show(title: alert.title, body: alert.body);
+    ref.read(notificationHistoryProvider.notifier).addFromAlert(alert);
   }
 
   return alerts;

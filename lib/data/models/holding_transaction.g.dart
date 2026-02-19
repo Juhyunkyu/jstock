@@ -27,7 +27,6 @@ class HoldingTransactionAdapter extends TypeAdapter<HoldingTransaction> {
       amountKrw: fields[7] as double,
       exchangeRate: fields[8] as double,
       note: fields[9] as String?,
-      isInitialPurchase: fields[10] as bool? ?? false,
       realizedPnlKrw: fields[11] as double?,
     );
   }

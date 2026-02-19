@@ -9,6 +9,7 @@ import '../../widgets/home/market_index_card.dart';
 import '../../widgets/home/exchange_rate_card.dart';
 import '../../widgets/home/fear_greed_card.dart';
 import '../../widgets/common/app_title_logo.dart';
+import '../../widgets/common/notification_bell_button.dart';
 
 /// 홈 화면
 ///
@@ -63,14 +64,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
                     ),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  color: context.appTextPrimary,
-                  onPressed: () {
-                    // TODO: 알림 화면으로 이동
-                  },
-                ),
+              actions: const [
+                NotificationBellButton(),
               ],
             ),
 
