@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/notification/web_notification_service.dart';
 import '../../../routes/app_router.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
@@ -35,6 +36,8 @@ class _MainShellState extends ConsumerState<MainShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // 전역: 브라우저 알림 권한 요청
+      WebNotificationService.requestPermission();
       // 전역: 관심종목 로드 + WebSocket 구독
       ref.read(watchlistProvider.notifier).load();
       // 전역: 알림 내역 로드

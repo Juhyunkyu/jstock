@@ -41,7 +41,7 @@ class WebNotificationService {
 
     final options = web.NotificationOptions(
       body: body,
-      icon: icon ?? '/icons/Icon-192.png',
+      icon: icon ?? 'icons/Icon-192.png',
     );
     web.Notification(title, options);
   }
