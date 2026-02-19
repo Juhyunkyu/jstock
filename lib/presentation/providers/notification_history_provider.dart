@@ -83,6 +83,16 @@ class NotificationHistoryNotifier extends StateNotifier<NotificationHistoryState
     state = state.copyWith(items: items, unreadCount: unread);
   }
 
+  /// NotificationRecord 직접 추가 (Fear & Greed 등)
+  void addRecord(NotificationRecord record) {
+    _repository.add(record);
+
+    if (!mounted) return;
+    final items = _repository.getAll();
+    final unread = _repository.getUnreadCount();
+    state = state.copyWith(items: items, unreadCount: unread);
+  }
+
   /// 읽음 처리
   Future<void> markAsRead(String id) async {
     await _repository.markAsRead(id);

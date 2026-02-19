@@ -75,6 +75,22 @@ class Settings extends HiveObject {
   @HiveField(12)
   DateTime? lastBackupDate;
 
+  // ═══════════════════════════════════════════════════════════════
+  // 공포탐욕지수 알림 설정
+  // ═══════════════════════════════════════════════════════════════
+
+  /// 공포탐욕지수 알림 활성화
+  @HiveField(13, defaultValue: false)
+  bool fearGreedAlertEnabled;
+
+  /// 공포탐욕지수 알림 임계값 (0-100)
+  @HiveField(14, defaultValue: 25)
+  int fearGreedAlertValue;
+
+  /// 공포탐욕지수 알림 방향 (0 = 이하, 1 = 이상)
+  @HiveField(15, defaultValue: 0)
+  int fearGreedAlertDirection;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -89,6 +105,9 @@ class Settings extends HiveObject {
     this.defaultPanicTrigger = FormulaConstants.panicTriggerPercent,
     this.useDarkMode = false,
     this.lastBackupDate,
+    this.fearGreedAlertEnabled = false,
+    this.fearGreedAlertValue = 25,
+    this.fearGreedAlertDirection = 0,
   });
 
   /// 기본 설정 생성
@@ -109,6 +128,9 @@ class Settings extends HiveObject {
     double? defaultPanicTrigger,
     bool? useDarkMode,
     DateTime? lastBackupDate,
+    bool? fearGreedAlertEnabled,
+    int? fearGreedAlertValue,
+    int? fearGreedAlertDirection,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -124,6 +146,9 @@ class Settings extends HiveObject {
       defaultPanicTrigger: defaultPanicTrigger ?? this.defaultPanicTrigger,
       useDarkMode: useDarkMode ?? this.useDarkMode,
       lastBackupDate: lastBackupDate ?? this.lastBackupDate,
+      fearGreedAlertEnabled: fearGreedAlertEnabled ?? this.fearGreedAlertEnabled,
+      fearGreedAlertValue: fearGreedAlertValue ?? this.fearGreedAlertValue,
+      fearGreedAlertDirection: fearGreedAlertDirection ?? this.fearGreedAlertDirection,
     );
   }
 

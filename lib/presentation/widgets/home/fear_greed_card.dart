@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../providers/settings_providers.dart';
+import 'fear_greed_alert_sheet.dart';
 
 /// Zone data model for Fear & Greed segments
 class _ZoneData {
@@ -82,7 +85,7 @@ int _getActiveZoneIndex(int value) {
 }
 
 /// CNN-style Fear & Greed Index gauge card
-class FearGreedCard extends StatelessWidget {
+class FearGreedCard extends ConsumerWidget {
   final int value;
   final bool isLoading;
   final String? error;
@@ -97,7 +100,7 @@ class FearGreedCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final clampedValue = value.clamp(0, 100);
     final screenWidth = MediaQuery.of(context).size.width;
     // Smooth linear scale: 320px→0.92, 1400px→1.35 (no jumps)
@@ -146,6 +149,32 @@ class FearGreedCard extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
+                // Alert bell icon
+                GestureDetector(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      backgroundColor: context.appCardBackground,
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                      builder: (_) => FearGreedAlertSheet(currentValue: clampedValue),
+                    );
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.only(right: 8 * fs),
+                    child: Icon(
+                      ref.watch(settingsProvider).fearGreedAlertEnabled
+                          ? Icons.notifications_active_rounded
+                          : Icons.notifications_outlined,
+                      size: 16 * fs,
+                      color: ref.watch(settingsProvider).fearGreedAlertEnabled
+                          ? context.appAccent
+                          : context.appTextHint,
+                    ),
+                  ),
+                ),
                 if (isLoading)
                   SizedBox(
                     width: 14 * fs,
@@ -167,6 +196,44 @@ class FearGreedCard extends StatelessWidget {
               ],
             ),
             SizedBox(height: 12 * fs),
+
+            // Inline alert status chip
+            if (ref.watch(settingsProvider).fearGreedAlertEnabled) ...[
+              Builder(builder: (context) {
+                final accentColor = context.appAccent;
+                return Container(
+                  margin: EdgeInsets.only(bottom: 8 * fs),
+                  padding: EdgeInsets.symmetric(horizontal: 10 * fs, vertical: 5 * fs),
+                  decoration: BoxDecoration(
+                    color: accentColor.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: accentColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.notifications_active_rounded,
+                        size: 13 * fs,
+                        color: accentColor,
+                      ),
+                      SizedBox(width: 6 * fs),
+                      Text(
+                        '${ref.watch(settingsProvider).fearGreedAlertValue} '
+                        '${ref.watch(settingsProvider).fearGreedAlertDirection == 0 ? "이하" : "이상"} 알림',
+                        style: TextStyle(
+                          fontSize: 12 * fs,
+                          fontWeight: FontWeight.w500,
+                          color: accentColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
 
             // Gauge + Zone descriptions (responsive layout)
             if (error != null)

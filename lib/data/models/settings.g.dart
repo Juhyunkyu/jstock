@@ -30,13 +30,16 @@ class SettingsAdapter extends TypeAdapter<Settings> {
       defaultPanicTrigger: fields[10] as double,
       useDarkMode: fields[11] as bool,
       lastBackupDate: fields[12] as DateTime?,
+      fearGreedAlertEnabled: fields[13] == null ? false : fields[13] as bool,
+      fearGreedAlertValue: fields[14] == null ? 25 : fields[14] as int,
+      fearGreedAlertDirection: fields[15] == null ? 0 : fields[15] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, Settings obj) {
     writer
-      ..writeByte(13)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.exchangeRate)
       ..writeByte(1)
@@ -62,7 +65,13 @@ class SettingsAdapter extends TypeAdapter<Settings> {
       ..writeByte(11)
       ..write(obj.useDarkMode)
       ..writeByte(12)
-      ..write(obj.lastBackupDate);
+      ..write(obj.lastBackupDate)
+      ..writeByte(13)
+      ..write(obj.fearGreedAlertEnabled)
+      ..writeByte(14)
+      ..write(obj.fearGreedAlertValue)
+      ..writeByte(15)
+      ..write(obj.fearGreedAlertDirection);
   }
 
   @override

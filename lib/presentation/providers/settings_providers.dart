@@ -75,6 +75,21 @@ class SettingsNotifier extends StateNotifier<Settings> {
     state = repo.settings;
   }
 
+  /// 공포탐욕지수 알림 설정 업데이트
+  Future<void> updateFearGreedAlert({
+    bool? enabled,
+    int? value,
+    int? direction,
+  }) async {
+    final repo = _ref.read(settingsRepositoryProvider);
+    await repo.updateFearGreedAlert(
+      enabled: enabled,
+      value: value,
+      direction: direction,
+    );
+    state = repo.settings;
+  }
+
   /// 다크 모드 토글
   Future<void> toggleDarkMode() async {
     final repo = _ref.read(settingsRepositoryProvider);

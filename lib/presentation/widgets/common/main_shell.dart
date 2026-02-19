@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../routes/app_router.dart';
+import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
 import '../../providers/watchlist_alert_provider.dart';
 import '../../providers/watchlist_providers.dart';
@@ -55,6 +56,8 @@ class _MainShellState extends ConsumerState<MainShell> {
   Widget build(BuildContext context) {
     // 전역 알림 감시 — 모든 탭에서 활성
     ref.watch(watchlistAlertMonitorProvider);
+    // 공포탐욕지수 알림 감시
+    ref.watch(fearGreedAlertMonitorProvider);
 
     return LayoutBuilder(
       builder: (context, constraints) {

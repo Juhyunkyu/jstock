@@ -157,6 +157,25 @@ class _NotificationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isTarget = record.type == 'target';
+    final isFearGreed = record.type == 'fear_greed';
+
+    // 타입별 아이콘/색상 결정
+    final Color iconBgColor;
+    final Color iconColor;
+    final IconData iconData;
+    if (isFearGreed) {
+      iconBgColor = AppColors.primary.withValues(alpha: 0.1);
+      iconColor = AppColors.primary;
+      iconData = Icons.speed_rounded;
+    } else if (isTarget) {
+      iconBgColor = AppColors.stockUp.withValues(alpha: 0.1);
+      iconColor = AppColors.stockUp;
+      iconData = Icons.gps_fixed_rounded;
+    } else {
+      iconBgColor = AppColors.amber600.withValues(alpha: 0.1);
+      iconColor = AppColors.amber600;
+      iconData = Icons.trending_up_rounded;
+    }
 
     return InkWell(
       onTap: onTap,
@@ -189,15 +208,13 @@ class _NotificationTile extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: isTarget
-                    ? AppColors.stockUp.withValues(alpha: 0.1)
-                    : AppColors.amber600.withValues(alpha: 0.1),
+                color: iconBgColor,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
-                isTarget ? Icons.gps_fixed_rounded : Icons.trending_up_rounded,
+                iconData,
                 size: 18,
-                color: isTarget ? AppColors.stockUp : AppColors.amber600,
+                color: iconColor,
               ),
             ),
             const SizedBox(width: 10),

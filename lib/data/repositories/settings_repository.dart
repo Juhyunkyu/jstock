@@ -76,6 +76,20 @@ class SettingsRepository {
     ));
   }
 
+  /// 공포탐욕지수 알림 설정 업데이트
+  Future<void> updateFearGreedAlert({
+    bool? enabled,
+    int? value,
+    int? direction,
+  }) async {
+    final current = settings;
+    await save(current.copyWith(
+      fearGreedAlertEnabled: enabled,
+      fearGreedAlertValue: value,
+      fearGreedAlertDirection: direction,
+    ));
+  }
+
   /// 백업 일시 업데이트
   Future<void> updateLastBackupDate() async {
     final current = settings;
