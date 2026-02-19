@@ -21,13 +21,23 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
+  late final WatchlistNotifier _watchlistNotifier;
+
   @override
   void initState() {
     super.initState();
+    _watchlistNotifier = ref.read(watchlistProvider.notifier);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(watchlistProvider.notifier).load();
+      _watchlistNotifier.load();
     });
+  }
+
+  @override
+  void dispose() {
+    // 탭 이탈 시 WebSocket 구독 해제 (무료 티어 제한 관리)
+    _watchlistNotifier.unsubscribeQuotes();
+    super.dispose();
   }
 
   @override

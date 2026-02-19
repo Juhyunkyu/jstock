@@ -51,15 +51,12 @@ class StockQuoteState {
   final bool isLoading;
   final String? error;
   final DateTime? lastUpdated;
-  /// REST API로 새로고침된 종목별 타임스탬프 (WebSocket 업데이트 억제용)
-  final Map<String, DateTime> restRefreshedAt;
 
   const StockQuoteState({
     this.quotes = const {},
     this.isLoading = false,
     this.error,
     this.lastUpdated,
-    this.restRefreshedAt = const {},
   });
 
   StockQuoteState copyWith({
@@ -67,14 +64,12 @@ class StockQuoteState {
     bool? isLoading,
     String? error,
     DateTime? lastUpdated,
-    Map<String, DateTime>? restRefreshedAt,
   }) {
     return StockQuoteState(
       quotes: quotes ?? this.quotes,
       isLoading: isLoading ?? this.isLoading,
       error: error,
       lastUpdated: lastUpdated ?? this.lastUpdated,
-      restRefreshedAt: restRefreshedAt ?? this.restRefreshedAt,
     );
   }
 }
@@ -86,17 +81,6 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
   final CacheManager _cache;
   StreamSubscription<RealtimePrice>? _subscription;
 
-  /// REST API 새로고침 후 WebSocket 업데이트를 억제하는 쿨다운 시간
-  /// Finnhub WebSocket은 실제 체결가(trade price)를 전송하고,
-  /// REST /quote는 현재 시세(quote price)를 반환하므로 값이 다를 수 있음.
-  ///
-  /// WebSocket trade 가격과 REST quote 가격의 차이:
-  /// - REST: Finnhub 서버가 집계한 공식 시세 (장 마감 시 종가)
-  /// - WebSocket: 실시간 체결가 (프리마켓/애프터마켓 포함)
-  ///
-  /// 정확한 데이터를 위해 REST 데이터를 우선시함
-  static const Duration _restCooldownDuration = Duration(seconds: 60);
-
   StockQuoteNotifier(this._service, this._wsService, this._cache)
       : super(const StockQuoteState()) {
     // WebSocket 실시간 업데이트 구독
@@ -107,70 +91,74 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
   void _startRealtimeUpdates() {
     _subscription?.cancel();
     _subscription = _wsService.priceStream.listen((price) {
-      // 실시간 가격 수신 시 상태 업데이트
       final existingQuote = state.quotes[price.symbol];
-      if (existingQuote != null) {
-        // REST API 새로고침 후 쿨다운 기간 확인
-        // 쿨다운 중이면 WebSocket 업데이트 무시 (REST 데이터 유지)
-        final restRefreshTime = state.restRefreshedAt[price.symbol];
-        if (restRefreshTime != null) {
-          final elapsed = DateTime.now().difference(restRefreshTime);
-          if (elapsed < _restCooldownDuration) {
-            // 쿨다운 중 - WebSocket 업데이트 무시하고 REST 데이터 유지
-            return;
-          }
-        }
 
-        // 장 마감 시간(CLOSED)에는 WebSocket 업데이트 무시
-        // REST API가 제공하는 공식 종가를 유지
-        // PRE/POST 마켓은 선택적으로 업데이트 허용
-        if (existingQuote.marketState == 'CLOSED') {
-          // 장 마감 중 - REST API 종가 데이터 유지
-          return;
-        }
-
-        // 가격 변동이 너무 큰 경우 (5% 이상) 무시 - 비정상 데이터 필터링
-        final priceDiff = (price.price - existingQuote.currentPrice).abs();
-        final priceChangeRatio = priceDiff / existingQuote.currentPrice;
-        if (priceChangeRatio > 0.05) {
-          // 5% 이상 급변 - 비정상 데이터로 간주하고 무시
-          return;
-        }
-
-        final changePercent = existingQuote.previousClose > 0
-            ? ((price.price - existingQuote.previousClose) /
-                    existingQuote.previousClose) *
-                100
-            : 0.0;
-
-        final updatedQuote = StockQuote(
+      if (existingQuote == null) {
+        // REST보다 WebSocket이 먼저 도착한 경우 — 최소 데이터로 생성
+        final newQuote = StockQuote(
           symbol: price.symbol,
           currentPrice: price.price,
-          previousClose: existingQuote.previousClose,
-          changePercent: changePercent,
-          dayHigh: price.price > existingQuote.dayHigh
-              ? price.price
-              : existingQuote.dayHigh,
-          dayLow: price.price < existingQuote.dayLow
-              ? price.price
-              : existingQuote.dayLow,
-          volume: existingQuote.volume + price.volume,
+          previousClose: price.price, // 전일종가 없으므로 현재가로 대체
+          changePercent: 0.0,
+          dayHigh: price.price,
+          dayLow: price.price,
+          volume: price.volume,
           timestamp: price.timestamp,
-          marketState: existingQuote.marketState,
+          marketState: 'REGULAR',
         );
-
         state = state.copyWith(
-          quotes: {...state.quotes, price.symbol: updatedQuote},
+          quotes: {...state.quotes, price.symbol: newQuote},
           lastUpdated: DateTime.now(),
         );
-
-        // 캐시 업데이트
-        _cache.set(
-          stockCacheKey(price.symbol),
-          updatedQuote,
-          ttl: CacheManager.defaultStockTtl,
-        );
+        return;
       }
+
+      // 장 마감 시간(CLOSED)에는 WebSocket 업데이트 무시
+      // REST API가 제공하는 공식 종가를 유지
+      if (existingQuote.marketState == 'CLOSED') {
+        return;
+      }
+
+      // 가격 변동이 너무 큰 경우 (5% 이상) 무시 - 비정상 데이터 필터링
+      final priceDiff = (price.price - existingQuote.currentPrice).abs();
+      final priceChangeRatio = priceDiff / existingQuote.currentPrice;
+      if (priceChangeRatio > 0.05) {
+        return;
+      }
+
+      final changePercent = existingQuote.previousClose > 0
+          ? ((price.price - existingQuote.previousClose) /
+                  existingQuote.previousClose) *
+              100
+          : 0.0;
+
+      final updatedQuote = StockQuote(
+        symbol: price.symbol,
+        currentPrice: price.price,
+        previousClose: existingQuote.previousClose,
+        changePercent: changePercent,
+        dayHigh: price.price > existingQuote.dayHigh
+            ? price.price
+            : existingQuote.dayHigh,
+        dayLow: price.price < existingQuote.dayLow
+            ? price.price
+            : existingQuote.dayLow,
+        volume: existingQuote.volume + price.volume,
+        timestamp: price.timestamp,
+        marketState: existingQuote.marketState,
+      );
+
+      state = state.copyWith(
+        quotes: {...state.quotes, price.symbol: updatedQuote},
+        lastUpdated: DateTime.now(),
+      );
+
+      // 캐시 업데이트
+      _cache.set(
+        stockCacheKey(price.symbol),
+        updatedQuote,
+        ttl: CacheManager.defaultStockTtl,
+      );
     });
   }
 
@@ -197,16 +185,10 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
       // 캐시 저장
       _cache.set(cacheKey, quote, ttl: CacheManager.defaultStockTtl);
 
-      // REST API 데이터 보호를 위한 쿨다운 타임스탬프 설정
-      final now = DateTime.now();
-      final newRestRefreshedAt = Map<String, DateTime>.from(state.restRefreshedAt);
-      newRestRefreshedAt[symbol] = now;
-
       state = state.copyWith(
         quotes: {...state.quotes, symbol: quote},
         isLoading: false,
-        lastUpdated: now,
-        restRefreshedAt: newRestRefreshedAt,
+        lastUpdated: DateTime.now(),
       );
 
       // WebSocket 구독 추가
@@ -246,15 +228,13 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
       }
     }
 
-    // 캐시된 데이터 상태 업데이트
+    // 캐시된 데이터 상태 업데이트 + 즉시 WebSocket 구독
     if (cachedQuotes.isNotEmpty) {
       state = state.copyWith(
         quotes: {...state.quotes, ...cachedQuotes},
       );
+      _wsService.subscribeAll(cachedQuotes.keys.toList());
     }
-
-    // 모든 심볼 WebSocket 구독
-    _wsService.subscribeAll(symbols);
 
     // 캐시되지 않은 데이터만 API 호출
     if (uncachedSymbols.isEmpty) return;
@@ -273,20 +253,14 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
         );
       }
 
-      // REST API 데이터 보호를 위한 쿨다운 타임스탬프 설정
-      // WebSocket 데이터가 REST 데이터를 즉시 덮어쓰지 않도록 함
-      final now = DateTime.now();
-      final newRestRefreshedAt = Map<String, DateTime>.from(state.restRefreshedAt);
-      for (final symbol in quotes.keys) {
-        newRestRefreshedAt[symbol] = now;
-      }
-
       state = state.copyWith(
         quotes: {...state.quotes, ...quotes},
         isLoading: false,
-        lastUpdated: now,
-        restRefreshedAt: newRestRefreshedAt,
+        lastUpdated: DateTime.now(),
       );
+
+      // REST 응답 후 미캐시 심볼도 WebSocket 구독
+      _wsService.subscribeAll(uncachedSymbols);
     } on ApiException catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -301,9 +275,6 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
   }
 
   /// 캐시 강제 새로고침 (REST API 사용)
-  ///
-  /// REST API에서 가져온 데이터가 WebSocket 업데이트에 의해
-  /// 즉시 덮어씌워지지 않도록 쿨다운 타임스탬프를 설정합니다.
   Future<void> refreshQuotes(List<String> symbols) async {
     if (symbols.isEmpty) return;
 
@@ -315,7 +286,6 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      // REST API로 직접 조회 (캐시 우회)
       final quotes = await _service.getQuotes(symbols);
 
       // 캐시 저장
@@ -327,18 +297,10 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
         );
       }
 
-      // REST 새로고침 타임스탬프 설정 (WebSocket 쿨다운 적용)
-      final now = DateTime.now();
-      final newRestRefreshedAt = Map<String, DateTime>.from(state.restRefreshedAt);
-      for (final symbol in quotes.keys) {
-        newRestRefreshedAt[symbol] = now;
-      }
-
       state = state.copyWith(
         quotes: {...state.quotes, ...quotes},
         isLoading: false,
-        lastUpdated: now,
-        restRefreshedAt: newRestRefreshedAt,
+        lastUpdated: DateTime.now(),
       );
     } on ApiException catch (e) {
       state = state.copyWith(
@@ -354,30 +316,19 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
   }
 
   /// 단일 종목 REST API 강제 새로고침
-  ///
-  /// WebSocket 쿨다운을 적용하여 REST 데이터가 즉시 덮어씌워지지 않도록 합니다.
   Future<StockQuote?> refreshQuote(String symbol) async {
-    // 캐시 무효화
     _cache.remove(stockCacheKey(symbol));
 
     try {
       final quote = await _service.getQuote(symbol);
 
-      // 캐시 저장
       _cache.set(stockCacheKey(symbol), quote, ttl: CacheManager.defaultStockTtl);
-
-      // REST 새로고침 타임스탬프 설정 (WebSocket 쿨다운 적용)
-      final now = DateTime.now();
-      final newRestRefreshedAt = Map<String, DateTime>.from(state.restRefreshedAt);
-      newRestRefreshedAt[symbol] = now;
 
       state = state.copyWith(
         quotes: {...state.quotes, symbol: quote},
-        lastUpdated: now,
-        restRefreshedAt: newRestRefreshedAt,
+        lastUpdated: DateTime.now(),
       );
 
-      // WebSocket 구독 확인
       _wsService.subscribe(symbol);
 
       return quote;

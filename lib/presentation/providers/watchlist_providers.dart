@@ -104,6 +104,15 @@ class WatchlistNotifier extends StateNotifier<WatchlistState> {
     _ref.read(stockQuoteProvider.notifier).fetchQuotes(state.tickers);
   }
 
+  /// WebSocket 구독 해제 (화면 이탈 시)
+  void unsubscribeQuotes() {
+    if (state.tickers.isEmpty) return;
+    final wsService = _ref.read(finnhubWebSocketProvider);
+    for (final ticker in state.tickers) {
+      wsService.unsubscribe(ticker);
+    }
+  }
+
   /// 시세 새로고침 (캐시 무효화 후 재조회)
   Future<void> refreshQuotes() async {
     if (state.tickers.isEmpty) return;

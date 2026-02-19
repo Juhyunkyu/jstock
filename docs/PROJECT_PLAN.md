@@ -730,6 +730,28 @@ lib/
 | 12-10 | 데스크톱 폰트/사이즈 반응형 개선 | market_index_card, fear_greed_card 등 | ✅ |
 | 12-11 | 미사용 코드 제거 (_PresetButton 등) | cycle_setup_screen.dart | ✅ |
 
+### Phase 13: WebSocket 실시간 가격 버그 수정 ✅ 완료
+
+**목표**: 관심종목 실시간 현재가 업데이트 안 되는 3중 버그 수정
+**완료일**: 2026-02-19
+
+| 순서 | 작업 | 산출물 | 상태 |
+|------|------|--------|------|
+| 13-1 | REST 쿨다운 60초 제거 (WS 데이터 차단 원인) | api_providers.dart | ✅ |
+| 13-2 | subscribeAll() race condition 수정 (REST 응답 후 구독) | api_providers.dart | ✅ |
+| 13-3 | 미등록 심볼 자동 StockQuote 생성 (WS 먼저 도착 시) | api_providers.dart | ✅ |
+| 13-4 | StockQuoteState에서 restRefreshedAt 필드 완전 제거 | api_providers.dart | ✅ |
+| 13-5 | WatchlistNotifier.unsubscribeQuotes() 메서드 추가 | watchlist_providers.dart | ✅ |
+| 13-6 | watchlist_screen dispose()에서 WS 구독 해제 | watchlist_screen.dart | ✅ |
+| 13-7 | Playwright MCP 빌드/렌더링/탭전환 검증 | 에러 0개 | ✅ |
+
+**수정 파일 (3개)**: `api_providers.dart`, `watchlist_providers.dart`, `watchlist_screen.dart`
+
+**교훈**:
+- REST 쿨다운으로 WS 데이터를 억제하면 실시간 업데이트가 불가능해짐
+- `ConsumerStatefulWidget`의 `dispose()`에서 `ref.read()` 사용 불가 → `initState`에서 notifier 참조 저장
+- Finnhub 무료 티어 동시 구독 제한(~10-15) → 화면 이탈 시 구독 해제 필수
+
 ---
 
 ## 3. 체크리스트
