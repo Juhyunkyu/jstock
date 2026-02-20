@@ -96,7 +96,7 @@ void showAboutDialog_(BuildContext context) {
             children: [
               Text('알파 사이클', style: TextStyle(color: context.appTextPrimary)),
               Text(
-                'v1.0.0',
+                'v1.0.1',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.normal,

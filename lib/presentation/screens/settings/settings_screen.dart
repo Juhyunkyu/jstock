@@ -97,7 +97,7 @@ class SettingsScreen extends ConsumerWidget {
               SettingsItem(
                 icon: Icons.info_outlined,
                 title: '앱 정보',
-                subtitle: 'v1.0.0',
+                subtitle: 'v1.0.1',
                 onTap: () => showAboutDialog_(context),
               ),
               SettingsItem(

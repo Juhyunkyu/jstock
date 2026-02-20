@@ -4,7 +4,7 @@ class AppConstants {
 
   // 앱 정보
   static const String appName = 'Alpha Cycle';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '1.0.1';
 
   // 기본 매매 조건
   static const double defaultInitialEntryRatio = 0.20; // 초기 진입 비율 (20%)
