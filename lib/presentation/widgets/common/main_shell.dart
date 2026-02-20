@@ -96,11 +96,14 @@ class _MainShellState extends ConsumerState<MainShell> {
     try {
       final notifier = ref.read(notificationHistoryProvider.notifier);
       for (final alert in alerts) {
+        // 브라우저 OS 알림 (권한 있을 때만)
         WebNotificationService.show(title: alert.title, body: alert.body);
+        // 알림 내역 저장 (벨 배지)
         notifier.addFromAlert(alert);
+        // 인앱 SnackBar (브라우저 알림 권한 없어도 항상 표시)
+        _showInAppAlert(alert.title, alert.body);
       }
     } catch (e) {
-      // 알림 처리 실패 시 앱 크래시 방지
       debugPrint('[AlertError] Watchlist alert failed: $e');
     }
   }
@@ -118,9 +121,44 @@ class _MainShellState extends ConsumerState<MainShell> {
         triggeredAt: DateTime.now(),
       );
       ref.read(notificationHistoryProvider.notifier).addRecord(record);
+      _showInAppAlert(alert.title, alert.body);
     } catch (e) {
       debugPrint('[AlertError] Fear & Greed alert failed: $e');
     }
+  }
+
+  /// 인앱 SnackBar 알림 표시 (브라우저 알림 권한 없어도 동작)
+  void _showInAppAlert(String title, String body) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger.showSnackBar(
+      SnackBar(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              body,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+        duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   /// 업데이트 배너 + 콘텐츠를 Column으로 합성

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
@@ -73,6 +74,12 @@ class SettingsScreen extends ConsumerWidget {
                 title: '알림 설정',
                 subtitle: _getNotificationSubtitle(settings),
                 onTap: () => _showNotificationSettings(context),
+              ),
+              SettingsItem(
+                icon: Icons.notifications_active_outlined,
+                title: '브라우저 알림 권한',
+                subtitle: WebNotificationService.permissionStatus,
+                onTap: () => _handleNotificationPermission(context),
               ),
             ],
           ),
@@ -150,6 +157,61 @@ class SettingsScreen extends ConsumerWidget {
 
     if (enabled.isEmpty) return '알림 없음';
     return enabled.take(2).join(', ') + (enabled.length > 2 ? ' 외' : '');
+  }
+
+  void _handleNotificationPermission(BuildContext context) async {
+    if (WebNotificationService.isPermissionGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('알림 권한이 이미 허용되어 있습니다'),
+          backgroundColor: AppColors.green500,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+      return;
+    }
+
+    if (WebNotificationService.isPermissionDenied) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            '알림 권한 차단됨',
+            style: TextStyle(color: ctx.appTextPrimary),
+          ),
+          backgroundColor: ctx.appCardBackground,
+          content: Text(
+            '브라우저에서 알림이 차단되어 있습니다.\n\n'
+            '알림을 받으려면:\n'
+            '1. 브라우저 주소창 왼쪽의 자물쇠 아이콘 탭\n'
+            '2. "알림" 또는 "Notifications" 찾기\n'
+            '3. "허용"으로 변경\n'
+            '4. 페이지 새로고침',
+            style: TextStyle(color: ctx.appTextSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // permission == 'default' → 권한 요청 팝업 표시
+    final granted = await WebNotificationService.requestPermission();
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(granted ? '알림 권한이 허용되었습니다' : '알림 권한이 거부되었습니다'),
+        backgroundColor: granted ? AppColors.green500 : AppColors.red500,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   void _showExchangeRateDialog(BuildContext context, WidgetRef ref) {
