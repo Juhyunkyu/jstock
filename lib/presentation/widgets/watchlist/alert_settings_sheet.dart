@@ -577,7 +577,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
         );
         return;
       }
-      notifier.setTargetAlert(
+      await notifier.setTargetAlert(
         ticker: widget.item.ticker,
         alertPrice: price,
         alertTargetDirection: _targetDirection,
@@ -592,7 +592,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
         );
         return;
       }
-      notifier.setPercentAlert(
+      await notifier.setPercentAlert(
         ticker: widget.item.ticker,
         alertBasePrice: basePrice,
         alertPercent: percent,
