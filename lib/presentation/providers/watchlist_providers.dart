@@ -3,6 +3,7 @@ import '../../data/models/watchlist_item.dart';
 import '../../data/repositories/watchlist_repository.dart';
 import '../../data/services/api/finnhub_service.dart';
 import 'api_providers.dart';
+import 'watchlist_alert_provider.dart';
 
 /// 관심종목 저장소 Provider
 final watchlistRepositoryProvider = Provider<WatchlistRepository>((ref) {
@@ -164,6 +165,8 @@ class WatchlistNotifier extends StateNotifier<WatchlistState> {
       alertPrice: alertPrice,
       alertTargetDirection: alertTargetDirection,
     );
+    // 쿨다운 리셋: 새 설정 저장 시 즉시 알림 가능하도록
+    _ref.read(watchlistAlertCheckerProvider).resetAlert(ticker, 'target');
     final items = _repository.getAll();
     if (!mounted) return;
     state = state.copyWith(items: items);
@@ -182,6 +185,8 @@ class WatchlistNotifier extends StateNotifier<WatchlistState> {
       alertPercent: alertPercent,
       alertDirection: alertDirection,
     );
+    // 쿨다운 리셋: 새 설정 저장 시 즉시 알림 가능하도록
+    _ref.read(watchlistAlertCheckerProvider).resetAlert(ticker, 'percent');
     final items = _repository.getAll();
     if (!mounted) return;
     state = state.copyWith(items: items);
