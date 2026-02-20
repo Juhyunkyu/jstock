@@ -565,7 +565,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     );
   }
 
-  Future<void> _onSave() async {
+  void _onSave() {
     final notifier = ref.read(watchlistProvider.notifier);
     if (_selectedTab == 1) {
       // 목표가 저장
@@ -576,7 +576,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
         );
         return;
       }
-      await notifier.setTargetAlert(
+      notifier.setTargetAlert(
         ticker: widget.item.ticker,
         alertPrice: price,
         alertTargetDirection: _targetDirection,
@@ -591,14 +591,14 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
         );
         return;
       }
-      await notifier.setPercentAlert(
+      notifier.setPercentAlert(
         ticker: widget.item.ticker,
         alertBasePrice: basePrice,
         alertPercent: percent,
         alertDirection: _alertDirection,
       );
     }
-    if (mounted) Navigator.pop(context);
+    Navigator.pop(context);
   }
 
   void _onClearCurrentAlert() {
