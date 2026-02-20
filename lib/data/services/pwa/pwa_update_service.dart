@@ -26,8 +26,12 @@ class PWAUpdateService {
   }
 
   /// 업데이트 적용 (페이지 새로고침)
+  ///
+  /// sessionStorage에 플래그를 설정하여 리로드 후
+  /// SW 전환 이벤트로 배너가 다시 뜨는 것을 방지합니다.
   static void applyUpdate() {
     if (!kIsWeb) return;
+    web.window.sessionStorage.setItem('_pwaJustUpdated', 'true');
     web.window.location.reload();
   }
 }
