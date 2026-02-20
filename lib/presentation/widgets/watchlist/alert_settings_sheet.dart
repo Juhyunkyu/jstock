@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
+import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/watchlist_providers.dart';
 
 /// 알림 설정 Bottom Sheet
@@ -565,7 +566,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     );
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
     final notifier = ref.read(watchlistProvider.notifier);
     if (_selectedTab == 1) {
       // 목표가 저장
@@ -598,7 +599,10 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
         alertDirection: _alertDirection,
       );
     }
-    Navigator.pop(context);
+    // 사용자 인터랙션(버튼 탭) 컨텍스트에서 알림 권한 요청
+    // → 모바일 브라우저에서도 권한 팝업이 표시됨
+    await WebNotificationService.requestPermission();
+    if (mounted) Navigator.pop(context);
   }
 
   void _onClearCurrentAlert() {

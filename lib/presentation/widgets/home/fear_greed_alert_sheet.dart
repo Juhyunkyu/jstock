@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/settings_providers.dart';
 
 /// Zone color constants for Fear & Greed Index
@@ -89,12 +90,16 @@ class _FearGreedAlertSheetState extends ConsumerState<FearGreedAlertSheet> {
     }
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
     ref.read(settingsProvider.notifier).updateFearGreedAlert(
           enabled: _enabled,
           value: _alertValue,
           direction: _direction,
         );
+    // 사용자 인터랙션(버튼 탭) 컨텍스트에서 알림 권한 요청
+    // → 모바일 브라우저에서도 권한 팝업이 표시됨
+    await WebNotificationService.requestPermission();
+    if (!mounted) return;
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

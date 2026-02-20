@@ -7,8 +7,6 @@ import 'package:web/web.dart' as web;
 /// Flutter Web에서 OS 레벨 알림을 표시합니다.
 /// 모바일 빌드 시 안전하게 no-op으로 동작합니다.
 class WebNotificationService {
-  static bool _permissionRequested = false;
-
   /// 현재 알림 권한 상태
   static bool get isPermissionGranted {
     if (!kIsWeb) return false;
@@ -18,11 +16,14 @@ class WebNotificationService {
   /// 알림 권한 요청
   ///
   /// 반환값: 권한이 허용되었으면 true
+  /// 이미 권한이 있으면 즉시 true 반환.
+  /// 권한이 'denied'이면 브라우저에서 재요청 불가 → false 반환.
   static Future<bool> requestPermission() async {
     if (!kIsWeb) return false;
-    if (_permissionRequested && isPermissionGranted) return true;
+    if (isPermissionGranted) return true;
 
-    _permissionRequested = true;
+    // 'denied' 상태면 브라우저가 팝업을 다시 띄우지 않으므로 요청 생략
+    if (web.Notification.permission == 'denied') return false;
 
     final permission = await web.Notification.requestPermission().toDart;
     return permission.toDart == 'granted';
