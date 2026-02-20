@@ -126,6 +126,21 @@
   <script src="flutter_bootstrap.js" async></script>
 
   <script>
+    // Global notification helper: SW-based for mobile, constructor fallback for desktop
+    window._showNotification = function(title, body, icon) {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(function(reg) {
+          reg.showNotification(title, { body: body, icon: icon });
+        }).catch(function() {
+          try { new Notification(title, { body: body, icon: icon }); } catch(e) {}
+        });
+      } else {
+        try { new Notification(title, { body: body, icon: icon }); } catch(e) {}
+      }
+    };
+  </script>
+
+  <script>
     // PWA Service Worker update detection
     if ('serviceWorker' in navigator) {
       // 업데이트 버튼으로 리로드한 직후인지 확인
