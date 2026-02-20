@@ -5,12 +5,14 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/notification_record.dart';
 import '../../../data/services/notification/web_notification_service.dart';
+import '../../../data/services/pwa/pwa_update_service.dart';
 import '../../../routes/app_router.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
 import '../../providers/watchlist_alert_provider.dart';
 import '../../providers/watchlist_providers.dart';
 import 'app_title_logo.dart';
+import 'update_banner.dart';
 
 /// 메인 쉘 위젯
 ///
@@ -32,9 +34,14 @@ class MainShell extends ConsumerStatefulWidget {
 }
 
 class _MainShellState extends ConsumerState<MainShell> {
+  bool _updateAvailable = false;
+
   @override
   void initState() {
     super.initState();
+    // PWA 업데이트 감지: 5초마다 체크 (JS에서 설정한 플래그 읽기)
+    _checkForPWAUpdate();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       // 전역: 브라우저 알림 권한 요청 (비동기, 대화상자 응답을 기다리지 않음)
@@ -59,6 +66,18 @@ class _MainShellState extends ConsumerState<MainShell> {
         if (next == null) return;
         _handleFearGreedAlert(next);
       }, fireImmediately: true);
+    });
+  }
+
+  /// PWA 업데이트 플래그를 주기적으로 확인
+  void _checkForPWAUpdate() {
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      if (PWAUpdateService.checkForUpdate() && !_updateAvailable) {
+        setState(() => _updateAvailable = true);
+        return; // 업데이트 발견 시 더 이상 체크하지 않음
+      }
+      _checkForPWAUpdate(); // 재귀 호출로 반복 체크
     });
   }
 
@@ -104,6 +123,17 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 
+  /// 업데이트 배너 + 콘텐츠를 Column으로 합성
+  Widget _wrapWithBanner(Widget child) {
+    if (!_updateAvailable) return child;
+    return Column(
+      children: [
+        const UpdateBanner(),
+        Expanded(child: child),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
@@ -123,11 +153,13 @@ class _MainShellState extends ConsumerState<MainShell> {
               children: [
                 _buildNavigationRail(context),
                 Expanded(
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: desktopMaxWidth),
-                      child: widget.child,
+                  child: _wrapWithBanner(
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: desktopMaxWidth),
+                        child: widget.child,
+                      ),
                     ),
                   ),
                 ),
@@ -142,10 +174,12 @@ class _MainShellState extends ConsumerState<MainShell> {
           final tabletMaxWidth = (width * 0.95).clamp(0.0, 1100.0);
           return Scaffold(
             backgroundColor: context.appBackground,
-            body: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: tabletMaxWidth),
-                child: widget.child,
+            body: _wrapWithBanner(
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: tabletMaxWidth),
+                  child: widget.child,
+                ),
               ),
             ),
             bottomNavigationBar: isMainTab ? const _BottomNavBar() : null,
@@ -154,7 +188,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
         // Mobile (<768px): BottomNav only for main tabs
         return Scaffold(
-          body: widget.child,
+          body: _wrapWithBanner(widget.child),
           bottomNavigationBar: isMainTab ? const _BottomNavBar() : null,
         );
       },
