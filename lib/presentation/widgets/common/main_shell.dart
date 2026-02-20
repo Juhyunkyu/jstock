@@ -96,11 +96,14 @@ class _MainShellState extends ConsumerState<MainShell> {
     try {
       final notifier = ref.read(notificationHistoryProvider.notifier);
       for (final alert in alerts) {
-        WebNotificationService.show(title: alert.title, body: alert.body);
+        // 벨 배지 먼저 저장 (절대 실패하면 안 됨)
         notifier.addFromAlert(alert);
+        // 브라우저 알림은 별도 try/catch (실패해도 배지에 영향 없음)
+        try {
+          WebNotificationService.show(title: alert.title, body: alert.body);
+        } catch (_) {}
       }
     } catch (e) {
-      // 알림 처리 실패 시 앱 크래시 방지
       debugPrint('[AlertError] Watchlist alert failed: $e');
     }
   }
@@ -108,7 +111,7 @@ class _MainShellState extends ConsumerState<MainShell> {
   /// 공포탐욕지수 알림 처리 (빌드 밖에서 안전하게 실행)
   void _handleFearGreedAlert(FearGreedAlertResult alert) {
     try {
-      WebNotificationService.show(title: alert.title, body: alert.body);
+      // 벨 배지 먼저 저장
       final record = NotificationRecord(
         id: 'fg_${DateTime.now().millisecondsSinceEpoch}',
         ticker: 'F&G',
@@ -118,6 +121,10 @@ class _MainShellState extends ConsumerState<MainShell> {
         triggeredAt: DateTime.now(),
       );
       ref.read(notificationHistoryProvider.notifier).addRecord(record);
+      // 브라우저 알림은 별도 try/catch
+      try {
+        WebNotificationService.show(title: alert.title, body: alert.body);
+      } catch (_) {}
     } catch (e) {
       debugPrint('[AlertError] Fear & Greed alert failed: $e');
     }
