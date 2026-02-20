@@ -1,10 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/api/fear_greed_service.dart';
 import '../../data/services/cache/cache_manager.dart';
-import '../../data/services/notification/web_notification_service.dart';
-import '../../data/models/notification_record.dart';
 import 'api_providers.dart';
-import 'notification_history_provider.dart';
 import 'settings_providers.dart';
 
 /// Fear & Greed Index 캐시 키 생성
@@ -172,12 +169,19 @@ final hasFearGreedDataProvider = Provider<bool>((ref) {
 ///
 /// MainShell에서 ref.watch()하여 전역 활성화합니다.
 /// Fear & Greed 값이 변경될 때마다 설정된 알림 조건을 체크합니다.
-final fearGreedAlertMonitorProvider = Provider<void>((ref) {
+/// Fear & Greed 알림 결과
+class FearGreedAlertResult {
+  final String title;
+  final String body;
+  const FearGreedAlertResult({required this.title, required this.body});
+}
+
+final fearGreedAlertMonitorProvider = Provider<FearGreedAlertResult?>((ref) {
   final settings = ref.watch(settingsProvider);
-  if (!settings.fearGreedAlertEnabled) return;
+  if (!settings.fearGreedAlertEnabled) return null;
 
   final fgState = ref.watch(fearGreedProvider);
-  if (!fgState.hasData) return;
+  if (!fgState.hasData) return null;
 
   final currentValue = fgState.value;
   final alertValue = settings.fearGreedAlertValue;
@@ -188,7 +192,7 @@ final fearGreedAlertMonitorProvider = Provider<void>((ref) {
       ? currentValue <= alertValue
       : currentValue >= alertValue;
 
-  if (!triggered) return;
+  if (!triggered) return null;
 
   // 쿨다운 체크 (1시간) — 캐시 키 기반
   final cooldownKey = 'fg_alert_${alertValue}_$direction';
@@ -196,31 +200,19 @@ final fearGreedAlertMonitorProvider = Provider<void>((ref) {
   final lastTriggered = cache.get<DateTime>(cooldownKey);
   if (lastTriggered != null &&
       DateTime.now().difference(lastTriggered) < const Duration(hours: 1)) {
-    return;
+    return null;
   }
 
   // 쿨다운 기록
   cache.set<DateTime>(cooldownKey, DateTime.now(),
       ttl: const Duration(hours: 1));
 
-  // 알림 발송
   final dirLabel = direction == 0 ? '이하' : '이상';
   final zoneName = _getZoneLabel(currentValue);
   final title = '공포탐욕지수 $alertValue $dirLabel 도달!';
   final body = '현재 지수: $currentValue ($zoneName)';
 
-  WebNotificationService.show(title: title, body: body);
-
-  // 알림 내역 저장
-  final record = NotificationRecord(
-    id: 'fg_${DateTime.now().millisecondsSinceEpoch}',
-    ticker: 'F&G',
-    title: title,
-    body: body,
-    type: 'fear_greed',
-    triggeredAt: DateTime.now(),
-  );
-  ref.read(notificationHistoryProvider.notifier).addRecord(record);
+  return FearGreedAlertResult(title: title, body: body);
 });
 
 /// 한글 존 라벨 (알림 메시지용)

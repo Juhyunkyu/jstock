@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/notification_record.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../../routes/app_router.dart';
 import '../../providers/fear_greed_providers.dart';
@@ -38,10 +39,20 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (!mounted) return;
       // 전역: 브라우저 알림 권한 요청
       WebNotificationService.requestPermission();
+      // 전역: 알림 내역 로드 (watchlist보다 먼저 — Hive 초기화 우선)
+      ref.read(notificationHistoryProvider.notifier).load();
       // 전역: 관심종목 로드 + WebSocket 구독
       ref.read(watchlistProvider.notifier).load();
-      // 전역: 알림 내역 로드
-      ref.read(notificationHistoryProvider.notifier).load();
+
+      // 알림 감시: ref.listen()으로 side effects를 빌드 밖에서 안전하게 실행
+      ref.listenManual(watchlistAlertMonitorProvider, (prev, next) {
+        if (next.isEmpty) return;
+        _handleWatchlistAlerts(next);
+      });
+      ref.listenManual(fearGreedAlertMonitorProvider, (prev, next) {
+        if (next == null) return;
+        _handleFearGreedAlert(next);
+      });
     });
   }
 
@@ -55,13 +66,40 @@ class _MainShellState extends ConsumerState<MainShell> {
         location == '/settings';
   }
 
+  /// 관심종목 알림 처리 (빌드 밖에서 안전하게 실행)
+  void _handleWatchlistAlerts(List<AlertNotification> alerts) {
+    try {
+      final notifier = ref.read(notificationHistoryProvider.notifier);
+      for (final alert in alerts) {
+        WebNotificationService.show(title: alert.title, body: alert.body);
+        notifier.addFromAlert(alert);
+      }
+    } catch (e) {
+      // 알림 처리 실패 시 앱 크래시 방지
+      debugPrint('[AlertError] Watchlist alert failed: $e');
+    }
+  }
+
+  /// 공포탐욕지수 알림 처리 (빌드 밖에서 안전하게 실행)
+  void _handleFearGreedAlert(FearGreedAlertResult alert) {
+    try {
+      WebNotificationService.show(title: alert.title, body: alert.body);
+      final record = NotificationRecord(
+        id: 'fg_${DateTime.now().millisecondsSinceEpoch}',
+        ticker: 'F&G',
+        title: alert.title,
+        body: alert.body,
+        type: 'fear_greed',
+        triggeredAt: DateTime.now(),
+      );
+      ref.read(notificationHistoryProvider.notifier).addRecord(record);
+    } catch (e) {
+      debugPrint('[AlertError] Fear & Greed alert failed: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // 전역 알림 감시 — 모든 탭에서 활성
-    ref.watch(watchlistAlertMonitorProvider);
-    // 공포탐욕지수 알림 감시
-    ref.watch(fearGreedAlertMonitorProvider);
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;

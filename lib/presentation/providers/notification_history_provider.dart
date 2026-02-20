@@ -65,7 +65,7 @@ class NotificationHistoryNotifier extends StateNotifier<NotificationHistoryState
   }
 
   /// AlertNotification에서 알림 레코드 추가
-  void addFromAlert(AlertNotification alert) {
+  Future<void> addFromAlert(AlertNotification alert) async {
     final record = NotificationRecord(
       id: '${alert.ticker}_${alert.type}_${DateTime.now().millisecondsSinceEpoch}',
       ticker: alert.ticker,
@@ -75,7 +75,7 @@ class NotificationHistoryNotifier extends StateNotifier<NotificationHistoryState
       triggeredAt: DateTime.now(),
     );
 
-    _repository.add(record);
+    await _repository.add(record);
 
     if (!mounted) return;
     final items = _repository.getAll();
@@ -84,8 +84,8 @@ class NotificationHistoryNotifier extends StateNotifier<NotificationHistoryState
   }
 
   /// NotificationRecord 직접 추가 (Fear & Greed 등)
-  void addRecord(NotificationRecord record) {
-    _repository.add(record);
+  Future<void> addRecord(NotificationRecord record) async {
+    await _repository.add(record);
 
     if (!mounted) return;
     final items = _repository.getAll();

@@ -17,7 +17,7 @@ class WatchlistState {
 
   const WatchlistState({
     this.items = const [],
-    this.isLoading = false,
+    this.isLoading = true,
     this.error,
   });
 

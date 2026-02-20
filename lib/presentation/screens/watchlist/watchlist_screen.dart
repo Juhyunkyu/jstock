@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
-import '../../providers/watchlist_alert_provider.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/common/responsive_grid.dart';
@@ -25,47 +24,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   @override
   Widget build(BuildContext context) {
     final watchlistState = ref.watch(watchlistProvider);
-
-    // 알림 감시 활성화
-    final alerts = ref.watch(watchlistAlertMonitorProvider);
-    if (alerts.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        for (final alert in alerts) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    alert.title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    alert.body,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-              backgroundColor: alert.type == 'target'
-                  ? AppColors.stockUp.withValues(alpha: 0.9)
-                  : AppColors.amber600.withValues(alpha: 0.9),
-              behavior: SnackBarBehavior.floating,
-              duration: const Duration(seconds: 5),
-              margin: const EdgeInsets.all(16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          );
-        }
-      });
-    }
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -89,9 +47,11 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       ),
       body: watchlistState.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : watchlistState.items.isEmpty
-              ? _buildEmptyState()
-              : Builder(
+          : watchlistState.error != null
+              ? _buildErrorState(watchlistState.error!)
+              : watchlistState.items.isEmpty
+                  ? _buildEmptyState()
+                  : Builder(
                   builder: (context) {
                     final useGrid = ResponsiveGrid.shouldUseGrid(context);
 
@@ -175,6 +135,40 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                     );
                   },
                 ),
+    );
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.error_outline_rounded,
+            size: 64,
+            color: context.appTextHint,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            error,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: context.appTextSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton.icon(
+            onPressed: () => ref.read(watchlistProvider.notifier).load(),
+            icon: const Icon(Icons.refresh),
+            label: const Text('다시 시도'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: context.appAccent,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

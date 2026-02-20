@@ -159,6 +159,9 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
         updatedQuote,
         ttl: CacheManager.defaultStockTtl,
       );
+    }, onError: (error) {
+      // WebSocket 에러 시 구독 종료 방지 — 자동 재연결에 의존
+      print('[StockQuoteNotifier] WebSocket stream error: $error');
     });
   }
 
