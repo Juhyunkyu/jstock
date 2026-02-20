@@ -35,24 +35,30 @@ class _MainShellState extends ConsumerState<MainShell> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      // 전역: 브라우저 알림 권한 요청
+      // 전역: 브라우저 알림 권한 요청 (비동기, 대화상자 응답을 기다리지 않음)
       WebNotificationService.requestPermission();
-      // 전역: 알림 내역 로드 (watchlist보다 먼저 — Hive 초기화 우선)
-      ref.read(notificationHistoryProvider.notifier).load();
-      // 전역: 관심종목 로드 + WebSocket 구독
-      ref.read(watchlistProvider.notifier).load();
 
-      // 알림 감시: ref.listen()으로 side effects를 빌드 밖에서 안전하게 실행
+      // 전역 초기화: 알림 저장소 + 관심종목을 병렬 로드 후 완료 대기
+      // → 알림 저장소 미초기화 상태에서 알림 트리거 시 저장 실패 방지
+      await Future.wait([
+        ref.read(notificationHistoryProvider.notifier).load(),
+        ref.read(watchlistProvider.notifier).load(),
+      ]);
+
+      if (!mounted) return;
+
+      // 초기화 완료 후 알림 감시 등록
+      // fireImmediately: true → 이미 충족된 조건 즉시 처리 (초기화 중 놓친 알림 복구)
       ref.listenManual(watchlistAlertMonitorProvider, (prev, next) {
         if (next.isEmpty) return;
         _handleWatchlistAlerts(next);
-      });
+      }, fireImmediately: true);
       ref.listenManual(fearGreedAlertMonitorProvider, (prev, next) {
         if (next == null) return;
         _handleFearGreedAlert(next);
-      });
+      }, fireImmediately: true);
     });
   }
 
