@@ -128,29 +128,36 @@
   <script>
     // PWA Service Worker update detection
     if ('serviceWorker' in navigator) {
+      // 첫 설치 vs 업데이트 구분: 기존 controller 존재 여부로 판단
+      var hadController = !!navigator.serviceWorker.controller;
+
       navigator.serviceWorker.ready.then(function(registration) {
         // Check for updates periodically (every 30 minutes)
         setInterval(function() {
           registration.update();
         }, 30 * 60 * 1000);
 
-        // Detect new service worker installation
+        // Detect new service worker installation (업데이트 시에만)
         registration.addEventListener('updatefound', function() {
           var newWorker = registration.installing;
           if (!newWorker) return;
 
           newWorker.addEventListener('statechange', function() {
-            if (newWorker.state === 'activated') {
-              // New version is ready — signal to Flutter
+            // 'activated' 상태 + 기존 SW가 있었을 때만 업데이트 알림
+            if (newWorker.state === 'activated' && hadController) {
               window._pwaUpdateAvailable = true;
             }
           });
         });
       });
 
-      // Handle controller change (new SW took over)
+      // Handle controller change (기존 SW가 있었을 때만 업데이트)
       navigator.serviceWorker.addEventListener('controllerchange', function() {
-        window._pwaUpdateAvailable = true;
+        if (hadController) {
+          window._pwaUpdateAvailable = true;
+        }
+        // 이후 controller 변경은 진짜 업데이트이므로 플래그 설정
+        hadController = true;
       });
     }
   </script>
