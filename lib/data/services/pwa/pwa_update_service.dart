@@ -6,6 +6,10 @@ import 'package:web/web.dart' as web;
 @JS('_pwaUpdateAvailable')
 external JSBoolean? get _jsPwaUpdateAvailable;
 
+/// JS interop: eval() 함수 직접 호출
+@JS('eval')
+external void _jsEval(JSString code);
+
 /// PWA 업데이트 감지 서비스
 ///
 /// Service Worker가 새 버전을 설치했을 때 이를 감지하고
@@ -25,13 +29,28 @@ class PWAUpdateService {
     }
   }
 
-  /// 업데이트 적용 (페이지 새로고침)
+  /// 업데이트 적용 (SW 캐시 삭제 → 페이지 새로고침)
   ///
-  /// sessionStorage에 플래그를 설정하여 리로드 후
-  /// SW 전환 이벤트로 배너가 다시 뜨는 것을 방지합니다.
+  /// 1. JavaScript로 모든 Service Worker 캐시 삭제
+  /// 2. sessionStorage 플래그 설정 (배너 재표시 방지)
+  /// 3. 페이지 새로고침 → 서버에서 최신 코드 로드
   static void applyUpdate() {
     if (!kIsWeb) return;
-    web.window.sessionStorage.setItem('_pwaJustUpdated', 'true');
-    web.window.location.reload();
+    // JS로 캐시 삭제 + 리로드 (Dart JS interop 제약 우회)
+    _evalJs('''
+      caches.keys().then(function(names) {
+        return Promise.all(names.map(function(name) {
+          return caches.delete(name);
+        }));
+      }).then(function() {
+        sessionStorage.setItem('_pwaJustUpdated', 'true');
+        location.reload();
+      });
+    ''');
+  }
+
+  /// JavaScript 코드 실행 헬퍼
+  static void _evalJs(String code) {
+    _jsEval(code.toJS);
   }
 }
