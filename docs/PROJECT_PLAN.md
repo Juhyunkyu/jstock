@@ -1,7 +1,7 @@
 # 알파 사이클 앱 개발 계획서
 
-**문서 버전**: 2.2
-**작성일**: 2026-02-17
+**문서 버전**: 2.3
+**작성일**: 2026-02-20
 **목적**: Flutter 앱 개발을 위한 단계별 실행 계획 및 핵심 로직 명세
 
 ---
@@ -307,6 +307,8 @@ lib/
 │       │   ├── notification_channels.dart
 │       │   ├── notification_service.dart
 │       │   └── web_notification_service.dart
+│       ├── pwa/
+│       │   └── pwa_update_service.dart        # PWA 업데이트 감지/적용
 │       └── technical_indicator_service.dart
 ├── domain/
 │   └── usecases/
@@ -373,7 +375,8 @@ lib/
         │   ├── main_shell.dart                  # 반응형 셸 + 전역 알림 감시 (ConsumerStatefulWidget)
         │   ├── notification_bell_button.dart     # 알림 벨 배지 위젯 (3화면 공통)
         │   ├── notification_history_sheet.dart   # 알림 내역 BottomSheet
-        │   └── responsive_grid.dart             # 반응형 2열 그리드
+        │   ├── responsive_grid.dart             # 반응형 2열 그리드
+        │   └── update_banner.dart               # PWA 업데이트 배너
         ├── history/
         │   ├── archived_holding_card.dart       # 완료된 보유 카드
         │   ├── cycle_stats_card.dart
@@ -419,7 +422,8 @@ lib/
         │   └── stock_info_card.dart            # 종목 정보 카드 (실시간 시세)
         └── watchlist/
             ├── add_watchlist_sheet.dart        # 관심종목 추가 시트
-            ├── alert_settings_sheet.dart
+            ├── alert_settings_sheet.dart       # 목표가/변동률 알림 설정
+            ├── fear_greed_alert_sheet.dart     # 공포탐욕지수 알림 설정
             ├── watchlist_helpers.dart          # 유틸리티 함수
             └── watchlist_tile.dart             # 관심종목 카드 타일
 ```
@@ -780,6 +784,35 @@ lib/
 **새 파일 (5개)**: `notification_record.dart`, `notification_repository.dart`, `notification_history_provider.dart`, `notification_bell_button.dart`, `notification_history_sheet.dart`
 **수정 파일 (7개)**: `main_shell.dart`, `watchlist_screen.dart`, `home_screen.dart`, `stocks_screen.dart`, `watchlist_alert_provider.dart`, `notification_settings.dart`, `main.dart`
 
+### Phase 15: 알림 고도화 + PWA 업데이트 + CI/CD ✅ 완료
+
+**목표**: 모바일 알림 호환성, 공포탐욕지수 알림, PWA 업데이트 시스템, GitHub Actions 배포
+**완료일**: 2026-02-20
+
+| 순서 | 작업 | 산출물 | 상태 |
+|------|------|--------|------|
+| 15-1 | 공포탐욕지수 알림 시스템 (BottomSheet + Provider + Settings) | fear_greed_alert_sheet.dart, fear_greed_providers.dart | ✅ |
+| 15-2 | GitHub Actions 자동 배포 (main 푸쉬 → 빌드 → GitHub Pages) | deploy.yml | ✅ |
+| 15-3 | 브라우저 알림 권한 요청 (유저 제스처 기반, 모바일 호환) | alert_settings_sheet.dart, fear_greed_alert_sheet.dart | ✅ |
+| 15-4 | 목표가 알림 이상/이하 방향 선택기 (alertTargetDirection) | watchlist_item.dart, alert_settings_sheet.dart | ✅ |
+| 15-5 | PWA 업데이트 시스템 (SW offline-first + 업데이트 배너) | pwa_update_service.dart, update_banner.dart | ✅ |
+| 15-6 | 커스텀 앱 아이콘 (∞ 심볼) + HTML 스플래시 화면 | web/icons/, web/index.html | ✅ |
+| 15-7 | 모바일 알림 5단계 수정 (SW showNotification) | web_notification_service.dart, main_shell.dart | ✅ |
+| 15-8 | 알림 쿨다운 리셋 버그 수정 (설정 저장 시 즉시 재발동) | watchlist_alert_provider.dart | ✅ |
+
+**모바일 알림 수정 상세 (5단계)**:
+
+| 단계 | 원인 | 수정 |
+|------|------|------|
+| 1 | `requestPermission()`이 유저 제스처 없이 호출 → 모바일 차단 | 버튼 핸들러에서 호출 |
+| 2 | `notifier.setTargetAlert()` async인데 `await` 누락 | `await` 추가 |
+| 3 | SW 캐시 구버전 코드 유지 | `caches.delete()` 후 리로드 |
+| 4 | `WebNotificationService.show()` 예외 → 벨 배지 미저장 | 벨 배지 먼저 + 별도 try/catch |
+| 5 | `new Notification()` 모바일 미지원 | `ServiceWorkerRegistration.showNotification()` 사용 |
+
+**새 파일 (4개)**: `fear_greed_alert_sheet.dart`, `pwa_update_service.dart`, `update_banner.dart`, `deploy.yml`
+**수정 파일 (15+개)**: `settings.dart`, `fear_greed_providers.dart`, `main_shell.dart`, `web_notification_service.dart`, `web/index.html`, `build.sh`, `watchlist_item.dart`, `alert_settings_sheet.dart`, `watchlist_alert_provider.dart` 등
+
 ---
 
 ## 3. 체크리스트
@@ -833,6 +866,13 @@ lib/
 - [x] NotificationBellButton 벨 배지 (3화면 공통: 홈, 관심종목, My)
 - [x] NotificationHistorySheet 알림 내역 BottomSheet
 - [x] 알림 설정 실제 영속화 (Hive Settings 저장)
+- [x] 공포탐욕지수 알림 (BottomSheet + Settings HiveField + 1시간 쿨다운)
+- [x] GitHub Actions 자동 배포 (main 푸쉬 → GitHub Pages)
+- [x] 모바일 알림 호환 (ServiceWorkerRegistration.showNotification())
+- [x] 목표가 알림 방향 선택 (이상/이하)
+- [x] PWA 업데이트 시스템 (SW offline-first + 업데이트 배너)
+- [x] 커스텀 앱 아이콘 (∞ 심볼) + HTML 스플래시 화면
+- [x] 알림 쿨다운 리셋 버그 수정
 
 ---
 
@@ -873,8 +913,9 @@ lib/
 | 12 | 코드 품질/반응형 UI | 2일 | ✅ |
 | 13 | WebSocket 실시간 가격 버그 수정 | 1일 | ✅ |
 | 14 | 알림 시스템 완성 | 1일 | ✅ |
+| 15 | 알림 고도화/PWA/CI/CD | 1일 | ✅ |
 
-**총 개발 기간**: 약 6주 (27 영업일) - **전체 완료**
+**총 개발 기간**: 약 6주 (28 영업일) - **전체 완료**
 
 ---
 

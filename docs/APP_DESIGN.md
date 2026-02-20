@@ -1,6 +1,6 @@
 # 알파 사이클 앱 설계 문서
 
-> **최종 업데이트**: 2026-02-19 (알림 시스템 완성 — 전역 알림 감시, 알림 내역, 벨 배지)
+> **최종 업데이트**: 2026-02-20 (모바일 알림 수정, PWA 업데이트 시스템, 공포탐욕지수 알림)
 
 ## 프로젝트 개요
 
@@ -950,7 +950,11 @@ class Settings {
 - **배지 표시**: `NotificationBellButton`이 미읽은 알림 수를 Badge로 표시
 - **설정 영속화**: `SettingsNotifier.updateNotificationSettings()`로 Hive에 실제 저장
 - **쿨다운**: 동일 종목/타입 알림은 1시간 쿨다운 (중복 방지)
-- **브라우저 알림**: `WebNotificationService.show()`로 브라우저 네이티브 알림 발송
+- **브라우저 알림**: `WebNotificationService.show()` → `ServiceWorkerRegistration.showNotification()` (모바일 호환)
+  - 데스크톱: `new Notification()` 폴백
+  - 모바일: SW 기반 알림 (iOS PWA 16.4+, Android Chrome)
+- **공포탐욕지수 알림**: 설정 > Fear & Greed 알림 (이하/이상 + 1시간 쿨다운)
+- **PWA 업데이트**: Service Worker 새 버전 감지 → 상단 배너 표시 → 캐시 삭제 + 리로드
 
 ---
 
@@ -975,14 +979,16 @@ class Settings {
 - [x] 데이터 백업/복원
 - [x] CSV 내보내기
 
-### Phase 4: 알림 시스템 (부분 완료)
-- [ ] 로컬 푸시 알림 (서버 기반 FCM 필요)
-- [ ] 백그라운드 가격 체크 (Service Worker)
+### Phase 4: 알림 시스템 (완료)
 - [x] 알림 설정 UI + 실제 저장 (Hive 영속화)
 - [x] 관심종목 WebSocket 실시간 알림 (전역 감시)
 - [x] 알림 내역 저장 + 표시 (NotificationRecord Hive 모델)
 - [x] 알림 벨 배지 + 알림 내역 BottomSheet (전 화면 공통)
 - [x] 전역 WebSocket 구독 (MainShell → 탭 전환 시 구독 유지)
+- [x] 모바일 OS 알림 (ServiceWorker showNotification)
+- [x] 공포탐욕지수 알림 (이하/이상 + 1시간 쿨다운)
+- [x] 목표가 알림 이상/이하 방향 선택
+- [ ] 백그라운드 푸시 알림 (FCM 서버 필요 — 현재 서버리스)
 
 ### Phase 5: 고도화 (완료)
 - [x] Fear & Greed Index (CNN)
@@ -1027,6 +1033,8 @@ class Settings {
 - **v1.2** (2026.02): 코드 품질 개선 — 화면 모듈화 3개 (watchlist, settings, cycle_setup), 반응형 레이아웃 (모바일/태블릿/데스크톱), 2열 그리드, darkAccent 중앙화, 환율 버그 수정, 다크모드 위반 수정, 브랜딩 심플화
 - **v1.3** (2026.02): WebSocket 실시간 가격 버그 수정 — REST 쿨다운 60초 제거, 구독 race condition 수정, 탭 이탈 시 구독 해제 추가
 - **v1.4** (2026.02): 알림 시스템 완성 — 전역 WebSocket 구독 (MainShell), 알림 내역 Hive 저장 (NotificationRecord), NotificationBellButton 벨 배지 (3화면 공통), NotificationHistorySheet 알림 내역 BottomSheet, 알림 설정 실제 영속화
+- **v1.5** (2026.02): PWA 업데이트 시스템 + 커스텀 앱 아이콘/스플래시 + 공포탐욕지수 알림 + 목표가 방향 선택 + GitHub Actions CI/CD
+- **v1.6** (2026.02): 모바일 알림 5단계 수정 — 권한 타이밍, async race condition, SW 캐시, 방어적 에러 처리, ServiceWorker showNotification
 
 ---
 
