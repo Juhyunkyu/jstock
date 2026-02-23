@@ -227,6 +227,39 @@ class Holding extends HiveObject implements TradingPosition {
   /// 수량 (정수로 반환)
   int get quantity => totalShares.toInt();
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'ticker': ticker,
+        'name': name,
+        'totalShares': totalShares,
+        'averagePrice': averagePrice,
+        'totalInvestedAmount': totalInvestedAmount,
+        'startDate': startDate.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'exchangeRate': exchangeRate,
+        'notes': notes,
+        'isArchived': isArchived,
+      };
+
+  factory Holding.fromJson(Map<String, dynamic> json) {
+    final holding = Holding(
+      id: json['id'] as String,
+      ticker: json['ticker'] as String,
+      name: json['name'] as String,
+      exchangeRate: (json['exchangeRate'] as num).toDouble(),
+      startDate: json['startDate'] != null ? DateTime.parse(json['startDate'] as String) : null,
+      notes: json['notes'] as String?,
+      isArchived: json['isArchived'] as bool?,
+    );
+    holding.totalShares = (json['totalShares'] as num?)?.toDouble() ?? 0;
+    holding.averagePrice = (json['averagePrice'] as num?)?.toDouble() ?? 0;
+    holding.totalInvestedAmount = (json['totalInvestedAmount'] as num?)?.toDouble() ?? 0;
+    holding.updatedAt = json['updatedAt'] != null
+        ? DateTime.parse(json['updatedAt'] as String)
+        : DateTime.now();
+    return holding;
+  }
+
   @override
   String toString() {
     return 'Holding(id: $id, ticker: $ticker, name: $name, '

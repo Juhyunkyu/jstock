@@ -342,6 +342,53 @@ class Cycle extends HiveObject implements StrategyPosition {
   @override
   bool get isActive => totalShares > 0 && status == CycleStatus.active;
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'ticker': ticker,
+        'cycleNumber': cycleNumber,
+        'seedAmount': seedAmount,
+        'initialEntryAmount': initialEntryAmount,
+        'initialEntryPrice': initialEntryPrice,
+        'averagePrice': averagePrice,
+        'totalShares': totalShares,
+        'totalInvestedAmount': totalInvestedAmount,
+        'remainingCash': remainingCash,
+        'panicUsed': panicUsed,
+        'status': status.name,
+        'buyTrigger': buyTrigger,
+        'sellTrigger': sellTrigger,
+        'panicTrigger': panicTrigger,
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate?.toIso8601String(),
+        'exchangeRate': exchangeRate,
+      };
+
+  factory Cycle.fromJson(Map<String, dynamic> json) {
+    final cycle = Cycle(
+      id: json['id'] as String,
+      ticker: json['ticker'] as String,
+      cycleNumber: json['cycleNumber'] as int,
+      seedAmount: (json['seedAmount'] as num).toDouble(),
+      initialEntryPrice: (json['initialEntryPrice'] as num).toDouble(),
+      exchangeRate: (json['exchangeRate'] as num).toDouble(),
+      buyTrigger: (json['buyTrigger'] as num?)?.toDouble() ?? FormulaConstants.buyTriggerPercent,
+      sellTrigger: (json['sellTrigger'] as num?)?.toDouble() ?? FormulaConstants.sellTriggerPercent,
+      panicTrigger: (json['panicTrigger'] as num?)?.toDouble() ?? FormulaConstants.panicTriggerPercent,
+      startDate: DateTime.parse(json['startDate'] as String),
+    );
+    cycle.averagePrice = (json['averagePrice'] as num).toDouble();
+    cycle.totalShares = (json['totalShares'] as num).toDouble();
+    cycle.totalInvestedAmount = (json['totalInvestedAmount'] as num).toDouble();
+    cycle.remainingCash = (json['remainingCash'] as num).toDouble();
+    cycle.panicUsed = json['panicUsed'] as bool? ?? false;
+    cycle.status = CycleStatus.values.firstWhere(
+      (e) => e.name == json['status'],
+      orElse: () => CycleStatus.active,
+    );
+    cycle.endDate = json['endDate'] != null ? DateTime.parse(json['endDate'] as String) : null;
+    return cycle;
+  }
+
   @override
   String toString() {
     return 'Cycle(id: $id, ticker: $ticker, #$cycleNumber, '

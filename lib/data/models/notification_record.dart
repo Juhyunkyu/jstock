@@ -42,4 +42,24 @@ class NotificationRecord extends HiveObject {
     required this.triggeredAt,
     this.isRead = false,
   });
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'ticker': ticker,
+        'title': title,
+        'body': body,
+        'type': type,
+        'triggeredAt': triggeredAt.toIso8601String(),
+        'isRead': isRead,
+      };
+
+  factory NotificationRecord.fromJson(Map<String, dynamic> json) => NotificationRecord(
+        id: json['id'] as String,
+        ticker: json['ticker'] as String,
+        title: json['title'] as String,
+        body: json['body'] as String,
+        type: json['type'] as String,
+        triggeredAt: DateTime.parse(json['triggeredAt'] as String),
+        isRead: json['isRead'] as bool? ?? false,
+      );
 }

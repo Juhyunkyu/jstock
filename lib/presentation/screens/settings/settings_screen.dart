@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/data/web_file_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
@@ -81,8 +82,9 @@ class SettingsScreen extends ConsumerWidget {
           BackupRestoreSection(
             lastBackupDate: settings.lastBackupDate,
             onBackup: () => _handleBackup(context, ref),
-            onRestore: () => _showComingSoon(context, '복원 기능 준비 중'),
-            onExport: () => _showComingSoon(context, '내보내기 기능 준비 중'),
+            onRestore: () => _handleRestore(context, ref),
+            onExport: () => _handleExport(context, ref),
+            onReset: () => _handleReset(context, ref),
           ),
 
           // 앱 정보
@@ -215,11 +217,14 @@ class SettingsScreen extends ConsumerWidget {
 
   Future<void> _handleBackup(BuildContext context, WidgetRef ref) async {
     try {
+      final service = ref.read(dataManagementServiceProvider);
+      final backup = service.createBackup();
+      WebFileService.downloadJson(backup, WebFileService.backupFilename());
       await ref.read(settingsProvider.notifier).updateLastBackupDate();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('데이터가 백업되었습니다'),
+            content: Text('백업 파일이 다운로드되었습니다'),
             backgroundColor: AppColors.green500,
           ),
         );
@@ -228,6 +233,86 @@ class SettingsScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('백업 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleRestore(BuildContext context, WidgetRef ref) async {
+    try {
+      final json = await WebFileService.pickAndReadJsonFile();
+      if (json == null) return; // 취소됨
+
+      if (!context.mounted) return;
+
+      // 버전 확인
+      if (json['version'] == null || json['data'] == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('올바른 백업 파일이 아닙니다')),
+        );
+        return;
+      }
+
+      final service = ref.read(dataManagementServiceProvider);
+      await service.restoreFromBackup(json);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('데이터가 복원되었습니다. 앱을 다시 시작해주세요.'),
+            backgroundColor: AppColors.green500,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('복원 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleExport(BuildContext context, WidgetRef ref) async {
+    try {
+      final service = ref.read(dataManagementServiceProvider);
+      final csv = service.exportToCsv();
+      WebFileService.downloadCsv(csv, WebFileService.csvFilename());
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('CSV 파일이 다운로드되었습니다'),
+            backgroundColor: AppColors.green500,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('내보내기 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleReset(BuildContext context, WidgetRef ref) async {
+    try {
+      final service = ref.read(dataManagementServiceProvider);
+      await service.resetAllData();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('모든 데이터가 삭제되었습니다. 앱을 다시 시작해주세요.'),
+            backgroundColor: AppColors.red500,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('초기화 실패: $e')),
         );
       }
     }

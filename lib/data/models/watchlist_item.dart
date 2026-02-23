@@ -152,6 +152,38 @@ class WatchlistItem extends HiveObject {
   /// 지수 여부
   bool get isIndex => type == 'INDEX';
 
+  Map<String, dynamic> toJson() => {
+        'ticker': ticker,
+        'name': name,
+        'exchange': exchange,
+        'type': type,
+        'addedAt': addedAt.toIso8601String(),
+        'note': note,
+        'alertPrice': alertPrice,
+        'sortOrder': sortOrder,
+        'alertType': alertType,
+        'alertBasePrice': alertBasePrice,
+        'alertPercent': alertPercent,
+        'alertDirection': alertDirection,
+        'alertTargetDirection': alertTargetDirection,
+      };
+
+  factory WatchlistItem.fromJson(Map<String, dynamic> json) => WatchlistItem(
+        ticker: json['ticker'] as String,
+        name: json['name'] as String,
+        exchange: json['exchange'] as String,
+        type: json['type'] as String,
+        addedAt: json['addedAt'] != null ? DateTime.parse(json['addedAt'] as String) : null,
+        note: json['note'] as String?,
+        alertPrice: (json['alertPrice'] as num?)?.toDouble(),
+        sortOrder: json['sortOrder'] as int? ?? 0,
+        alertType: json['alertType'] as int?,
+        alertBasePrice: (json['alertBasePrice'] as num?)?.toDouble(),
+        alertPercent: (json['alertPercent'] as num?)?.toDouble(),
+        alertDirection: json['alertDirection'] as int?,
+        alertTargetDirection: json['alertTargetDirection'] as int?,
+      );
+
   /// 복사본 생성
   WatchlistItem copyWith({
     String? ticker,

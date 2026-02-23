@@ -94,6 +94,39 @@ class HoldingTransaction extends HiveObject {
   /// 거래 금액 (USD)
   double get amountUsd => price * shares;
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'holdingId': holdingId,
+        'ticker': ticker,
+        'date': date.toIso8601String(),
+        'type': type.name,
+        'price': price,
+        'shares': shares,
+        'amountKrw': amountKrw,
+        'exchangeRate': exchangeRate,
+        'note': note,
+        'isInitialPurchase': isInitialPurchase,
+        'realizedPnlKrw': realizedPnlKrw,
+      };
+
+  factory HoldingTransaction.fromJson(Map<String, dynamic> json) => HoldingTransaction(
+        id: json['id'] as String,
+        holdingId: json['holdingId'] as String,
+        ticker: json['ticker'] as String,
+        date: DateTime.parse(json['date'] as String),
+        type: HoldingTransactionType.values.firstWhere(
+          (e) => e.name == json['type'],
+          orElse: () => HoldingTransactionType.buy,
+        ),
+        price: (json['price'] as num).toDouble(),
+        shares: (json['shares'] as num).toDouble(),
+        amountKrw: (json['amountKrw'] as num).toDouble(),
+        exchangeRate: (json['exchangeRate'] as num).toDouble(),
+        note: json['note'] as String?,
+        isInitialPurchase: json['isInitialPurchase'] as bool? ?? false,
+        realizedPnlKrw: (json['realizedPnlKrw'] as num?)?.toDouble(),
+      );
+
   @override
   String toString() {
     final typeStr = isBuy ? '매수' : '매도';

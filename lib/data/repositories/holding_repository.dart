@@ -122,6 +122,12 @@ class HoldingRepository {
     return holdingBox.values.fold(0.0, (sum, h) => sum + h.totalInvestedAmount);
   }
 
+  /// 전체 삭제 (holdings + transactions)
+  Future<void> clearAll() async {
+    await holdingBox.clear();
+    await transactionBox.clear();
+  }
+
   /// Box 닫기
   Future<void> close() async {
     await _holdingBox?.close();

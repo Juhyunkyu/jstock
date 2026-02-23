@@ -176,6 +176,41 @@ class Trade extends HiveObject {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'cycleId': cycleId,
+        'ticker': ticker,
+        'date': date.toIso8601String(),
+        'action': action.name,
+        'price': price,
+        'shares': shares,
+        'recommendedAmount': recommendedAmount,
+        'actualAmount': actualAmount,
+        'isExecuted': isExecuted,
+        'lossRate': lossRate,
+        'returnRate': returnRate,
+        'note': note,
+      };
+
+  factory Trade.fromJson(Map<String, dynamic> json) => Trade(
+        id: json['id'] as String,
+        cycleId: json['cycleId'] as String,
+        ticker: json['ticker'] as String,
+        date: DateTime.parse(json['date'] as String),
+        action: TradeAction.values.firstWhere(
+          (e) => e.name == json['action'],
+          orElse: () => TradeAction.initialBuy,
+        ),
+        price: (json['price'] as num).toDouble(),
+        shares: (json['shares'] as num).toDouble(),
+        recommendedAmount: (json['recommendedAmount'] as num).toDouble(),
+        actualAmount: (json['actualAmount'] as num?)?.toDouble(),
+        isExecuted: json['isExecuted'] as bool? ?? false,
+        lossRate: (json['lossRate'] as num?)?.toDouble() ?? 0.0,
+        returnRate: (json['returnRate'] as num?)?.toDouble() ?? 0.0,
+        note: json['note'] as String?,
+      );
+
   @override
   String toString() {
     return 'Trade($actionEmoji $actionDisplayName, $ticker @ \$$price × $shares, '

@@ -107,6 +107,11 @@ class TradeRepository {
     return counts;
   }
 
+  /// 전체 삭제
+  Future<void> clearAll() async {
+    await box.clear();
+  }
+
   /// Box 닫기
   Future<void> close() async {
     await _box?.close();

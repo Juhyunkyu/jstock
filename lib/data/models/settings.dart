@@ -152,6 +152,44 @@ class Settings extends HiveObject {
     );
   }
 
+  Map<String, dynamic> toJson() => {
+        'exchangeRate': exchangeRate,
+        'useRealtimeRate': useRealtimeRate,
+        'notifyBuySignal': notifyBuySignal,
+        'notifySellSignal': notifySellSignal,
+        'notifyPanicSignal': notifyPanicSignal,
+        'notifyDailySummary': notifyDailySummary,
+        'checkIntervalMinutes': checkIntervalMinutes,
+        'defaultEntryRatio': defaultEntryRatio,
+        'defaultBuyTrigger': defaultBuyTrigger,
+        'defaultSellTrigger': defaultSellTrigger,
+        'defaultPanicTrigger': defaultPanicTrigger,
+        'useDarkMode': useDarkMode,
+        'lastBackupDate': lastBackupDate?.toIso8601String(),
+        'fearGreedAlertEnabled': fearGreedAlertEnabled,
+        'fearGreedAlertValue': fearGreedAlertValue,
+        'fearGreedAlertDirection': fearGreedAlertDirection,
+      };
+
+  factory Settings.fromJson(Map<String, dynamic> json) => Settings(
+        exchangeRate: (json['exchangeRate'] as num?)?.toDouble() ?? AppConstants.defaultExchangeRate,
+        useRealtimeRate: json['useRealtimeRate'] as bool? ?? false,
+        notifyBuySignal: json['notifyBuySignal'] as bool? ?? true,
+        notifySellSignal: json['notifySellSignal'] as bool? ?? true,
+        notifyPanicSignal: json['notifyPanicSignal'] as bool? ?? true,
+        notifyDailySummary: json['notifyDailySummary'] as bool? ?? false,
+        checkIntervalMinutes: json['checkIntervalMinutes'] as int? ?? AppConstants.defaultCheckIntervalMinutes,
+        defaultEntryRatio: (json['defaultEntryRatio'] as num?)?.toDouble() ?? FormulaConstants.initialEntryRatio,
+        defaultBuyTrigger: (json['defaultBuyTrigger'] as num?)?.toDouble() ?? FormulaConstants.buyTriggerPercent,
+        defaultSellTrigger: (json['defaultSellTrigger'] as num?)?.toDouble() ?? FormulaConstants.sellTriggerPercent,
+        defaultPanicTrigger: (json['defaultPanicTrigger'] as num?)?.toDouble() ?? FormulaConstants.panicTriggerPercent,
+        useDarkMode: json['useDarkMode'] as bool? ?? false,
+        lastBackupDate: json['lastBackupDate'] != null ? DateTime.parse(json['lastBackupDate'] as String) : null,
+        fearGreedAlertEnabled: json['fearGreedAlertEnabled'] as bool? ?? false,
+        fearGreedAlertValue: json['fearGreedAlertValue'] as int? ?? 25,
+        fearGreedAlertDirection: json['fearGreedAlertDirection'] as int? ?? 0,
+      );
+
   @override
   String toString() {
     return 'Settings(exchangeRate: $exchangeRate, buyTrigger: $defaultBuyTrigger, '

@@ -6,6 +6,7 @@ class BackupRestoreSection extends StatelessWidget {
   final VoidCallback onBackup;
   final VoidCallback onRestore;
   final VoidCallback onExport;
+  final VoidCallback onReset;
   final DateTime? lastBackupDate;
 
   const BackupRestoreSection({
@@ -13,6 +14,7 @@ class BackupRestoreSection extends StatelessWidget {
     required this.onBackup,
     required this.onRestore,
     required this.onExport,
+    required this.onReset,
     this.lastBackupDate,
   });
 
@@ -102,7 +104,7 @@ class BackupRestoreSection extends StatelessWidget {
           ],
         ),
         content: const Text(
-          '현재 모든 사이클과 거래 데이터를 백업합니다.\n\n백업 파일은 기기 내 저장소에 저장됩니다.',
+          '현재 모든 데이터를 JSON 파일로 백업합니다.\n\n백업 파일이 다운로드됩니다.',
         ),
         actions: [
           TextButton(
@@ -113,12 +115,6 @@ class BackupRestoreSection extends StatelessWidget {
             onPressed: () {
               Navigator.pop(context);
               onBackup();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('백업이 완료되었습니다'),
-                  backgroundColor: AppColors.green500,
-                ),
-              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -191,12 +187,6 @@ class BackupRestoreSection extends StatelessWidget {
             onPressed: () {
               Navigator.pop(context);
               onExport();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('내보내기가 완료되었습니다'),
-                  backgroundColor: AppColors.green500,
-                ),
-              );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.green600,
@@ -232,13 +222,7 @@ class BackupRestoreSection extends StatelessWidget {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              // TODO: 데이터 초기화 로직
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('모든 데이터가 삭제되었습니다'),
-                  backgroundColor: AppColors.red500,
-                ),
-              );
+              onReset();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.red500,
