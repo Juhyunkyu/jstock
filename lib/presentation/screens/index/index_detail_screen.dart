@@ -282,6 +282,8 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                           showPivotLines: _showPivotLines,
                           pivotLevels: _calculatePivotLevels(),
                           indicatorService: _indicatorService,
+                          currentPrice: quote?.currentPrice,
+                          previousClose: quote?.previousClose,
                         ),
                         const SizedBox(height: 10),
                         PivotPointSection(

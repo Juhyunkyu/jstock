@@ -25,6 +25,8 @@ class DetailCandlestickPainter extends CustomPainter {
   final bool isDarkMode;
   final Color textColor;
   final Color cardBgColor;
+  final double? currentPrice;
+  final double? previousClose;
 
   DetailCandlestickPainter({
     required this.data,
@@ -44,13 +46,15 @@ class DetailCandlestickPainter extends CustomPainter {
     required this.isDarkMode,
     required this.textColor,
     required this.cardBgColor,
+    this.currentPrice,
+    this.previousClose,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
 
-    const double topPadding = 10;
+    const double topPadding = 30;
     const double bottomPadding = 25;
     const double rightPadding = 50;
     const double leftPadding = 10;
@@ -61,9 +65,12 @@ class DetailCandlestickPainter extends CustomPainter {
     double minY = double.infinity;
     double maxY = double.negativeInfinity;
 
-    for (final candle in data) {
-      if (candle.low < minY) minY = candle.low;
-      if (candle.high > maxY) maxY = candle.high;
+    int highIdx = 0;
+    int lowIdx = 0;
+    for (int i = 0; i < data.length; i++) {
+      final candle = data[i];
+      if (candle.low < minY) { minY = candle.low; lowIdx = i; }
+      if (candle.high > maxY) { maxY = candle.high; highIdx = i; }
     }
 
     for (final ma in [ma5, ma20, ma60, ma120]) {
@@ -100,6 +107,11 @@ class DetailCandlestickPainter extends CustomPainter {
         if (v < minY) minY = v;
         if (v > maxY) maxY = v;
       }
+    }
+
+    if (currentPrice != null) {
+      if (currentPrice! < minY) minY = currentPrice!;
+      if (currentPrice! > maxY) maxY = currentPrice!;
     }
 
     final range = maxY - minY;
@@ -175,6 +187,8 @@ class DetailCandlestickPainter extends CustomPainter {
     }
 
     _drawYAxisLabels(canvas, size, minY, maxY, topPadding, chartHeight, rightPadding);
+    _drawHighLowMarkers(canvas, size, toX, toY, leftPadding, rightPadding, highIdx, lowIdx);
+    _drawCurrentPriceLabel(canvas, size, toY, topPadding, chartHeight, rightPadding);
     _drawXAxisLabels(canvas, size, leftPadding, chartWidth, topPadding, chartHeight, bottomPadding);
   }
 
@@ -387,6 +401,138 @@ class DetailCandlestickPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(canvas, Offset(x - textPainter.width / 2, topPadding + chartHeight + 6));
     }
+  }
+
+  void _drawHighLowMarkers(Canvas canvas, Size size, double Function(int) toX, double Function(double) toY, double leftPadding, double rightPadding, int highIdx, int lowIdx) {
+    if (data.isEmpty) return;
+
+    final highCandle = data[highIdx];
+    final lowCandle = data[lowIdx];
+
+    // --- Highest marker ---
+    final highX = toX(highIdx);
+    final highY = toY(highCandle.high);
+
+    // ▽ triangle (pointing down toward candle)
+    final highTriPath = Path()
+      ..moveTo(highX - 3, highY - 6)
+      ..lineTo(highX + 3, highY - 6)
+      ..lineTo(highX, highY - 2)
+      ..close();
+    canvas.drawPath(highTriPath, Paint()..color = AppColors.stockUp..style = PaintingStyle.fill);
+
+    // Label: price (±pct%) date
+    final highPrice = _formatMarkerPrice(highCandle.high);
+    String highPct = '';
+    if (currentPrice != null && currentPrice! > 0) {
+      final pct = ((highCandle.high - currentPrice!) / currentPrice!) * 100;
+      highPct = ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)';
+    }
+    final highDate = DateFormat('MM/dd').format(highCandle.date);
+    final highLabel = '$highPrice$highPct $highDate';
+
+    final highSpan = TextSpan(
+      text: highLabel,
+      style: TextStyle(color: AppColors.stockUp, fontSize: 9, fontWeight: FontWeight.w500),
+    );
+    final highPainter = TextPainter(text: highSpan, textDirection: ui.TextDirection.ltr);
+    highPainter.layout();
+
+    final highLabelX = (highX - highPainter.width / 2).clamp(leftPadding, size.width - rightPadding - highPainter.width);
+    final highLabelY = highY - 8 - highPainter.height;
+
+    final highBgRect = Rect.fromLTWH(highLabelX - 2, highLabelY - 1, highPainter.width + 4, highPainter.height + 2);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(highBgRect, const Radius.circular(2)),
+      Paint()..color = cardBgColor.withValues(alpha: 0.85),
+    );
+    highPainter.paint(canvas, Offset(highLabelX, highLabelY));
+
+    // --- Lowest marker ---
+    final lowX = toX(lowIdx);
+    final lowY = toY(lowCandle.low);
+
+    // △ triangle (pointing up toward candle)
+    final lowTriPath = Path()
+      ..moveTo(lowX - 3, lowY + 6)
+      ..lineTo(lowX + 3, lowY + 6)
+      ..lineTo(lowX, lowY + 2)
+      ..close();
+    canvas.drawPath(lowTriPath, Paint()..color = AppColors.stockDown..style = PaintingStyle.fill);
+
+    // Label
+    final lowPrice = _formatMarkerPrice(lowCandle.low);
+    String lowPct = '';
+    if (currentPrice != null && currentPrice! > 0) {
+      final pct = ((lowCandle.low - currentPrice!) / currentPrice!) * 100;
+      lowPct = ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)';
+    }
+    final lowDate = DateFormat('MM/dd').format(lowCandle.date);
+    final lowLabel = '$lowPrice$lowPct $lowDate';
+
+    final lowSpan = TextSpan(
+      text: lowLabel,
+      style: TextStyle(color: AppColors.stockDown, fontSize: 9, fontWeight: FontWeight.w500),
+    );
+    final lowPainter = TextPainter(text: lowSpan, textDirection: ui.TextDirection.ltr);
+    lowPainter.layout();
+
+    final lowLabelX = (lowX - lowPainter.width / 2).clamp(leftPadding, size.width - rightPadding - lowPainter.width);
+    final lowLabelY = lowY + 8;
+
+    final lowBgRect = Rect.fromLTWH(lowLabelX - 2, lowLabelY - 1, lowPainter.width + 4, lowPainter.height + 2);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(lowBgRect, const Radius.circular(2)),
+      Paint()..color = cardBgColor.withValues(alpha: 0.85),
+    );
+    lowPainter.paint(canvas, Offset(lowLabelX, lowLabelY));
+  }
+
+  void _drawCurrentPriceLabel(Canvas canvas, Size size, double Function(double) toY, double topPadding, double chartHeight, double rightPadding) {
+    if (currentPrice == null) return;
+
+    final priceY = toY(currentPrice!);
+    if (priceY < topPadding - 5 || priceY > topPadding + chartHeight + 5) return;
+
+    final isUp = previousClose == null || currentPrice! >= previousClose!;
+    final badgeColor = isUp ? AppColors.stockUp : AppColors.stockDown;
+
+    final priceText = _formatMarkerPrice(currentPrice!);
+    final textSpan = TextSpan(
+      text: priceText,
+      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+    );
+    final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
+    textPainter.layout();
+
+    final badgeWidth = textPainter.width + 8;
+    final badgeHeight = textPainter.height + 4;
+    final badgeX = size.width - rightPadding + 4;
+    final badgeY = priceY - badgeHeight / 2;
+
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(badgeX, badgeY, badgeWidth, badgeHeight),
+        const Radius.circular(3),
+      ),
+      Paint()..color = badgeColor,
+    );
+    textPainter.paint(canvas, Offset(badgeX + 4, badgeY + 2));
+  }
+
+  String _formatMarkerPrice(double price) {
+    String formatted;
+    if (price >= 10000) {
+      formatted = price.toStringAsFixed(0);
+    } else if (price >= 100) {
+      formatted = price.toStringAsFixed(1);
+    } else {
+      formatted = price.toStringAsFixed(2);
+    }
+    return formatted.replaceAllMapped(
+      RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
+      (match) => '${match[1]},',
+    );
   }
 
   String _formatAxisPrice(double price) {

@@ -17,6 +17,8 @@ class DetailChartSection extends ConsumerStatefulWidget {
   final bool showPivotLines;
   final Map<String, double>? pivotLevels;
   final TechnicalIndicatorService indicatorService;
+  final double? currentPrice;
+  final double? previousClose;
 
   const DetailChartSection({
     super.key,
@@ -26,6 +28,8 @@ class DetailChartSection extends ConsumerStatefulWidget {
     required this.showPivotLines,
     this.pivotLevels,
     required this.indicatorService,
+    this.currentPrice,
+    this.previousClose,
   });
 
   @override
@@ -353,9 +357,9 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                           children: [
                             // 메인 캔들스틱 차트 (+ BB, Ichimoku 오버레이)
                             SizedBox(
-                              height: 280,
+                              height: 300,
                               child: CustomPaint(
-                                size: Size(chartWidth, 280),
+                                size: Size(chartWidth, 300),
                                 painter: DetailCandlestickPainter(
                                   data: displayData,
                                   ma5: displayMa5,
@@ -374,6 +378,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                   isDarkMode: Theme.of(context).brightness == Brightness.dark,
                                   textColor: context.appTextSecondary,
                                   cardBgColor: context.appSurface,
+                                  currentPrice: widget.currentPrice,
+                                  previousClose: widget.previousClose,
                                 ),
                               ),
                             ),
