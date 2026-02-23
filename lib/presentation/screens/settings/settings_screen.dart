@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/data/web_file_service.dart';
 import '../../providers/providers.dart';
+import '../../providers/watchlist_providers.dart';
 import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
 import '../../widgets/settings/exchange_rate_dialog.dart';
@@ -255,13 +256,13 @@ class SettingsScreen extends ConsumerWidget {
 
       final service = ref.read(dataManagementServiceProvider);
       await service.restoreFromBackup(json);
+      _refreshAllProviders(ref);
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('데이터가 복원되었습니다. 앱을 다시 시작해주세요.'),
+            content: Text('데이터가 복원되었습니다'),
             backgroundColor: AppColors.green500,
-            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -300,12 +301,13 @@ class SettingsScreen extends ConsumerWidget {
     try {
       final service = ref.read(dataManagementServiceProvider);
       await service.resetAllData();
+      _refreshAllProviders(ref);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('모든 데이터가 삭제되었습니다. 앱을 다시 시작해주세요.'),
+            content: Text('모든 데이터가 삭제되었습니다'),
             backgroundColor: AppColors.red500,
-            duration: Duration(seconds: 3),
           ),
         );
       }
@@ -316,6 +318,15 @@ class SettingsScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  void _refreshAllProviders(WidgetRef ref) {
+    ref.invalidate(settingsProvider);
+    ref.invalidate(cycleListProvider);
+    ref.invalidate(tradeListProvider);
+    ref.invalidate(holdingListProvider);
+    ref.invalidate(watchlistProvider);
+    ref.invalidate(notificationHistoryProvider);
   }
 
   void _showComingSoon(BuildContext context, String message) {
