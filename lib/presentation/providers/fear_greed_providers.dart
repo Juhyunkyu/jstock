@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/alert_direction.dart';
 import '../../data/services/api/fear_greed_service.dart';
 import '../../data/services/cache/cache_manager.dart';
 import 'api_providers.dart';
@@ -176,43 +177,77 @@ class FearGreedAlertResult {
   const FearGreedAlertResult({required this.title, required this.body});
 }
 
-final fearGreedAlertMonitorProvider = Provider<FearGreedAlertResult?>((ref) {
-  final settings = ref.watch(settingsProvider);
-  if (!settings.fearGreedAlertEnabled) return null;
+/// Fear & Greed 알림 조건 체크 서비스
+///
+/// WatchlistAlertChecker 패턴과 동일하게 인스턴스 상태로 쿨다운 관리.
+/// Provider 본문에서 cache.set() 사이드이펙트를 제거하여
+/// 리빌드마다 쿨다운이 리셋되는 버그를 방지.
+class FearGreedAlertChecker {
+  DateTime? _lastTriggeredAt;
+  static const Duration _cooldown = Duration(hours: 1);
 
-  final fgState = ref.watch(fearGreedProvider);
-  if (!fgState.hasData) return null;
+  /// 알림 조건 체크
+  FearGreedAlertResult? checkAlert({
+    required bool enabled,
+    required bool hasData,
+    required int currentValue,
+    required int alertValue,
+    required int direction,
+  }) {
+    if (!enabled || !hasData) return null;
 
-  final currentValue = fgState.value;
-  final alertValue = settings.fearGreedAlertValue;
-  final direction = settings.fearGreedAlertDirection;
+    // 조건 체크
+    final dir = AlertDirection.fromFearGreedInt(direction);
+    final triggered = dir == AlertDirection.below
+        ? currentValue <= alertValue
+        : currentValue >= alertValue;
 
-  // 조건 체크: direction 0 = 이하, 1 = 이상
-  final triggered = direction == 0
-      ? currentValue <= alertValue
-      : currentValue >= alertValue;
+    if (!triggered) return null;
 
-  if (!triggered) return null;
+    // 쿨다운 체크 (1시간)
+    if (_lastTriggeredAt != null &&
+        DateTime.now().difference(_lastTriggeredAt!) < _cooldown) {
+      return null;
+    }
 
-  // 쿨다운 체크 (1시간) — 캐시 키 기반
-  final cooldownKey = 'fg_alert_${alertValue}_$direction';
-  final cache = ref.read(cacheManagerProvider);
-  final lastTriggered = cache.get<DateTime>(cooldownKey);
-  if (lastTriggered != null &&
-      DateTime.now().difference(lastTriggered) < const Duration(hours: 1)) {
-    return null;
+    // 쿨다운 기록
+    _lastTriggeredAt = DateTime.now();
+
+    final dirLabel = dir.label;
+    final zoneName = _getZoneLabel(currentValue);
+    final title = '공포탐욕지수 $alertValue $dirLabel 도달!';
+    final body = '현재 지수: $currentValue ($zoneName)';
+
+    return FearGreedAlertResult(title: title, body: body);
   }
 
-  // 쿨다운 기록
-  cache.set<DateTime>(cooldownKey, DateTime.now(),
-      ttl: const Duration(hours: 1));
+  /// 쿨다운 리셋 (설정 변경 시 호출)
+  void reset() {
+    _lastTriggeredAt = null;
+  }
+}
 
-  final dirLabel = direction == 0 ? '이하' : '이상';
-  final zoneName = _getZoneLabel(currentValue);
-  final title = '공포탐욕지수 $alertValue $dirLabel 도달!';
-  final body = '현재 지수: $currentValue ($zoneName)';
+/// FearGreedAlertChecker 싱글톤 Provider
+final fearGreedAlertCheckerProvider = Provider<FearGreedAlertChecker>((ref) {
+  return FearGreedAlertChecker();
+});
 
-  return FearGreedAlertResult(title: title, body: body);
+/// Fear & Greed 알림 모니터 Provider
+///
+/// MainShell에서 ref.watch()하여 전역 활성화합니다.
+/// checker.checkAlert() 호출만 수행 (사이드이펙트 제거).
+final fearGreedAlertMonitorProvider = Provider<FearGreedAlertResult?>((ref) {
+  final settings = ref.watch(settingsProvider);
+  final fgState = ref.watch(fearGreedProvider);
+  final checker = ref.read(fearGreedAlertCheckerProvider);
+
+  return checker.checkAlert(
+    enabled: settings.fearGreedAlertEnabled,
+    hasData: fgState.hasData,
+    currentValue: fgState.value,
+    alertValue: settings.fearGreedAlertValue,
+    direction: settings.fearGreedAlertDirection,
+  );
 });
 
 /// 한글 존 라벨 (알림 메시지용)

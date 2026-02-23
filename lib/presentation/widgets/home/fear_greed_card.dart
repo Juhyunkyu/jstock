@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/alert_direction.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/settings_providers.dart';
 import 'fear_greed_alert_sheet.dart';
@@ -222,7 +223,7 @@ class FearGreedCard extends ConsumerWidget {
                       SizedBox(width: 6 * fs),
                       Text(
                         '${ref.watch(settingsProvider).fearGreedAlertValue} '
-                        '${ref.watch(settingsProvider).fearGreedAlertDirection == 0 ? "이하" : "이상"} 알림',
+                        '${AlertDirection.fromFearGreedInt(ref.watch(settingsProvider).fearGreedAlertDirection).label} 알림',
                         style: TextStyle(
                           fontSize: 12 * fs,
                           fontWeight: FontWeight.w500,

@@ -1,6 +1,6 @@
 # 트러블슈팅 & 알려진 이슈
 
-> **최종 업데이트**: 2026-02-20
+> **최종 업데이트**: 2026-02-23
 
 ---
 
@@ -58,23 +58,64 @@
 
 ---
 
+### 4. 목표가 알림 반복 발생 (2026-02-23, BUG-2 + FUTURE-1)
+
+**증상**: 가격이 목표가 이상에 머무는 동안 매시간 반복 알림
+
+**원인**: `isTargetAlertTriggered()`가 `previousPrice` 파라미터를 무시하고 단순 조건만 체크
+
+**수정**: 교차 감지 로직으로 교체 — 이전 가격이 목표가 아래(위) → 현재 가격이 목표가 이상(이하)으로 "관통"했을 때만 트리거. `resetAlert()` 시 `_previousPrices`도 제거하여 교차 재감지 가능.
+
+---
+
+### 5. F&G 알림 쿨다운 리빌드마다 리셋 (2026-02-23, BUG-1)
+
+**증상**: 공포탐욕지수 알림이 1시간 쿨다운을 무시하고 반복 발생
+
+**원인**: `fearGreedAlertMonitorProvider` Provider 본문에서 `cache.set()` 사이드이펙트 → Provider 리빌드마다 쿨다운 타임스탬프가 갱신
+
+**수정**: `FearGreedAlertChecker` 클래스 도입 (`WatchlistAlertChecker` 패턴). 인스턴스 상태(`_lastTriggeredAt`)로 쿨다운 관리, Provider 본문에서 사이드이펙트 제거.
+
+---
+
+### 6. 소수점 여러 개 입력 가능 (2026-02-23, BUG-3)
+
+**증상**: 목표가/기준가 입력 필드에 `12.34.56` 같은 잘못된 소수 입력 가능
+
+**원인**: `RegExp(r'[\d.]')`가 문자 단위 필터링만 수행 → 다중 소수점 허용
+
+**수정**: `TextInputFormatter.withFunction`으로 교체, 정규식 `r'^\d*\.?\d{0,2}$'` 사용 (소수점 1개, 소수 2자리까지)
+
+---
+
+### 7. eval() 사용 CSP 비호환 (2026-02-23, FUTURE-3)
+
+**증상**: `pwa_update_service.dart`에서 `@JS('eval')` 사용 → CSP 헤더 추가 시 차단
+
+**수정**: `web/index.html`에 `window._clearCachesAndReload()` 명명 함수 추가, `@JS('_clearCachesAndReload')`로 직접 호출. `eval()` 완전 제거.
+
+---
+
+### 8. 방향 매직넘버 불일치 (2026-02-23, QUALITY-2)
+
+**증상**: target `0=이상, 1=이하` vs F&G `0=이하, 1=이상` — 반대 매핑
+
+**수정**: `AlertDirection` enum 도입 (`lib/core/constants/alert_direction.dart`). `fromTargetInt()`/`fromFearGreedInt()` 변환 메서드로 Hive 데이터 호환성 유지하면서 매직넘버 제거. 6개 파일 통일 적용.
+
+---
+
 ## 알려진 이슈 (미해결)
 
 ### 코드 품질
 
 | # | 심각도 | 이슈 | 설명 | 파일 |
 |---|--------|------|------|------|
-| BUG-1 | Medium | fearGreedAlertMonitorProvider 사이드이펙트 | Provider 본문에서 캐시 쓰기 → 리빌드마다 쿨다운 리셋 | `fear_greed_providers.dart` |
-| BUG-2 | Medium | 목표가 알림 반복 발생 | `previousPrice` 파라미터 무시 → 가격이 목표 넘은 상태에서 매시간 반복 알림 | `watchlist_item.dart` |
-| BUG-3 | Low | 소수점 여러 개 입력 가능 | `12.34.56` 입력 허용 (저장 시 무시됨) | `alert_settings_sheet.dart` |
 | BUG-4 | Low | NotificationRepository init 실패 시 재시도 없음 | IndexedDB 오류 시 영구 비작동 | `notification_repository.dart` |
 
 ### 설계/호환성
 
 | # | 심각도 | 이슈 | 설명 |
 |---|--------|------|------|
-| FUTURE-1 | Medium | 목표가 알림이 한번만 울려야 하는데 반복됨 | BUG-2 해결 필요 — 임계값 "교차" 시에만 알림 |
-| FUTURE-3 | Low | `eval()` 사용 → CSP 헤더 추가 시 호환 불가 | `PWAUpdateService.applyUpdate()`를 index.html JS 함수로 리팩터링 |
 | FUTURE-4 | Medium | iOS Safari (비PWA) 알림 미지원 안내 없음 | PWA 미설치 시 알림 불가인데 사용자에게 설명 없음 |
 
 ### 코드 유지보수
@@ -82,7 +123,6 @@
 | # | 이슈 | 설명 |
 |---|------|------|
 | QUALITY-1 | 알림 레코드 생성 패턴 불일치 | Watchlist: `addFromAlert()`, F&G: 수동 `NotificationRecord` 생성 |
-| QUALITY-2 | 방향 매직넘버 불일치 | target: 0=이상, F&G: 0=이하 (반대!) → enum 도입 권장 |
 | QUALITY-3 | WebNotificationService 에러 삼킴 | 모든 catch 블록이 빈 상태 → `debugPrint` 추가 권장 |
 | QUALITY-4 | 재귀 Future.delayed | PWA 업데이트 체크에 `Timer.periodic` + dispose 취소가 더 적합 |
 
@@ -135,9 +175,8 @@
 
 | 패턴 | 용도 | 예시 |
 |------|------|------|
-| `@JS('functionName')` | index.html에 정의된 JS 함수 호출 | `_jsShowNotification()` |
+| `@JS('functionName')` | index.html에 정의된 JS 함수 호출 | `_jsShowNotification()`, `_jsClearCachesAndReload()` |
 | `@JS('variableName')` | window 전역 변수 읽기 | `_jsPwaUpdateAvailable` |
-| `@JS('eval')` | 임의 JS 코드 실행 (CSP 주의) | `_jsEval(code.toJS)` |
 | `.toDart` / `.toJS` | Dart ↔ JS 타입 변환 | `JSString`, `JSBoolean` |
 
 ---

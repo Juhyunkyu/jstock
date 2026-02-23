@@ -141,6 +141,20 @@
   </script>
 
   <script>
+    // PWA update: clear all SW caches and reload (eval-free, CSP-compatible)
+    window._clearCachesAndReload = function() {
+      caches.keys().then(function(names) {
+        return Promise.all(names.map(function(name) {
+          return caches.delete(name);
+        }));
+      }).then(function() {
+        sessionStorage.setItem('_pwaJustUpdated', 'true');
+        location.reload();
+      });
+    };
+  </script>
+
+  <script>
     // PWA Service Worker update detection
     if ('serviceWorker' in navigator) {
       // 업데이트 버튼으로 리로드한 직후인지 확인

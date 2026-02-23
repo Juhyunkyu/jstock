@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/alert_direction.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
@@ -431,7 +432,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     final diff = currentPrice != null && currentPrice > 0 && target > 0
         ? ((target - currentPrice) / currentPrice * 100)
         : null;
-    final dirLabel = _targetDirection == 1 ? '이하' : '이상';
+    final dirLabel = AlertDirection.fromTargetInt(_targetDirection).label;
     final previewText = target > 0
         ? '\$${target.toStringAsFixed(2)} $dirLabel 도달 시 알림'
         : '';
@@ -485,13 +486,13 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
       child: Row(
         children: [
           _buildTargetDirectionChip(
-            label: '이상 (≥)',
-            value: 0,
+            label: AlertDirection.above.labelWithSymbol,
+            value: AlertDirection.above.toTargetInt,
             color: AppColors.red500,
           ),
           _buildTargetDirectionChip(
-            label: '이하 (≤)',
-            value: 1,
+            label: AlertDirection.below.labelWithSymbol,
+            value: AlertDirection.below.toTargetInt,
             color: AppColors.blue500,
           ),
         ],
@@ -549,7 +550,14 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
       controller: controller,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+        // 소수점 1개, 소수 2자리까지 (12.34.56 같은 다중 소수점 방지)
+        TextInputFormatter.withFunction((oldValue, newValue) {
+          if (newValue.text.isEmpty) return newValue;
+          if (RegExp(r'^\d*\.?\d{0,2}$').hasMatch(newValue.text)) {
+            return newValue;
+          }
+          return oldValue;
+        }),
       ],
       onChanged: (_) => setState(() {}),
       decoration: InputDecoration(

@@ -1,14 +1,13 @@
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart';
-import 'package:web/web.dart' as web;
 
 /// JS interop: window._pwaUpdateAvailable 플래그 읽기
 @JS('_pwaUpdateAvailable')
 external JSBoolean? get _jsPwaUpdateAvailable;
 
-/// JS interop: eval() 함수 직접 호출
-@JS('eval')
-external void _jsEval(JSString code);
+/// JS interop: window._clearCachesAndReload() 호출
+@JS('_clearCachesAndReload')
+external void _jsClearCachesAndReload();
 
 /// PWA 업데이트 감지 서비스
 ///
@@ -31,26 +30,10 @@ class PWAUpdateService {
 
   /// 업데이트 적용 (SW 캐시 삭제 → 페이지 새로고침)
   ///
-  /// 1. JavaScript로 모든 Service Worker 캐시 삭제
-  /// 2. sessionStorage 플래그 설정 (배너 재표시 방지)
-  /// 3. 페이지 새로고침 → 서버에서 최신 코드 로드
+  /// web/index.html의 window._clearCachesAndReload() 호출.
+  /// eval() 대신 명명된 함수를 사용하여 CSP 호환.
   static void applyUpdate() {
     if (!kIsWeb) return;
-    // JS로 캐시 삭제 + 리로드 (Dart JS interop 제약 우회)
-    _evalJs('''
-      caches.keys().then(function(names) {
-        return Promise.all(names.map(function(name) {
-          return caches.delete(name);
-        }));
-      }).then(function() {
-        sessionStorage.setItem('_pwaJustUpdated', 'true');
-        location.reload();
-      });
-    ''');
-  }
-
-  /// JavaScript 코드 실행 헬퍼
-  static void _evalJs(String code) {
-    _jsEval(code.toJS);
+    _jsClearCachesAndReload();
   }
 }

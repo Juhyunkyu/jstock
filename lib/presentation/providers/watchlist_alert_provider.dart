@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/constants/alert_direction.dart';
 import '../../data/models/watchlist_item.dart';
 import '../../data/services/api/finnhub_service.dart';
 import 'api_providers.dart';
@@ -53,7 +54,7 @@ class WatchlistAlertChecker {
           final previousPrice = _previousPrices[item.ticker];
           if (item.isTargetAlertTriggered(currentPrice, previousPrice)) {
             _triggeredAt[key] = DateTime.now();
-            final dirLabel = (item.alertTargetDirection ?? 0) == 1 ? '이하' : '이상';
+            final dirLabel = AlertDirection.fromTargetInt(item.alertTargetDirection).label;
             alerts.add(AlertNotification(
               ticker: item.ticker,
               title: '${item.ticker} 목표가 $dirLabel 도달!',
@@ -115,6 +116,10 @@ class WatchlistAlertChecker {
   /// 특정 알림의 쿨다운 리셋 (알림 재설정 시 호출)
   void resetAlert(String ticker, String type) {
     _triggeredAt.remove('${ticker}_$type');
+    // 목표가 알림 리셋 시 이전 가격도 제거 → 교차 재감지 가능
+    if (type == 'target') {
+      _previousPrices.remove(ticker);
+    }
   }
 
   /// 특정 종목의 모든 알림 쿨다운 리셋

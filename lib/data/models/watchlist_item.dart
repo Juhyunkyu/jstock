@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import '../../core/constants/alert_direction.dart';
 
 part 'watchlist_item.g.dart';
 
@@ -101,25 +102,31 @@ class WatchlistItem extends HiveObject {
       parts.add('$_directionSymbol${alertPercent!.toStringAsFixed(1)}%');
     }
     if (hasTargetAlert) {
-      final dir = alertTargetDirection == 1 ? '이하' : '이상';
+      final dir = AlertDirection.fromTargetInt(alertTargetDirection).label;
       parts.add('\$${alertPrice!.toStringAsFixed(2)} $dir');
     }
     return parts.join('  ·  ');
   }
 
-  /// 목표가 알림 조건 충족 여부
+  /// 목표가 알림 조건 충족 여부 (교차 감지)
   ///
   /// [currentPrice] 현재 가격
+  /// [previousPrice] 이전 체크 시 가격 (null이면 첫 체크)
   /// alertTargetDirection: 0=이상(above), 1=이하(below)
+  ///
+  /// 단순 조건 충족이 아닌, 가격이 목표가를 "관통"했을 때만 트리거.
+  /// → 목표 위에 머무는 동안 반복 알림 방지.
   bool isTargetAlertTriggered(double currentPrice, double? previousPrice) {
     if (!hasTargetAlert) return false;
     final direction = alertTargetDirection ?? 0;
     if (direction == 1) {
-      // 이하: 현재가가 목표가 이하
-      return currentPrice <= alertPrice!;
+      // 이하: 이전에 목표가 위 → 현재 목표가 이하로 교차
+      if (previousPrice == null) return currentPrice <= alertPrice!;
+      return previousPrice > alertPrice! && currentPrice <= alertPrice!;
     } else {
-      // 이상: 현재가가 목표가 이상
-      return currentPrice >= alertPrice!;
+      // 이상: 이전에 목표가 아래 → 현재 목표가 이상으로 교차
+      if (previousPrice == null) return currentPrice >= alertPrice!;
+      return previousPrice < alertPrice! && currentPrice >= alertPrice!;
     }
   }
 

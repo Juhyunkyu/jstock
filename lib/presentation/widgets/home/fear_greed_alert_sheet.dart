@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/alert_direction.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/notification/web_notification_service.dart';
+import '../../providers/fear_greed_providers.dart';
 import '../../providers/settings_providers.dart';
 
 /// Zone color constants for Fear & Greed Index
@@ -33,7 +35,7 @@ Color _getZoneColor(int value) {
 /// Get zone name from an alert threshold value and direction
 String _getAlertZoneDescription(int value, int direction) {
   final zoneName = _getZoneName(value);
-  final directionText = direction == 0 ? '이하' : '이상';
+  final directionText = AlertDirection.fromFearGreedInt(direction).label;
   return '지수 $value $directionText($zoneName 구간) 진입 시 알림을 받습니다';
 }
 
@@ -96,6 +98,8 @@ class _FearGreedAlertSheetState extends ConsumerState<FearGreedAlertSheet> {
           value: _alertValue,
           direction: _direction,
         );
+    // 설정 변경 시 쿨다운 리셋 → 새 조건으로 즉시 재감지
+    ref.read(fearGreedAlertCheckerProvider).reset();
     // 사용자 인터랙션(버튼 탭) 컨텍스트에서 알림 권한 요청
     // → 모바일 브라우저에서도 권한 팝업이 표시됨
     await WebNotificationService.requestPermission();
@@ -316,9 +320,15 @@ class _FearGreedAlertSheetState extends ConsumerState<FearGreedAlertSheet> {
 
         // Direction selector
         SegmentedButton<int>(
-          segments: const [
-            ButtonSegment<int>(value: 0, label: Text('이하')),
-            ButtonSegment<int>(value: 1, label: Text('이상')),
+          segments: [
+            ButtonSegment<int>(
+              value: AlertDirection.below.toFearGreedInt,
+              label: Text(AlertDirection.below.label),
+            ),
+            ButtonSegment<int>(
+              value: AlertDirection.above.toFearGreedInt,
+              label: Text(AlertDirection.above.label),
+            ),
           ],
           selected: {_direction},
           onSelectionChanged: (selected) {
