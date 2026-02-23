@@ -8,7 +8,10 @@ class SettingsNotifier extends StateNotifier<Settings> {
   final Ref _ref;
 
   SettingsNotifier(this._ref) : super(Settings.defaults()) {
-    _loadSettings();
+    // Repository 초기화 완료 시 설정 로드 (이미 완료된 경우도 포함)
+    _ref.listen(repositoryContainerProvider, (prev, next) {
+      next.whenData((_) => _loadSettings());
+    }, fireImmediately: true);
   }
 
   void _loadSettings() {
