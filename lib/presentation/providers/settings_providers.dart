@@ -93,6 +93,14 @@ class SettingsNotifier extends StateNotifier<Settings> {
     state = repo.settings;
   }
 
+  /// 차트 보조지표 설정 업데이트
+  Future<void> updateChartIndicators(Set<String> indicators) async {
+    final repo = _ref.read(settingsRepositoryProvider);
+    final value = indicators.join(',');
+    await repo.save(state.copyWith(chartIndicators: value));
+    state = repo.settings;
+  }
+
   /// 다크 모드 토글
   Future<void> toggleDarkMode() async {
     final repo = _ref.read(settingsRepositoryProvider);

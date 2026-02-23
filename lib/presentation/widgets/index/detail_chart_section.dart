@@ -1,14 +1,16 @@
 import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
+import '../../providers/settings_providers.dart';
 import 'detail_candlestick_painter.dart';
 import 'sub_chart_painters.dart';
 
 /// 상세 차트 섹션 (줌/스크롤, 지표 토글, 기간 선택 포함)
-class DetailChartSection extends StatefulWidget {
+class DetailChartSection extends ConsumerStatefulWidget {
   final List<OHLCData> chartData;
   final String selectedPeriod;
   final ValueChanged<String> onPeriodChanged;
@@ -27,10 +29,10 @@ class DetailChartSection extends StatefulWidget {
   });
 
   @override
-  State<DetailChartSection> createState() => _DetailChartSectionState();
+  ConsumerState<DetailChartSection> createState() => _DetailChartSectionState();
 }
 
-class _DetailChartSectionState extends State<DetailChartSection> {
+class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   // 줌/스크롤 상태 (모든 차트 동기화용)
   int _visibleCount = 80;
   int _scrollOffset = 0;
@@ -39,11 +41,14 @@ class _DetailChartSectionState extends State<DetailChartSection> {
   static const int _maxVisible = 200;
 
   // 보조 지표 토글 상태
-  Set<String> _activeIndicators = {'VOL'};
+  late Set<String> _activeIndicators;
 
   @override
   void initState() {
     super.initState();
+    // 저장된 보조지표 설정 로드
+    final saved = ref.read(settingsProvider).chartIndicators;
+    _activeIndicators = saved.isEmpty ? {} : saved.split(',').toSet();
     // 최신 데이터가 보이도록 스크롤 위치 설정
     if (widget.chartData.isNotEmpty) {
       _scrollOffset = (widget.chartData.length - _visibleCount).clamp(0, widget.chartData.length);
@@ -552,6 +557,8 @@ class _DetailChartSectionState extends State<DetailChartSection> {
                     _activeIndicators.add(key);
                   }
                 });
+                // Hive에 저장 (비동기, UI 블록 없음)
+                ref.read(settingsProvider.notifier).updateChartIndicators(_activeIndicators);
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

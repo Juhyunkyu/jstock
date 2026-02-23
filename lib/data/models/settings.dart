@@ -91,6 +91,14 @@ class Settings extends HiveObject {
   @HiveField(15, defaultValue: 0)
   int fearGreedAlertDirection;
 
+  // ═══════════════════════════════════════════════════════════════
+  // 차트 설정
+  // ═══════════════════════════════════════════════════════════════
+
+  /// 활성화된 차트 보조지표 (쉼표 구분, 예: "VOL,RSI,MACD")
+  @HiveField(16, defaultValue: 'VOL')
+  String chartIndicators;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -108,6 +116,7 @@ class Settings extends HiveObject {
     this.fearGreedAlertEnabled = false,
     this.fearGreedAlertValue = 25,
     this.fearGreedAlertDirection = 0,
+    this.chartIndicators = 'VOL',
   });
 
   /// 기본 설정 생성
@@ -131,6 +140,7 @@ class Settings extends HiveObject {
     bool? fearGreedAlertEnabled,
     int? fearGreedAlertValue,
     int? fearGreedAlertDirection,
+    String? chartIndicators,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -149,6 +159,7 @@ class Settings extends HiveObject {
       fearGreedAlertEnabled: fearGreedAlertEnabled ?? this.fearGreedAlertEnabled,
       fearGreedAlertValue: fearGreedAlertValue ?? this.fearGreedAlertValue,
       fearGreedAlertDirection: fearGreedAlertDirection ?? this.fearGreedAlertDirection,
+      chartIndicators: chartIndicators ?? this.chartIndicators,
     );
   }
 
@@ -169,6 +180,7 @@ class Settings extends HiveObject {
         'fearGreedAlertEnabled': fearGreedAlertEnabled,
         'fearGreedAlertValue': fearGreedAlertValue,
         'fearGreedAlertDirection': fearGreedAlertDirection,
+        'chartIndicators': chartIndicators,
       };
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
@@ -188,6 +200,7 @@ class Settings extends HiveObject {
         fearGreedAlertEnabled: json['fearGreedAlertEnabled'] as bool? ?? false,
         fearGreedAlertValue: json['fearGreedAlertValue'] as int? ?? 25,
         fearGreedAlertDirection: json['fearGreedAlertDirection'] as int? ?? 0,
+        chartIndicators: json['chartIndicators'] as String? ?? 'VOL',
       );
 
   @override
