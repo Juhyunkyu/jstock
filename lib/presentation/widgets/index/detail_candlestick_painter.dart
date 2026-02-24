@@ -64,6 +64,7 @@ class DetailCandlestickPainter extends CustomPainter {
     final chartWidth = size.width - leftPadding - rightPadding;
     final chartHeight = size.height - topPadding - bottomPadding;
 
+    // Y축 범위: 캔들 고가/저가 기준 (보조지표는 범위 밖이면 클리핑)
     double minY = double.infinity;
     double maxY = double.negativeInfinity;
 
@@ -75,49 +76,8 @@ class DetailCandlestickPainter extends CustomPainter {
       if (candle.high > maxY) { maxY = candle.high; highIdx = i; }
     }
 
-    for (final ma in [ma5, ma20, ma60, ma120]) {
-      for (final v in ma) {
-        if (!v.isNaN) {
-          if (v < minY) minY = v;
-          if (v > maxY) maxY = v;
-        }
-      }
-    }
-
-    // BB 범위 포함
-    if (bollingerBands != null) {
-      for (final bb in bollingerBands!) {
-        if (bb.upper != null && bb.upper! > maxY) maxY = bb.upper!;
-        if (bb.lower != null && bb.lower! < minY) minY = bb.lower!;
-      }
-    }
-
-    // 일목균형표 범위 포함
-    if (ichimoku != null) {
-      for (final ich in ichimoku!) {
-        for (final v in [ich.tenkan, ich.kijun, ich.senkouA, ich.senkouB, ich.chikou]) {
-          if (v != null) {
-            if (v > maxY) maxY = v;
-            if (v < minY) minY = v;
-          }
-        }
-      }
-    }
-
-    if (showPivotLines && pivotLevels != null) {
-      for (final v in pivotLevels!.values) {
-        if (v < minY) minY = v;
-        if (v > maxY) maxY = v;
-      }
-    }
-
-    if (currentPrice != null) {
-      if (currentPrice! < minY) minY = currentPrice!;
-      if (currentPrice! > maxY) maxY = currentPrice!;
-    }
-
-    final range = maxY - minY;
-    final padding = range * 0.05;
+    final candleRange = maxY - minY;
+    final padding = candleRange * 0.05;
     minY -= padding;
     maxY += padding;
 
@@ -126,6 +86,10 @@ class DetailCandlestickPainter extends CustomPainter {
 
     double toY(double value) => topPadding + (1 - (value - minY) / (maxY - minY)) * chartHeight;
     double toX(int i) => leftPadding + i * candleWidth + candleWidth / 2;
+
+    // 차트 영역 클리핑 (보조지표가 Y축 범위 밖으로 나가면 잘림)
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(leftPadding, topPadding, chartWidth, chartHeight));
 
     // 일목균형표 구름 (캔들 뒤에 그리기)
     if (ichimoku != null) {
@@ -177,6 +141,8 @@ class DetailCandlestickPainter extends CustomPainter {
     if (showPivotLines && pivotLevels != null) {
       _drawPivotLines(canvas, size, pivotLevels!, chartWidth, chartHeight, minY, maxY, leftPadding, topPadding, rightPadding);
     }
+
+    canvas.restore(); // 클리핑 해제 — 축 라벨, 오버레이, 마커는 클리핑 밖
 
     // BB/Ichimoku summary overlay (캔버스 상단 고정 위치, topPadding이 공간 확보)
     double overlayY = 2;
