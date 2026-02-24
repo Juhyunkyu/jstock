@@ -41,6 +41,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   int _visibleCount = 80;
   int _scrollOffset = 0;
   int _startVisibleCount = 80;
+  double _dragRemainder = 0.0; // 소수점 캔들 이동량 누적
   static const int _minVisible = 20;
   static const int _maxVisible = 200;
 
@@ -81,8 +82,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       if (details.pointerCount == 1) {
         final dx = details.focalPointDelta.dx;
         final candleWidth = chartWidth / _visibleCount;
-        final candleShift = (dx / candleWidth).round();
+        _dragRemainder += dx / candleWidth;
+        final candleShift = _dragRemainder.truncate();
         if (candleShift != 0) {
+          _dragRemainder -= candleShift;
           final maxOff = (totalLen - _visibleCount).clamp(0, totalLen);
           _scrollOffset = (_scrollOffset - candleShift).clamp(0, maxOff);
         }
@@ -349,7 +352,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                   SizedBox(
                     width: chartWidth,
                     child: GestureDetector(
-                      onScaleStart: (_) => _startVisibleCount = _visibleCount,
+                      onScaleStart: (_) { _startVisibleCount = _visibleCount; _dragRemainder = 0.0; },
                       onScaleUpdate: (details) => _handleZoomScroll(details, chartWidth),
                       child: Listener(
                         onPointerSignal: _handlePointerSignal,
