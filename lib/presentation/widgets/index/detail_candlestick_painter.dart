@@ -176,27 +176,25 @@ class DetailCandlestickPainter extends CustomPainter {
       _drawPivotLines(canvas, size, pivotLevels!, chartWidth, chartHeight, minY, maxY, leftPadding, topPadding, rightPadding);
     }
 
-    // 점유 영역 추적 — 최고가 배지 + 오버레이 모두 겹침 방지
-    final occupiedRects = <Rect>[];
-    final highBadgeRect = _calcHighBadgeRect(toX, toY, leftPadding, rightPadding, size.width, highIdx);
-    if (highBadgeRect != null) occupiedRects.add(highBadgeRect);
+    // 오버레이 점유 영역 추적 — 오버레이끼리 겹침 방지 + 최고가 배지가 오버레이 아래로 밀림
+    final overlayRects = <Rect>[];
 
-    // BB/Ichimoku summary overlay (차트 상단, 모든 점유 영역과 충돌 방지)
+    // BB/Ichimoku summary overlay (차트 상단 우선 배치, 서로만 충돌 방지)
     double overlayY = topPadding + 2;
     if (bbSummary != null) {
-      overlayY = _paintOverlayAvoidingRects(canvas, bbSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, bbSignal, occupiedRects);
+      overlayY = _paintOverlayAvoidingRects(canvas, bbSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, bbSignal, overlayRects);
     }
     if (ichSummary != null) {
-      overlayY = _paintOverlayAvoidingRects(canvas, ichSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, ichSignal, occupiedRects);
+      overlayY = _paintOverlayAvoidingRects(canvas, ichSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, ichSignal, overlayRects);
     }
 
     _drawYAxisLabels(canvas, size, minY, maxY, topPadding, chartHeight, rightPadding);
-    _drawHighLowMarkers(canvas, size, toX, toY, leftPadding, rightPadding, highIdx, lowIdx);
+    _drawHighLowMarkers(canvas, size, toX, toY, leftPadding, rightPadding, highIdx, lowIdx, overlayRects);
     _drawCurrentPriceLabel(canvas, size, toY, topPadding, chartHeight, rightPadding);
     _drawXAxisLabels(canvas, size, leftPadding, chartWidth, topPadding, chartHeight, bottomPadding);
   }
 
-  /// Paint overlay summary avoiding all occupied rects (최고가 배지 + 이전 오버레이).
+  /// Paint overlay summary avoiding previous overlays (오버레이끼리만 충돌 방지).
   /// 그려진 오버레이 rect를 occupiedRects에 추가하고, 다음 스택 Y를 반환.
   double _paintOverlayAvoidingRects(Canvas canvas, String text, double x, double y, double maxWidth, IndicatorSignal? signal, List<Rect> occupiedRects) {
     final textSpan = TextSpan(
@@ -428,23 +426,6 @@ class DetailCandlestickPainter extends CustomPainter {
     }
   }
 
-  /// 최고가 배지 rect 미리 계산 (오버레이 충돌 방지용)
-  Rect? _calcHighBadgeRect(double Function(int) toX, double Function(double) toY,
-      double leftPadding, double rightPadding, double sizeWidth, int highIdx) {
-    if (data.isEmpty) return null;
-    final c = data[highIdx];
-    final x = toX(highIdx);
-    final y = toY(c.high);
-    final label = _buildMarkerLabel(c.high, c.date);
-    final tp = TextPainter(
-      text: TextSpan(text: label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600)),
-      textDirection: ui.TextDirection.ltr,
-    )..layout();
-    final lx = (x - tp.width / 2).clamp(leftPadding, sizeWidth - rightPadding - tp.width);
-    final ly = y - 8 - tp.height;
-    return Rect.fromLTWH(lx - 3, ly - 2, tp.width + 6, tp.height + 4);
-  }
-
   /// 마커 라벨 텍스트 생성 (가격 + %변동 + 날짜)
   String _buildMarkerLabel(double price, DateTime date) {
     final p = _formatMarkerPrice(price);
@@ -456,17 +437,17 @@ class DetailCandlestickPainter extends CustomPainter {
     return '$p$pct ${DateFormat('MM/dd').format(date)}';
   }
 
-  void _drawHighLowMarkers(Canvas canvas, Size size, double Function(int) toX, double Function(double) toY, double leftPadding, double rightPadding, int highIdx, int lowIdx) {
+  void _drawHighLowMarkers(Canvas canvas, Size size, double Function(int) toX, double Function(double) toY, double leftPadding, double rightPadding, int highIdx, int lowIdx, List<Rect> overlayRects) {
     if (data.isEmpty) return;
 
     final highCandle = data[highIdx];
     final lowCandle = data[lowIdx];
 
-    // --- 최고가 마커 (항상 캔들에 붙어서 표시) ---
+    // --- 최고가 마커 ---
     final highX = toX(highIdx);
     final highY = toY(highCandle.high);
 
-    // ▽ triangle
+    // ▽ triangle (항상 캔들 위치에 고정)
     final highTriPath = Path()
       ..moveTo(highX - 3, highY - 6)
       ..lineTo(highX + 3, highY - 6)
@@ -483,9 +464,17 @@ class DetailCandlestickPainter extends CustomPainter {
     highPainter.layout();
 
     final highLabelX = (highX - highPainter.width / 2).clamp(leftPadding, size.width - rightPadding - highPainter.width);
-    final highLabelY = highY - 8 - highPainter.height;
+    var highLabelY = highY - 8 - highPainter.height;
 
-    final highBgRect = Rect.fromLTWH(highLabelX - 3, highLabelY - 2, highPainter.width + 6, highPainter.height + 4);
+    // 오버레이와 충돌 시 오버레이 아래로 밀기
+    var highBgRect = Rect.fromLTWH(highLabelX - 3, highLabelY - 2, highPainter.width + 6, highPainter.height + 4);
+    for (final overlayRect in overlayRects) {
+      if (highBgRect.overlaps(overlayRect)) {
+        highLabelY = overlayRect.bottom + 2;
+        highBgRect = Rect.fromLTWH(highLabelX - 3, highLabelY - 2, highPainter.width + 6, highPainter.height + 4);
+      }
+    }
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(highBgRect, const Radius.circular(3)),
       Paint()..color = AppColors.stockUp.withAlpha(204),
