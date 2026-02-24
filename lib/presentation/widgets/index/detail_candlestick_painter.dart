@@ -433,7 +433,7 @@ class DetailCandlestickPainter extends CustomPainter {
 
     final highSpan = TextSpan(
       text: highLabel,
-      style: TextStyle(color: AppColors.stockUp, fontSize: 9, fontWeight: FontWeight.w500),
+      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
     );
     final highPainter = TextPainter(text: highSpan, textDirection: ui.TextDirection.ltr);
     highPainter.layout();
@@ -441,10 +441,10 @@ class DetailCandlestickPainter extends CustomPainter {
     final highLabelX = (highX - highPainter.width / 2).clamp(leftPadding, size.width - rightPadding - highPainter.width);
     final highLabelY = highY - 8 - highPainter.height;
 
-    final highBgRect = Rect.fromLTWH(highLabelX - 2, highLabelY - 1, highPainter.width + 4, highPainter.height + 2);
+    final highBgRect = Rect.fromLTWH(highLabelX - 3, highLabelY - 2, highPainter.width + 6, highPainter.height + 4);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(highBgRect, const Radius.circular(2)),
-      Paint()..color = cardBgColor.withValues(alpha: 0.85),
+      RRect.fromRectAndRadius(highBgRect, const Radius.circular(3)),
+      Paint()..color = AppColors.stockUp.withAlpha(204),
     );
     highPainter.paint(canvas, Offset(highLabelX, highLabelY));
 
@@ -472,7 +472,7 @@ class DetailCandlestickPainter extends CustomPainter {
 
     final lowSpan = TextSpan(
       text: lowLabel,
-      style: TextStyle(color: AppColors.stockDown, fontSize: 9, fontWeight: FontWeight.w500),
+      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
     );
     final lowPainter = TextPainter(text: lowSpan, textDirection: ui.TextDirection.ltr);
     lowPainter.layout();
@@ -480,10 +480,10 @@ class DetailCandlestickPainter extends CustomPainter {
     final lowLabelX = (lowX - lowPainter.width / 2).clamp(leftPadding, size.width - rightPadding - lowPainter.width);
     final lowLabelY = lowY + 8;
 
-    final lowBgRect = Rect.fromLTWH(lowLabelX - 2, lowLabelY - 1, lowPainter.width + 4, lowPainter.height + 2);
+    final lowBgRect = Rect.fromLTWH(lowLabelX - 3, lowLabelY - 2, lowPainter.width + 6, lowPainter.height + 4);
     canvas.drawRRect(
-      RRect.fromRectAndRadius(lowBgRect, const Radius.circular(2)),
-      Paint()..color = cardBgColor.withValues(alpha: 0.85),
+      RRect.fromRectAndRadius(lowBgRect, const Radius.circular(3)),
+      Paint()..color = AppColors.stockDown.withAlpha(204),
     );
     lowPainter.paint(canvas, Offset(lowLabelX, lowLabelY));
   }
