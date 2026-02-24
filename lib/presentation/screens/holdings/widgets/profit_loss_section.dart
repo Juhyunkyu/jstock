@@ -1,16 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-
-/// KRW 금액을 천 단위 콤마와 "원" 접미사로 포맷팅
-String formatKrwWithComma(double amount) {
-  final intAmount = amount.round();
-  final absAmount = intAmount.abs();
-  final formatted = absAmount.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  );
-  return intAmount < 0 ? '-$formatted원' : '$formatted원';
-}
+import '../../../../core/utils/krw_formatter.dart';
 
 /// 손익 요약 카드
 class ProfitLossSummaryCard extends StatelessWidget {
@@ -193,18 +183,8 @@ class SimpleProfitRow extends StatelessWidget {
     if (isUsd) {
       return '$sign${value.toStringAsFixed(4)} USD';
     } else {
-      return '$sign${_formatKrwWithComma(value)}원';
+      return '$sign${formatKrwWithComma(value)}원';
     }
-  }
-
-  String _formatKrwWithComma(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted' : formatted;
   }
 }
 
@@ -276,16 +256,6 @@ class CurrencyProfitRow extends StatelessWidget {
   String _formatValue() {
     final totalSign = totalValue >= 0 ? '+' : '';
     final currSign = currencyValue >= 0 ? '+' : '';
-    return '$totalSign${_formatKrwWithComma(totalValue)}($currSign${_formatKrwWithComma(currencyValue)})원';
-  }
-
-  String _formatKrwWithComma(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted' : formatted;
+    return '$totalSign${formatKrwWithComma(totalValue)}($currSign${formatKrwWithComma(currencyValue)})원';
   }
 }

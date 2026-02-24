@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
+import '../../utils/chart_utils.dart';
 
 /// 메인 캔들스틱 + MA + 피봇 + 볼린저밴드 + 일목균형표
 class DetailCandlestickPainter extends CustomPainter {
@@ -391,7 +392,7 @@ class DetailCandlestickPainter extends CustomPainter {
     final yPositions = [topPadding, topPadding + chartHeight / 3, topPadding + chartHeight * 2 / 3, topPadding + chartHeight];
 
     for (int i = 0; i < values.length; i++) {
-      final textSpan = TextSpan(text: _formatAxisPrice(values[i]), style: TextStyle(color: textColor, fontSize: 10));
+      final textSpan = TextSpan(text: formatAxisPrice(values[i]), style: TextStyle(color: textColor, fontSize: 10));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - rightPadding + 8, yPositions[i] - textPainter.height / 2));
@@ -548,11 +549,6 @@ class DetailCandlestickPainter extends CustomPainter {
     );
   }
 
-  String _formatAxisPrice(double price) {
-    if (price >= 10000) return '${(price / 1000).toStringAsFixed(1)}K';
-    if (price >= 1000) return '${(price / 1000).toStringAsFixed(2)}K';
-    return price.toStringAsFixed(0);
-  }
 
   @override
   bool shouldRepaint(covariant DetailCandlestickPainter oldDelegate) => true;

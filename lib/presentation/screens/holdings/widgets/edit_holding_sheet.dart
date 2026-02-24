@@ -4,18 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/holding.dart';
 import '../../../providers/providers.dart';
+import '../../../../core/utils/krw_formatter.dart';
 import '../../../widgets/common/date_picker_field.dart';
-
-/// KRW 금액을 천 단위 콤마로 포맷팅 (내부용)
-String _formatKrwWithComma(double amount) {
-  final intAmount = amount.round();
-  final absAmount = intAmount.abs();
-  final formatted = absAmount.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  );
-  return intAmount < 0 ? '-$formatted' : formatted;
-}
 
 /// 보유 정보 수정 바텀시트
 class EditHoldingSheet extends ConsumerStatefulWidget {
@@ -194,7 +184,7 @@ class EditHoldingSheetState extends ConsumerState<EditHoldingSheet> {
   }
 
   String _formatNumber(double value) {
-    return _formatKrwWithComma(value.toDouble());
+    return formatKrwWithComma(value.toDouble());
   }
 
   void _saveChanges() async {

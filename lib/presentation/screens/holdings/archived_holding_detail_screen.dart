@@ -8,7 +8,7 @@ import '../../../data/models/holding_transaction.dart';
 import '../../providers/holding_providers.dart';
 import '../../providers/providers.dart';
 import 'widgets/holding_info_card.dart';
-import 'widgets/profit_loss_section.dart';
+import '../../../core/utils/krw_formatter.dart';
 import 'widgets/transaction_list.dart';
 
 /// 아카이브된 보유 상세 화면 (읽기 전용)
@@ -272,7 +272,7 @@ class _PerformanceSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${isProfit ? '+' : ''}${formatKrwWithComma(stats.realizedPnl)}',
+            '${isProfit ? '+' : ''}${formatKrw(stats.realizedPnl)}',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w700,
@@ -304,7 +304,7 @@ class _PerformanceSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryItem(
                   label: '총 투자금',
-                  value: formatKrwWithComma(stats.totalBuyKrw),
+                  value: formatKrw(stats.totalBuyKrw),
                 ),
               ),
               Container(
@@ -315,7 +315,7 @@ class _PerformanceSummaryCard extends StatelessWidget {
               Expanded(
                 child: _SummaryItem(
                   label: '총 회수금',
-                  value: formatKrwWithComma(stats.totalSellKrw),
+                  value: formatKrw(stats.totalSellKrw),
                 ),
               ),
             ],

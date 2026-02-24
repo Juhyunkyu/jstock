@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
 import '../../providers/settings_providers.dart';
+import '../../utils/chart_utils.dart';
 import 'detail_candlestick_painter.dart';
 import 'sub_chart_painters.dart';
 
@@ -111,14 +112,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     }
   }
 
-  String _formatVolume(double v) {
-    final absV = v.abs();
-    final sign = v < 0 ? '-' : '';
-    if (absV >= 1e9) return '$sign${(absV / 1e9).toStringAsFixed(1)}B';
-    if (absV >= 1e6) return '$sign${(absV / 1e6).toStringAsFixed(1)}M';
-    if (absV >= 1e3) return '$sign${(absV / 1e3).toStringAsFixed(0)}K';
-    return '$sign${absV.toStringAsFixed(0)}';
-  }
 
   double? _lastNonNull(List<double?> values) {
     for (int i = values.length - 1; i >= 0; i--) {
@@ -134,22 +127,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     return null;
   }
 
-  List<double> _calculateMA(List<OHLCData> data, int period) {
-    if (data.length < period) return [];
-    final result = <double>[];
-    for (int i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-        result.add(double.nan);
-      } else {
-        double sum = 0;
-        for (int j = i - period + 1; j <= i; j++) {
-          sum += data[j].close;
-        }
-        result.add(sum / period);
-      }
-    }
-    return result;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -170,10 +147,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     final displayData = widget.chartData.sublist(offset, end);
 
     // MA 계산
-    final ma5 = _calculateMA(widget.chartData, 5);
-    final ma20 = _calculateMA(widget.chartData, 20);
-    final ma60 = _calculateMA(widget.chartData, 60);
-    final ma120 = _calculateMA(widget.chartData, 120);
+    final ma5 = calculateMA(widget.chartData, 5);
+    final ma20 = calculateMA(widget.chartData, 20);
+    final ma60 = calculateMA(widget.chartData, 60);
+    final ma120 = calculateMA(widget.chartData, 120);
 
     List<double> sliceMA(List<double> ma) {
       if (ma.length <= offset) return [];
@@ -272,7 +249,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     // Volume current value
     String? volCurrentValue;
     if (_activeIndicators.contains('VOL') && displayData.isNotEmpty) {
-      volCurrentValue = _formatVolume(displayData.last.volume);
+      volCurrentValue = formatVolume(displayData.last.volume);
     }
 
     // RSI 현재값 라벨
@@ -311,7 +288,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     // OBV 현재값 라벨
     String? obvLabel;
     if (_activeIndicators.contains('OBV') && displayOBV != null && displayOBV!.isNotEmpty) {
-      obvLabel = 'OBV: ${_formatVolume(displayOBV!.last)}';
+      obvLabel = 'OBV: ${formatVolume(displayOBV!.last)}';
     }
 
     return Container(

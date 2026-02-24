@@ -1,3 +1,4 @@
+import '../../core/utils/krw_formatter.dart';
 import '../../data/models/cycle.dart';
 import 'calculators/calculators.dart';
 
@@ -182,7 +183,7 @@ class SignalDetector {
     if (signal == TradingSignal.weightedBuy || signal == TradingSignal.panicBuy) {
       if (recommendedAmount > cycle.remainingCash) {
         final shortage = recommendedAmount - cycle.remainingCash;
-        message = '⚠️ 현금 부족! ${_formatKrw(shortage)} 추가 필요';
+        message = '⚠️ 현금 부족! ${formatKrw(shortage)} 추가 필요';
         recommendedAmount = cycle.remainingCash;
         estimatedShares = _calculateShares(
           recommendedAmount,
@@ -225,14 +226,4 @@ class SignalDetector {
     return (amountKrw / exchangeRate) / priceUsd;
   }
 
-  /// 원화 포맷 헬퍼 (콤마 구분)
-  static String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/holding.dart';
 import '../../../providers/holding_providers.dart';
-import 'profit_loss_section.dart'; // for formatKrwWithComma
+import '../../../../core/utils/krw_formatter.dart';
 
 /// 보유 정보 카드
 class HoldingInfoCard extends ConsumerStatefulWidget {
@@ -63,7 +63,7 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
           const Divider(height: 16),
           InfoRow(label: '매입가 (손익분기)', value: '\$${holding.averagePrice.toStringAsFixed(2)}'),
           const Divider(height: 16),
-          InfoRow(label: '총 투자금 (원)', value: _formatKrw(holding.totalInvestedAmount)),
+          InfoRow(label: '총 투자금 (원)', value: formatKrw(holding.totalInvestedAmount)),
           const Divider(height: 16),
           // 평가금
           Row(
@@ -105,8 +105,8 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
               ),
               Text(
                 _showCurrencyPL
-                    ? _formatKrw(marketValueAtPurchaseRate)
-                    : _formatKrw(marketValueKrw),
+                    ? formatKrw(marketValueAtPurchaseRate)
+                    : formatKrw(marketValueKrw),
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -136,7 +136,7 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
                         style: TextStyle(fontSize: 12, color: context.appTextSecondary),
                       ),
                       Text(
-                        '${currencyPL >= 0 ? '+' : ''}${_formatKrw(currencyPL)}',
+                        '${currencyPL >= 0 ? '+' : ''}${formatKrw(currencyPL)}',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -215,7 +215,7 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
               Text(
                 widget.cumulativeRealizedPnlKrw == 0
                     ? '0원'
-                    : '${widget.cumulativeRealizedPnlKrw >= 0 ? '+' : ''}${_formatKrw(widget.cumulativeRealizedPnlKrw)}',
+                    : '${widget.cumulativeRealizedPnlKrw >= 0 ? '+' : ''}${formatKrw(widget.cumulativeRealizedPnlKrw)}',
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -276,10 +276,6 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
         ],
       ),
     );
-  }
-
-  String _formatKrw(double amount) {
-    return formatKrwWithComma(amount);
   }
 
   String _formatDate(DateTime date) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../presentation/providers/holding_providers.dart';
 import '../shared/return_badge.dart';
 import '../shared/ticker_logo.dart';
@@ -238,14 +239,7 @@ class HoldingCard extends StatelessWidget {
   }
 
   String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    // 천단위 쉼표 포맷
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return '${intAmount < 0 ? '-' : ''}$formatted\u2009원'; // \u2009 = thin space
+    return '${formatKrwWithComma(amount)}\u2009원';
   }
 }
 

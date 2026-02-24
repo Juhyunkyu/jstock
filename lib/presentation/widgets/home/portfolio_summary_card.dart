@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 
 /// 내 자산 요약 카드 위젯
 ///
@@ -90,7 +91,7 @@ class PortfolioSummaryCard extends StatelessWidget {
 
           // 총 자산
           Text(
-            _formatKrw(totalAsset),
+            formatKrw(totalAsset),
             style: const TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
@@ -118,7 +119,7 @@ class PortfolioSummaryCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${isProfit ? '+' : ''}${_formatKrw(totalProfit)}',
+                      '${isProfit ? '+' : ''}${formatKrw(totalProfit)}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -169,15 +170,6 @@ class PortfolioSummaryCard extends StatelessWidget {
     );
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }
 
 class _InfoItem extends StatelessWidget {

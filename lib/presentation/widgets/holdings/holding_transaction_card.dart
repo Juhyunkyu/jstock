@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/holding_transaction.dart';
 
 /// 보유 종목 거래 내역 카드 위젯
@@ -99,7 +100,7 @@ class HoldingTransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  _formatKrw(transaction.amountKrw),
+                  formatKrw(transaction.amountKrw),
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -127,15 +128,6 @@ class HoldingTransactionCard extends StatelessWidget {
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }
 
 /// 거래 내역 목록 헤더

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 
 /// 포트폴리오 자산 배분 차트 위젯
 ///
@@ -204,7 +205,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                                     ),
                                   ),
                                   Text(
-                                    _formatKrw(widget.alphaCycleValue +
+                                    formatKrw(widget.alphaCycleValue +
                                         widget.holdingValue),
                                     style: TextStyle(
                                       fontSize: isWide ? 13 : 12,
@@ -237,7 +238,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                           context: context,
                           color: alphaColor,
                           label: '알파 사이클',
-                          value: _formatKrw(widget.alphaCycleValue),
+                          value: formatKrw(widget.alphaCycleValue),
                           ratio: widget.alphaCycleRatio,
                           index: 0,
                         ),
@@ -246,7 +247,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                           context: context,
                           color: holdingColor,
                           label: '일반 보유',
-                          value: _formatKrw(widget.holdingValue),
+                          value: formatKrw(widget.holdingValue),
                           ratio: widget.holdingRatio,
                           index: 1,
                         ),
@@ -382,13 +383,4 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
     return sections;
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }

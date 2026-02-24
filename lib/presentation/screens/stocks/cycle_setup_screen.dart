@@ -10,6 +10,7 @@ import '../../providers/alpha_cycle_provider.dart';
 import '../../widgets/stocks/popular_etf_list.dart';
 import '../../widgets/stocks/stock_info_card.dart';
 import '../../widgets/stocks/cycle_setup_widgets.dart';
+import '../../../core/utils/krw_formatter.dart';
 
 /// 사이클 설정 화면
 class CycleSetupScreen extends ConsumerStatefulWidget {

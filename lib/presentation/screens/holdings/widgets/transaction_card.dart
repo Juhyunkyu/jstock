@@ -8,18 +8,8 @@ import '../../../../data/models/holding_transaction.dart';
 import '../../../providers/holding_providers.dart';
 import '../../../providers/providers.dart';
 import '../../../widgets/shared/confirm_dialog.dart';
+import '../../../../core/utils/krw_formatter.dart';
 import 'edit_transaction_sheet.dart'; // EditTransactionSheet to be extracted later
-
-/// KRW 금액을 천 단위 콤마로 포맷팅 (거래 카드용)
-String _formatKrwWithComma(double amount) {
-  final intAmount = amount.round();
-  final absAmount = intAmount.abs();
-  final formatted = absAmount.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  );
-  return intAmount < 0 ? '-$formatted' : formatted;
-}
 
 /// 거래 내역 카드
 class TransactionCard extends ConsumerWidget {
@@ -187,7 +177,7 @@ class TransactionCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  _formatKrwFull(amountKrw),
+                  formatKrw(amountKrw),
                   style: TextStyle(
                     fontSize: 12,
                     color: context.appTextSecondary,
@@ -197,7 +187,7 @@ class TransactionCard extends ConsumerWidget {
                 if (transaction.isSell && transaction.realizedPnlKrw != null) ...[
                   const SizedBox(height: 2),
                   Text(
-                    '${transaction.realizedPnlKrw! >= 0 ? '+' : ''}${_formatKrwWithComma(transaction.realizedPnlKrw!)}원',
+                    '${transaction.realizedPnlKrw! >= 0 ? '+' : ''}${formatKrw(transaction.realizedPnlKrw!)}',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -312,7 +302,7 @@ class TransactionCard extends ConsumerWidget {
             const SizedBox(height: 10),
             _DetailRow(
               label: '거래금액 (원)',
-              value: '${_formatKrwWithComma(amountKrw)}원',
+              value: formatKrw(amountKrw),
             ),
             const SizedBox(height: 10),
             _DetailRow(
@@ -329,7 +319,7 @@ class TransactionCard extends ConsumerWidget {
                     style: TextStyle(fontSize: 14, color: context.appTextSecondary),
                   ),
                   Text(
-                    '${transaction.realizedPnlKrw! >= 0 ? '+' : ''}${_formatKrwWithComma(transaction.realizedPnlKrw!)}원',
+                    '${transaction.realizedPnlKrw! >= 0 ? '+' : ''}${formatKrw(transaction.realizedPnlKrw!)}',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -447,10 +437,6 @@ class TransactionCard extends ConsumerWidget {
         child: EditTransactionSheet(transaction: transaction),
       ),
     );
-  }
-
-  String _formatKrwFull(double amount) {
-    return '${_formatKrwWithComma(amount)}원';
   }
 
   String _getTypeLabel(HoldingTransaction transaction) {

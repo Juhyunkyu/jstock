@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../domain/usecases/signal_detector.dart';
 
 /// 매수 금액 표시 위젯
@@ -205,7 +206,7 @@ class _BuyDisplay extends StatelessWidget {
                 ),
               ),
               Text(
-                _formatKrw(recommendation.recommendedAmount),
+                formatKrw(recommendation.recommendedAmount),
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -257,15 +258,6 @@ class _BuyDisplay extends StatelessWidget {
     );
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }
 
 /// 익절 신호 표시
@@ -341,7 +333,7 @@ class _SellDisplay extends StatelessWidget {
                 ),
               ),
               Text(
-                _formatKrw(recommendation.recommendedAmount),
+                formatKrw(recommendation.recommendedAmount),
                 style: const TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -376,15 +368,6 @@ class _SellDisplay extends StatelessWidget {
     );
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }
 
 class _AmountRow extends StatelessWidget {
@@ -411,7 +394,7 @@ class _AmountRow extends StatelessWidget {
           ),
         ),
         Text(
-          _formatKrw(amount),
+          formatKrw(amount),
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w500,
@@ -422,13 +405,4 @@ class _AmountRow extends StatelessWidget {
     );
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }

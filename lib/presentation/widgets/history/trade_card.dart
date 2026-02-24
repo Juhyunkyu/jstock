@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/trade.dart';
 
 /// 거래 카드 위젯
@@ -159,7 +160,7 @@ class TradeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _formatKrw(trade.amount),
+                      formatKrw(trade.amount),
                       style: TextStyle(
                         fontSize: 11,
                         color: context.appTextHint,
@@ -224,15 +225,6 @@ class TradeCard extends StatelessWidget {
     return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }
 
 /// 거래 카드 컴팩트 버전 (목록용)

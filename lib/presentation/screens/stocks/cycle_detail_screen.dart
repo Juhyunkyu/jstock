@@ -13,6 +13,7 @@ import '../../widgets/stocks/profit_loss_gauge.dart';
 import '../../widgets/stocks/buy_amount_display.dart';
 import '../../widgets/shared/buy_signal_badge.dart';
 import '../../widgets/shared/confirm_dialog.dart';
+import '../../../core/utils/krw_formatter.dart';
 
 /// 사이클 상세 화면
 class CycleDetailScreen extends ConsumerWidget {
@@ -275,13 +276,13 @@ class CycleDetailScreen extends ConsumerWidget {
           const SizedBox(height: 16),
           _InfoRow(label: '평균 단가', value: '\$${cycle.averagePrice.toStringAsFixed(2)}'),
           _InfoRow(label: '보유 수량', value: '${cycle.totalShares.toStringAsFixed(2)}주'),
-          _InfoRow(label: '주식 평가금', value: _formatKrw(stockValue)),
-          _InfoRow(label: '잔여 현금', value: _formatKrw(cycle.remainingCash)),
+          _InfoRow(label: '주식 평가금', value: formatKrw(stockValue)),
+          _InfoRow(label: '잔여 현금', value: formatKrw(cycle.remainingCash)),
           Divider(height: 24, color: context.appDivider),
-          _InfoRow(label: '총 자산', value: _formatKrw(totalAsset), isBold: true),
+          _InfoRow(label: '총 자산', value: formatKrw(totalAsset), isBold: true),
           _InfoRow(
             label: '손익',
-            value: '${profit >= 0 ? '+' : ''}${_formatKrw(profit)}',
+            value: '${profit >= 0 ? '+' : ''}${formatKrw(profit)}',
             valueColor: profit >= 0 ? AppColors.green500 : AppColors.red500,
           ),
         ],
@@ -421,15 +422,6 @@ class CycleDetailScreen extends ConsumerWidget {
     }
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
 }
 
 class _InfoRow extends StatelessWidget {

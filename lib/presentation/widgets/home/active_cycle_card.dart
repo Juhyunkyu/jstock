@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../../../domain/usecases/signal_detector.dart';
 import '../shared/buy_signal_badge.dart';
@@ -160,7 +161,7 @@ class ActiveCycleCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _formatKrw(recommendation.recommendedAmount),
+                      formatKrw(recommendation.recommendedAmount),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -215,16 +216,6 @@ class ActiveCycleCard extends StatelessWidget {
       case TradingSignal.hold:
         return AppColors.gray600;
     }
-  }
-
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
   }
 
   /// 사이클 종료 확인 다이얼로그를 표시합니다.

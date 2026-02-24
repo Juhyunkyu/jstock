@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
+import '../../utils/chart_utils.dart';
 
 /// 거래량 서브차트
 class VolumePainter extends CustomPainter {
@@ -422,7 +423,7 @@ class OBVPainter extends CustomPainter {
     // Y축 라벨
     for (final v in [maxVal, (maxVal + minVal) / 2, minVal]) {
       final y = toY(v);
-      final text = _formatVolume(v);
+      final text = formatVolume(v);
       final textSpan = TextSpan(text: text, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 12));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
@@ -430,14 +431,6 @@ class OBVPainter extends CustomPainter {
     }
   }
 
-  String _formatVolume(double v) {
-    final absV = v.abs();
-    final sign = v < 0 ? '-' : '';
-    if (absV >= 1e9) return '$sign${(absV / 1e9).toStringAsFixed(1)}B';
-    if (absV >= 1e6) return '$sign${(absV / 1e6).toStringAsFixed(1)}M';
-    if (absV >= 1e3) return '$sign${(absV / 1e3).toStringAsFixed(0)}K';
-    return '$sign${absV.toStringAsFixed(0)}';
-  }
 
   @override
   bool shouldRepaint(covariant OBVPainter oldDelegate) => true;

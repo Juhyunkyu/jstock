@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../shared/return_badge.dart';
 
@@ -109,7 +110,7 @@ class CycleStatsCard extends StatelessWidget {
                     _StatItem(
                       icon: Icons.account_balance_wallet_outlined,
                       label: '시드',
-                      value: _formatKrw(cycle.seedAmount),
+                      value: formatKrwWithComma(cycle.seedAmount),
                     ),
                   ],
                 ),
@@ -135,7 +136,7 @@ class CycleStatsCard extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        _formatKrw(cycle.totalAsset(finalPrice)),
+                        formatKrwWithComma(cycle.totalAsset(finalPrice)),
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -190,16 +191,6 @@ class CycleStatsCard extends StatelessWidget {
   double _calculateTotalReturn() {
     final finalAsset = cycle.totalAsset(finalPrice);
     return ((finalAsset - cycle.seedAmount) / cycle.seedAmount) * 100;
-  }
-
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted' : formatted;
   }
 
   String _formatDate(DateTime date) {

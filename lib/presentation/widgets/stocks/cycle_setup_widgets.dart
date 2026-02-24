@@ -181,13 +181,3 @@ class ThousandsSeparatorInputFormatter extends TextInputFormatter {
   }
 }
 
-/// 원화 포맷 유틸리티
-String formatKrw(double amount) {
-  final intAmount = amount.round();
-  final absAmount = intAmount.abs();
-  final formatted = absAmount.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (Match m) => '${m[1]},',
-  );
-  return intAmount < 0 ? '-$formatted원' : '$formatted원';
-}

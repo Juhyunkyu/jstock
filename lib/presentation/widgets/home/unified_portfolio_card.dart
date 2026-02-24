@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../presentation/providers/portfolio_providers.dart';
 
 /// 통합 포트폴리오 카드 위젯
@@ -75,7 +76,7 @@ class UnifiedPortfolioCard extends StatelessWidget {
 
           // 총 자산
           Text(
-            _formatKrw(summary.totalValue),
+            formatKrw(summary.totalValue),
             style: const TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
@@ -103,7 +104,7 @@ class UnifiedPortfolioCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${isProfit ? '+' : ''}${_formatKrw(summary.totalProfit)}',
+                      '${isProfit ? '+' : ''}${formatKrw(summary.totalProfit)}',
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -140,7 +141,7 @@ class UnifiedPortfolioCard extends StatelessWidget {
                   icon: Icons.loop_rounded,
                   label: '알파 사이클',
                   value: '${summary.alphaCycleCount}개',
-                  subValue: '${_formatKrwShort(summary.alphaCycleValue)}원',
+                  subValue: '${formatKrwWithComma(summary.alphaCycleValue)}원',
                 ),
               ),
               Container(
@@ -153,7 +154,7 @@ class UnifiedPortfolioCard extends StatelessWidget {
                   icon: Icons.account_balance_wallet_outlined,
                   label: '일반 보유',
                   value: '${summary.holdingCount}종목',
-                  subValue: '${_formatKrwShort(summary.holdingValue)}원',
+                  subValue: '${formatKrwWithComma(summary.holdingValue)}원',
                 ),
               ),
             ],
@@ -163,25 +164,6 @@ class UnifiedPortfolioCard extends StatelessWidget {
     );
   }
 
-  String _formatKrw(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
-  }
-
-  String _formatKrwShort(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted' : formatted;
-  }
 }
 
 /// 자산 배분 바

@@ -1,6 +1,7 @@
 import 'package:hive/hive.dart';
 import '../../core/constants/formula_constants.dart';
 import '../../core/interfaces/strategy_position.dart';
+import '../../core/utils/krw_formatter.dart';
 
 part 'cycle.g.dart';
 
@@ -305,24 +306,13 @@ class Cycle extends HiveObject implements StrategyPosition {
       case 'takeProfit':
         return '익절 권장: 수익률 ${returnRate(currentPrice).toStringAsFixed(1)}%';
       case 'panicBuy':
-        return '승부수 매수 권장: ${_formatKrwWithComma(panicBuyAmount)}';
+        return '승부수 매수 권장: ${formatKrw(panicBuyAmount)}';
       case 'weightedBuy':
         final amount = weightedBuyAmount(currentPrice);
-        return '가중 매수 권장: ${_formatKrwWithComma(amount)}';
+        return '가중 매수 권장: ${formatKrw(amount)}';
       default:
         return null;
     }
-  }
-
-  /// 원화 포맷팅 (콤마 구분)
-  String _formatKrwWithComma(double amount) {
-    final intAmount = amount.round();
-    final absAmount = intAmount.abs();
-    final formatted = absAmount.toString().replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
-    );
-    return intAmount < 0 ? '-$formatted원' : '$formatted원';
   }
 
   // TradingPosition 인터페이스의 currentValue (stockValue와 동일)

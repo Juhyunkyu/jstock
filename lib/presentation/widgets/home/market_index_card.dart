@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../providers/market_data_providers.dart';
+import '../../utils/chart_utils.dart';
 import '../shared/return_badge.dart';
 
 /// 시장 지수 카드 - 나스닥 100 & S&P 500 나란히 표시
@@ -409,10 +410,10 @@ class _CandlestickChartState extends State<_CandlestickChart> {
     final displayData = data.sublist(startIdx, endIdx);
 
     // 이동평균 계산 (전체 데이터 기준)
-    final ma5 = _calculateMA(data, 5);
-    final ma20 = _calculateMA(data, 20);
-    final ma60 = _calculateMA(data, 60);
-    final ma120 = _calculateMA(data, 120);
+    final ma5 = calculateMA(data, 5);
+    final ma20 = calculateMA(data, 20);
+    final ma60 = calculateMA(data, 60);
+    final ma120 = calculateMA(data, 120);
 
     // 표시 범위에 맞게 자르기
     final displayMa5 = _sliceMA(ma5, startIdx, endIdx);
@@ -490,23 +491,6 @@ class _CandlestickChartState extends State<_CandlestickChart> {
     });
   }
 
-  List<double> _calculateMA(List<OHLCData> data, int period) {
-    if (data.length < period) return [];
-
-    final result = <double>[];
-    for (int i = 0; i < data.length; i++) {
-      if (i < period - 1) {
-        result.add(double.nan);
-      } else {
-        double sum = 0;
-        for (int j = i - period + 1; j <= i; j++) {
-          sum += data[j].close;
-        }
-        result.add(sum / period);
-      }
-    }
-    return result;
-  }
 }
 
 /// 캔들스틱 페인터
@@ -657,7 +641,7 @@ class _CandlestickPainter extends CustomPainter {
 
     for (int i = 0; i < values.length; i++) {
       final textSpan = TextSpan(
-        text: _formatAxisPrice(values[i]),
+        text: formatAxisPrice(values[i]),
         style: textStyle,
       );
       final textPainter = TextPainter(
@@ -717,14 +701,6 @@ class _CandlestickPainter extends CustomPainter {
     }
   }
 
-  String _formatAxisPrice(double price) {
-    if (price >= 10000) {
-      return '${(price / 1000).toStringAsFixed(1)}K';
-    } else if (price >= 1000) {
-      return '${(price / 1000).toStringAsFixed(2)}K';
-    }
-    return price.toStringAsFixed(0);
-  }
 
   @override
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
