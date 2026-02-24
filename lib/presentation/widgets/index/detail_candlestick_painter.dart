@@ -176,14 +176,18 @@ class DetailCandlestickPainter extends CustomPainter {
       _drawPivotLines(canvas, size, pivotLevels!, chartWidth, chartHeight, minY, maxY, leftPadding, topPadding, rightPadding);
     }
 
-    // BB/Ichimoku summary overlay
+    // 점유 영역 추적 — 최고가 배지 + 오버레이 모두 겹침 방지
+    final occupiedRects = <Rect>[];
+    final highBadgeRect = _calcHighBadgeRect(toX, toY, leftPadding, rightPadding, size.width, highIdx);
+    if (highBadgeRect != null) occupiedRects.add(highBadgeRect);
+
+    // BB/Ichimoku summary overlay (차트 상단, 모든 점유 영역과 충돌 방지)
     double overlayY = topPadding + 2;
     if (bbSummary != null) {
-      _paintOverlaySummary(canvas, bbSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, bbSignal);
-      overlayY += 14;
+      overlayY = _paintOverlayAvoidingRects(canvas, bbSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, bbSignal, occupiedRects);
     }
     if (ichSummary != null) {
-      _paintOverlaySummary(canvas, ichSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, ichSignal);
+      overlayY = _paintOverlayAvoidingRects(canvas, ichSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, ichSignal, occupiedRects);
     }
 
     _drawYAxisLabels(canvas, size, minY, maxY, topPadding, chartHeight, rightPadding);
@@ -192,7 +196,9 @@ class DetailCandlestickPainter extends CustomPainter {
     _drawXAxisLabels(canvas, size, leftPadding, chartWidth, topPadding, chartHeight, bottomPadding);
   }
 
-  void _paintOverlaySummary(Canvas canvas, String text, double x, double y, double maxWidth, IndicatorSignal? signal) {
+  /// Paint overlay summary avoiding all occupied rects (최고가 배지 + 이전 오버레이).
+  /// 그려진 오버레이 rect를 occupiedRects에 추가하고, 다음 스택 Y를 반환.
+  double _paintOverlayAvoidingRects(Canvas canvas, String text, double x, double y, double maxWidth, IndicatorSignal? signal, List<Rect> occupiedRects) {
     final textSpan = TextSpan(
       text: text,
       style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
@@ -200,13 +206,32 @@ class DetailCandlestickPainter extends CustomPainter {
     final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
     textPainter.layout(maxWidth: maxWidth);
 
-    // Background
-    final bgRect = Rect.fromLTWH(x - 2, y - 1, textPainter.width + 4, textPainter.height + 2);
+    // 점유 영역과 겹치면 아래로 밀기 (연쇄 충돌 처리)
+    double adjustedY = y;
+    bool collided = true;
+    int maxAttempts = 10;
+    while (collided && maxAttempts-- > 0) {
+      collided = false;
+      final testRect = Rect.fromLTWH(x - 2, adjustedY - 1, textPainter.width + 4, textPainter.height + 2);
+      for (final occupied in occupiedRects) {
+        if (testRect.overlaps(occupied)) {
+          adjustedY = occupied.bottom + 2;
+          collided = true;
+          break;
+        }
+      }
+    }
+
+    final bgRect = Rect.fromLTWH(x - 2, adjustedY - 1, textPainter.width + 4, textPainter.height + 2);
     canvas.drawRRect(
       RRect.fromRectAndRadius(bgRect, const Radius.circular(2)),
       Paint()..color = cardBgColor.withValues(alpha: 0.9),
     );
-    textPainter.paint(canvas, Offset(x, y));
+    textPainter.paint(canvas, Offset(x, adjustedY));
+
+    // 이 오버레이도 점유 영역에 추가
+    occupiedRects.add(bgRect);
+    return adjustedY + 14;
   }
 
   void _drawBollingerBands(Canvas canvas, List<BBResult> bb, double Function(int) toX, double Function(double) toY, int len) {
@@ -403,17 +428,45 @@ class DetailCandlestickPainter extends CustomPainter {
     }
   }
 
+  /// 최고가 배지 rect 미리 계산 (오버레이 충돌 방지용)
+  Rect? _calcHighBadgeRect(double Function(int) toX, double Function(double) toY,
+      double leftPadding, double rightPadding, double sizeWidth, int highIdx) {
+    if (data.isEmpty) return null;
+    final c = data[highIdx];
+    final x = toX(highIdx);
+    final y = toY(c.high);
+    final label = _buildMarkerLabel(c.high, c.date);
+    final tp = TextPainter(
+      text: TextSpan(text: label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600)),
+      textDirection: ui.TextDirection.ltr,
+    )..layout();
+    final lx = (x - tp.width / 2).clamp(leftPadding, sizeWidth - rightPadding - tp.width);
+    final ly = y - 8 - tp.height;
+    return Rect.fromLTWH(lx - 3, ly - 2, tp.width + 6, tp.height + 4);
+  }
+
+  /// 마커 라벨 텍스트 생성 (가격 + %변동 + 날짜)
+  String _buildMarkerLabel(double price, DateTime date) {
+    final p = _formatMarkerPrice(price);
+    String pct = '';
+    if (currentPrice != null && currentPrice! > 0) {
+      final v = ((price - currentPrice!) / currentPrice!) * 100;
+      pct = ' (${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}%)';
+    }
+    return '$p$pct ${DateFormat('MM/dd').format(date)}';
+  }
+
   void _drawHighLowMarkers(Canvas canvas, Size size, double Function(int) toX, double Function(double) toY, double leftPadding, double rightPadding, int highIdx, int lowIdx) {
     if (data.isEmpty) return;
 
     final highCandle = data[highIdx];
     final lowCandle = data[lowIdx];
 
-    // --- Highest marker ---
+    // --- 최고가 마커 (항상 캔들에 붙어서 표시) ---
     final highX = toX(highIdx);
     final highY = toY(highCandle.high);
 
-    // ▽ triangle (pointing down toward candle)
+    // ▽ triangle
     final highTriPath = Path()
       ..moveTo(highX - 3, highY - 6)
       ..lineTo(highX + 3, highY - 6)
@@ -421,16 +474,7 @@ class DetailCandlestickPainter extends CustomPainter {
       ..close();
     canvas.drawPath(highTriPath, Paint()..color = AppColors.stockUp..style = PaintingStyle.fill);
 
-    // Label: price (±pct%) date
-    final highPrice = _formatMarkerPrice(highCandle.high);
-    String highPct = '';
-    if (currentPrice != null && currentPrice! > 0) {
-      final pct = ((highCandle.high - currentPrice!) / currentPrice!) * 100;
-      highPct = ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)';
-    }
-    final highDate = DateFormat('MM/dd').format(highCandle.date);
-    final highLabel = '$highPrice$highPct $highDate';
-
+    final highLabel = _buildMarkerLabel(highCandle.high, highCandle.date);
     final highSpan = TextSpan(
       text: highLabel,
       style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
@@ -448,11 +492,11 @@ class DetailCandlestickPainter extends CustomPainter {
     );
     highPainter.paint(canvas, Offset(highLabelX, highLabelY));
 
-    // --- Lowest marker ---
+    // --- 최저가 마커 ---
     final lowX = toX(lowIdx);
     final lowY = toY(lowCandle.low);
 
-    // △ triangle (pointing up toward candle)
+    // △ triangle
     final lowTriPath = Path()
       ..moveTo(lowX - 3, lowY + 6)
       ..lineTo(lowX + 3, lowY + 6)
@@ -460,16 +504,7 @@ class DetailCandlestickPainter extends CustomPainter {
       ..close();
     canvas.drawPath(lowTriPath, Paint()..color = AppColors.stockDown..style = PaintingStyle.fill);
 
-    // Label
-    final lowPrice = _formatMarkerPrice(lowCandle.low);
-    String lowPct = '';
-    if (currentPrice != null && currentPrice! > 0) {
-      final pct = ((lowCandle.low - currentPrice!) / currentPrice!) * 100;
-      lowPct = ' (${pct >= 0 ? '+' : ''}${pct.toStringAsFixed(1)}%)';
-    }
-    final lowDate = DateFormat('MM/dd').format(lowCandle.date);
-    final lowLabel = '$lowPrice$lowPct $lowDate';
-
+    final lowLabel = _buildMarkerLabel(lowCandle.low, lowCandle.date);
     final lowSpan = TextSpan(
       text: lowLabel,
       style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
