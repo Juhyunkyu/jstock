@@ -64,22 +64,73 @@ class DetailCandlestickPainter extends CustomPainter {
     final chartWidth = size.width - leftPadding - rightPadding;
     final chartHeight = size.height - topPadding - bottomPadding;
 
-    // Y축 범위: 캔들 고가/저가 기준 (보조지표는 범위 밖이면 클리핑)
-    double minY = double.infinity;
-    double maxY = double.negativeInfinity;
+    // Y축 범위: Clamped Extension Hybrid 알고리즘
+    // 캔들 범위를 기본으로 하되, BB/일목 지표 방향으로 제한적 확장
+    double candleMin = double.infinity;
+    double candleMax = double.negativeInfinity;
 
     int highIdx = 0;
     int lowIdx = 0;
     for (int i = 0; i < data.length; i++) {
       final candle = data[i];
-      if (candle.low < minY) { minY = candle.low; lowIdx = i; }
-      if (candle.high > maxY) { maxY = candle.high; highIdx = i; }
+      if (candle.low < candleMin) { candleMin = candle.low; lowIdx = i; }
+      if (candle.high > candleMax) { candleMax = candle.high; highIdx = i; }
     }
 
-    final candleRange = maxY - minY;
-    final padding = candleRange * 0.05;
-    minY -= padding;
-    maxY += padding;
+    final candleRange = candleMax - candleMin;
+
+    // 보조지표 범위 수집 (BB, 일목만 — MA/피봇/현재가 제외)
+    double indicatorMin = double.infinity;
+    double indicatorMax = double.negativeInfinity;
+
+    if (bollingerBands != null) {
+      for (final bb in bollingerBands!) {
+        if (bb.upper != null) {
+          indicatorMin = math.min(indicatorMin, bb.upper!);
+          indicatorMax = math.max(indicatorMax, bb.upper!);
+        }
+        if (bb.lower != null) {
+          indicatorMin = math.min(indicatorMin, bb.lower!);
+          indicatorMax = math.max(indicatorMax, bb.lower!);
+        }
+      }
+    }
+
+    if (ichimoku != null) {
+      for (final ich in ichimoku!) {
+        for (final v in [ich.senkouA, ich.senkouB, ich.tenkan, ich.kijun]) {
+          if (v != null) {
+            indicatorMin = math.min(indicatorMin, v);
+            indicatorMax = math.max(indicatorMax, v);
+          }
+        }
+      }
+    }
+
+    // 반응형 확장 계수: 모바일(30%), 데스크톱(20%)
+    final bool isMobile = size.width < 600;
+    final double extensionFactor = isMobile ? 0.30 : 0.20;
+    final double maxExtension = candleRange * extensionFactor;
+
+    // 지표 방향으로 캡 제한 확장
+    double minY = candleMin;
+    double maxY = candleMax;
+
+    if (indicatorMin < double.infinity) {
+      minY = math.max(indicatorMin, candleMin - maxExtension);
+      minY = math.min(minY, candleMin); // 캔들 범위보다 좁아지지 않도록
+    }
+    if (indicatorMax > double.negativeInfinity) {
+      maxY = math.min(indicatorMax, candleMax + maxExtension);
+      maxY = math.max(maxY, candleMax); // 캔들 범위보다 좁아지지 않도록
+    }
+
+    // 비대칭 패딩: 상단 여유 > 하단 (가격 라벨/마커 공간)
+    final double range = maxY - minY;
+    final double topPad = range * (isMobile ? 0.10 : 0.08);
+    final double bottomPad = range * (isMobile ? 0.08 : 0.05);
+    minY -= bottomPad;
+    maxY += topPad;
 
     final candleWidth = chartWidth / data.length;
     final bodyWidth = candleWidth * 0.7;
