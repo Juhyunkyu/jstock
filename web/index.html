@@ -115,6 +115,7 @@
   <script>
     // Remove splash screen when Flutter app is ready
     window.addEventListener('flutter-first-frame', function() {
+      window._flutterFirstFrameFired = true;
       var splash = document.getElementById('splash');
       if (splash) {
         splash.classList.add('fade-out');
@@ -152,6 +153,53 @@
         location.reload();
       });
     };
+  </script>
+
+  <script>
+    // Pre-Flutter update gate: 스플래시 화면에서 대기 중인 업데이트 자동 적용
+    if ('serviceWorker' in navigator
+        && navigator.serviceWorker.controller
+        && !sessionStorage.getItem('_pwaJustUpdated')) {
+
+      navigator.serviceWorker.getRegistration().then(function(reg) {
+        if (!reg) return;
+
+        // Case 1: 이미 대기 중인 새 버전 → 즉시 적용
+        if (reg.waiting) {
+          _showUpdateSplash();
+          window._clearCachesAndReload();
+          return;
+        }
+
+        // Case 2: 업데이트 체크 → 스플래시 중 설치 완료되면 적용
+        reg.update();
+        reg.addEventListener('updatefound', function onUpdate() {
+          reg.removeEventListener('updatefound', onUpdate);
+          var newWorker = reg.installing;
+          if (!newWorker) return;
+
+          newWorker.addEventListener('statechange', function() {
+            // Flutter가 아직 렌더링 전이면 자동 적용
+            if (newWorker.state === 'installed' && !window._flutterFirstFrameFired) {
+              _showUpdateSplash();
+              window._clearCachesAndReload();
+            }
+          });
+        });
+      });
+    }
+
+    function _showUpdateSplash() {
+      var splash = document.getElementById('splash');
+      if (!splash) return;
+      var existing = document.getElementById('splash-update-msg');
+      if (existing) return;
+      var msg = document.createElement('div');
+      msg.id = 'splash-update-msg';
+      msg.textContent = '업데이트 적용 중...';
+      msg.style.cssText = 'margin-top: 16px; color: #6b7280; font-size: 14px; font-family: inherit;';
+      splash.appendChild(msg);
+    }
   </script>
 
   <script>
