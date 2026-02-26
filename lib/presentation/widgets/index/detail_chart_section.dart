@@ -1,4 +1,3 @@
-import 'dart:ui' as ui;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +6,9 @@ import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
 import '../../providers/settings_providers.dart';
 import '../../utils/chart_utils.dart';
+import 'chart_controls.dart';
 import 'detail_candlestick_painter.dart';
+import 'indicator_help_dialog.dart';
 import 'sub_chart_painters.dart';
 
 /// 상세 차트 섹션 (줌/스크롤, 지표 토글, 기간 선택 포함)
@@ -112,6 +113,17 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     }
   }
 
+  void _toggleIndicator(String key) {
+    setState(() {
+      if (_activeIndicators.contains(key)) {
+        _activeIndicators.remove(key);
+      } else {
+        _activeIndicators.add(key);
+      }
+    });
+    // Hive에 저장 (비동기, UI 블록 없음)
+    ref.read(settingsProvider.notifier).updateChartIndicators(_activeIndicators);
+  }
 
   double? _lastNonNull(List<double?> values) {
     for (int i = values.length - 1; i >= 0; i--) {
@@ -298,19 +310,26 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 지표 선택 칩
-          _buildIndicatorChips(),
+          IndicatorChips(
+            activeIndicators: _activeIndicators,
+            onToggle: _toggleIndicator,
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
+          ),
           const SizedBox(height: 8),
           // 기간 선택 + MA 범례 한 줄
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildPeriodSelector(),
+                ChartPeriodSelector(
+                  selectedPeriod: widget.selectedPeriod,
+                  onPeriodChanged: widget.onPeriodChanged,
+                ),
                 const SizedBox(width: 12),
-                _legendItem('5일', const Color(0xFFFF6B6B)),
-                _legendItem('20일', const Color(0xFFFFD93D)),
-                _legendItem('60일', const Color(0xFF6BCB77)),
-                _legendItem('120일', const Color(0xFF4D96FF)),
+                const LegendItem(label: '5일', color: Color(0xFFFF6B6B)),
+                const LegendItem(label: '20일', color: Color(0xFFFFD93D)),
+                const LegendItem(label: '60일', color: Color(0xFF6BCB77)),
+                const LegendItem(label: '120일', color: Color(0xFF4D96FF)),
               ],
             ),
           ),
@@ -365,7 +384,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                             ),
                             // 거래량 서브차트
                             if (_activeIndicators.contains('VOL')) ...[
-                              _buildSubChartHeader(
+                              SubChartHeader(
                                 label: volCurrentValue != null ? 'VOL: $volCurrentValue' : 'VOL',
                                 labelColor: context.appTextSecondary,
                               ),
@@ -383,7 +402,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                             ],
                             // RSI 서브차트
                             if (_activeIndicators.contains('RSI') && displayRSI != null) ...[
-                              _buildSubChartHeader(
+                              SubChartHeader(
                                 label: rsiLabel ?? 'RSI(14)',
                                 labelColor: Theme.of(context).brightness == Brightness.dark
                                     ? const Color(0xFFCE93D8) : const Color(0xFF7B1FA2),
@@ -403,7 +422,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                             ],
                             // MACD 서브차트
                             if (_activeIndicators.contains('MACD') && displayMACD != null) ...[
-                              _buildSubChartHeader(
+                              SubChartHeader(
                                 label: macdLabel ?? 'MACD(12,26,9)',
                                 labelColor: const Color(0xFF2196F3),
                                 signal: macdSignal,
@@ -422,7 +441,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                             ],
                             // 스토캐스틱 서브차트
                             if (_activeIndicators.contains('STOCH') && displayStoch != null) ...[
-                              _buildSubChartHeader(
+                              SubChartHeader(
                                 label: stochLabel ?? 'STOCH(14,3)',
                                 labelColor: const Color(0xFF2196F3),
                                 signal: stochSignal,
@@ -441,7 +460,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                             ],
                             // OBV 서브차트
                             if (_activeIndicators.contains('OBV') && displayOBV != null) ...[
-                              _buildSubChartHeader(
+                              SubChartHeader(
                                 label: obvLabel ?? 'OBV',
                                 labelColor: const Color(0xFF10B981),
                                 signal: obvSignal,
@@ -471,301 +490,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
             },
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPeriodSelector() {
-    const periods = ['일봉', '주봉', '월봉'];
-    return Container(
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: context.appIconBg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: periods.map((period) {
-          final isSelected = period == widget.selectedPeriod;
-          return GestureDetector(
-            onTap: () => widget.onPeriodChanged(period),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-              decoration: BoxDecoration(
-                color: isSelected ? context.appSurface.withValues(alpha: 0.5) : Colors.transparent,
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: isSelected
-                    ? [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 4, offset: const Offset(0, 1))]
-                    : null,
-              ),
-              child: Text(
-                period,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? context.appTextPrimary : context.appTextHint,
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildIndicatorChips() {
-    const indicators = [
-      {'key': 'VOL', 'label': 'VOL'},
-      {'key': 'BB', 'label': 'BB'},
-      {'key': 'RSI', 'label': 'RSI'},
-      {'key': 'MACD', 'label': 'MACD'},
-      {'key': 'STOCH', 'label': 'STOCH'},
-      {'key': 'ICH', 'label': '일목'},
-      {'key': 'OBV', 'label': 'OBV'},
-    ];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: indicators.map((ind) {
-          final key = ind['key']!;
-          final label = ind['label']!;
-          final isActive = _activeIndicators.contains(key);
-
-          return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (isActive) {
-                    _activeIndicators.remove(key);
-                  } else {
-                    _activeIndicators.add(key);
-                  }
-                });
-                // Hive에 저장 (비동기, UI 블록 없음)
-                ref.read(settingsProvider.notifier).updateChartIndicators(_activeIndicators);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: isActive ? context.appSurface : context.appIconBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isActive ? context.appBorder : context.appDivider,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                        color: isActive ? context.appTextPrimary : context.appTextHint,
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    GestureDetector(
-                      onTap: () => _showIndicatorHelpDialog(key),
-                      child: Icon(Icons.help_outline, size: 14, color: context.appTextHint),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  void _showIndicatorHelpDialog(String key) {
-    String title;
-    String description;
-
-    switch (key) {
-      case 'VOL':
-        title = '거래량 (Volume)';
-        description = '거래량은 일정 기간 동안 거래된 주식의 수량입니다.\n\n'
-            '• 양봉(상승): 빨간색 바\n'
-            '• 음봉(하락): 파란색 바\n'
-            '• 거래량 급증: 큰 관심 또는 추세 전환 신호\n'
-            '• 상승 + 거래량 증가: 강한 상승 추세\n'
-            '• 상승 + 거래량 감소: 상승 피로, 반전 가능';
-        break;
-      case 'RSI':
-        title = 'RSI (14)';
-        description = 'RSI(Relative Strength Index)는 주가의 상승/하락 강도를 0~100으로 나타내는 지표입니다.\n\n'
-            '• 공식: RSI = 100 - (100 / (1 + RS))\n'
-            '  RS = 14일간 평균 상승폭 / 평균 하락폭\n\n'
-            '• 70 이상: 과매수 구간 (매도 검토)\n'
-            '• 30 이하: 과매도 구간 (매수 검토)\n'
-            '• 50 위: 상승 추세, 50 아래: 하락 추세\n\n'
-            '다이버전스:\n'
-            '• 가격은 신고가인데 RSI는 하락 → 하락 반전 신호\n'
-            '• 가격은 신저가인데 RSI는 상승 → 상승 반전 신호';
-        break;
-      case 'MACD':
-        title = 'MACD (12,26,9)';
-        description = 'MACD는 두 이동평균선의 차이로 추세와 모멘텀을 분석하는 지표입니다.\n\n'
-            '• MACD선 (파랑): 12일 EMA - 26일 EMA\n'
-            '• 시그널선 (주황): MACD의 9일 EMA\n'
-            '• 히스토그램: MACD선 - 시그널선\n\n'
-            '매매 신호:\n'
-            '• 골든크로스: MACD선이 시그널선을 상향 돌파 → 매수\n'
-            '• 데드크로스: MACD선이 시그널선을 하향 돌파 → 매도\n'
-            '• 히스토그램 양전환: 상승 모멘텀 강화\n'
-            '• 히스토그램 음전환: 하락 모멘텀 강화';
-        break;
-      case 'BB':
-        title = '볼린저 밴드 (20,2)';
-        description = '볼린저 밴드는 이동평균선 위아래로 표준편차 밴드를 그려 변동성을 분석합니다.\n\n'
-            '• 상한밴드 (빨강): 20일 SMA + 2σ\n'
-            '• 중심밴드 (점선): 20일 SMA\n'
-            '• 하한밴드 (파랑): 20일 SMA - 2σ\n\n'
-            '매매 신호:\n'
-            '• 상한밴드 돌파: 과매수 (매도 검토)\n'
-            '• 하한밴드 돌파: 과매도 (매수 검토)\n'
-            '• 밴드 수축 (스퀴즈): 변동성 감소 → 큰 움직임 예고\n'
-            '• 밴드워크: 밴드를 따라 이동하면 강한 추세';
-        break;
-      case 'STOCH':
-        title = '스토캐스틱 (14,3)';
-        description = '스토캐스틱은 현재가가 일정 기간의 고가-저가 범위 중 어디에 위치하는지 보여줍니다.\n\n'
-            '• %K (파랑): 현재 위치 (빠른 선)\n'
-            '• %D (주황): %K의 3일 이동평균 (느린 선)\n\n'
-            '매매 신호:\n'
-            '• 80 이상: 과매수 구간 (매도 검토)\n'
-            '• 20 이하: 과매도 구간 (매수 검토)\n'
-            '• %K가 %D를 상향 돌파 (골든크로스) → 매수\n'
-            '• %K가 %D를 하향 돌파 (데드크로스) → 매도\n'
-            '• 과매도 구간에서 골든크로스 → 강한 매수 신호';
-        break;
-      case 'ICH':
-        title = '일목균형표';
-        description = '일목균형표는 추세, 지지/저항, 모멘텀을 한눈에 보여주는 일본식 기술 지표입니다.\n\n'
-            '• 전환선 (빨강): 9일 중간값\n'
-            '• 기준선 (파랑): 26일 중간값\n'
-            '• 구름 (선행스팬 A+B): 미래 지지/저항 영역\n'
-            '• 후행스팬 (초록): 현재가를 26일 전에 표시\n\n'
-            '매매 신호:\n'
-            '• 가격이 구름 위: 상승 추세\n'
-            '• 가격이 구름 아래: 하락 추세\n'
-            '• 전환선 > 기준선: 매수 신호\n'
-            '• 구름 두께: 지지/저항 강도 표시';
-        break;
-      case 'OBV':
-        title = 'OBV (On-Balance Volume)';
-        description = 'OBV는 거래량의 누적 흐름으로 매수/매도 압력을 측정합니다.\n\n'
-            '• 계산: 가격 상승일 → OBV + 거래량\n'
-            '        가격 하락일 → OBV - 거래량\n\n'
-            '매매 신호:\n'
-            '• OBV 상승 + 가격 상승: 상승 추세 확인\n'
-            '• OBV 하락 + 가격 하락: 하락 추세 확인\n'
-            '• OBV 상승 + 가격 하락 (상승 다이버전스): 반등 신호\n'
-            '• OBV 하락 + 가격 상승 (하락 다이버전스): 하락 전환 신호';
-        break;
-      default:
-        return;
-    }
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.appSurface,
-        title: Text(
-          title,
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.appTextPrimary),
-        ),
-        content: SingleChildScrollView(
-          child: Text(
-            description,
-            style: TextStyle(fontSize: 13, color: context.appTextSecondary, height: 1.6),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _legendItem(String label, Color color) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 12, height: 2, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
-        ],
-      ),
-    );
-  }
-
-  /// 서브차트 헤더 (라벨 + 신호배지)
-  Widget _buildSubChartHeader({
-    required String label,
-    required Color labelColor,
-    IndicatorSignal? signal,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 2),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(color: labelColor, fontSize: 13, fontWeight: FontWeight.w700),
-          ),
-          const Spacer(),
-          if (signal != null) _buildSignalBadge(signal),
-        ],
-      ),
-    );
-  }
-
-  /// 신호 배지 위젯
-  Widget _buildSignalBadge(IndicatorSignal signal) {
-    Color bgColor;
-    Color fgColor;
-    switch (signal.type) {
-      case SignalType.strongBuy:
-        bgColor = AppColors.stockUp.withAlpha(40);
-        fgColor = AppColors.stockUp;
-        break;
-      case SignalType.buy:
-        bgColor = AppColors.stockUp.withAlpha(25);
-        fgColor = AppColors.stockUp;
-        break;
-      case SignalType.neutral:
-        bgColor = context.appIconBg;
-        fgColor = context.appTextHint;
-        break;
-      case SignalType.sell:
-        bgColor = AppColors.stockDown.withAlpha(25);
-        fgColor = AppColors.stockDown;
-        break;
-      case SignalType.strongSell:
-        bgColor = AppColors.stockDown.withAlpha(40);
-        fgColor = AppColors.stockDown;
-        break;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        signal.label,
-        style: TextStyle(color: fgColor, fontSize: 12, fontWeight: FontWeight.w700),
       ),
     );
   }
