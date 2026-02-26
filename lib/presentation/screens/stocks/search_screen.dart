@@ -8,8 +8,9 @@ import '../../providers/api_providers.dart';
 import '../../providers/cycle_providers.dart';
 import '../../providers/stock_providers.dart';
 import '../../providers/watchlist_providers.dart';
-import '../../widgets/shared/return_badge.dart';
 import '../../widgets/stocks/popular_etf_list.dart';
+import '../../widgets/stocks/search_result_tile.dart';
+import '../../widgets/stocks/watchlist_suggestion_tile.dart';
 
 /// 종목 검색 화면
 class SearchScreen extends ConsumerStatefulWidget {
@@ -192,7 +193,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 // stockQuoteProvider에서 실시간 시세 조회
                 final quote = stockQuoteState.quotes[item.ticker];
 
-                return _WatchlistSuggestionTile(
+                return WatchlistSuggestionTile(
                   ticker: item.ticker,
                   name: item.name,
                   quote: quote,
@@ -275,7 +276,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         final result = results[index];
         final isDisabled = activeTickers.contains(result.symbol);
 
-        return _SearchResultTile(
+        return SearchResultTile(
           result: result,
           isDisabled: isDisabled,
           quote: _searchQuotes[result.symbol],
@@ -304,284 +305,5 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ? '/holdings/setup/${result.symbol}'
         : '/stocks/setup/${result.symbol}';
     context.push(route, extra: etf);
-  }
-}
-
-/// 검색 결과 타일
-class _SearchResultTile extends StatelessWidget {
-  final SearchResult result;
-  final bool isDisabled;
-  final StockQuote? quote;
-  final VoidCallback? onTap;
-
-  const _SearchResultTile({
-    required this.result,
-    required this.isDisabled,
-    this.quote,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      enabled: !isDisabled,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: isDisabled
-              ? AppColors.gray100
-              : _getTypeColor(result.type).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            result.symbol.substring(0, result.symbol.length > 2 ? 2 : result.symbol.length),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: isDisabled ? context.appTextHint : _getTypeColor(result.type),
-            ),
-          ),
-        ),
-      ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      result.symbol,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isDisabled ? context.appTextHint : context.appTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: AppColors.gray100,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: Text(
-                        result.type,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                          color: context.appTextHint,
-                        ),
-                      ),
-                    ),
-                    if (isDisabled) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.gray200,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          '추가됨',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
-                            color: context.appTextHint,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  result.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDisabled ? context.appTextHint : context.appTextSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      trailing: isDisabled
-          ? null
-          : quote != null
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '\$${quote!.currentPrice.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextPrimary,
-                      ),
-                    ),
-                    ReturnBadge(
-                      value: quote!.changePercent,
-                      size: ReturnBadgeSize.small,
-                      colorScheme: ReturnBadgeColorScheme.redBlue,
-                      decimals: 2,
-                      showIcon: false,
-                    ),
-                  ],
-                )
-              : const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-    );
-  }
-
-  Color _getTypeColor(String type) {
-    switch (type) {
-      case 'ETF':
-        return AppColors.blue500;
-      case 'INDEX':
-        return AppColors.amber500;
-      default:
-        return AppColors.green500;
-    }
-  }
-}
-
-/// 관심종목 추천 타일
-class _WatchlistSuggestionTile extends StatelessWidget {
-  final String ticker;
-  final String name;
-  final StockQuote? quote;
-  final bool isDisabled;
-  final VoidCallback? onTap;
-
-  const _WatchlistSuggestionTile({
-    required this.ticker,
-    required this.name,
-    required this.quote,
-    required this.isDisabled,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final changePercent = quote?.changePercent ?? 0;
-
-    return ListTile(
-      onTap: onTap,
-      enabled: !isDisabled,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: isDisabled
-              ? AppColors.gray100
-              : AppColors.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Center(
-          child: Text(
-            ticker.substring(0, ticker.length > 2 ? 2 : ticker.length),
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: isDisabled ? context.appTextHint : AppColors.primary,
-            ),
-          ),
-        ),
-      ),
-      title: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      ticker,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: isDisabled ? context.appTextHint : context.appTextPrimary,
-                      ),
-                    ),
-                    if (isDisabled) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.gray200,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: Text(
-                          '추가됨',
-                          style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w500,
-                            color: context.appTextHint,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDisabled ? context.appTextHint : context.appTextSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (quote != null && !isDisabled) ...[
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '\$${quote!.currentPrice.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: context.appTextPrimary,
-                  ),
-                ),
-                ReturnBadge(
-                  value: changePercent,
-                  size: ReturnBadgeSize.small,
-                  colorScheme: ReturnBadgeColorScheme.redBlue,
-                  decimals: 2,
-                  showIcon: false,
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-      trailing: isDisabled
-          ? null
-          : Icon(
-              Icons.arrow_forward_ios,
-              size: 14,
-              color: context.appTextHint,
-            ),
-    );
   }
 }
