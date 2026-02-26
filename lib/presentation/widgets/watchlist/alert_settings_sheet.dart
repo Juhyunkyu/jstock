@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/alert_direction.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/watchlist_providers.dart';
+import 'alert_form_widgets.dart';
 
 /// 알림 설정 Bottom Sheet
 class AlertSettingsSheet extends ConsumerStatefulWidget {
@@ -150,7 +150,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
             child: Row(
               children: [
                 Expanded(
-                  child: _buildToggle(
+                  child: AlertTabToggle(
                     label: '변동률 알림',
                     isSelected: _selectedTab == 0,
                     hasAlert: item.hasPercentAlert,
@@ -159,7 +159,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: _buildToggle(
+                  child: AlertTabToggle(
                     label: '목표가 알림',
                     isSelected: _selectedTab == 1,
                     hasAlert: item.hasTargetAlert,
@@ -239,46 +239,6 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     );
   }
 
-  Widget _buildToggle({
-    required String label,
-    required bool isSelected,
-    required bool hasAlert,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : context.appIconBg,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (hasAlert) ...[
-              Icon(
-                Icons.check_circle,
-                size: 14,
-                color: isSelected ? Colors.white : AppColors.amber600,
-              ),
-              const SizedBox(width: 4),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : context.appTextSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildPercentForm(double? currentPrice) {
     final basePrice = double.tryParse(_basePriceController.text) ?? 0;
     final percent = double.tryParse(_percentController.text) ?? 0;
@@ -303,18 +263,40 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('알림 방향'),
+        const AlertFormLabel('알림 방향'),
         const SizedBox(height: 6),
-        _buildDirectionSelector(),
+        AlertDirectionSelector(
+          children: [
+            AlertDirectionChip(
+              label: '▼ 하락',
+              isActive: _alertDirection == 2,
+              activeColor: AppColors.blue500,
+              onTap: () => setState(() => _alertDirection = 2),
+            ),
+            AlertDirectionChip(
+              label: '± 양방향',
+              isActive: _alertDirection == 0,
+              activeColor: AppColors.primary,
+              onTap: () => setState(() => _alertDirection = 0),
+            ),
+            AlertDirectionChip(
+              label: '▲ 상승',
+              isActive: _alertDirection == 1,
+              activeColor: AppColors.red500,
+              onTap: () => setState(() => _alertDirection = 1),
+            ),
+          ],
+        ),
         const SizedBox(height: 16),
-        _buildLabel('기준 가격'),
+        const AlertFormLabel('기준 가격'),
         const SizedBox(height: 6),
         Row(
           children: [
             Expanded(
-              child: _buildTextField(
+              child: AlertFormTextField(
                 controller: _basePriceController,
                 hint: '기준 가격 입력',
+                onChanged: () => setState(() {}),
               ),
             ),
             const SizedBox(width: 8),
@@ -346,84 +328,18 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
           ],
         ),
         const SizedBox(height: 16),
-        _buildLabel('변동률 (%)'),
+        const AlertFormLabel('변동률 (%)'),
         const SizedBox(height: 6),
-        _buildTextField(
+        AlertFormTextField(
           controller: _percentController,
           hint: '예: 5.0',
+          onChanged: () => setState(() {}),
         ),
         if (previewText.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Text(
-            previewText,
-            style: TextStyle(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: context.appTextHint,
-            ),
-          ),
+          AlertPreviewText(previewText),
         ],
       ],
-    );
-  }
-
-  Widget _buildDirectionSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.appIconBg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        children: [
-          _buildDirectionChip(
-            label: '▼ 하락',
-            value: 2,
-            color: AppColors.blue500,
-          ),
-          _buildDirectionChip(
-            label: '± 양방향',
-            value: 0,
-            color: AppColors.primary,
-          ),
-          _buildDirectionChip(
-            label: '▲ 상승',
-            value: 1,
-            color: AppColors.red500,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDirectionChip({
-    required String label,
-    required int value,
-    required Color color,
-  }) {
-    final isActive = _alertDirection == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _alertDirection = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive ? color : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? Colors.white : context.appTextHint,
-              ),
-            ),
-          ),
-        ),
-      ),
     );
   }
 
@@ -440,137 +356,41 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildLabel('목표 가격'),
+        const AlertFormLabel('목표 가격'),
         const SizedBox(height: 6),
-        _buildTextField(
+        AlertFormTextField(
           controller: _targetPriceController,
           hint: '목표 가격 입력',
+          onChanged: () => setState(() {}),
         ),
         const SizedBox(height: 16),
-        _buildLabel('알림 조건'),
+        const AlertFormLabel('알림 조건'),
         const SizedBox(height: 6),
-        _buildTargetDirectionSelector(),
+        AlertDirectionSelector(
+          children: [
+            AlertDirectionChip(
+              label: AlertDirection.above.labelWithSymbol,
+              isActive: _targetDirection == AlertDirection.above.toTargetInt,
+              activeColor: AppColors.red500,
+              onTap: () => setState(() => _targetDirection = AlertDirection.above.toTargetInt),
+            ),
+            AlertDirectionChip(
+              label: AlertDirection.below.labelWithSymbol,
+              isActive: _targetDirection == AlertDirection.below.toTargetInt,
+              activeColor: AppColors.blue500,
+              onTap: () => setState(() => _targetDirection = AlertDirection.below.toTargetInt),
+            ),
+          ],
+        ),
         if (diff != null) ...[
           const SizedBox(height: 12),
-          Text(
-            '현재가 대비 ${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(2)}%',
-            style: TextStyle(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: context.appTextHint,
-            ),
-          ),
+          AlertPreviewText('현재가 대비 ${diff >= 0 ? '+' : ''}${diff.toStringAsFixed(2)}%'),
         ],
         if (previewText.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text(
-            previewText,
-            style: TextStyle(
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
-              color: context.appTextHint,
-            ),
-          ),
+          AlertPreviewText(previewText),
         ],
       ],
-    );
-  }
-
-  Widget _buildTargetDirectionSelector() {
-    return Container(
-      decoration: BoxDecoration(
-        color: context.appIconBg,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      padding: const EdgeInsets.all(3),
-      child: Row(
-        children: [
-          _buildTargetDirectionChip(
-            label: AlertDirection.above.labelWithSymbol,
-            value: AlertDirection.above.toTargetInt,
-            color: AppColors.red500,
-          ),
-          _buildTargetDirectionChip(
-            label: AlertDirection.below.labelWithSymbol,
-            value: AlertDirection.below.toTargetInt,
-            color: AppColors.blue500,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTargetDirectionChip({
-    required String label,
-    required int value,
-    required Color color,
-  }) {
-    final isActive = _targetDirection == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _targetDirection = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive ? color : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? Colors.white : context.appTextHint,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLabel(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 13,
-        fontWeight: FontWeight.w600,
-        color: context.appTextSecondary,
-      ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        // 소수점 1개, 소수 2자리까지 (12.34.56 같은 다중 소수점 방지)
-        TextInputFormatter.withFunction((oldValue, newValue) {
-          if (newValue.text.isEmpty) return newValue;
-          if (RegExp(r'^\d*\.?\d{0,2}$').hasMatch(newValue.text)) {
-            return newValue;
-          }
-          return oldValue;
-        }),
-      ],
-      onChanged: (_) => setState(() {}),
-      decoration: InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: context.appIconBg,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      ),
     );
   }
 
