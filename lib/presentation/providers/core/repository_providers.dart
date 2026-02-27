@@ -10,12 +10,14 @@ class RepositoryContainer {
   final TradeRepository tradeRepository;
   final SettingsRepository settingsRepository;
   final HoldingRepository holdingRepository;
+  final ChartDrawingRepository chartDrawingRepository;
 
   const RepositoryContainer({
     required this.cycleRepository,
     required this.tradeRepository,
     required this.settingsRepository,
     required this.holdingRepository,
+    required this.chartDrawingRepository,
   });
 
   /// 모든 Repository 초기화
@@ -24,12 +26,14 @@ class RepositoryContainer {
     final tradeRepo = TradeRepository();
     final settingsRepo = SettingsRepository();
     final holdingRepo = HoldingRepository();
+    final chartDrawingRepo = ChartDrawingRepository();
 
     await Future.wait([
       cycleRepo.init(),
       tradeRepo.init(),
       settingsRepo.init(),
       holdingRepo.init(),
+      chartDrawingRepo.init(),
     ]);
 
     return RepositoryContainer(
@@ -37,6 +41,7 @@ class RepositoryContainer {
       tradeRepository: tradeRepo,
       settingsRepository: settingsRepo,
       holdingRepository: holdingRepo,
+      chartDrawingRepository: chartDrawingRepo,
     );
   }
 
@@ -47,6 +52,7 @@ class RepositoryContainer {
       tradeRepository.close(),
       settingsRepository.close(),
       holdingRepository.close(),
+      chartDrawingRepository.close(),
     ]);
   }
 }
@@ -95,6 +101,15 @@ final holdingRepositoryProvider = Provider<HoldingRepository>((ref) {
   final container = ref.watch(repositoryContainerProvider);
   return container.maybeWhen(
     data: (c) => c.holdingRepository,
+    orElse: () => throw StateError('Repository not initialized'),
+  );
+});
+
+/// ChartDrawing Repository Provider
+final chartDrawingRepositoryProvider = Provider<ChartDrawingRepository>((ref) {
+  final container = ref.watch(repositoryContainerProvider);
+  return container.maybeWhen(
+    data: (c) => c.chartDrawingRepository,
     orElse: () => throw StateError('Repository not initialized'),
   );
 });

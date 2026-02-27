@@ -40,6 +40,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
 
   String _selectedPeriod = '일봉';
   bool _showPivotLines = false;
+  bool _isDrawingActive = false;
 
   final _indicatorService = TechnicalIndicatorService();
 
@@ -265,7 +266,9 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
               : RefreshIndicator(
                   onRefresh: _loadData,
                   child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
+                    physics: _isDrawingActive
+                        ? const NeverScrollableScrollPhysics()
+                        : const AlwaysScrollableScrollPhysics(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -273,6 +276,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                         PeriodReturnsSection(periodReturns: _periodReturns),
                         const SizedBox(height: 10),
                         DetailChartSection(
+                          symbol: _chartSymbol,
                           chartData: _chartData,
                           selectedPeriod: _selectedPeriod,
                           onPeriodChanged: (period) {
@@ -284,6 +288,11 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                           indicatorService: _indicatorService,
                           currentPrice: quote?.currentPrice,
                           previousClose: quote?.previousClose,
+                          onDrawingActiveChanged: (active) {
+                            if (_isDrawingActive != active) {
+                              setState(() => _isDrawingActive = active);
+                            }
+                          },
                         ),
                         const SizedBox(height: 10),
                         PivotPointSection(

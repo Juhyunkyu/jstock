@@ -29,7 +29,7 @@ class ChartPeriodSelector extends StatelessWidget {
           return GestureDetector(
             onTap: () => onPeriodChanged(period),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: isSelected ? context.appSurface.withValues(alpha: 0.5) : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
@@ -40,7 +40,7 @@ class ChartPeriodSelector extends StatelessWidget {
               child: Text(
                 period,
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: isSelected ? context.appTextPrimary : context.appTextHint,
                 ),
@@ -131,19 +131,22 @@ class IndicatorChips extends StatelessWidget {
 class LegendItem extends StatelessWidget {
   final String label;
   final Color color;
+  /// 라이트 모드에서 텍스트에 사용할 진한 색상 (차트 선은 원래 color 사용)
+  final Color? darkColor;
 
-  const LegendItem({super.key, required this.label, required this.color});
+  const LegendItem({super.key, required this.label, required this.color, this.darkColor});
 
   @override
   Widget build(BuildContext context) {
+    final textColor = context.isDarkMode ? color : (darkColor ?? color);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.only(left: 4, right: 1),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(width: 12, height: 2, color: color),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+          Container(width: 8, height: 2, color: color),
+          const SizedBox(width: 2),
+          Text(label, style: TextStyle(fontSize: 10, color: textColor, fontWeight: FontWeight.w600)),
         ],
       ),
     );

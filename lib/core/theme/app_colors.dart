@@ -21,8 +21,8 @@ class AppColors {
 
   // 텍스트 색상
   static const Color textPrimary = Color(0xFF1A1A2E);
-  static const Color textSecondary = Color(0xFF6B7280);
-  static const Color textHint = Color(0xFF9CA3AF);
+  static const Color textSecondary = Color(0xFF4B5563);
+  static const Color textHint = Color(0xFF6B7280);
 
   // 상태 색상 - 한국 주식 스타일 (상승: 빨강, 하락: 파랑)
   static const Color profit = Color(0xFFEF4444); // 상승 - 레드

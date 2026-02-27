@@ -1,18 +1,29 @@
+import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/chart_drawing.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
+import '../../providers/drawing_providers.dart';
 import '../../providers/settings_providers.dart';
+import '../../utils/chart_coordinate_utils.dart';
 import '../../utils/chart_utils.dart';
 import 'chart_controls.dart';
 import 'detail_candlestick_painter.dart';
+import 'drawing_guide_bar.dart';
+import 'drawing_overlay_painter.dart';
+import 'drawing_selection_buttons.dart';
+import 'drawing_settings_sheet.dart';
+import 'drawing_toolbar.dart';
 import 'indicator_help_dialog.dart';
 import 'sub_chart_painters.dart';
 
 /// 상세 차트 섹션 (줌/스크롤, 지표 토글, 기간 선택 포함)
 class DetailChartSection extends ConsumerStatefulWidget {
+  final String symbol;
   final List<OHLCData> chartData;
   final String selectedPeriod;
   final ValueChanged<String> onPeriodChanged;
@@ -21,9 +32,11 @@ class DetailChartSection extends ConsumerStatefulWidget {
   final TechnicalIndicatorService indicatorService;
   final double? currentPrice;
   final double? previousClose;
+  final ValueChanged<bool>? onDrawingActiveChanged;
 
   const DetailChartSection({
     super.key,
+    required this.symbol,
     required this.chartData,
     required this.selectedPeriod,
     required this.onPeriodChanged,
@@ -32,6 +45,7 @@ class DetailChartSection extends ConsumerStatefulWidget {
     required this.indicatorService,
     this.currentPrice,
     this.previousClose,
+    this.onDrawingActiveChanged,
   });
 
   @override
@@ -50,6 +64,41 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   // 보조 지표 토글 상태
   late Set<String> _activeIndicators;
 
+  // 드로잉 상태
+  DrawingMode _drawingMode = DrawingMode.none;
+  String? _selectedDrawingId;
+  DateTime? _tempTrendLineStartDate;
+  double? _tempTrendLineStartPrice;
+  bool _waitingSecondPoint = false;
+
+  // 드래그 배치/이동 상태
+  bool _isDraggingNewLine = false;    // 새 수평선 드래그 배치 중
+  bool _isMovingDrawing = false;      // 기존 선 드래그 이동 중
+  String? _movingDrawingId;           // 이동 중인 드로잉 ID
+  double? _tempHorizontalPrice;       // 미리보기 가격
+  ChartYRange? _cachedYRange;         // 캐시된 좌표계 (드래그 중)
+  bool _ignoreNextTap = false;        // 인라인 버튼 터치 시 탭 무시 플래그
+
+  /// 부모 스크롤 비활성화 콜백 호출
+  void _notifyDrawingActive() {
+    widget.onDrawingActiveChanged?.call(
+      _drawingMode != DrawingMode.none || _selectedDrawingId != null,
+    );
+  }
+
+  static const _uuid = Uuid();
+
+  // 기본 드로잉 색상 팔레트
+  static const List<int> _drawingColors = [
+    0xFFFF6B6B, // 빨강
+    0xFF4ECDC4, // 청록
+    0xFFFFD93D, // 노랑
+    0xFF6BCB77, // 초록
+    0xFF4D96FF, // 파랑
+    0xFFFF8C42, // 주황
+  ];
+  int _colorIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -60,6 +109,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     if (widget.chartData.isNotEmpty) {
       _scrollOffset = (widget.chartData.length - _visibleCount).clamp(0, widget.chartData.length);
     }
+    // 드로잉 로드
+    ref.read(chartDrawingProvider.notifier).loadForSymbol(widget.symbol);
   }
 
   @override
@@ -139,6 +190,528 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     return null;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // 드로잉 제스처 핸들러
+  // ═══════════════════════════════════════════════════════════════
+
+  void _handleChartTap(
+    TapUpDetails details,
+    double chartWidth,
+    List<OHLCData> displayData,
+    List<BBResult>? displayBB,
+    List<IchimokuResult>? displayIchimoku,
+    String? bbSummary,
+    String? ichSummary,
+    int scrollOffset,
+  ) {
+    // 인라인 버튼(Listener)이 먼저 처리한 경우 → 탭 무시
+    if (_ignoreNextTap) {
+      _ignoreNextTap = false;
+      return;
+    }
+
+    final localPos = details.localPosition;
+    final yRange = ChartCoordinateCalculator.calculate(
+      data: displayData,
+      width: chartWidth,
+      height: 300,
+      bollingerBands: displayBB,
+      ichimoku: displayIchimoku,
+      bbSummary: bbSummary,
+      ichSummary: ichSummary,
+    );
+
+    if (_drawingMode != DrawingMode.none) {
+      _handleDrawingTap(localPos, yRange, displayData, scrollOffset);
+      return;
+    }
+
+    // 인라인 버튼 영역 탭 무시 (버튼이 자체 처리)
+    if (_selectedDrawingId != null) {
+      final selY = _getSelectedLineY(yRange);
+      if (selY != null &&
+          localPos.dx >= 14 && localPos.dx <= 50 &&
+          localPos.dy >= selY - 38 && localPos.dy <= selY + 38) {
+        return;
+      }
+    }
+
+    // 일반 모드: hit test → 가장 가까운 드로잉 선택
+    _handleSelectionTap(localPos, yRange, displayData, scrollOffset);
+  }
+
+  void _handleDrawingTap(
+    Offset localPos,
+    ChartYRange yRange,
+    List<OHLCData> displayData,
+    int scrollOffset,
+  ) {
+    final price = yRange.fromY(localPos.dy);
+
+    // 수평선: 탭으로도 배치
+    if (_drawingMode == DrawingMode.horizontalLine) {
+      _createHorizontalLine(price);
+      return;
+    }
+
+    final dataIndex = yRange.fromX(localPos.dx);
+    final fullIndex = dataIndex + scrollOffset;
+
+    DateTime? date;
+    if (fullIndex >= 0 && fullIndex < widget.chartData.length) {
+      date = widget.chartData[fullIndex].date;
+    }
+
+    if (_drawingMode == DrawingMode.trendLine) {
+      if (!_waitingSecondPoint) {
+        setState(() {
+          _tempTrendLineStartDate = date;
+          _tempTrendLineStartPrice = price;
+          _waitingSecondPoint = true;
+        });
+      } else {
+        _createTrendLine(
+          _tempTrendLineStartDate!,
+          _tempTrendLineStartPrice!,
+          date!,
+          price,
+        );
+      }
+    }
+  }
+
+  void _handleSelectionTap(
+    Offset localPos,
+    ChartYRange yRange,
+    List<OHLCData> displayData,
+    int scrollOffset,
+  ) {
+    final drawings = ref.read(chartDrawingProvider);
+    const hitThreshold = 10.0; // px
+    String? closestId;
+    double closestDist = double.infinity;
+
+    for (final drawing in drawings) {
+      double dist;
+      switch (drawing.type) {
+        case DrawingType.horizontalLine:
+          final lineY = yRange.toY(drawing.price);
+          dist = (localPos.dy - lineY).abs();
+          break;
+        case DrawingType.trendLine:
+          dist = _trendLineDistance(localPos, drawing, yRange, scrollOffset);
+          break;
+      }
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestId = drawing.id;
+      }
+    }
+
+    setState(() {
+      _selectedDrawingId = closestDist <= hitThreshold ? closestId : null;
+    });
+    _notifyDrawingActive();
+  }
+
+  double _trendLineDistance(
+    Offset point,
+    ChartDrawing drawing,
+    ChartYRange yRange,
+    int scrollOffset,
+  ) {
+    if (drawing.startDate == null || drawing.endDate == null ||
+        drawing.startPrice == null || drawing.endPrice == null) {
+      return double.infinity;
+    }
+
+    // 날짜 → fullData 인덱스
+    final startIdx = _findDateIndex(widget.chartData, drawing.startDate!);
+    final endIdx = _findDateIndex(widget.chartData, drawing.endDate!);
+    if (startIdx == null || endIdx == null) return double.infinity;
+
+    final startX = yRange.toX(startIdx - scrollOffset);
+    final startY = yRange.toY(drawing.startPrice!);
+    final endX = yRange.toX(endIdx - scrollOffset);
+    final endY = yRange.toY(drawing.endPrice!);
+
+    // 점과 직선 사이 거리 공식
+    final dx = endX - startX;
+    final dy = endY - startY;
+    final lenSq = dx * dx + dy * dy;
+    if (lenSq == 0) return (point - Offset(startX, startY)).distance;
+    return ((point.dx - startX) * dy - (point.dy - startY) * dx).abs() /
+        math.sqrt(lenSq);
+  }
+
+  int? _findDateIndex(List<OHLCData> data, DateTime target) {
+    if (data.isEmpty) return null;
+    int bestIdx = 0;
+    int bestDiff = (data[0].date.difference(target).inMinutes).abs();
+    for (int i = 1; i < data.length; i++) {
+      final diff = (data[i].date.difference(target).inMinutes).abs();
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestIdx = i;
+      }
+    }
+    return bestIdx;
+  }
+
+  void _createHorizontalLine(double price) {
+    final drawing = ChartDrawing(
+      id: _uuid.v4(),
+      symbol: widget.symbol,
+      type: DrawingType.horizontalLine,
+      price: price,
+      colorValue: _drawingColors[_colorIndex % _drawingColors.length],
+    );
+    _colorIndex++;
+    ref.read(chartDrawingProvider.notifier).addDrawing(drawing);
+    setState(() {
+      _drawingMode = DrawingMode.none;
+    });
+    _notifyDrawingActive();
+  }
+
+  void _createTrendLine(
+    DateTime startDate,
+    double startPrice,
+    DateTime endDate,
+    double endPrice,
+  ) {
+    final drawing = ChartDrawing(
+      id: _uuid.v4(),
+      symbol: widget.symbol,
+      type: DrawingType.trendLine,
+      price: startPrice, // 참조용
+      startDate: startDate,
+      startPrice: startPrice,
+      endDate: endDate,
+      endPrice: endPrice,
+      colorValue: _drawingColors[_colorIndex % _drawingColors.length],
+    );
+    _colorIndex++;
+    ref.read(chartDrawingProvider.notifier).addDrawing(drawing);
+    setState(() {
+      _drawingMode = DrawingMode.none;
+      _waitingSecondPoint = false;
+      _tempTrendLineStartDate = null;
+      _tempTrendLineStartPrice = null;
+    });
+    _notifyDrawingActive();
+  }
+
+  void _deleteSelectedDrawing() {
+    if (_selectedDrawingId == null) return;
+    ref.read(chartDrawingProvider.notifier).removeDrawing(_selectedDrawingId!);
+    setState(() {
+      _selectedDrawingId = null;
+    });
+    _notifyDrawingActive();
+  }
+
+  void _cancelDrawing() {
+    setState(() {
+      _drawingMode = DrawingMode.none;
+      _waitingSecondPoint = false;
+      _tempTrendLineStartDate = null;
+      _tempTrendLineStartPrice = null;
+      _isDraggingNewLine = false;
+      _tempHorizontalPrice = null;
+    });
+    _notifyDrawingActive();
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 인라인 드로잉 토글 버튼
+  // ═══════════════════════════════════════════════════════════════
+
+  final GlobalKey _drawingToggleKey = GlobalKey();
+  OverlayEntry? _drawingMenuOverlay;
+
+  Widget _buildDrawingToggle() {
+    if (_drawingMode != DrawingMode.none) {
+      // 드로잉 모드 활성 → 취소(X) 버튼
+      return GestureDetector(
+        onTap: _cancelDrawing,
+        child: Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: context.isDarkMode ? AppColors.gray700 : AppColors.gray400,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.close, size: 13, color: Colors.white),
+        ),
+      );
+    }
+
+    // 기본 → 연필 아이콘 + 커스텀 팝업
+    return GestureDetector(
+      key: _drawingToggleKey,
+      onTap: _toggleDrawingMenu,
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Icon(Icons.edit, size: 16, color: context.appTextHint),
+      ),
+    );
+  }
+
+  void _toggleDrawingMenu() {
+    if (_drawingMenuOverlay != null) {
+      _dismissDrawingMenu();
+      return;
+    }
+
+    final renderBox = _drawingToggleKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+
+    _drawingMenuOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          // 배경 탭 → 메뉴 닫기
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismissDrawingMenu,
+              behavior: HitTestBehavior.opaque,
+              child: const ColoredBox(color: Colors.transparent),
+            ),
+          ),
+          // 메뉴 버블 (연필 아이콘 아래에 표시)
+          Positioned(
+            right: MediaQuery.of(context).size.width - offset.dx - size.width - 4,
+            top: offset.dy + size.height + 6,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: context.appCardBackground,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                  border: Border.all(
+                    color: context.appDivider,
+                    width: 0.5,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildMenuCircle(
+                      icon: Icons.horizontal_rule,
+                      onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
+                    ),
+                    const SizedBox(height: 4),
+                    _buildMenuCircle(
+                      icon: Icons.trending_up,
+                      onTap: () => _selectDrawingMode(DrawingMode.trendLine),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_drawingMenuOverlay!);
+  }
+
+  Widget _buildMenuCircle({required IconData icon, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: context.appIconBg,
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, size: 18, color: context.appTextPrimary),
+      ),
+    );
+  }
+
+  void _selectDrawingMode(DrawingMode mode) {
+    _dismissDrawingMenu();
+    setState(() {
+      _drawingMode = mode;
+      _selectedDrawingId = null;
+      _waitingSecondPoint = false;
+      _tempTrendLineStartDate = null;
+      _tempTrendLineStartPrice = null;
+    });
+    _notifyDrawingActive();
+  }
+
+  void _dismissDrawingMenu() {
+    _drawingMenuOverlay?.remove();
+    _drawingMenuOverlay = null;
+  }
+
+  @override
+  void dispose() {
+    _dismissDrawingMenu();
+    super.dispose();
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 통합 드래그 제스처 (수평선 배치 + 기존 선 이동 + 스크롤/줌)
+  // ═══════════════════════════════════════════════════════════════
+
+  void _handleScaleStart(ScaleStartDetails details, double chartWidth,
+      ChartYRange yRange) {
+    // 1) 수평선 드래그 배치 모드
+    if (_drawingMode == DrawingMode.horizontalLine) {
+      final price = yRange.fromY(details.localFocalPoint.dy);
+      setState(() {
+        _isDraggingNewLine = true;
+        _tempHorizontalPrice = price;
+        _cachedYRange = yRange;
+      });
+      return;
+    }
+
+    // 인라인 버튼 영역 터치 → 제스처 무시 (버튼이 자체 처리)
+    if (_selectedDrawingId != null) {
+      final selY = _getSelectedLineY(yRange);
+      final touchX = details.localFocalPoint.dx;
+      final touchY = details.localFocalPoint.dy;
+      if (selY != null &&
+          touchX >= 14 && touchX <= 50 &&
+          touchY >= selY - 38 && touchY <= selY + 38) {
+        return;
+      }
+    }
+
+    // 2) 선택된 선 드래그 이동 (잠금 아니고, 선 근처 30px)
+    if (_drawingMode == DrawingMode.none && _selectedDrawingId != null) {
+      final drawings = ref.read(chartDrawingProvider);
+      final selected = drawings.where((d) => d.id == _selectedDrawingId).firstOrNull;
+      if (selected != null && !selected.isLocked) {
+        final touchY = details.localFocalPoint.dy;
+        final lineY = yRange.toY(selected.price);
+        if ((touchY - lineY).abs() <= 30) {
+          setState(() {
+            _isMovingDrawing = true;
+            _movingDrawingId = selected.id;
+            _cachedYRange = yRange;
+          });
+          return;
+        }
+      }
+    }
+
+    // 3) 기본: 스크롤/줌
+    _startVisibleCount = _visibleCount;
+    _dragRemainder = 0.0;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details, double chartWidth,
+      ChartYRange yRange) {
+    // 1) 수평선 드래그 배치 → 미리보기 업데이트
+    if (_isDraggingNewLine && _cachedYRange != null) {
+      setState(() {
+        _tempHorizontalPrice = _cachedYRange!.fromY(details.localFocalPoint.dy);
+      });
+      return;
+    }
+
+    // 2) 기존 선 드래그 이동
+    if (_isMovingDrawing && _movingDrawingId != null && _cachedYRange != null) {
+      final newPrice = _cachedYRange!.fromY(details.localFocalPoint.dy);
+      final drawings = ref.read(chartDrawingProvider);
+      final target = drawings.where((d) => d.id == _movingDrawingId).firstOrNull;
+      if (target != null) {
+        ref.read(chartDrawingProvider.notifier)
+            .updateDrawingLocal(target.copyWith(price: newPrice));
+      }
+      return;
+    }
+
+    // 3) 기본: 스크롤/줌 (추세선 모드에서는 비활성)
+    if (_drawingMode == DrawingMode.none) {
+      _handleZoomScroll(details, chartWidth);
+    }
+  }
+
+  void _handleScaleEnd(ScaleEndDetails details) {
+    // 1) 수평선 드래그 배치 완료 → 선 확정
+    if (_isDraggingNewLine && _tempHorizontalPrice != null) {
+      _createHorizontalLine(_tempHorizontalPrice!);
+      setState(() {
+        _isDraggingNewLine = false;
+        _tempHorizontalPrice = null;
+        _cachedYRange = null;
+      });
+      return;
+    }
+
+    // 2) 기존 선 이동 완료 → Hive 저장
+    if (_isMovingDrawing && _movingDrawingId != null) {
+      final drawings = ref.read(chartDrawingProvider);
+      final target = drawings.where((d) => d.id == _movingDrawingId).firstOrNull;
+      if (target != null) {
+        ref.read(chartDrawingProvider.notifier).updateDrawing(target);
+      }
+      setState(() {
+        _isMovingDrawing = false;
+        _movingDrawingId = null;
+        _cachedYRange = null;
+      });
+      return;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 설정 패널
+  // ═══════════════════════════════════════════════════════════════
+
+  void _showDrawingSettings() {
+    if (_selectedDrawingId == null) return;
+    final drawings = ref.read(chartDrawingProvider);
+    final drawing = drawings.where((d) => d.id == _selectedDrawingId).firstOrNull;
+    if (drawing == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DrawingSettingsSheet(
+        drawing: drawing,
+        onSave: (updated) {
+          ref.read(chartDrawingProvider.notifier).updateDrawing(updated);
+        },
+      ),
+    );
+  }
+
+  /// 선택된 수평선의 Y 픽셀 좌표 계산
+  double? _getSelectedLineY(ChartYRange yRange) {
+    if (_selectedDrawingId == null) return null;
+    final drawings = ref.read(chartDrawingProvider);
+    final selected = drawings.where((d) => d.id == _selectedDrawingId).firstOrNull;
+    if (selected == null) return null;
+
+    if (selected.type == DrawingType.horizontalLine) {
+      return yRange.toY(selected.price);
+    }
+    // 추세선은 중간점의 Y 좌표 사용
+    if (selected.startPrice != null && selected.endPrice != null) {
+      return yRange.toY((selected.startPrice! + selected.endPrice!) / 2);
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -267,14 +840,14 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     // RSI 현재값 라벨
     String? rsiLabel;
     if (_activeIndicators.contains('RSI') && displayRSI != null) {
-      final lastRsi = _lastNonNull(displayRSI!);
+      final lastRsi = _lastNonNull(displayRSI);
       rsiLabel = lastRsi != null ? 'RSI(14): ${lastRsi.toStringAsFixed(1)}' : 'RSI(14)';
     }
 
     // MACD 현재값 라벨
     String? macdLabel;
     if (_activeIndicators.contains('MACD') && displayMACD != null) {
-      final lastMacd = _lastValid(displayMACD!, (m) => m.macdLine != null);
+      final lastMacd = _lastValid(displayMACD, (m) => m.macdLine != null);
       if (lastMacd != null) {
         final m = lastMacd.macdLine?.toStringAsFixed(2) ?? '-';
         final s = lastMacd.signalLine?.toStringAsFixed(2) ?? '-';
@@ -287,7 +860,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     // STOCH 현재값 라벨
     String? stochLabel;
     if (_activeIndicators.contains('STOCH') && displayStoch != null) {
-      final lastStoch = _lastValid(displayStoch!, (s) => s.k != null);
+      final lastStoch = _lastValid(displayStoch, (s) => s.k != null);
       if (lastStoch != null) {
         final kStr = lastStoch.k?.toStringAsFixed(1) ?? '-';
         final dStr = lastStoch.d?.toStringAsFixed(1) ?? '-';
@@ -299,8 +872,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
     // OBV 현재값 라벨
     String? obvLabel;
-    if (_activeIndicators.contains('OBV') && displayOBV != null && displayOBV!.isNotEmpty) {
-      obvLabel = 'OBV: ${formatVolume(displayOBV!.last)}';
+    if (_activeIndicators.contains('OBV') && displayOBV != null && displayOBV.isNotEmpty) {
+      obvLabel = 'OBV: ${formatVolume(displayOBV.last)}';
     }
 
     return Container(
@@ -316,22 +889,30 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
             onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           const SizedBox(height: 8),
-          // 기간 선택 + MA 범례 한 줄
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                ChartPeriodSelector(
-                  selectedPeriod: widget.selectedPeriod,
-                  onPeriodChanged: widget.onPeriodChanged,
+          // 기간 선택 + MA 범례 + 드로잉 버튼
+          Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ChartPeriodSelector(
+                        selectedPeriod: widget.selectedPeriod,
+                        onPeriodChanged: widget.onPeriodChanged,
+                      ),
+                      const SizedBox(width: 4),
+                      const LegendItem(label: '5', color: Color(0xFFFF6B6B), darkColor: Color(0xFFE04848)),
+                      const LegendItem(label: '20', color: Color(0xFFFFD93D), darkColor: Color(0xFFCC9E00)),
+                      const LegendItem(label: '60', color: Color(0xFF6BCB77), darkColor: Color(0xFF3DA34D)),
+                      const LegendItem(label: '120', color: Color(0xFF4D96FF), darkColor: Color(0xFF2B6ED4)),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 12),
-                const LegendItem(label: '5일', color: Color(0xFFFF6B6B)),
-                const LegendItem(label: '20일', color: Color(0xFFFFD93D)),
-                const LegendItem(label: '60일', color: Color(0xFF6BCB77)),
-                const LegendItem(label: '120일', color: Color(0xFF4D96FF)),
-              ],
-            ),
+              ),
+              const SizedBox(width: 4),
+              _buildDrawingToggle(),
+            ],
           ),
           const SizedBox(height: 8),
           // 차트 영역 (제스처로 줌/스크롤) + 우측 여백(페이지 스크롤용)
@@ -347,41 +928,107 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                   // 차트 영역 (휠 = 줌, 드래그 = 스크롤)
                   SizedBox(
                     width: chartWidth,
-                    child: GestureDetector(
-                      onScaleStart: (_) { _startVisibleCount = _visibleCount; _dragRemainder = 0.0; },
-                      onScaleUpdate: (details) => _handleZoomScroll(details, chartWidth),
-                      child: Listener(
-                        onPointerSignal: _handlePointerSignal,
-                        child: Column(
-                          children: [
-                            // 메인 캔들스틱 차트 (+ BB, Ichimoku 오버레이)
-                            SizedBox(
-                              height: 300,
-                              child: CustomPaint(
-                                size: Size(chartWidth, 300),
-                                painter: DetailCandlestickPainter(
-                                  data: displayData,
-                                  ma5: displayMa5,
-                                  ma20: displayMa20,
-                                  ma60: displayMa60,
-                                  ma120: displayMa120,
-                                  selectedPeriod: widget.selectedPeriod,
-                                  showPivotLines: widget.showPivotLines,
-                                  pivotLevels: widget.showPivotLines ? widget.pivotLevels : null,
-                                  bollingerBands: displayBB,
-                                  ichimoku: displayIchimoku,
-                                  bbSummary: bbSummary,
-                                  ichSummary: ichSummary,
-                                  bbSignal: bbSignal,
-                                  ichSignal: ichSignal,
-                                  isDarkMode: Theme.of(context).brightness == Brightness.dark,
-                                  textColor: context.appTextSecondary,
-                                  cardBgColor: context.appSurface,
-                                  currentPrice: widget.currentPrice,
-                                  previousClose: widget.previousClose,
+                    child: Builder(
+                      builder: (context) {
+                        final yRange = ChartCoordinateCalculator.calculate(
+                          data: displayData,
+                          width: chartWidth,
+                          height: 300,
+                          bollingerBands: displayBB,
+                          ichimoku: displayIchimoku,
+                          bbSummary: bbSummary,
+                          ichSummary: ichSummary,
+                        );
+                        final selectedLineY = _getSelectedLineY(yRange);
+                        final nextColor = _drawingColors[_colorIndex % _drawingColors.length];
+                        return GestureDetector(
+                          onScaleStart: (details) =>
+                              _handleScaleStart(details, chartWidth, yRange),
+                          onScaleUpdate: (details) =>
+                              _handleScaleUpdate(details, chartWidth, yRange),
+                          onScaleEnd: _handleScaleEnd,
+                          onTapUp: (details) => _handleChartTap(
+                            details, chartWidth, displayData, displayBB,
+                            displayIchimoku, bbSummary, ichSummary, offset,
+                          ),
+                          child: Listener(
+                            onPointerSignal: _drawingMode == DrawingMode.none
+                                ? _handlePointerSignal : null,
+                            child: Column(
+                              children: [
+                                // 메인 캔들스틱 차트
+                                SizedBox(
+                                  height: 300,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      // 캔들스틱 차트
+                                      CustomPaint(
+                                        size: Size(chartWidth, 300),
+                                        painter: DetailCandlestickPainter(
+                                          data: displayData,
+                                          ma5: displayMa5,
+                                          ma20: displayMa20,
+                                          ma60: displayMa60,
+                                          ma120: displayMa120,
+                                          selectedPeriod: widget.selectedPeriod,
+                                          showPivotLines: widget.showPivotLines,
+                                          pivotLevels: widget.showPivotLines ? widget.pivotLevels : null,
+                                          bollingerBands: displayBB,
+                                          ichimoku: displayIchimoku,
+                                          bbSummary: bbSummary,
+                                          ichSummary: ichSummary,
+                                          bbSignal: bbSignal,
+                                          ichSignal: ichSignal,
+                                          isDarkMode: Theme.of(context).brightness == Brightness.dark,
+                                          textColor: context.appTextSecondary,
+                                          cardBgColor: context.appSurface,
+                                          currentPrice: widget.currentPrice,
+                                          previousClose: widget.previousClose,
+                                        ),
+                                      ),
+                                      // 드로잉 오버레이 (+ 미리보기)
+                                      CustomPaint(
+                                        size: Size(chartWidth, 300),
+                                        painter: DrawingOverlayPainter(
+                                          drawings: ref.watch(chartDrawingProvider),
+                                          displayData: displayData,
+                                          fullData: widget.chartData,
+                                          scrollOffset: offset,
+                                          yRange: yRange,
+                                          selectedDrawingId: _selectedDrawingId,
+                                          isDarkMode: Theme.of(context).brightness == Brightness.dark,
+                                          tempHorizontalPrice: _tempHorizontalPrice,
+                                          tempColorValue: _isDraggingNewLine ? nextColor : null,
+                                        ),
+                                      ),
+                                      // 가이드 바 (드로잉 모드 시 상단)
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: DrawingGuideBar(
+                                          drawingMode: _drawingMode,
+                                          waitingSecondPoint: _waitingSecondPoint,
+                                          onCancel: _cancelDrawing,
+                                        ),
+                                      ),
+                                      // 인라인 선택 버튼 (선 좌측, 선택 시만)
+                                      if (_selectedDrawingId != null && selectedLineY != null)
+                                        DrawingSelectionButtons(
+                                          lineY: selectedLineY,
+                                          onSettings: () {
+                                            _ignoreNextTap = true;
+                                            _showDrawingSettings();
+                                          },
+                                          onDelete: () {
+                                            _ignoreNextTap = true;
+                                            _deleteSelectedDrawing();
+                                          },
+                                        ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ),
                             // 거래량 서브차트
                             if (_activeIndicators.contains('VOL')) ...[
                               SubChartHeader(
@@ -477,9 +1124,11 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                 ),
                               ),
                             ],
-                          ],
-                        ),
-                      ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
                   // 우측 여백 (마우스 휠 = 페이지 스크롤)

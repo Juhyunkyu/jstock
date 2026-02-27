@@ -1,10 +1,10 @@
 import 'dart:ui' as ui;
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
+import '../../utils/chart_coordinate_utils.dart';
 import '../../utils/chart_utils.dart';
 
 /// 메인 캔들스틱 + MA + 피봇 + 볼린저밴드 + 일목균형표
@@ -55,89 +55,38 @@ class DetailCandlestickPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
 
-    // 오버레이(BB/일목) 개수에 따라 상단 여백 동적 확장
-    final int overlayCount = (bbSummary != null ? 1 : 0) + (ichSummary != null ? 1 : 0);
-    final double topPadding = 30.0 + overlayCount * 16.0;
-    const double bottomPadding = 25;
+    // 좌표 범위 계산 (ChartCoordinateCalculator — overlay와 동일 좌표계 공유)
+    final yRange = ChartCoordinateCalculator.calculate(
+      data: data,
+      width: size.width,
+      height: size.height,
+      bollingerBands: bollingerBands,
+      ichimoku: ichimoku,
+      bbSummary: bbSummary,
+      ichSummary: ichSummary,
+    );
+
+    final topPadding = yRange.topPadding;
+    final chartWidth = yRange.chartWidth;
+    final chartHeight = yRange.chartHeight;
+    final leftPadding = yRange.leftPadding;
+    final minY = yRange.minY;
+    final maxY = yRange.maxY;
     const double rightPadding = 50;
-    const double leftPadding = 10;
-
-    final chartWidth = size.width - leftPadding - rightPadding;
-    final chartHeight = size.height - topPadding - bottomPadding;
-
-    // Y축 범위: Clamped Extension Hybrid 알고리즘
-    // 캔들 범위를 기본으로 하되, BB/일목 지표 방향으로 제한적 확장
-    double candleMin = double.infinity;
-    double candleMax = double.negativeInfinity;
-
-    int highIdx = 0;
-    int lowIdx = 0;
-    for (int i = 0; i < data.length; i++) {
-      final candle = data[i];
-      if (candle.low < candleMin) { candleMin = candle.low; lowIdx = i; }
-      if (candle.high > candleMax) { candleMax = candle.high; highIdx = i; }
-    }
-
-    final candleRange = candleMax - candleMin;
-
-    // 보조지표 범위 수집 (BB, 일목만 — MA/피봇/현재가 제외)
-    double indicatorMin = double.infinity;
-    double indicatorMax = double.negativeInfinity;
-
-    if (bollingerBands != null) {
-      for (final bb in bollingerBands!) {
-        if (bb.upper != null) {
-          indicatorMin = math.min(indicatorMin, bb.upper!);
-          indicatorMax = math.max(indicatorMax, bb.upper!);
-        }
-        if (bb.lower != null) {
-          indicatorMin = math.min(indicatorMin, bb.lower!);
-          indicatorMax = math.max(indicatorMax, bb.lower!);
-        }
-      }
-    }
-
-    if (ichimoku != null) {
-      for (final ich in ichimoku!) {
-        for (final v in [ich.senkouA, ich.senkouB, ich.tenkan, ich.kijun]) {
-          if (v != null) {
-            indicatorMin = math.min(indicatorMin, v);
-            indicatorMax = math.max(indicatorMax, v);
-          }
-        }
-      }
-    }
-
-    // 반응형 확장 계수: 모바일(30%), 데스크톱(20%)
-    final bool isMobile = size.width < 600;
-    final double extensionFactor = isMobile ? 0.30 : 0.20;
-    final double maxExtension = candleRange * extensionFactor;
-
-    // 지표 방향으로 캡 제한 확장
-    double minY = candleMin;
-    double maxY = candleMax;
-
-    if (indicatorMin < double.infinity) {
-      minY = math.max(indicatorMin, candleMin - maxExtension);
-      minY = math.min(minY, candleMin); // 캔들 범위보다 좁아지지 않도록
-    }
-    if (indicatorMax > double.negativeInfinity) {
-      maxY = math.min(indicatorMax, candleMax + maxExtension);
-      maxY = math.max(maxY, candleMax); // 캔들 범위보다 좁아지지 않도록
-    }
-
-    // 비대칭 패딩: 상단 여유 > 하단 (가격 라벨/마커 공간)
-    final double range = maxY - minY;
-    final double topPad = range * (isMobile ? 0.10 : 0.08);
-    final double bottomPad = range * (isMobile ? 0.08 : 0.05);
-    minY -= bottomPad;
-    maxY += topPad;
 
     final candleWidth = chartWidth / data.length;
     final bodyWidth = candleWidth * 0.7;
 
-    double toY(double value) => topPadding + (1 - (value - minY) / (maxY - minY)) * chartHeight;
-    double toX(int i) => leftPadding + i * candleWidth + candleWidth / 2;
+    // 최고/최저 인덱스 탐색
+    int highIdx = 0;
+    int lowIdx = 0;
+    for (int i = 0; i < data.length; i++) {
+      if (data[i].high > data[highIdx].high) highIdx = i;
+      if (data[i].low < data[lowIdx].low) lowIdx = i;
+    }
+
+    double toY(double value) => yRange.toY(value);
+    double toX(int i) => yRange.toX(i);
 
     // 차트 영역 클리핑 (보조지표가 Y축 범위 밖으로 나가면 잘림)
     canvas.save();
@@ -208,7 +157,7 @@ class DetailCandlestickPainter extends CustomPainter {
     _drawYAxisLabels(canvas, size, minY, maxY, topPadding, chartHeight, rightPadding);
     _drawHighLowMarkers(canvas, size, toX, toY, leftPadding, rightPadding, highIdx, lowIdx);
     _drawCurrentPriceLabel(canvas, size, toY, topPadding, chartHeight, rightPadding);
-    _drawXAxisLabels(canvas, size, leftPadding, chartWidth, topPadding, chartHeight, bottomPadding);
+    _drawXAxisLabels(canvas, size, leftPadding, chartWidth, topPadding, chartHeight, 25.0);
   }
 
   /// Paint overlay summary at fixed position (동적 topPadding이 공간 확보).
