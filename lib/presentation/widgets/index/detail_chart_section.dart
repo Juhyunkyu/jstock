@@ -81,6 +81,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   double? _moveStartPrice;           // 이동 시작 시 price 값
   double? _moveStartStartPrice;      // 이동 시작 시 startPrice (추세선용)
   double? _moveStartEndPrice;        // 이동 시작 시 endPrice (추세선용)
+  String? _draggingAnchor;           // 앵커 드래그: 'start' 또는 'end' (null이면 평행 이동)
   bool _ignoreNextTap = false;        // 인라인 버튼 터치 시 탭 무시 플래그
 
   /// 부모 스크롤 비활성화 콜백 호출
@@ -673,13 +674,39 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
         final touchY = details.localFocalPoint.dy;
         bool isNearLine = false;
 
-        if (selected.type == 'horizontal') {
+        if (selected.type == DrawingType.horizontalLine) {
           final lineY = yRange.toY(selected.price);
           isNearLine = (touchY - lineY).abs() <= 30;
-        } else if (selected.type == 'trend' &&
+        } else if (selected.type == DrawingType.trendLine &&
             selected.startDate != null && selected.endDate != null &&
             selected.startPrice != null && selected.endPrice != null) {
-          // 추세선: 기존 _trendLineDistance 로직과 동일하게 거리 계산
+          // 앵커 점 근처인지 먼저 확인 (15px 이내 → 앵커 드래그)
+          final startIdx = _findDateIndex(widget.chartData, selected.startDate!);
+          final endIdx = _findDateIndex(widget.chartData, selected.endDate!);
+          if (startIdx != null && endIdx != null) {
+            final startX = yRange.toX(startIdx - _scrollOffset);
+            final startY = yRange.toY(selected.startPrice!);
+            final endX = yRange.toX(endIdx - _scrollOffset);
+            final endY = yRange.toY(selected.endPrice!);
+
+            final distToStart = (Offset(touchX, touchY) - Offset(startX, startY)).distance;
+            final distToEnd = (Offset(touchX, touchY) - Offset(endX, endY)).distance;
+
+            const anchorThreshold = 25.0;
+            if (distToStart <= anchorThreshold || distToEnd <= anchorThreshold) {
+              // 앵커 점 드래그 (기울기 변경)
+              final anchor = distToStart <= distToEnd ? 'start' : 'end';
+              setState(() {
+                _isMovingDrawing = true;
+                _movingDrawingId = selected.id;
+                _draggingAnchor = anchor;
+                _cachedYRange = yRange;
+              });
+              return;
+            }
+          }
+
+          // 선 몸통 근처 → 평행 이동
           final dist = _trendLineDistance(
             Offset(touchX, touchY), selected, yRange, _scrollOffset,
           );
@@ -690,6 +717,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           setState(() {
             _isMovingDrawing = true;
             _movingDrawingId = selected.id;
+            _draggingAnchor = null;
             _moveStartY = touchY;
             _moveStartPrice = selected.price;
             _moveStartStartPrice = selected.startPrice;
@@ -716,17 +744,34 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       return;
     }
 
-    // 2) 기존 선 드래그 이동
+    // 2) 기존 선 드래그 이동 / 앵커 드래그
     if (_isMovingDrawing && _movingDrawingId != null && _cachedYRange != null) {
+      final currentX = details.localFocalPoint.dx;
       final currentY = details.localFocalPoint.dy;
       final currentPrice = _cachedYRange!.fromY(currentY);
       final drawings = ref.read(chartDrawingProvider);
       final target = drawings.where((d) => d.id == _movingDrawingId).firstOrNull;
       if (target != null) {
-        if (target.type == 'trend' &&
+        if (_draggingAnchor != null && target.type == DrawingType.trendLine) {
+          // 앵커 드래그: 터치 X → display 인덱스 → fullData 인덱스 → 날짜
+          final displayIdx = _cachedYRange!.fromX(currentX);
+          final fullIdx = (displayIdx + _scrollOffset).clamp(0, widget.chartData.length - 1);
+          final newDate = widget.chartData[fullIdx].date;
+          final newPrice = currentPrice;
+
+          if (_draggingAnchor == 'start') {
+            ref.read(chartDrawingProvider.notifier).updateDrawingLocal(
+              target.copyWith(startDate: newDate, startPrice: newPrice),
+            );
+          } else {
+            ref.read(chartDrawingProvider.notifier).updateDrawingLocal(
+              target.copyWith(endDate: newDate, endPrice: newPrice),
+            );
+          }
+        } else if (target.type == DrawingType.trendLine &&
             _moveStartStartPrice != null && _moveStartEndPrice != null &&
             _moveStartY != null) {
-          // 추세선: delta 계산 후 startPrice/endPrice 양쪽에 적용
+          // 추세선 평행 이동: delta 계산 후 startPrice/endPrice 양쪽에 적용
           final startPrice = _cachedYRange!.fromY(_moveStartY!);
           final priceDelta = currentPrice - startPrice;
           ref.read(chartDrawingProvider.notifier).updateDrawingLocal(
@@ -777,6 +822,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
         _moveStartPrice = null;
         _moveStartStartPrice = null;
         _moveStartEndPrice = null;
+        _draggingAnchor = null;
       });
       return;
     }
