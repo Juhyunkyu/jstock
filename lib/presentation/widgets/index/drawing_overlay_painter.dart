@@ -22,6 +22,10 @@ class DrawingOverlayPainter extends CustomPainter {
   /// 미리보기 색상 값
   final int? tempColorValue;
 
+  /// 추세선 첫 번째 포인트 (배치 중 시각적 피드백)
+  final DateTime? tempTrendStartDate;
+  final double? tempTrendStartPrice;
+
   DrawingOverlayPainter({
     required this.drawings,
     required this.displayData,
@@ -32,11 +36,17 @@ class DrawingOverlayPainter extends CustomPainter {
     required this.isDarkMode,
     this.tempHorizontalPrice,
     this.tempColorValue,
+    this.tempTrendStartDate,
+    this.tempTrendStartPrice,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (drawings.isEmpty || displayData.isEmpty) return;
+    if (displayData.isEmpty) return;
+    final hasContent = drawings.isNotEmpty ||
+        tempHorizontalPrice != null ||
+        tempTrendStartDate != null;
+    if (!hasContent) return;
 
     // 차트 영역 클리핑
     canvas.save();
@@ -64,6 +74,11 @@ class DrawingOverlayPainter extends CustomPainter {
     // 미리보기 수평선 (클리핑 내부)
     if (tempHorizontalPrice != null) {
       _drawPreviewLine(canvas, size, tempHorizontalPrice!);
+    }
+
+    // 추세선 첫 번째 포인트 (배치 중 시각적 피드백)
+    if (tempTrendStartDate != null && tempTrendStartPrice != null) {
+      _drawTrendStartPoint(canvas, size);
     }
 
     canvas.restore();
@@ -164,12 +179,28 @@ class DrawingOverlayPainter extends CustomPainter {
 
     // 선택 상태에서 앵커 점 표시
     if (isSelected) {
-      final dotPaint = Paint()
-        ..color = color
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(Offset(startX, startY), 4, dotPaint);
-      canvas.drawCircle(Offset(endX, endY), 4, dotPaint);
+      _drawAnchorDot(canvas, Offset(startX, startY), color);
+      _drawAnchorDot(canvas, Offset(endX, endY), color);
     }
+  }
+
+  /// 앵커 점 (바깥 반투명 + 안쪽 진한 + 흰 테두리)
+  void _drawAnchorDot(Canvas canvas, Offset center, Color color) {
+    // 바깥 원 (반투명 후광)
+    canvas.drawCircle(
+      center, 10,
+      Paint()..color = color.withAlpha(50)..style = PaintingStyle.fill,
+    );
+    // 안쪽 원 (진한)
+    canvas.drawCircle(
+      center, 5,
+      Paint()..color = color..style = PaintingStyle.fill,
+    );
+    // 흰 테두리
+    canvas.drawCircle(
+      center, 5,
+      Paint()..color = Colors.white.withAlpha(220)..style = PaintingStyle.stroke..strokeWidth = 1.5,
+    );
   }
 
   void _drawPriceLabel(
@@ -251,6 +282,35 @@ class DrawingOverlayPainter extends CustomPainter {
     return bestIdx;
   }
 
+  /// 추세선 첫 번째 포인트 점 표시
+  void _drawTrendStartPoint(Canvas canvas, Size size) {
+    final idx = _findDateIndex(fullData, tempTrendStartDate!);
+    if (idx == null) return;
+
+    final visibleIdx = idx - scrollOffset;
+    final x = yRange.toX(visibleIdx);
+    final y = yRange.toY(tempTrendStartPrice!);
+
+    // 바깥 원 (반투명)
+    final outerPaint = Paint()
+      ..color = Color(tempColorValue ?? 0xFFFF6B6B).withAlpha(60)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(x, y), 10, outerPaint);
+
+    // 안쪽 원 (진한)
+    final innerPaint = Paint()
+      ..color = Color(tempColorValue ?? 0xFFFF6B6B)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(x, y), 4, innerPaint);
+
+    // 테두리
+    final borderPaint = Paint()
+      ..color = Colors.white.withAlpha(200)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    canvas.drawCircle(Offset(x, y), 4, borderPaint);
+  }
+
   String _formatPrice(double price) {
     if (price >= 10000) return price.toStringAsFixed(0);
     if (price >= 100) return price.toStringAsFixed(1);
@@ -264,6 +324,8 @@ class DrawingOverlayPainter extends CustomPainter {
         displayData != oldDelegate.displayData ||
         scrollOffset != oldDelegate.scrollOffset ||
         tempHorizontalPrice != oldDelegate.tempHorizontalPrice ||
-        tempColorValue != oldDelegate.tempColorValue;
+        tempColorValue != oldDelegate.tempColorValue ||
+        tempTrendStartDate != oldDelegate.tempTrendStartDate ||
+        tempTrendStartPrice != oldDelegate.tempTrendStartPrice;
   }
 }

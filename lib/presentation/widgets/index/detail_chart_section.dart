@@ -77,6 +77,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   String? _movingDrawingId;           // 이동 중인 드로잉 ID
   double? _tempHorizontalPrice;       // 미리보기 가격
   ChartYRange? _cachedYRange;         // 캐시된 좌표계 (드래그 중)
+  double? _moveStartY;               // 이동 시작 터치 Y 좌표
+  double? _moveStartPrice;           // 이동 시작 시 price 값
+  double? _moveStartStartPrice;      // 이동 시작 시 startPrice (추세선용)
+  double? _moveStartEndPrice;        // 이동 시작 시 endPrice (추세선용)
   bool _ignoreNextTap = false;        // 인라인 버튼 터치 시 탭 무시 플래그
 
   /// 부모 스크롤 비활성화 콜백 호출
@@ -287,7 +291,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     int scrollOffset,
   ) {
     final drawings = ref.read(chartDrawingProvider);
-    const hitThreshold = 10.0; // px
+    const hitThreshold = 20.0; // px — 터치 정밀도 고려
     String? closestId;
     double closestDist = double.infinity;
 
@@ -431,18 +435,21 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   OverlayEntry? _drawingMenuOverlay;
 
   Widget _buildDrawingToggle() {
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
+
     if (_drawingMode != DrawingMode.none) {
       // 드로잉 모드 활성 → 취소(X) 버튼
+      final size = isDesktop ? 28.0 : 24.0;
       return GestureDetector(
         onTap: _cancelDrawing,
         child: Container(
-          width: 24,
-          height: 24,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: context.isDarkMode ? AppColors.gray700 : AppColors.gray400,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.close, size: 13, color: Colors.white),
+          child: Icon(Icons.close, size: isDesktop ? 15 : 13, color: Colors.white),
         ),
       );
     }
@@ -452,8 +459,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       key: _drawingToggleKey,
       onTap: _toggleDrawingMenu,
       child: Padding(
-        padding: const EdgeInsets.all(2),
-        child: Icon(Icons.edit, size: 16, color: context.appTextHint),
+        padding: EdgeInsets.all(isDesktop ? 4 : 2),
+        child: Icon(Icons.edit, size: isDesktop ? 20 : 16, color: context.appTextHint),
       ),
     );
   }
@@ -464,10 +471,20 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       return;
     }
 
+    // 선택된 드로잉 해제 (설정/삭제 버튼 제거)
+    if (_selectedDrawingId != null) {
+      setState(() {
+        _selectedDrawingId = null;
+      });
+      _notifyDrawingActive();
+    }
+
     final renderBox = _drawingToggleKey.currentContext?.findRenderObject() as RenderBox?;
     if (renderBox == null) return;
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
+
+    final isDesktop = MediaQuery.of(context).size.width >= 600;
 
     _drawingMenuOverlay = OverlayEntry(
       builder: (ctx) => Stack(
@@ -487,10 +504,13 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
             child: Material(
               color: Colors.transparent,
               child: Container(
-                padding: const EdgeInsets.all(6),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 8 : 6,
+                  vertical: isDesktop ? 6 : 6,
+                ),
                 decoration: BoxDecoration(
                   color: context.appCardBackground,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(isDesktop ? 12 : 20),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withAlpha(30),
@@ -503,20 +523,37 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                     width: 0.5,
                   ),
                 ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildMenuCircle(
-                      icon: Icons.horizontal_rule,
-                      onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
-                    ),
-                    const SizedBox(height: 4),
-                    _buildMenuCircle(
-                      icon: Icons.trending_up,
-                      onTap: () => _selectDrawingMode(DrawingMode.trendLine),
-                    ),
-                  ],
-                ),
+                child: isDesktop
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildMenuLabel(
+                            icon: Icons.horizontal_rule,
+                            label: '수평선',
+                            onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
+                          ),
+                          const SizedBox(width: 4),
+                          _buildMenuLabel(
+                            icon: Icons.trending_up,
+                            label: '추세선',
+                            onTap: () => _selectDrawingMode(DrawingMode.trendLine),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildMenuCircle(
+                            icon: Icons.horizontal_rule,
+                            onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildMenuCircle(
+                            icon: Icons.trending_up,
+                            onTap: () => _selectDrawingMode(DrawingMode.trendLine),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
@@ -538,6 +575,39 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           shape: BoxShape.circle,
         ),
         child: Icon(icon, size: 18, color: context.appTextPrimary),
+      ),
+    );
+  }
+
+  /// 데스크톱용 메뉴 버튼 (아이콘 + 텍스트)
+  Widget _buildMenuLabel({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: context.appIconBg,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: context.appTextPrimary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: context.appTextPrimary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -599,12 +669,31 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       final drawings = ref.read(chartDrawingProvider);
       final selected = drawings.where((d) => d.id == _selectedDrawingId).firstOrNull;
       if (selected != null && !selected.isLocked) {
+        final touchX = details.localFocalPoint.dx;
         final touchY = details.localFocalPoint.dy;
-        final lineY = yRange.toY(selected.price);
-        if ((touchY - lineY).abs() <= 30) {
+        bool isNearLine = false;
+
+        if (selected.type == 'horizontal') {
+          final lineY = yRange.toY(selected.price);
+          isNearLine = (touchY - lineY).abs() <= 30;
+        } else if (selected.type == 'trend' &&
+            selected.startDate != null && selected.endDate != null &&
+            selected.startPrice != null && selected.endPrice != null) {
+          // 추세선: 기존 _trendLineDistance 로직과 동일하게 거리 계산
+          final dist = _trendLineDistance(
+            Offset(touchX, touchY), selected, yRange, _scrollOffset,
+          );
+          isNearLine = dist <= 30;
+        }
+
+        if (isNearLine) {
           setState(() {
             _isMovingDrawing = true;
             _movingDrawingId = selected.id;
+            _moveStartY = touchY;
+            _moveStartPrice = selected.price;
+            _moveStartStartPrice = selected.startPrice;
+            _moveStartEndPrice = selected.endPrice;
             _cachedYRange = yRange;
           });
           return;
@@ -629,12 +718,28 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
     // 2) 기존 선 드래그 이동
     if (_isMovingDrawing && _movingDrawingId != null && _cachedYRange != null) {
-      final newPrice = _cachedYRange!.fromY(details.localFocalPoint.dy);
+      final currentY = details.localFocalPoint.dy;
+      final currentPrice = _cachedYRange!.fromY(currentY);
       final drawings = ref.read(chartDrawingProvider);
       final target = drawings.where((d) => d.id == _movingDrawingId).firstOrNull;
       if (target != null) {
-        ref.read(chartDrawingProvider.notifier)
-            .updateDrawingLocal(target.copyWith(price: newPrice));
+        if (target.type == 'trend' &&
+            _moveStartStartPrice != null && _moveStartEndPrice != null &&
+            _moveStartY != null) {
+          // 추세선: delta 계산 후 startPrice/endPrice 양쪽에 적용
+          final startPrice = _cachedYRange!.fromY(_moveStartY!);
+          final priceDelta = currentPrice - startPrice;
+          ref.read(chartDrawingProvider.notifier).updateDrawingLocal(
+            target.copyWith(
+              startPrice: _moveStartStartPrice! + priceDelta,
+              endPrice: _moveStartEndPrice! + priceDelta,
+            ),
+          );
+        } else {
+          // 수평선: price 직접 업데이트
+          ref.read(chartDrawingProvider.notifier)
+              .updateDrawingLocal(target.copyWith(price: currentPrice));
+        }
       }
       return;
     }
@@ -668,6 +773,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
         _isMovingDrawing = false;
         _movingDrawingId = null;
         _cachedYRange = null;
+        _moveStartY = null;
+        _moveStartPrice = null;
+        _moveStartStartPrice = null;
+        _moveStartEndPrice = null;
       });
       return;
     }
@@ -1000,6 +1109,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           isDarkMode: Theme.of(context).brightness == Brightness.dark,
                                           tempHorizontalPrice: _tempHorizontalPrice,
                                           tempColorValue: _isDraggingNewLine ? nextColor : null,
+                                          tempTrendStartDate: _waitingSecondPoint ? _tempTrendLineStartDate : null,
+                                          tempTrendStartPrice: _waitingSecondPoint ? _tempTrendLineStartPrice : null,
                                         ),
                                       ),
                                       // 가이드 바 (드로잉 모드 시 상단)

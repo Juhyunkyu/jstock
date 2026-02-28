@@ -148,10 +148,10 @@ class DetailCandlestickPainter extends CustomPainter {
     // BB/Ichimoku summary overlay (캔버스 상단 고정 위치, topPadding이 공간 확보)
     double overlayY = 2;
     if (bbSummary != null) {
-      overlayY = _paintOverlaySummary(canvas, bbSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, bbSignal);
+      overlayY = _paintOverlaySummary(canvas, bbSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, bbSignal, chartTotalWidth: size.width);
     }
     if (ichSummary != null) {
-      overlayY = _paintOverlaySummary(canvas, ichSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, ichSignal);
+      overlayY = _paintOverlaySummary(canvas, ichSummary!, leftPadding + 2, overlayY, size.width - leftPadding - rightPadding, ichSignal, chartTotalWidth: size.width);
     }
 
     _drawYAxisLabels(canvas, size, minY, maxY, topPadding, chartHeight, rightPadding);
@@ -161,10 +161,12 @@ class DetailCandlestickPainter extends CustomPainter {
   }
 
   /// Paint overlay summary at fixed position (동적 topPadding이 공간 확보).
-  double _paintOverlaySummary(Canvas canvas, String text, double x, double y, double maxWidth, IndicatorSignal? signal) {
+  double _paintOverlaySummary(Canvas canvas, String text, double x, double y, double maxWidth, IndicatorSignal? signal, {double chartTotalWidth = 600}) {
+    final isMobile = chartTotalWidth < 600;
+    final fontSize = isMobile ? 11.0 : 13.0;
     final textSpan = TextSpan(
       text: text,
-      style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+      style: TextStyle(color: textColor, fontSize: fontSize, fontWeight: FontWeight.w600),
     );
     final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
     textPainter.layout(maxWidth: maxWidth);

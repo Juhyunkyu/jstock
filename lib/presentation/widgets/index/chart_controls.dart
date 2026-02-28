@@ -168,13 +168,15 @@ class SubChartHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final fontSize = isMobile ? 11.0 : 13.0;
     return Padding(
-      padding: const EdgeInsets.only(top: 6, bottom: 2),
+      padding: EdgeInsets.only(top: isMobile ? 4 : 6, bottom: 2),
       child: Row(
         children: [
           Text(
             label,
-            style: TextStyle(color: labelColor, fontSize: 13, fontWeight: FontWeight.w700),
+            style: TextStyle(color: labelColor, fontSize: fontSize, fontWeight: FontWeight.w700),
           ),
           const Spacer(),
           if (signal != null) SignalBadge(signal: signal!),
@@ -216,15 +218,19 @@ class SignalBadge extends StatelessWidget {
         fgColor = AppColors.stockDown;
         break;
     }
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final fontSize = isMobile ? 10.0 : 12.0;
+    final hPad = isMobile ? 5.0 : 8.0;
+    final vPad = isMobile ? 2.0 : 3.0;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         signal.label,
-        style: TextStyle(color: fgColor, fontSize: 12, fontWeight: FontWeight.w700),
+        style: TextStyle(color: fgColor, fontSize: fontSize, fontWeight: FontWeight.w700),
       ),
     );
   }

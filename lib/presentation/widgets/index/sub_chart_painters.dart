@@ -69,7 +69,7 @@ class VolumePainter extends CustomPainter {
       volLabel = maxVol.toStringAsFixed(0);
     }
 
-    final textSpan = TextSpan(text: volLabel, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 12));
+    final textSpan = TextSpan(text: volLabel, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
     final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
     textPainter.layout();
     textPainter.paint(canvas, Offset(size.width - rightPadding + 8, topPadding));
@@ -151,7 +151,7 @@ class RSIPainter extends CustomPainter {
       {'value': 30, 'text': '30'},
     ]) {
       final y = toY((label['value'] as int).toDouble());
-      final textSpan = TextSpan(text: label['text'] as String, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 12));
+      final textSpan = TextSpan(text: label['text'] as String, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - rightPadding + 8, y - textPainter.height / 2));
@@ -241,7 +241,7 @@ class MACDPainter extends CustomPainter {
     for (final v in labels) {
       final y = toY(v);
       final text = v == 0 ? '0' : v.toStringAsFixed(1);
-      final textSpan = TextSpan(text: text, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 12));
+      final textSpan = TextSpan(text: text, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - rightPadding + 8, y - textPainter.height / 2));
@@ -354,7 +354,7 @@ class StochasticPainter extends CustomPainter {
       {'value': 20, 'text': '20'},
     ]) {
       final y = toY((label['value'] as int).toDouble());
-      final textSpan = TextSpan(text: label['text'] as String, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 12));
+      final textSpan = TextSpan(text: label['text'] as String, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - rightPadding + 8, y - textPainter.height / 2));
@@ -424,7 +424,7 @@ class OBVPainter extends CustomPainter {
     for (final v in [maxVal, (maxVal + minVal) / 2, minVal]) {
       final y = toY(v);
       final text = formatVolume(v);
-      final textSpan = TextSpan(text: text, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: 12));
+      final textSpan = TextSpan(text: text, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - rightPadding + 8, y - textPainter.height / 2));
