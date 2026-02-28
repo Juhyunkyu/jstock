@@ -63,6 +63,15 @@ class DrawingGuideBar extends StatelessWidget {
           return '추세선의 끝점을 탭하세요';
         }
         return '추세선의 시작점을 탭하세요';
+      case DrawingMode.fibonacci:
+        if (waitingSecondPoint) {
+          return '피보나치 0% 지점(저점)을 탭하세요';
+        }
+        return '피보나치 100% 지점(고점)을 탭하세요';
+      case DrawingMode.supportResistanceZone:
+        return '차트를 드래그하여 지지/저항 영역을 설정하세요';
+      case DrawingMode.measure:
+        return '차트를 드래그하여 가격/캔들 수를 측정하세요';
       case DrawingMode.none:
         return '';
     }

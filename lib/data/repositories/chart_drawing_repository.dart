@@ -41,6 +41,15 @@ class ChartDrawingRepository {
     await box.delete(id);
   }
 
+  /// 특정 심볼의 드로잉 전체 삭제
+  Future<void> clearForSymbol(String symbol) async {
+    final keys = box.keys.where((key) {
+      final drawing = box.get(key);
+      return drawing != null && drawing.symbol == symbol;
+    }).toList();
+    await box.deleteAll(keys);
+  }
+
   /// 전체 삭제
   Future<void> clearAll() async {
     await box.clear();

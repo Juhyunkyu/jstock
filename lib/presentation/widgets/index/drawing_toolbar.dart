@@ -6,6 +6,9 @@ enum DrawingMode {
   none,
   horizontalLine,
   trendLine,
+  fibonacci,
+  supportResistanceZone,
+  measure,
 }
 
 /// 드로잉 도구 팔레트 + FAB 버튼

@@ -29,13 +29,14 @@ class ChartDrawingAdapter extends TypeAdapter<ChartDrawing> {
       createdAt: fields[9] as DateTime?,
       strokeWidth: fields[10] == null ? 1.0 : fields[10] as double,
       isLocked: fields[11] == null ? false : fields[11] as bool,
+      lowerPrice: fields[12] == null ? 0.0 : fields[12] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, ChartDrawing obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class ChartDrawingAdapter extends TypeAdapter<ChartDrawing> {
       ..writeByte(10)
       ..write(obj.strokeWidth)
       ..writeByte(11)
-      ..write(obj.isLocked);
+      ..write(obj.isLocked)
+      ..writeByte(12)
+      ..write(obj.lowerPrice);
   }
 
   @override
@@ -84,6 +87,10 @@ class DrawingTypeAdapter extends TypeAdapter<DrawingType> {
         return DrawingType.horizontalLine;
       case 1:
         return DrawingType.trendLine;
+      case 2:
+        return DrawingType.fibonacci;
+      case 3:
+        return DrawingType.supportResistanceZone;
       default:
         return DrawingType.horizontalLine;
     }
@@ -97,6 +104,12 @@ class DrawingTypeAdapter extends TypeAdapter<DrawingType> {
         break;
       case DrawingType.trendLine:
         writer.writeByte(1);
+        break;
+      case DrawingType.fibonacci:
+        writer.writeByte(2);
+        break;
+      case DrawingType.supportResistanceZone:
+        writer.writeByte(3);
         break;
     }
   }

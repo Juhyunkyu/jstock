@@ -10,6 +10,12 @@ enum DrawingType {
 
   @HiveField(1)
   trendLine,
+
+  @HiveField(2)
+  fibonacci,
+
+  @HiveField(3)
+  supportResistanceZone,
 }
 
 /// 차트 드로잉 모델
@@ -65,6 +71,10 @@ class ChartDrawing extends HiveObject {
   @HiveField(11, defaultValue: false)
   bool isLocked;
 
+  /// 지지/저항 영역 하한 가격
+  @HiveField(12, defaultValue: 0.0)
+  double lowerPrice;
+
   ChartDrawing({
     required this.id,
     required this.symbol,
@@ -78,6 +88,7 @@ class ChartDrawing extends HiveObject {
     DateTime? createdAt,
     this.strokeWidth = 1.0,
     this.isLocked = false,
+    this.lowerPrice = 0.0,
   }) : createdAt = createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -93,6 +104,7 @@ class ChartDrawing extends HiveObject {
         'createdAt': createdAt.toIso8601String(),
         'strokeWidth': strokeWidth,
         'isLocked': isLocked,
+        'lowerPrice': lowerPrice,
       };
 
   factory ChartDrawing.fromJson(Map<String, dynamic> json) => ChartDrawing(
@@ -114,6 +126,7 @@ class ChartDrawing extends HiveObject {
             : null,
         strokeWidth: (json['strokeWidth'] as num?)?.toDouble() ?? 1.0,
         isLocked: json['isLocked'] as bool? ?? false,
+        lowerPrice: (json['lowerPrice'] as num?)?.toDouble() ?? 0.0,
       );
 
   ChartDrawing copyWith({
@@ -129,6 +142,7 @@ class ChartDrawing extends HiveObject {
     DateTime? createdAt,
     double? strokeWidth,
     bool? isLocked,
+    double? lowerPrice,
   }) {
     return ChartDrawing(
       id: id ?? this.id,
@@ -143,6 +157,7 @@ class ChartDrawing extends HiveObject {
       createdAt: createdAt ?? this.createdAt,
       strokeWidth: strokeWidth ?? this.strokeWidth,
       isLocked: isLocked ?? this.isLocked,
+      lowerPrice: lowerPrice ?? this.lowerPrice,
     );
   }
 }

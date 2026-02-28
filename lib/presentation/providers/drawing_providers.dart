@@ -45,6 +45,12 @@ class ChartDrawingNotifier extends StateNotifier<List<ChartDrawing>> {
     await _repository.remove(id);
     state = state.where((d) => d.id != id).toList();
   }
+
+  /// 특정 심볼의 드로잉 전체 삭제
+  Future<void> clearAllForSymbol(String symbol) async {
+    await _repository.clearForSymbol(symbol);
+    state = state.where((d) => d.symbol != symbol).toList();
+  }
 }
 
 /// 차트 드로잉 Provider
