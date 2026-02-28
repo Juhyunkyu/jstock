@@ -179,7 +179,14 @@ class SubChartHeader extends StatelessWidget {
             style: TextStyle(color: labelColor, fontSize: fontSize, fontWeight: FontWeight.w700),
           ),
           const Spacer(),
-          if (signal != null) SignalBadge(signal: signal!),
+          if (signal != null)
+            SizedBox(
+              width: 50,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: SignalBadge(signal: signal!),
+              ),
+            ),
         ],
       ),
     );

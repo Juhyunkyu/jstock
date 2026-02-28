@@ -1065,8 +1065,11 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              _buildDrawingToggle(),
+              // Y축 가격 영역(rightPadding 50px) 중앙에 정렬
+              SizedBox(
+                width: 50,
+                child: Center(child: _buildDrawingToggle()),
+              ),
             ],
           ),
           const SizedBox(height: 8),
