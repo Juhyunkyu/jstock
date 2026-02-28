@@ -14,7 +14,7 @@ import '../../utils/chart_utils.dart';
 import 'chart_controls.dart';
 import 'detail_candlestick_painter.dart';
 import 'drawing_guide_bar.dart';
-import 'drawing_help_dialog.dart';
+import 'drawing_help_dialog.dart' show showDrawingToolHelp;
 import 'drawing_overlay_painter.dart';
 import 'drawing_selection_buttons.dart';
 import 'drawing_settings_sheet.dart';
@@ -675,12 +675,12 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
               color: Colors.transparent,
               child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? 8 : 6,
-                  vertical: isDesktop ? 6 : 6,
+                  horizontal: isDesktop ? 4 : 4,
+                  vertical: isDesktop ? 4 : 4,
                 ),
                 decoration: BoxDecoration(
                   color: context.appCardBackground,
-                  borderRadius: BorderRadius.circular(isDesktop ? 12 : 20),
+                  borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withAlpha(30),
@@ -693,137 +693,56 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                     width: 0.5,
                   ),
                 ),
-                child: isDesktop
-                    ? Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // 도구 Row
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildMenuLabel(
-                                icon: Icons.horizontal_rule,
-                                label: '수평선',
-                                onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
-                              ),
-                              const SizedBox(width: 4),
-                              _buildMenuLabel(
-                                icon: Icons.trending_up,
-                                label: '추세선',
-                                onTap: () => _selectDrawingMode(DrawingMode.trendLine),
-                              ),
-                              const SizedBox(width: 4),
-                              _buildMenuLabel(
-                                icon: Icons.stacked_line_chart,
-                                label: '피보나치',
-                                onTap: () => _selectDrawingMode(DrawingMode.fibonacci),
-                              ),
-                              const SizedBox(width: 4),
-                              _buildMenuLabel(
-                                icon: Icons.view_stream,
-                                label: '지지/저항',
-                                onTap: () => _selectDrawingMode(DrawingMode.supportResistanceZone),
-                              ),
-                              const SizedBox(width: 4),
-                              _buildMenuLabel(
-                                icon: Icons.straighten,
-                                label: '측정',
-                                onTap: () => _selectDrawingMode(DrawingMode.measure),
-                              ),
-                            ],
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Divider(height: 1, color: context.appDivider),
-                          ),
-                          // 액션 Row
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildMenuLabel(
-                                icon: Icons.delete_sweep,
-                                label: '초기화',
-                                onTap: () {
-                                  _dismissDrawingMenu();
-                                  _resetAllDrawings();
-                                },
-                              ),
-                              const SizedBox(width: 4),
-                              _buildMenuLabel(
-                                icon: Icons.help_outline,
-                                label: '도움말',
-                                onTap: () {
-                                  _dismissDrawingMenu();
-                                  showDrawingHelpDialog(context);
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    : Column(
+                child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 2열 그리드
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildMenuCircle(
-                                icon: Icons.horizontal_rule,
-                                onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildMenuCircle(
-                                icon: Icons.trending_up,
-                                onTap: () => _selectDrawingMode(DrawingMode.trendLine),
-                              ),
-                            ],
+                          _buildMenuItem(
+                            icon: Icons.horizontal_rule,
+                            label: '수평선',
+                            helpKey: 'horizontalLine',
+                            isDesktop: isDesktop,
+                            onTap: () => _selectDrawingMode(DrawingMode.horizontalLine),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildMenuCircle(
-                                icon: Icons.stacked_line_chart,
-                                onTap: () => _selectDrawingMode(DrawingMode.fibonacci),
-                              ),
-                              const SizedBox(width: 8),
-                              _buildMenuCircle(
-                                icon: Icons.view_stream,
-                                onTap: () => _selectDrawingMode(DrawingMode.supportResistanceZone),
-                              ),
-                            ],
+                          _buildMenuItem(
+                            icon: Icons.trending_up,
+                            label: '추세선',
+                            helpKey: 'trendLine',
+                            isDesktop: isDesktop,
+                            onTap: () => _selectDrawingMode(DrawingMode.trendLine),
                           ),
-                          const SizedBox(height: 8),
-                          _buildMenuCircle(
+                          _buildMenuItem(
+                            icon: Icons.stacked_line_chart,
+                            label: '피보나치',
+                            helpKey: 'fibonacci',
+                            isDesktop: isDesktop,
+                            onTap: () => _selectDrawingMode(DrawingMode.fibonacci),
+                          ),
+                          _buildMenuItem(
+                            icon: Icons.view_stream,
+                            label: '지지/저항',
+                            helpKey: 'supportResistanceZone',
+                            isDesktop: isDesktop,
+                            onTap: () => _selectDrawingMode(DrawingMode.supportResistanceZone),
+                          ),
+                          _buildMenuItem(
                             icon: Icons.straighten,
+                            label: '측정',
+                            helpKey: 'measure',
+                            isDesktop: isDesktop,
                             onTap: () => _selectDrawingMode(DrawingMode.measure),
                           ),
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 2),
                             child: Divider(height: 1, color: context.appDivider),
                           ),
-                          // 액션 Row
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _buildMenuCircle(
-                                icon: Icons.delete_sweep,
-                                onTap: () {
-                                  _dismissDrawingMenu();
-                                  _resetAllDrawings();
-                                },
-                              ),
-                              const SizedBox(width: 8),
-                              _buildMenuCircle(
-                                icon: Icons.help_outline,
-                                onTap: () {
-                                  _dismissDrawingMenu();
-                                  showDrawingHelpDialog(context);
-                                },
-                              ),
-                            ],
+                          _buildMenuItem(
+                            icon: Icons.delete_sweep,
+                            label: '초기화',
+                            isDesktop: isDesktop,
+                            onTap: () {
+                              _dismissDrawingMenu();
+                              _resetAllDrawings();
+                            },
                           ),
                         ],
                       ),
@@ -837,48 +756,49 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     Overlay.of(context).insert(_drawingMenuOverlay!);
   }
 
-  Widget _buildMenuCircle({required IconData icon, required VoidCallback onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: context.appIconBg,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(icon, size: 18, color: context.appTextPrimary),
-      ),
-    );
-  }
-
-  /// 데스크톱용 메뉴 버튼 (아이콘 + 텍스트)
-  Widget _buildMenuLabel({
+  /// 메뉴 아이템 (수직 일렬, 도구는 ? 포함)
+  Widget _buildMenuItem({
     required IconData icon,
     required String label,
+    required bool isDesktop,
     required VoidCallback onTap,
+    String? helpKey,
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: context.appIconBg,
-          borderRadius: BorderRadius.circular(8),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop ? 8 : 6,
+          vertical: isDesktop ? 6 : 5,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: context.appTextPrimary),
-            const SizedBox(width: 6),
+            Icon(icon, size: isDesktop ? 18 : 16, color: context.appTextPrimary),
+            SizedBox(width: isDesktop ? 10 : 8),
             Text(
               label,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: isDesktop ? 13 : 12,
                 fontWeight: FontWeight.w500,
                 color: context.appTextPrimary,
               ),
             ),
+            if (helpKey != null) ...[
+              SizedBox(width: isDesktop ? 8 : 6),
+              GestureDetector(
+                onTap: () {
+                  _dismissDrawingMenu();
+                  showDrawingToolHelp(context, helpKey);
+                },
+                child: Icon(
+                  Icons.help_outline,
+                  size: isDesktop ? 15 : 14,
+                  color: context.appTextHint,
+                ),
+              ),
+            ],
           ],
         ),
       ),
