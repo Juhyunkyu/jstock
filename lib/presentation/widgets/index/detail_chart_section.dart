@@ -14,7 +14,7 @@ import '../../utils/chart_utils.dart';
 import 'chart_controls.dart';
 import 'detail_candlestick_painter.dart';
 import 'drawing_guide_bar.dart';
-import 'drawing_help_dialog.dart' show showDrawingToolHelp;
+// drawing_help_dialog.dart — 도움말은 오버레이로 인라인 처리
 import 'drawing_overlay_painter.dart';
 import 'drawing_selection_buttons.dart';
 import 'drawing_settings_sheet.dart';
@@ -603,6 +603,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
   final GlobalKey _drawingToggleKey = GlobalKey();
   OverlayEntry? _drawingMenuOverlay;
+  OverlayEntry? _toolHelpOverlay;
 
   Widget _buildDrawingToggle() {
     final isDesktop = MediaQuery.of(context).size.width >= 600;
@@ -764,6 +765,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     required VoidCallback onTap,
     String? helpKey,
   }) {
+    final iconSize = isDesktop ? 18.0 : 16.0;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -775,8 +777,11 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: isDesktop ? 18 : 16, color: context.appTextPrimary),
-            SizedBox(width: isDesktop ? 10 : 8),
+            SizedBox(
+              width: isDesktop ? 22 : 20,
+              child: Icon(icon, size: iconSize, color: context.appTextPrimary),
+            ),
+            SizedBox(width: isDesktop ? 8 : 6),
             Text(
               label,
               style: TextStyle(
@@ -789,8 +794,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
               SizedBox(width: isDesktop ? 8 : 6),
               GestureDetector(
                 onTap: () {
-                  _dismissDrawingMenu();
-                  showDrawingToolHelp(context, helpKey);
+                  _showToolHelpOverlay(helpKey);
                 },
                 child: Icon(
                   Icons.help_outline,
@@ -826,8 +830,188 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   }
 
   void _dismissDrawingMenu() {
+    _dismissToolHelp();
     _drawingMenuOverlay?.remove();
     _drawingMenuOverlay = null;
+  }
+
+  void _dismissToolHelp() {
+    _toolHelpOverlay?.remove();
+    _toolHelpOverlay = null;
+  }
+
+  void _showToolHelpOverlay(String helpKey) {
+    _dismissToolHelp();
+
+    final helpData = _getToolHelpData(helpKey);
+    if (helpData == null) return;
+
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth >= 600;
+
+    _toolHelpOverlay = OverlayEntry(
+      builder: (ctx) => Stack(
+        children: [
+          // 배경 탭 → 도움말만 닫기 (메뉴는 유지)
+          Positioned.fill(
+            child: GestureDetector(
+              onTap: _dismissToolHelp,
+              behavior: HitTestBehavior.translucent,
+              child: const SizedBox.expand(),
+            ),
+          ),
+          // 도움말 카드 (화면 중앙)
+          Positioned(
+            left: isDesktop ? screenWidth * 0.25 : 24,
+            right: isDesktop ? screenWidth * 0.25 : 24,
+            top: isDesktop ? 120 : 100,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withAlpha(40),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                  border: Border.all(color: context.appDivider, width: 0.5),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(helpData['icon'] as IconData, size: 20, color: context.appAccent),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            helpData['title'] as String,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: context.appTextPrimary,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _dismissToolHelp,
+                          child: Icon(Icons.close, size: 18, color: context.appTextHint),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: isDesktop ? 300 : 250),
+                      child: SingleChildScrollView(
+                        child: Text(
+                          helpData['description'] as String,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: context.appTextSecondary,
+                            height: 1.6,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    Overlay.of(context).insert(_toolHelpOverlay!);
+  }
+
+  Map<String, dynamic>? _getToolHelpData(String key) {
+    switch (key) {
+      case 'horizontalLine':
+        return {
+          'icon': Icons.horizontal_rule,
+          'title': '수평선',
+          'description': '특정 가격 수준에 수평선을 그려 주요 지지/저항 가격대를 표시합니다.\n\n'
+              '사용법:\n'
+              '• 차트를 탭하거나 드래그하여 수평선을 배치합니다\n'
+              '• 선을 탭하여 선택 → 드래그로 위치를 조정합니다\n'
+              '• 선택 후 ⚙ 버튼으로 색상/굵기/잠금을 설정합니다\n\n'
+              '활용법:\n'
+              '• 과거 고점/저점에 배치하여 지지/저항 레벨 확인\n'
+              '• 심리적 가격대(정수, 예: 600, 620)에 표시\n'
+              '• 이전 돌파 후 지지로 전환된 레벨 추적\n'
+              '• 여러 수평선으로 주요 가격 구간을 한눈에 파악',
+        };
+      case 'trendLine':
+        return {
+          'icon': Icons.trending_up,
+          'title': '추세선',
+          'description': '두 점을 연결하여 가격의 추세 방향과 강도를 시각화합니다.\n\n'
+              '사용법:\n'
+              '• 시작점과 끝점을 순서대로 탭하여 추세선을 그립니다\n'
+              '• 선택 후 앵커(●)를 드래그하면 기울기를 조정합니다\n'
+              '• 선 자체를 드래그하면 평행 이동합니다\n\n'
+              '활용법:\n'
+              '• 상승 추세: 연속된 저점(바닥)을 연결\n'
+              '• 하락 추세: 연속된 고점(꼭대기)을 연결\n'
+              '• 추세선 이탈(브레이크아웃)은 추세 전환 신호\n'
+              '• 추세선에 닿을 때의 반등 → 매수/매도 타이밍',
+        };
+      case 'fibonacci':
+        return {
+          'icon': Icons.stacked_line_chart,
+          'title': '피보나치 되돌림',
+          'description': '가격 조정 시 되돌림 수준을 예측하는 7개 피보나치 레벨을 표시합니다.\n\n'
+              '사용법:\n'
+              '• 고점(100%)을 먼저 탭 → 저점(0%)을 탭합니다\n'
+              '• 0%, 23.6%, 38.2%, 50%, 61.8%, 78.6%, 100% 레벨이 표시됩니다\n'
+              '• 앵커(●)를 드래그하여 범위를 조정합니다\n\n'
+              '활용법:\n'
+              '• 38.2%와 61.8%가 가장 중요한 되돌림 레벨\n'
+              '• 50%는 심리적 중간 지점으로 빈번하게 반응\n'
+              '• 상승 후 조정 시: 되돌림 레벨에서의 반등 → 매수 기회\n'
+              '• 하락 후 반등 시: 되돌림 레벨에서의 저항 → 매도 기회\n'
+              '• 여러 피보나치 레벨이 겹치는 구간은 강한 지지/저항',
+        };
+      case 'supportResistanceZone':
+        return {
+          'icon': Icons.view_stream,
+          'title': '지지/저항 영역',
+          'description': '가격이 반복적으로 반등하거나 저항받는 구간을 영역으로 표시합니다.\n\n'
+              '사용법:\n'
+              '• 차트를 위아래로 드래그하여 가격 영역을 설정합니다\n'
+              '• 선택 후 상/하 경계선을 개별 드래그하여 범위를 조정합니다\n'
+              '• 영역 내부를 드래그하면 전체가 평행 이동합니다\n\n'
+              '활용법:\n'
+              '• 단일 수평선보다 현실적인 지지/저항 분석 가능\n'
+              '• 거래량이 집중된 가격대에 설정하면 효과적\n'
+              '• 과거에 여러 번 반등/저항이 일어난 구간을 커버\n'
+              '• 영역 돌파 시 강한 추세 전환 신호로 해석',
+        };
+      case 'measure':
+        return {
+          'icon': Icons.straighten,
+          'title': '측정 도구',
+          'description': '두 지점 간의 가격 변화, 변동률, 캔들 수를 실시간으로 측정합니다.\n\n'
+              '사용법:\n'
+              '• 차트를 드래그하여 시작점→끝점을 지정합니다\n'
+              '• 드래그 중 가격 차이, 변동률(%), 캔들 수가 표시됩니다\n'
+              '• 드래그를 놓으면 측정이 사라지고 바로 재측정 가능합니다\n\n'
+              '활용법:\n'
+              '• 특정 구간의 수익률이나 기간을 빠르게 확인\n'
+              '• 과거 상승/하락 패턴의 크기(폭, 기간)를 측정\n'
+              '• 현재 움직임과 과거 패턴을 비교하여 목표가 산정\n'
+              '• 캔들 수로 시간 경과를 직관적으로 파악',
+        };
+      default:
+        return null;
+    }
   }
 
   @override
