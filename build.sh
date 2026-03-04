@@ -15,7 +15,7 @@ else
 fi
 
 # 키 확인
-if [ -z "$FINNHUB_API_KEY" ] || [ -z "$TWELVE_DATA_API_KEY" ] || [ -z "$MARKETAUX_API_KEY" ]; then
+if [ -z "$FINNHUB_API_KEY" ] || [ -z "$TWELVE_DATA_API_KEY" ] || [ -z "$MARKETAUX_API_KEY" ] || [ -z "$KOREAEXIM_API_KEY" ]; then
   echo "Error: .env에 API 키가 비어있습니다."
   exit 1
 fi
@@ -25,6 +25,7 @@ echo "Building Alpha Cycle (release)..."
 /home/dandy02/flutter/bin/flutter build web --release --pwa-strategy=offline-first \
   --dart-define=FINNHUB_API_KEY=$FINNHUB_API_KEY \
   --dart-define=TWELVE_DATA_API_KEY=$TWELVE_DATA_API_KEY \
-  --dart-define=MARKETAUX_API_KEY=$MARKETAUX_API_KEY
+  --dart-define=MARKETAUX_API_KEY=$MARKETAUX_API_KEY \
+  --dart-define=KOREAEXIM_API_KEY=$KOREAEXIM_API_KEY
 
 echo "Build complete! Run with: python3 serve_nocache.py 8080"

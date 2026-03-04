@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../core/config/app_config.dart';
 import 'api_exception.dart';
 
 /// 환율 데이터 모델
@@ -23,12 +24,12 @@ class ExchangeRate {
 
 /// 환율 API 서비스
 ///
-/// Primary: open.er-api.com (무료, CORS 지원)
-/// Fallback: api.frankfurter.app (무료, CORS 지원)
+/// Primary: Twelve Data forex (실시간, 1분 단위)
+/// Fallback 1: open.er-api.com (무료, CORS 지원, 하루 1회)
+/// Fallback 2: api.frankfurter.app (무료, CORS 지원)
 class ExchangeRateService {
   final Dio _dio;
 
-  // Primary: ExchangeRate-API
   static const String _primaryUrl = 'https://open.er-api.com/v6';
 
   ExchangeRateService()
@@ -42,19 +43,104 @@ class ExchangeRateService {
     return getRate(from: 'USD', to: 'KRW');
   }
 
-  /// 특정 통화 쌍 환율 조회
+  /// 특정 통화 쌍 환율 조회 (폴백 체인)
   Future<ExchangeRate> getRate({
     required String from,
     required String to,
   }) async {
+    // 1st: Twelve Data forex (실시간)
+    try {
+      return await _getTwelveDataRate(from: from, to: to);
+    } catch (e) {
+      // Twelve Data 실패 → fallback
+    }
+
+    // 2nd: open.er-api.com
     try {
       return await _getOpenErApiRate(from: from, to: to);
     } catch (e) {
-      return _frankfurterFallback(from: from, to: to);
+      // open.er-api.com 실패 → fallback
+    }
+
+    // 3rd: Frankfurter
+    return _frankfurterFallback(from: from, to: to);
+  }
+
+  /// Twelve Data forex API (실시간)
+  Future<ExchangeRate> _getTwelveDataRate({
+    required String from,
+    required String to,
+  }) async {
+    final apiKey = AppConfig.twelveDataApiKey;
+    if (apiKey.isEmpty) {
+      throw const ParseException(message: 'Twelve Data API 키 없음');
+    }
+
+    try {
+      final response = await _dio.get(
+        '${AppConfig.twelveDataBaseUrl}/exchange_rate',
+        queryParameters: {
+          'symbol': '${from.toUpperCase()}/${to.toUpperCase()}',
+          'apikey': apiKey,
+        },
+      );
+
+      return _parseTwelveDataResponse(from, to, response.data);
+    } on DioException catch (e) {
+      throw NetworkException(
+        message: 'Twelve Data 환율 조회 실패: ${e.message}',
+        originalError: e,
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ParseException(
+        message: 'Twelve Data 환율 파싱 실패',
+        originalError: e,
+      );
     }
   }
 
-  /// Primary API (open.er-api.com)
+  /// Twelve Data 응답 파싱
+  ExchangeRate _parseTwelveDataResponse(
+      String from, String to, dynamic data) {
+    try {
+      if (data is! Map<String, dynamic>) {
+        throw const ParseException(message: 'Twelve Data 응답 형식 오류');
+      }
+
+      // 에러 응답 체크
+      if (data.containsKey('code') && data['code'] != 200) {
+        throw ParseException(
+            message: 'Twelve Data 에러: ${data['message'] ?? 'unknown'}');
+      }
+
+      final rate = data['rate'];
+      if (rate == null) {
+        throw const ParseException(message: 'Twelve Data 환율 데이터 없음');
+      }
+
+      final timestamp = data['timestamp'] as int?;
+      final dateTime = timestamp != null
+          ? DateTime.fromMillisecondsSinceEpoch(timestamp * 1000)
+          : DateTime.now();
+
+      return ExchangeRate(
+        fromCurrency: from.toUpperCase(),
+        toCurrency: to.toUpperCase(),
+        rate: (rate is num) ? rate.toDouble() : double.parse(rate.toString()),
+        timestamp: dateTime,
+        source: 'Twelve Data',
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ParseException(
+        message: 'Twelve Data 환율 파싱 실패',
+        originalError: e,
+      );
+    }
+  }
+
+  /// Primary fallback API (open.er-api.com)
   Future<ExchangeRate> _getOpenErApiRate({
     required String from,
     required String to,

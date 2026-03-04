@@ -34,7 +34,8 @@ jobs:
           flutter build web --release --pwa-strategy=offline-first --base-href /jstock/ \
             --dart-define=FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }} \
             --dart-define=TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }} \
-            --dart-define=MARKETAUX_API_KEY=${{ secrets.MARKETAUX_API_KEY }}
+            --dart-define=MARKETAUX_API_KEY=${{ secrets.MARKETAUX_API_KEY }} \
+            --dart-define=KOREAEXIM_API_KEY=${{ secrets.KOREAEXIM_API_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -407,7 +407,7 @@ class ExchangeRateNotifier extends StateNotifier<ExchangeRateState> {
   Future<ExchangeRate?> fetchUsdKrwRate() async {
     final cacheKey = exchangeRateCacheKey('USD', 'KRW');
 
-    // 캐시 확인 (1분간 유효 - 더 자주 업데이트)
+    // 캐시 확인 (5분간 유효 - Twelve Data rate limit 절약)
     final cached = _cache.get<ExchangeRate>(cacheKey);
     if (cached != null) {
       state = state.copyWith(usdKrw: cached);
@@ -419,8 +419,8 @@ class ExchangeRateNotifier extends StateNotifier<ExchangeRateState> {
     try {
       final rate = await _service.getUsdKrwRate();
 
-      // 캐시 저장 (1분 - 더 빠른 환율 업데이트)
-      _cache.set(cacheKey, rate, ttl: const Duration(minutes: 1));
+      // 캐시 저장 (5분 - Twelve Data 800회/일 제한 고려)
+      _cache.set(cacheKey, rate, ttl: const Duration(minutes: 5));
 
       state = state.copyWith(
         usdKrw: rate,

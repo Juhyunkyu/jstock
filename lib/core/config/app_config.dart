@@ -36,4 +36,10 @@ class AppConfig {
     'MARKETAUX_API_KEY',
     defaultValue: '',
   );
+
+  /// 한국수출입은행 API 키 (매매기준율)
+  static const String koreaEximApiKey = String.fromEnvironment(
+    'KOREAEXIM_API_KEY',
+    defaultValue: '',
+  );
 }
