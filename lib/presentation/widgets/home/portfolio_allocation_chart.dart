@@ -205,49 +205,59 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                 );
               }
 
-              // 데스크톱: 3열 (차트 | 범례 | 시드) — 균등 배치
+              // 데스크톱: 좌50% (차트+범례) | 우50% (총투자+총손익)
               return Row(
-                mainAxisAlignment: hasData
-                    ? MainAxisAlignment.spaceEvenly
-                    : MainAxisAlignment.start,
                 children: [
-                  // 도넛 차트
-                  _buildDonutChart(context, summary, chartSize, alphaColor, holdingColor, hasData, true),
-                  // 범례 (내용물 크기만큼, 최대 폭 제한)
-                  ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: availableWidth * 0.35),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                  // 좌측 50%: 차트 + 범례 (중앙정렬)
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildLegendItem(
-                          context: context,
-                          color: alphaColor,
-                          label: '알파 사이클 (${summary.alphaCycleCount}개)',
-                          value: formatKrw(summary.alphaCycleValue),
-                          ratio: summary.alphaCycleRatio,
-                          index: 0,
-                        ),
-                        const SizedBox(height: 10),
-                        _buildLegendItem(
-                          context: context,
-                          color: holdingColor,
-                          label: '일반 보유 (${summary.holdingCount}개)',
-                          value: formatKrw(summary.holdingValue),
-                          ratio: summary.holdingRatio,
-                          index: 1,
+                        _buildDonutChart(context, summary, chartSize, alphaColor, holdingColor, hasData, true),
+                        const SizedBox(width: 16),
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildLegendItem(
+                                context: context,
+                                color: alphaColor,
+                                label: '알파 사이클 (${summary.alphaCycleCount}개)',
+                                value: formatKrw(summary.alphaCycleValue),
+                                ratio: summary.alphaCycleRatio,
+                                index: 0,
+                              ),
+                              const SizedBox(height: 10),
+                              _buildLegendItem(
+                                context: context,
+                                color: holdingColor,
+                                label: '일반 보유 (${summary.holdingCount}개)',
+                                value: formatKrw(summary.holdingValue),
+                                ratio: summary.holdingRatio,
+                                index: 1,
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  // 구분선 + 시드 요약
-                  if (hasData) ...[
-                    Container(
-                      width: 1,
-                      height: 60,
-                      color: context.appDivider,
+                  // 우측 50%: 구분선 + 총투자/총손익 (중앙정렬)
+                  if (hasData)
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 1,
+                            height: 60,
+                            color: context.appDivider,
+                          ),
+                          const SizedBox(width: 24),
+                          _buildSeedColumn(context, summary),
+                        ],
+                      ),
                     ),
-                    _buildSeedColumn(context, summary),
-                  ],
                 ],
               );
             },
