@@ -81,15 +81,6 @@ class _MainShellState extends ConsumerState<MainShell> {
     });
   }
 
-  /// 현재 라우트가 메인 탭(홈, 관심종목, My, 거래내역, 설정)인지 확인
-  bool _isMainTabRoute(BuildContext context) {
-    final location = GoRouterState.of(context).uri.path;
-    return location == '/' ||
-        location == '/watchlist' ||
-        location == '/stocks' ||
-        location == '/history' ||
-        location == '/settings';
-  }
 
   /// 관심종목 알림 처리 (빌드 밖에서 안전하게 실행)
   void _handleWatchlistAlerts(List<AlertNotification> alerts) {
@@ -146,7 +137,6 @@ class _MainShellState extends ConsumerState<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final isMainTab = _isMainTabRoute(context);
 
         // Desktop (>=1200px): Extended NavigationRail + 좌측 정렬 콘텐츠
         if (width >= 1200) {
@@ -189,14 +179,14 @@ class _MainShellState extends ConsumerState<MainShell> {
                 ),
               ),
             ),
-            bottomNavigationBar: isMainTab ? const _BottomNavBar() : null,
+            bottomNavigationBar: const _BottomNavBar(),
           );
         }
 
         // Mobile (<768px): BottomNav only for main tabs
         return Scaffold(
           body: _wrapWithBanner(widget.child),
-          bottomNavigationBar: isMainTab ? const _BottomNavBar() : null,
+          bottomNavigationBar: const _BottomNavBar(),
         );
       },
     );

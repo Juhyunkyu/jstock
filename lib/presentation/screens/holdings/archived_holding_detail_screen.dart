@@ -75,9 +75,7 @@ class ArchivedHoldingDetailScreen extends ConsumerWidget {
             margin: const EdgeInsets.only(right: 16),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: context.isDarkMode
-                  ? AppColors.secondary.withValues(alpha: 0.2)
-                  : AppColors.secondary.withValues(alpha: 0.1),
+              color: context.appAccent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -85,7 +83,7 @@ class ArchivedHoldingDetailScreen extends ConsumerWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: AppColors.secondary,
+                color: context.appAccent,
               ),
             ),
           ),

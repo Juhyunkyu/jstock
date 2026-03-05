@@ -215,8 +215,8 @@ class HoldingCard extends StatelessWidget {
                   icon: const Icon(Icons.archive_outlined, size: 18),
                   label: const Text('완료(기록)'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
+                    foregroundColor: context.appAccent,
+                    side: BorderSide(color: context.appAccent),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
