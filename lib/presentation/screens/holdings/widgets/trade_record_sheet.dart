@@ -166,7 +166,17 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
                   ),
                   Expanded(
                     child: GestureDetector(
-                      onTap: () => setState(() => _isBuy = false),
+                      onTap: () => setState(() {
+                        _isBuy = false;
+                        // 매도 탭 전환 시 보유 수량 초과 방지
+                        final entered = double.tryParse(_sharesController.text) ?? 0;
+                        if (entered > widget.holding.quantity) {
+                          final max = widget.holding.quantity.toDouble();
+                          _sharesController.text = max == max.roundToDouble()
+                              ? max.toInt().toString()
+                              : max.toStringAsFixed(2);
+                        }
+                      }),
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
