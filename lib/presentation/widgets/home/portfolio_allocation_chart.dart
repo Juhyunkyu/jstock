@@ -2,33 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
+import '../../../presentation/providers/portfolio_providers.dart';
 
-/// 포트폴리오 자산 배분 차트 위젯
+/// 내 포트폴리오 차트 위젯
 ///
-/// 알파 사이클과 일반 보유의 비율을 도넛 차트로 표시합니다.
+/// 알파 사이클과 일반 보유의 비율을 도넛 차트로 표시하고,
+/// 하단에 총 시드 대비 손익을 보여줍니다.
 /// 범례의 색상 네모를 탭하면 색상을 변경할 수 있습니다.
 class PortfolioAllocationChart extends StatefulWidget {
-  /// 알파 사이클 비율 (0-100)
-  final double alphaCycleRatio;
-
-  /// 일반 보유 비율 (0-100)
-  final double holdingRatio;
-
-  /// 알파 사이클 금액 (KRW)
-  final double alphaCycleValue;
-
-  /// 일반 보유 금액 (KRW)
-  final double holdingValue;
+  /// 통합 포트폴리오 요약 데이터
+  final UnifiedPortfolioSummary summary;
 
   /// 차트 크기
   final double size;
 
   const PortfolioAllocationChart({
     super.key,
-    required this.alphaCycleRatio,
-    required this.holdingRatio,
-    required this.alphaCycleValue,
-    required this.holdingValue,
+    required this.summary,
     this.size = 130,
   });
 
@@ -72,7 +62,8 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
 
   @override
   Widget build(BuildContext context) {
-    final hasData = widget.alphaCycleRatio > 0 || widget.holdingRatio > 0;
+    final summary = widget.summary;
+    final hasData = summary.alphaCycleRatio > 0 || summary.holdingRatio > 0;
     final alphaColor = _getAlphaColor(context);
     final holdingColor = _getHoldingColor(context);
 
@@ -98,9 +89,9 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
           Row(
             children: [
               Text(
-                '자산 배분',
+                '내 포트폴리오',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: context.appTextPrimary,
                 ),
@@ -205,8 +196,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                                     ),
                                   ),
                                   Text(
-                                    formatKrw(widget.alphaCycleValue +
-                                        widget.holdingValue),
+                                    formatKrw(summary.totalValue),
                                     style: TextStyle(
                                       fontSize: isWide ? 13 : 12,
                                       fontWeight: FontWeight.bold,
@@ -238,8 +228,8 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                           context: context,
                           color: alphaColor,
                           label: '알파 사이클',
-                          value: formatKrw(widget.alphaCycleValue),
-                          ratio: widget.alphaCycleRatio,
+                          value: formatKrw(summary.alphaCycleValue),
+                          ratio: summary.alphaCycleRatio,
                           index: 0,
                         ),
                         SizedBox(height: isWide ? 16 : 8),
@@ -247,8 +237,8 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                           context: context,
                           color: holdingColor,
                           label: '일반 보유',
-                          value: formatKrw(widget.holdingValue),
-                          ratio: widget.holdingRatio,
+                          value: formatKrw(summary.holdingValue),
+                          ratio: summary.holdingRatio,
                           index: 1,
                         ),
                       ],
@@ -258,8 +248,95 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
               );
             },
           ),
+
+          // 시드 대비 수익률 섹션
+          if (hasData) ...[
+            const SizedBox(height: 12),
+            Divider(color: context.appDivider, height: 1),
+            const SizedBox(height: 12),
+            _buildSeedSummary(context, summary),
+          ],
         ],
       ),
+    );
+  }
+
+  /// 총 시드 대비 손익 섹션
+  Widget _buildSeedSummary(BuildContext context, UnifiedPortfolioSummary summary) {
+    final isProfit = summary.totalProfit >= 0;
+    final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
+    final sign = isProfit ? '+' : '';
+
+    return Row(
+      children: [
+        // 총 투자금
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '총 투자',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.appTextHint,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                formatKrw(summary.totalInvested),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: context.appTextPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // 총 손익
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '총 손익',
+              style: TextStyle(
+                fontSize: 11,
+                color: context.appTextHint,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$sign${formatKrw(summary.totalProfit)}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: profitColor,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: profitColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '$sign${summary.totalReturnRate.toStringAsFixed(2)}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: profitColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -345,24 +422,25 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
 
   List<PieChartSectionData> _buildSections(
       BuildContext context, Color alphaColor, Color holdingColor) {
+    final summary = widget.summary;
     final sections = <PieChartSectionData>[];
 
-    if (widget.alphaCycleRatio > 0) {
+    if (summary.alphaCycleRatio > 0) {
       sections.add(
         PieChartSectionData(
           color: alphaColor,
-          value: widget.alphaCycleRatio,
+          value: summary.alphaCycleRatio,
           title: '',
           radius: 20,
         ),
       );
     }
 
-    if (widget.holdingRatio > 0) {
+    if (summary.holdingRatio > 0) {
       sections.add(
         PieChartSectionData(
           color: holdingColor,
-          value: widget.holdingRatio,
+          value: summary.holdingRatio,
           title: '',
           radius: 20,
         ),
@@ -382,5 +460,4 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
 
     return sections;
   }
-
 }

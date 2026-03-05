@@ -5,7 +5,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../domain/usecases/signal_detector.dart';
 import '../../providers/providers.dart';
 import '../../widgets/home/active_cycle_card.dart';
-import '../../widgets/home/unified_portfolio_card.dart';
 import '../../widgets/home/portfolio_allocation_chart.dart';
 import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/holdings/holding_card.dart';
@@ -103,21 +102,13 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 4),
-                      // 통합 포트폴리오 요약
-                      UnifiedPortfolioCard(summary: portfolio),
-                      const SizedBox(height: 10),
-
-                      // 자산 배분 차트
-                      if (portfolio.hasData)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: PortfolioAllocationChart(
-                            alphaCycleRatio: portfolio.alphaCycleRatio,
-                            holdingRatio: portfolio.holdingRatio,
-                            alphaCycleValue: portfolio.alphaCycleValue,
-                            holdingValue: portfolio.holdingValue,
-                          ),
+                      // 내 포트폴리오 (도넛 차트 + 시드 대비 손익)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: PortfolioAllocationChart(
+                          summary: portfolio,
                         ),
+                      ),
                       const SizedBox(height: 14),
 
                       // 탭 바
@@ -160,7 +151,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                                 children: [
                                   const Icon(Icons.loop_rounded, size: 16),
                                   const SizedBox(width: 6),
-                                  Text('알파 사이클 (${activeCycles.length})'),
+                                  Text('알파 사이클 (${activeCycles.length}개)'),
                                 ],
                               ),
                             ),
@@ -170,7 +161,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                                 children: [
                                   const Icon(Icons.account_balance_wallet_outlined, size: 16),
                                   const SizedBox(width: 6),
-                                  Text('일반 보유 (${activeHoldings.length})'),
+                                  Text('일반 보유 (${activeHoldings.length}개)'),
                                 ],
                               ),
                             ),
