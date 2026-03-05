@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../presentation/providers/portfolio_providers.dart';
+import '../../../presentation/providers/settings_providers.dart';
 
 /// 내 포트폴리오 차트 위젯
 ///
 /// 알파 사이클과 일반 보유의 비율을 도넛 차트로 표시하고,
 /// 하단에 총 시드 대비 손익을 보여줍니다.
 /// 범례의 색상 네모를 탭하면 색상을 변경할 수 있습니다.
-class PortfolioAllocationChart extends StatefulWidget {
+class PortfolioAllocationChart extends ConsumerStatefulWidget {
   /// 통합 포트폴리오 요약 데이터
   final UnifiedPortfolioSummary summary;
 
@@ -23,11 +25,11 @@ class PortfolioAllocationChart extends StatefulWidget {
   });
 
   @override
-  State<PortfolioAllocationChart> createState() =>
+  ConsumerState<PortfolioAllocationChart> createState() =>
       _PortfolioAllocationChartState();
 }
 
-class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
+class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationChart> {
   /// 사용자 선택 색상 (null이면 기본값 사용)
   Color? _alphaCycleColor;
   Color? _holdingColor;
@@ -52,6 +54,19 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
     Color(0xFF4B5563), // gray-600
     Color(0xFFD1D5DB), // gray-300
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // 저장된 색상 로드 (0이면 기본색 사용)
+    final settings = ref.read(settingsProvider);
+    if (settings.alphaCycleChartColor != 0) {
+      _alphaCycleColor = Color(settings.alphaCycleChartColor);
+    }
+    if (settings.holdingChartColor != 0) {
+      _holdingColor = Color(settings.holdingChartColor);
+    }
+  }
 
   Color _getAlphaColor(BuildContext context) =>
       _alphaCycleColor ??
@@ -121,6 +136,11 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                               }
                               _editingIndex = null;
                             });
+                            // Hive에 색상 영속화
+                            ref.read(settingsProvider.notifier).updateChartColors(
+                              alphaColor: (_alphaCycleColor?.value) ?? 0,
+                              holdingColor: (_holdingColor?.value) ?? 0,
+                            );
                           },
                           child: Container(
                             width: 24,

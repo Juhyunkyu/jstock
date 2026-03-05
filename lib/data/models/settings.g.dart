@@ -34,13 +34,15 @@ class SettingsAdapter extends TypeAdapter<Settings> {
       fearGreedAlertValue: fields[14] == null ? 25 : fields[14] as int,
       fearGreedAlertDirection: fields[15] == null ? 0 : fields[15] as int,
       chartIndicators: fields[16] == null ? 'VOL' : fields[16] as String,
+      alphaCycleChartColor: fields[17] == null ? 0 : fields[17] as int,
+      holdingChartColor: fields[18] == null ? 0 : fields[18] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, Settings obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(19)
       ..writeByte(0)
       ..write(obj.exchangeRate)
       ..writeByte(1)
@@ -74,7 +76,11 @@ class SettingsAdapter extends TypeAdapter<Settings> {
       ..writeByte(15)
       ..write(obj.fearGreedAlertDirection)
       ..writeByte(16)
-      ..write(obj.chartIndicators);
+      ..write(obj.chartIndicators)
+      ..writeByte(17)
+      ..write(obj.alphaCycleChartColor)
+      ..writeByte(18)
+      ..write(obj.holdingChartColor);
   }
 
   @override

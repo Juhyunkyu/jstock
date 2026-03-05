@@ -6,6 +6,7 @@ import '../../../data/models/holding.dart';
 import '../../../data/models/holding_transaction.dart';
 import '../../../routes/app_router.dart';
 import '../../providers/providers.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/history/cycle_stats_card.dart';
 import '../../widgets/history/archived_holding_card.dart';
@@ -41,6 +42,9 @@ class HistoryScreen extends ConsumerWidget {
                   return ListView(
                     padding: const EdgeInsets.only(top: 8, bottom: 24),
                     children: [
+                      // 합계 요약 카드
+                      _buildSummaryCard(context, ref),
+
                       // 섹션 1: 완료된 알파 사이클
                       if (completedCycles.isNotEmpty) ...[
                         _SectionHeader(
@@ -118,6 +122,9 @@ class HistoryScreen extends ConsumerWidget {
                 return ListView(
                   padding: const EdgeInsets.only(top: 8, bottom: 24),
                   children: [
+                    // 합계 요약 카드
+                    _buildSummaryCard(context, ref),
+
                     // 섹션 1: 완료된 알파 사이클
                     if (completedCycles.isNotEmpty) ...[
                       _SectionHeader(
@@ -209,6 +216,116 @@ class HistoryScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// 합계 요약 카드 (총 투자, 총 회수, 총 손익)
+  Widget _buildSummaryCard(BuildContext context, WidgetRef ref) {
+    final completedCycles = ref.watch(completedCyclesProvider);
+    final archivedHoldings = ref.watch(archivedHoldingsProvider);
+
+    double totalInvested = 0;
+    double totalRecovered = 0;
+
+    // 완료된 알파 사이클: seedAmount=투자, remainingCash=회수
+    for (final cycle in completedCycles) {
+      totalInvested += cycle.seedAmount;
+      totalRecovered += cycle.remainingCash;
+    }
+
+    // 완료된 일반 보유: totalBuyKrw=투자, totalSellKrw=회수
+    for (final holding in archivedHoldings) {
+      final transactions = ref.watch(holdingTransactionsProvider(holding.id));
+      double buyKrw = 0;
+      double sellKrw = 0;
+      for (final tx in transactions) {
+        if (tx.isBuy) {
+          buyKrw += tx.amountKrw;
+        } else {
+          sellKrw += tx.amountKrw;
+        }
+      }
+      totalInvested += buyKrw;
+      totalRecovered += sellKrw;
+    }
+
+    if (totalInvested <= 0) return const SizedBox.shrink();
+
+    final totalPnl = totalRecovered - totalInvested;
+    final returnRate = (totalPnl / totalInvested) * 100;
+    final isProfit = totalPnl >= 0;
+    final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
+    final sign = isProfit ? '+' : '';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: context.appCardBackground,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.appBorder),
+        ),
+        child: Column(
+          children: [
+            _summaryRow(context, '총 투자', formatKrw(totalInvested), context.appTextPrimary),
+            const SizedBox(height: 8),
+            _summaryRow(context, '총 회수', formatKrw(totalRecovered), context.appTextPrimary),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Divider(color: context.appDivider, height: 1),
+            ),
+            _summaryRow(
+              context,
+              '총 손익',
+              '$sign${formatKrw(totalPnl)}',
+              profitColor,
+            ),
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: profitColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '$sign${returnRate.toStringAsFixed(2)}%',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: profitColor,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _summaryRow(BuildContext context, String label, String value, Color valueColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            color: context.appTextSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
     );
   }
 

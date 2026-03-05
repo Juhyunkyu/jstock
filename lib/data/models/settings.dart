@@ -99,6 +99,18 @@ class Settings extends HiveObject {
   @HiveField(16, defaultValue: 'VOL')
   String chartIndicators;
 
+  // ═══════════════════════════════════════════════════════════════
+  // 포트폴리오 차트 색상 설정
+  // ═══════════════════════════════════════════════════════════════
+
+  /// 알파 사이클 차트 색상 (0 = 기본색 사용, 양수 = Color.value)
+  @HiveField(17, defaultValue: 0)
+  int alphaCycleChartColor;
+
+  /// 일반 보유 차트 색상 (0 = 기본색 사용, 양수 = Color.value)
+  @HiveField(18, defaultValue: 0)
+  int holdingChartColor;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -117,6 +129,8 @@ class Settings extends HiveObject {
     this.fearGreedAlertValue = 25,
     this.fearGreedAlertDirection = 0,
     this.chartIndicators = 'VOL',
+    this.alphaCycleChartColor = 0,
+    this.holdingChartColor = 0,
   });
 
   /// 기본 설정 생성
@@ -141,6 +155,8 @@ class Settings extends HiveObject {
     int? fearGreedAlertValue,
     int? fearGreedAlertDirection,
     String? chartIndicators,
+    int? alphaCycleChartColor,
+    int? holdingChartColor,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -160,6 +176,8 @@ class Settings extends HiveObject {
       fearGreedAlertValue: fearGreedAlertValue ?? this.fearGreedAlertValue,
       fearGreedAlertDirection: fearGreedAlertDirection ?? this.fearGreedAlertDirection,
       chartIndicators: chartIndicators ?? this.chartIndicators,
+      alphaCycleChartColor: alphaCycleChartColor ?? this.alphaCycleChartColor,
+      holdingChartColor: holdingChartColor ?? this.holdingChartColor,
     );
   }
 
@@ -181,6 +199,8 @@ class Settings extends HiveObject {
         'fearGreedAlertValue': fearGreedAlertValue,
         'fearGreedAlertDirection': fearGreedAlertDirection,
         'chartIndicators': chartIndicators,
+        'alphaCycleChartColor': alphaCycleChartColor,
+        'holdingChartColor': holdingChartColor,
       };
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
@@ -201,6 +221,8 @@ class Settings extends HiveObject {
         fearGreedAlertValue: json['fearGreedAlertValue'] as int? ?? 25,
         fearGreedAlertDirection: json['fearGreedAlertDirection'] as int? ?? 0,
         chartIndicators: json['chartIndicators'] as String? ?? 'VOL',
+        alphaCycleChartColor: json['alphaCycleChartColor'] as int? ?? 0,
+        holdingChartColor: json['holdingChartColor'] as int? ?? 0,
       );
 
   @override
