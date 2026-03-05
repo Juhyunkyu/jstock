@@ -1,6 +1,6 @@
 # 트러블슈팅 & 알려진 이슈
 
-> **최종 업데이트**: 2026-02-23
+> **최종 업데이트**: 2026-03-05
 
 ---
 
@@ -104,6 +104,53 @@
 
 ---
 
+### 9. PWA 이중 업데이트 배너 (2026-03-05)
+
+**증상**: 업데이트 배너 클릭 → 리로드 → 배너가 다시 나타남 (무한 반복)
+
+**원인 (2중):**
+
+| 원인 | 설명 | 수정 |
+|------|------|------|
+| `justUpdated = false` 해제 | `controllerchange` 핸들러에서 가드 해제 → `statechange(activated)` 이벤트가 재트리거 | `justUpdated` 해제 코드 제거 (세션 수명 동안 유지) |
+| 플래그 미초기화 | `_clearCachesAndReload()` 시작 시 `_pwaUpdateAvailable = false` 미설정 | 캐시 삭제 전 플래그 즉시 초기화 |
+
+**추가 개선:**
+- 업데이트 체크 주기: 30분 → 10분
+- `visibilitychange` 리스너 추가: 탭 복귀 시 30초 쿨다운으로 즉시 체크
+
+---
+
+### 10. 상세 페이지 하단 탭 미표시 (2026-03-05)
+
+**증상**: 종목 상세, 보유 상세 등 ShellRoute 내 상세 페이지에서 하단 네비게이션 탭이 사라짐
+
+**원인**: `_isMainTabRoute()` 메서드가 5개 메인 탭 경로만 true 반환 → 나머지 경로에서 `bottomNavigationBar: null`
+
+**수정**: `_isMainTabRoute()` 메서드 및 `isMainTab` 변수 완전 제거, `bottomNavigationBar: const _BottomNavBar()` 무조건 할당
+
+---
+
+### 11. 다크모드 "완료" 버튼 미표시 (2026-03-05)
+
+**증상**: 전량 매도 후 "완료(기록)" 버튼과 아카이브 화면 "완료" 배지가 다크모드에서 보이지 않음
+
+**원인**: `AppColors.primary` (#1A1A2E 다크 네이비)와 `AppColors.secondary` (#4A4A5A 그레이)가 다크 배경(#0D1117)에서 대비 부족
+
+**수정**: `context.appAccent` 사용 (Light: `AppColors.primary`, Dark: `#58A6FF` 블루)
+
+---
+
+### 12. 매도 탭 수량 초과 바이패스 (2026-03-05)
+
+**증상**: 매수 탭에서 10000 입력 → 저장 안 하고 매도 탭 전환 → 10000이 그대로 유지되어 100주 보유인데 10000주 매도 가능
+
+**원인**: `_sharesController`가 매수/매도 탭에서 공유됨. 매도 수량 캡은 `onChanged` (타이핑) 시에만 동작 → 탭 전환은 `onChanged` 미트리거
+
+**수정**: 매도 탭 전환(`_isBuy = false`) 시점에 보유 수량 초과 여부 확인 + 자동 캡핑 로직 추가
+
+---
+
 ## 알려진 이슈 (미해결)
 
 ### 코드 품질
@@ -161,7 +208,7 @@
 |------|------|------|
 | API 키 빈 문자열 | `flutter build web` 직접 호출 | **반드시** `./build.sh` 사용 |
 | intl 의존성 충돌 | Flutter 최신 버전 사용 | `3.29.2` 고정 (deploy.yml) |
-| GitHub Actions 실패 | Secrets 미설정 | `FINNHUB_API_KEY`, `TWELVE_DATA_API_KEY`, `MARKETAUX_API_KEY` 확인 |
+| GitHub Actions 실패 | Secrets 미설정 | `FINNHUB_API_KEY`, `TWELVE_DATA_API_KEY`, `MARKETAUX_API_KEY`, `KOREAEXIM_API_KEY` 확인 |
 
 ### 배포 후 캐시 문제
 
