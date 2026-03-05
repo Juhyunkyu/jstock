@@ -150,7 +150,31 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
               ],
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
+
+          // 데이터 이상 감지 경고 배너
+          if (summary.hasAnomalousData)
+            Container(
+              padding: const EdgeInsets.all(10),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.warning.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '데이터 이상이 감지되었습니다. 해당 종목의 거래 내역을 확인해 주세요.',
+                      style: TextStyle(fontSize: 12, color: AppColors.warning),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
           // 차트 + 범례 + 시드 요약 (3열 반응형)
           LayoutBuilder(
@@ -205,57 +229,68 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                 );
               }
 
-              // 데스크톱: 좌50% (차트+범례) | 우50% (총투자+총손익)
+              // 데스크톱: 좌70% (차트+범례) | 우30% (총투자+총손익)
               return Row(
                 children: [
-                  // 좌측 50%: 차트 + 범례 (중앙정렬)
+                  // 좌측 70%: 차트 + 범례 (중앙정렬)
+                  // Align가 Expanded 전체를 차지한 뒤, ConstrainedBox를 중앙 배치
                   Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildDonutChart(context, summary, chartSize, alphaColor, holdingColor, hasData, true),
-                        const SizedBox(width: 16),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildLegendItem(
-                                context: context,
-                                color: alphaColor,
-                                label: '알파 사이클 (${summary.alphaCycleCount}개)',
-                                value: formatKrw(summary.alphaCycleValue),
-                                ratio: summary.alphaCycleRatio,
-                                index: 0,
+                    flex: 7,
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: chartSize + 16 + 220),
+                        child: Row(
+                          children: [
+                            _buildDonutChart(context, summary, chartSize, alphaColor, holdingColor, hasData, true),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildLegendItem(
+                                    context: context,
+                                    color: alphaColor,
+                                    label: '알파 사이클 (${summary.alphaCycleCount}개)',
+                                    value: formatKrw(summary.alphaCycleValue),
+                                    ratio: summary.alphaCycleRatio,
+                                    index: 0,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildLegendItem(
+                                    context: context,
+                                    color: holdingColor,
+                                    label: '일반 보유 (${summary.holdingCount}개)',
+                                    value: formatKrw(summary.holdingValue),
+                                    ratio: summary.holdingRatio,
+                                    index: 1,
+                                  ),
+                                ],
                               ),
-                              const SizedBox(height: 10),
-                              _buildLegendItem(
-                                context: context,
-                                color: holdingColor,
-                                label: '일반 보유 (${summary.holdingCount}개)',
-                                value: formatKrw(summary.holdingValue),
-                                ratio: summary.holdingRatio,
-                                index: 1,
-                              ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                  // 우측 50%: 구분선 + 총투자/총손익 (중앙정렬)
+                  // 우측 30%: 구분선 + 총투자/총손익 (중앙정렬)
                   if (hasData)
                     Expanded(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            width: 1,
-                            height: 60,
-                            color: context.appDivider,
-                          ),
-                          const SizedBox(width: 24),
-                          _buildSeedColumn(context, summary),
-                        ],
+                      flex: 3,
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 1,
+                              height: 60,
+                              color: context.appDivider,
+                            ),
+                            const SizedBox(width: 24),
+                            _buildSeedColumn(context, summary),
+                          ],
+                        ),
                       ),
                     ),
                 ],

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/models/holding.dart';
@@ -15,9 +16,20 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
     _loadHoldings();
   }
 
-  /// 보유 목록 로드
+  /// 보유 목록 로드 + 무결성 검사
   Future<void> _loadHoldings() async {
     state = _repository.getAll();
+
+    // 시작 시 자동 무결성 검사 및 복구
+    final corruptHoldings = state.where((h) => h.isCorrupt).toList();
+    if (corruptHoldings.isNotEmpty) {
+      debugPrint('[DATA INTEGRITY] ${corruptHoldings.length}개 손상된 보유 발견. 자동 복구 중...');
+      for (final h in corruptHoldings) {
+        debugPrint('[DATA INTEGRITY] - ${h.ticker}: ${h.integrityViolations.join(', ')}');
+        await recalculateHoldingFromTransactions(h.id);
+      }
+      debugPrint('[DATA INTEGRITY] 자동 복구 완료');
+    }
   }
 
   /// 새로고침
@@ -196,6 +208,10 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
     required DateTime date,
     String? note,
   }) async {
+    // 입력값 검증
+    if (shares <= 0) throw StateError('매수 수량은 0보다 커야 합니다');
+    if (price <= 0) throw StateError('매수 가격은 0보다 커야 합니다');
+
     final holding = state.firstWhere((h) => h.id == holdingId);
     final amountKrw = price * shares * holding.exchangeRate;
 
@@ -228,7 +244,20 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
     double? realizedPnlKrw,
     String? note,
   }) async {
+    // 입력값 검증
+    if (shares <= 0) throw StateError('매도 수량은 0보다 커야 합니다');
+    if (price <= 0) throw StateError('매도 가격은 0보다 커야 합니다');
+
     final holding = state.firstWhere((h) => h.id == holdingId);
+
+    // 보유 수량 초과 매도 방지
+    if (shares > holding.totalShares) {
+      throw StateError(
+        '보유 수량(${holding.totalShares.toStringAsFixed(2)})보다 '
+        '많이 매도할 수 없습니다 (요청: ${shares.toStringAsFixed(2)})',
+      );
+    }
+
     final effectiveRate = sellExchangeRate ?? holding.exchangeRate;
     final amountKrw = price * shares * effectiveRate;
 
@@ -396,6 +425,15 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
     updatedHolding.averagePrice = avgPrice;
     updatedHolding.totalInvestedAmount = avgPrice * totalShares * currentHolding.exchangeRate;
     updatedHolding.updatedAt = DateTime.now();
+
+    // 재계산 후 무결성 검사 — 음수면 0으로 클램프
+    if (updatedHolding.totalShares < 0) {
+      debugPrint('[DATA INTEGRITY] WARNING: ${currentHolding.ticker} 재계산 결과 '
+          '음수 수량(${updatedHolding.totalShares}). 0으로 교정합니다.');
+      updatedHolding.totalShares = 0;
+      updatedHolding.averagePrice = 0;
+      updatedHolding.totalInvestedAmount = 0;
+    }
 
     await _repository.save(updatedHolding);
     state = [

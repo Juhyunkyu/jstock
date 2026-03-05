@@ -212,6 +212,34 @@ class Holding extends HiveObject implements TradingPosition {
     return averagePrice * totalShares * currentExchangeRate - totalInvestedAmount;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // 데이터 무결성 검증
+  // ═══════════════════════════════════════════════════════════════
+
+  /// 데이터 무결성 위반 목록 (빈 리스트 = 정상)
+  List<String> get integrityViolations {
+    final violations = <String>[];
+    if (totalShares < 0) {
+      violations.add('음수 보유수량: ${totalShares.toStringAsFixed(2)}');
+    }
+    if (totalInvestedAmount < 0 && totalShares >= 0) {
+      violations.add('음수 투자금액: ${totalInvestedAmount.toStringAsFixed(0)}');
+    }
+    if (averagePrice < 0) {
+      violations.add('음수 평균단가: ${averagePrice.toStringAsFixed(2)}');
+    }
+    if (totalShares.isNaN || totalShares.isInfinite) {
+      violations.add('비정상 보유수량: $totalShares');
+    }
+    if (totalInvestedAmount.isNaN || totalInvestedAmount.isInfinite) {
+      violations.add('비정상 투자금액: $totalInvestedAmount');
+    }
+    return violations;
+  }
+
+  /// 데이터가 손상되었는지 여부
+  bool get isCorrupt => integrityViolations.isNotEmpty;
+
   /// 아카이브 여부 확인
   bool get isArchivedItem => isArchived == true;
 

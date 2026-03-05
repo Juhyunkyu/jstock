@@ -79,6 +79,15 @@ class UnifiedPortfolioSummary {
 
   /// 데이터 존재 여부
   bool get hasData => alphaCycleCount > 0 || holdingCount > 0;
+
+  /// 이상 데이터 감지 (음수 자산, 음수 투자금 등)
+  bool get hasAnomalousData =>
+      holdingValue < 0 ||
+      holdingInvested < 0 ||
+      alphaCycleValue < 0 ||
+      alphaCycleInvested < 0 ||
+      totalValue.isNaN ||
+      totalInvested.isNaN;
 }
 
 /// 통합 포트폴리오 Provider
