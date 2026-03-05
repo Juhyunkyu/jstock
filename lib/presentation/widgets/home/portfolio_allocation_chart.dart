@@ -219,7 +219,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                   ),
                   SizedBox(width: gap),
 
-                  // 범례
+                  // 범례 + 시드 요약 (통합)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,20 +227,28 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                         _buildLegendItem(
                           context: context,
                           color: alphaColor,
-                          label: '알파 사이클',
+                          label: '알파 사이클 (${summary.alphaCycleCount}개)',
                           value: formatKrw(summary.alphaCycleValue),
                           ratio: summary.alphaCycleRatio,
                           index: 0,
                         ),
-                        SizedBox(height: isWide ? 16 : 8),
+                        const SizedBox(height: 8),
                         _buildLegendItem(
                           context: context,
                           color: holdingColor,
-                          label: '일반 보유',
+                          label: '일반 보유 (${summary.holdingCount}개)',
                           value: formatKrw(summary.holdingValue),
                           ratio: summary.holdingRatio,
                           index: 1,
                         ),
+                        if (hasData) ...[
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Divider(color: context.appDivider, height: 1),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildSeedRow(context, summary),
+                        ],
                       ],
                     ),
                   ),
@@ -248,91 +256,74 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
               );
             },
           ),
-
-          // 시드 대비 수익률 섹션
-          if (hasData) ...[
-            const SizedBox(height: 12),
-            Divider(color: context.appDivider, height: 1),
-            const SizedBox(height: 12),
-            _buildSeedSummary(context, summary),
-          ],
         ],
       ),
     );
   }
 
-  /// 총 시드 대비 손익 섹션
-  Widget _buildSeedSummary(BuildContext context, UnifiedPortfolioSummary summary) {
+  /// 총 투자 / 총 손익 (범례 영역 내 컴팩트)
+  Widget _buildSeedRow(BuildContext context, UnifiedPortfolioSummary summary) {
     final isProfit = summary.totalProfit >= 0;
     final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
     final sign = isProfit ? '+' : '';
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 총 투자금
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '총 투자',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: context.appTextHint,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
+        // 총 투자
+        Row(
+          children: [
+            Text(
+              '총 투자  ',
+              style: TextStyle(fontSize: 11, color: context.appTextHint),
+            ),
+            Flexible(
+              child: Text(
                 formatKrw(summary.totalInvested),
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: context.appTextPrimary,
                 ),
-              ),
-            ],
-          ),
-        ),
-        // 총 손익
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              '총 손익',
-              style: TextStyle(
-                fontSize: 11,
-                color: context.appTextHint,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(height: 2),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$sign${formatKrw(summary.totalProfit)}',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: profitColor,
-                  ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // 총 손익
+        Row(
+          children: [
+            Text(
+              '총 손익  ',
+              style: TextStyle(fontSize: 11, color: context.appTextHint),
+            ),
+            Flexible(
+              child: Text(
+                '$sign${formatKrw(summary.totalProfit)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: profitColor,
                 ),
-                const SizedBox(width: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: profitColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '$sign${summary.totalReturnRate.toStringAsFixed(2)}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: profitColor,
-                    ),
-                  ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: profitColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '$sign${summary.totalReturnRate.toStringAsFixed(2)}%',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: profitColor,
                 ),
-              ],
+              ),
             ),
           ],
         ),
@@ -373,45 +364,41 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
           ),
         ),
         const SizedBox(width: 8),
-        Expanded(
-          child: Row(
+        // 라벨 + 금액 + 퍼센테이지 (컴팩트)
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 라벨 + 금액 (왼쪽)
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.appTextSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text.rich(
+                TextSpan(
                   children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: context.appTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      value,
+                    TextSpan(
+                      text: value,
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: context.appTextPrimary,
                       ),
                     ),
+                    TextSpan(
+                      text: '  ${ratio.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: context.appTextSecondary,
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              // 퍼센테이지 (빈 공간 중앙)
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '${ratio.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: context.appTextSecondary,
-                    ),
-                  ),
-                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
