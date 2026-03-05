@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/holding.dart';
@@ -304,28 +305,29 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
     );
   }
 
-  void _showDeleteConfirmation(Holding holding) {
-    showDialog(
+  Future<void> _showDeleteConfirmation(Holding holding) async {
+    final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('보유 삭제'),
         content: Text('${holding.ticker} 보유를 삭제하시겠습니까?\n모든 거래 내역도 함께 삭제됩니다.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('취소'),
           ),
           TextButton(
-            onPressed: () {
-              ref.read(holdingListProvider.notifier).deleteHolding(holding.id);
-              Navigator.pop(context); // 다이얼로그 닫기
-              Navigator.pop(context); // 상세 화면 닫기
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('삭제', style: TextStyle(color: AppColors.red500)),
           ),
         ],
       ),
     );
+
+    if (confirmed == true) {
+      await ref.read(holdingListProvider.notifier).deleteHolding(holding.id);
+      if (mounted) context.pop();
+    }
   }
 
   void _showTradeDialog(BuildContext context, Holding holding) {
