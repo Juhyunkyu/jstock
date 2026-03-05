@@ -152,75 +152,70 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
           ),
           const SizedBox(height: 10),
 
-          // 차트 + 범례 (반응형)
+          // 차트 + 범례 + 시드 요약 (3열 반응형)
           LayoutBuilder(
             builder: (context, constraints) {
               final availableWidth = constraints.maxWidth;
-              final isWide = availableWidth > 400;
+              final isWide = availableWidth > 500;
               final chartSize = isWide
-                  ? (widget.size * 1.3).clamp(130.0, 180.0)
+                  ? (widget.size * 1.1).clamp(120.0, 160.0)
                   : widget.size;
-              final gap = isWide ? 28.0 : 14.0;
 
-              return Row(
-                children: [
-                  // 넓은 화면에서 좌측 여백으로 차트를 중앙 쪽으로 이동
-                  if (isWide) SizedBox(width: availableWidth * 0.06),
-                  // 도넛 차트
-                  SizedBox(
-                    width: chartSize,
-                    height: chartSize,
-                    child: hasData
-                        ? Stack(
-                            alignment: Alignment.center,
+              // 모바일: 차트+범례 위, 총투자/총손익 아래
+              if (!isWide) {
+                return Column(
+                  children: [
+                    Row(
+                      children: [
+                        _buildDonutChart(context, summary, chartSize, alphaColor, holdingColor, hasData, false),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              PieChart(
-                                PieChartData(
-                                  sectionsSpace: 3,
-                                  centerSpaceRadius: chartSize * 0.3,
-                                  sections: _buildSections(
-                                      context, alphaColor, holdingColor),
-                                  pieTouchData:
-                                      PieTouchData(enabled: false),
-                                ),
+                              _buildLegendItem(
+                                context: context,
+                                color: alphaColor,
+                                label: '알파 사이클 (${summary.alphaCycleCount}개)',
+                                value: formatKrw(summary.alphaCycleValue),
+                                ratio: summary.alphaCycleRatio,
+                                index: 0,
                               ),
-                              // 중앙 라벨
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '총 자산',
-                                    style: TextStyle(
-                                      fontSize: isWide ? 11 : 10,
-                                      color: context.appTextSecondary,
-                                    ),
-                                  ),
-                                  Text(
-                                    formatKrw(summary.totalValue),
-                                    style: TextStyle(
-                                      fontSize: isWide ? 13 : 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: context.appTextPrimary,
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(height: 6),
+                              _buildLegendItem(
+                                context: context,
+                                color: holdingColor,
+                                label: '일반 보유 (${summary.holdingCount}개)',
+                                value: formatKrw(summary.holdingValue),
+                                ratio: summary.holdingRatio,
+                                index: 1,
                               ),
                             ],
-                          )
-                        : Center(
-                            child: Text(
-                              '데이터 없음',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: context.appTextSecondary,
-                              ),
-                            ),
                           ),
-                  ),
-                  SizedBox(width: gap),
+                        ),
+                      ],
+                    ),
+                    if (hasData) ...[
+                      const SizedBox(height: 10),
+                      Divider(color: context.appDivider, height: 1),
+                      const SizedBox(height: 10),
+                      _buildSeedRow(context, summary),
+                    ],
+                  ],
+                );
+              }
 
-                  // 범례 + 시드 요약 (통합)
-                  Expanded(
+              // 데스크톱: 3열 (차트 | 범례 | 시드) — 균등 배치
+              return Row(
+                mainAxisAlignment: hasData
+                    ? MainAxisAlignment.spaceEvenly
+                    : MainAxisAlignment.start,
+                children: [
+                  // 도넛 차트
+                  _buildDonutChart(context, summary, chartSize, alphaColor, holdingColor, hasData, true),
+                  // 범례 (내용물 크기만큼, 최대 폭 제한)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: availableWidth * 0.35),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -232,7 +227,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                           ratio: summary.alphaCycleRatio,
                           index: 0,
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 10),
                         _buildLegendItem(
                           context: context,
                           color: holdingColor,
@@ -241,17 +236,18 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
                           ratio: summary.holdingRatio,
                           index: 1,
                         ),
-                        if (hasData) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: Divider(color: context.appDivider, height: 1),
-                          ),
-                          const SizedBox(height: 8),
-                          _buildSeedRow(context, summary),
-                        ],
                       ],
                     ),
                   ),
+                  // 구분선 + 시드 요약
+                  if (hasData) ...[
+                    Container(
+                      width: 1,
+                      height: 60,
+                      color: context.appDivider,
+                    ),
+                    _buildSeedColumn(context, summary),
+                  ],
                 ],
               );
             },
@@ -261,7 +257,110 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
     );
   }
 
-  /// 총 투자 / 총 손익 (범례 영역 내 컴팩트)
+  /// 도넛 차트 위젯
+  Widget _buildDonutChart(
+    BuildContext context,
+    UnifiedPortfolioSummary summary,
+    double chartSize,
+    Color alphaColor,
+    Color holdingColor,
+    bool hasData,
+    bool isWide,
+  ) {
+    return SizedBox(
+      width: chartSize,
+      height: chartSize,
+      child: hasData
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                PieChart(
+                  PieChartData(
+                    sectionsSpace: 3,
+                    centerSpaceRadius: chartSize * 0.38,
+                    sections: _buildSections(context, alphaColor, holdingColor),
+                    pieTouchData: PieTouchData(enabled: false),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '총 자산',
+                        style: TextStyle(
+                          fontSize: isWide ? 10 : 9,
+                          color: context.appTextSecondary,
+                        ),
+                      ),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          formatKrw(summary.totalValue),
+                          style: TextStyle(
+                            fontSize: isWide ? 12 : 11,
+                            fontWeight: FontWeight.bold,
+                            color: context.appTextPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Center(
+              child: Text(
+                '데이터 없음',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.appTextSecondary,
+                ),
+              ),
+            ),
+    );
+  }
+
+  /// 총 투자 / 총 손익 — 세로 (데스크톱 3열용)
+  Widget _buildSeedColumn(BuildContext context, UnifiedPortfolioSummary summary) {
+    final isProfit = summary.totalProfit >= 0;
+    final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
+    final sign = isProfit ? '+' : '';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('총 투자', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+        const SizedBox(height: 2),
+        Text(
+          formatKrw(summary.totalInvested),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.appTextPrimary),
+        ),
+        const SizedBox(height: 10),
+        Text('총 손익', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+        const SizedBox(height: 2),
+        Text(
+          '$sign${formatKrw(summary.totalProfit)}',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: profitColor),
+        ),
+        const SizedBox(height: 2),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: profitColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '$sign${summary.totalReturnRate.toStringAsFixed(2)}%',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 총 투자 / 총 손익 — 가로 (모바일 2열용)
   Widget _buildSeedRow(BuildContext context, UnifiedPortfolioSummary summary) {
     final isProfit = summary.totalProfit >= 0;
     final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
@@ -270,42 +369,26 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 총 투자
         Row(
           children: [
-            Text(
-              '총 투자  ',
-              style: TextStyle(fontSize: 11, color: context.appTextHint),
-            ),
+            Text('총 투자  ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
             Flexible(
               child: Text(
                 formatKrw(summary.totalInvested),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextPrimary,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        // 총 손익
         Row(
           children: [
-            Text(
-              '총 손익  ',
-              style: TextStyle(fontSize: 11, color: context.appTextHint),
-            ),
+            Text('총 손익  ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
             Flexible(
               child: Text(
                 '$sign${formatKrw(summary.totalProfit)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: profitColor,
-                ),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: profitColor),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -318,11 +401,7 @@ class _PortfolioAllocationChartState extends State<PortfolioAllocationChart> {
               ),
               child: Text(
                 '$sign${summary.totalReturnRate.toStringAsFixed(2)}%',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: profitColor,
-                ),
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
               ),
             ),
           ],
