@@ -22,7 +22,13 @@ class AppRouter {
   AppRouter._();
 
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+  /// Root navigator key (모달 닫기용)
+  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
   static final _shellNavigatorKey = GlobalKey<NavigatorState>();
+
+  /// Shell navigator key (모달 닫기용)
+  static GlobalKey<NavigatorState> get shellNavigatorKey => _shellNavigatorKey;
 
   /// 라우트 경로 상수
   static const String home = '/';

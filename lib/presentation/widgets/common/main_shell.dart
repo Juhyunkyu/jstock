@@ -271,6 +271,16 @@ int _getSelectedIndex(BuildContext context) {
 }
 
 void _navigateTo(int index, BuildContext context) {
+  // 열린 모달(바텀시트, 다이얼로그 등)을 먼저 닫기
+  for (final key in [AppRouter.shellNavigatorKey, AppRouter.rootNavigatorKey]) {
+    final nav = key.currentState;
+    if (nav != null) {
+      while (nav.canPop()) {
+        nav.pop();
+      }
+    }
+  }
+
   switch (index) {
     case 0:
       context.go(AppRouter.home);
