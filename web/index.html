@@ -239,9 +239,11 @@
           if (!newWorker) return;
 
           newWorker.addEventListener('statechange', function() {
-            // 'activated' 상태 + 기존 SW가 있었을 때만 업데이트 알림
-            // justUpdated: 방금 업데이트 적용한 직후면 표시 안 함
-            if (newWorker.state === 'activated' && hadController && !justUpdated) {
+            // 'installed'(=waiting) 또는 'activated' 상태에서 업데이트 알림
+            // installed: 새 SW가 대기 중 (탭이 열려있으면 여기서 멈춤)
+            // activated: 새 SW가 바로 활성화된 경우 (skipWaiting)
+            if ((newWorker.state === 'installed' || newWorker.state === 'activated')
+                && hadController && !justUpdated) {
               window._pwaUpdateAvailable = true;
             }
           });
