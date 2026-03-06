@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
@@ -260,10 +261,25 @@ class WatchlistTile extends ConsumerWidget {
     // 그리드 모드: 드래그 불필요
     if (inGrid) return tileContent;
 
-    // 리스트 모드: 드래그 지원
-    return ReorderableDelayedDragStartListener(
+    // 리스트 모드: 드래그 지원 (딜레이 250ms)
+    return _ShortDelayDragStartListener(
       index: index,
       child: tileContent,
+    );
+  }
+}
+
+/// 기본 500ms 대신 250ms 딜레이로 드래그 시작하는 리스너
+class _ShortDelayDragStartListener extends ReorderableDelayedDragStartListener {
+  const _ShortDelayDragStartListener({
+    required super.index,
+    required super.child,
+  });
+
+  @override
+  MultiDragGestureRecognizer createRecognizer() {
+    return DelayedMultiDragGestureRecognizer(
+      delay: const Duration(milliseconds: 250),
     );
   }
 }
