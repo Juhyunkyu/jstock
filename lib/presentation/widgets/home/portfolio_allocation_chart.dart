@@ -425,51 +425,28 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     );
   }
 
-  /// 총 투자 / 총 손익 — 가로 (모바일 2열용)
+  /// 총 투자 / 총 손익 — 한 줄 (모바일용, 오른쪽 정렬)
   Widget _buildSeedRow(BuildContext context, UnifiedPortfolioSummary summary) {
     final isProfit = summary.totalProfit >= 0;
     final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
     final sign = isProfit ? '+' : '';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        Row(
-          children: [
-            Text('총 투자  ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
-            Flexible(
-              child: Text(
-                formatKrw(summary.totalInvested),
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
+        Text('총 투자 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+        Text(
+          formatKrw(summary.totalInvested),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextPrimary),
         ),
-        const SizedBox(height: 4),
-        Row(
-          children: [
-            Text('총 손익  ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
-            Flexible(
-              child: Text(
-                '$sign${formatKrw(summary.totalProfit)}',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: profitColor),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-              decoration: BoxDecoration(
-                color: profitColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                '$sign${summary.totalReturnRate.toStringAsFixed(2)}%',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
-              ),
-            ),
-          ],
+        const SizedBox(width: 10),
+        Text('총 손익 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+        Flexible(
+          child: Text(
+            '$sign${formatKrw(summary.totalProfit)}($sign${summary.totalReturnRate.toStringAsFixed(2)}%)',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ],
     );

@@ -278,27 +278,8 @@ class HistoryScreen extends ConsumerWidget {
             _summaryRow(
               context,
               '총 손익',
-              '$sign${formatKrw(totalPnl)}',
+              '$sign${formatKrw(totalPnl)}($sign${returnRate.toStringAsFixed(2)}%)',
               profitColor,
-            ),
-            const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: profitColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '$sign${returnRate.toStringAsFixed(2)}%',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: profitColor,
-                  ),
-                ),
-              ),
             ),
           ],
         ),

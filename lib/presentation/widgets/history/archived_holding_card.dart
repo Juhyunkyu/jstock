@@ -151,25 +151,15 @@ class ArchivedHoldingCard extends StatelessWidget {
 
   Widget _buildRealizedPnl(BuildContext context) {
     if (realizedPnlKrw == null) {
-      return Column(
-        children: [
-          Text(
-            '실현손익',
-            style: TextStyle(
-              fontSize: 12,
-              color: context.appTextHint,
-            ),
+      return Center(
+        child: Text(
+          '-',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: context.appTextHint,
           ),
-          const SizedBox(height: 4),
-          Text(
-            '-',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: context.appTextHint,
-            ),
-          ),
-        ],
+        ),
       );
     }
 
@@ -178,34 +168,22 @@ class ArchivedHoldingCard extends StatelessWidget {
         ? context.appStockChangePlusFg
         : context.appStockChangeMinusFg;
 
-    return Column(
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          '실현손익',
+          '${isProfit ? '+' : ''}${_formatKrw(realizedPnlKrw!)}',
           style: TextStyle(
-            fontSize: 12,
-            color: context.appTextHint,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: fgColor,
           ),
         ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '${isProfit ? '+' : ''}${_formatKrw(realizedPnlKrw!)}',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: fgColor,
-              ),
-            ),
-            const SizedBox(width: 8),
-            ReturnBadge(
-              value: realizedReturnPercent,
-              size: ReturnBadgeSize.small,
-              colorScheme: ReturnBadgeColorScheme.redBlue,
-            ),
-          ],
+        const SizedBox(width: 8),
+        ReturnBadge(
+          value: realizedReturnPercent,
+          size: ReturnBadgeSize.small,
+          colorScheme: ReturnBadgeColorScheme.redBlue,
         ),
       ],
     );
