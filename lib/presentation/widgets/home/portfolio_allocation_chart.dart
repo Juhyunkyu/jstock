@@ -558,7 +558,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
           color: alphaColor,
           value: summary.alphaCycleRatio,
           title: '',
-          radius: 20,
+          radius: 15,
         ),
       );
     }
@@ -569,7 +569,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
           color: holdingColor,
           value: summary.holdingRatio,
           title: '',
-          radius: 20,
+          radius: 15,
         ),
       );
     }
@@ -580,7 +580,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
           color: AppColors.gray200,
           value: 100,
           title: '',
-          radius: 20,
+          radius: 15,
         ),
       );
     }
