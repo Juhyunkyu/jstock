@@ -434,32 +434,36 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     return Row(
       children: [
         Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('총 투자 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
-                Text(
-                  formatKrw(summary.totalInvested),
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextPrimary),
-                ),
-              ],
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('총 투자 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+                  Text(
+                    formatKrw(summary.totalInvested),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextPrimary),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
         Expanded(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('총 손익 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
-                Text(
-                  '$sign${formatKrw(summary.totalProfit)}($sign${summary.totalReturnRate.toStringAsFixed(2)}%)',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
-                ),
-              ],
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('총 손익 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+                  Text(
+                    '$sign${formatKrw(summary.totalProfit)}($sign${summary.totalReturnRate.toStringAsFixed(2)}%)',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
