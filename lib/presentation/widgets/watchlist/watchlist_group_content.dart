@@ -226,8 +226,8 @@ class _TickerDisplayItem {
   });
 }
 
-/// 관심종목에 없는 티커의 간단 타일 (시세만 표시)
-class _SimpleTickerTile extends StatelessWidget {
+/// 관심종목에 없는 티커의 간단 타일 (시세만 표시, 자동 fetch)
+class _SimpleTickerTile extends ConsumerStatefulWidget {
   final String ticker;
   final StockQuote? quote;
   final bool inGrid;
@@ -242,9 +242,34 @@ class _SimpleTickerTile extends StatelessWidget {
   });
 
   @override
+  ConsumerState<_SimpleTickerTile> createState() => _SimpleTickerTileState();
+}
+
+class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
+  bool _fetchRequested = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchQuoteIfNeeded();
+  }
+
+  void _fetchQuoteIfNeeded() {
+    if (_fetchRequested) return;
+    final quote = ref.read(stockQuoteProvider).quotes[widget.ticker];
+    if (quote == null) {
+      _fetchRequested = true;
+      ref.read(stockQuoteProvider.notifier).fetchQuote(widget.ticker);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final quoteState = ref.watch(stockQuoteProvider);
+    final quote = quoteState.quotes[widget.ticker];
+
     return Container(
-      decoration: inGrid
+      decoration: widget.inGrid
           ? BoxDecoration(
               color: context.appSurface,
               borderRadius: BorderRadius.circular(12),
@@ -255,17 +280,17 @@ class _SimpleTickerTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           GestureDetector(
-            onTap: onTap,
+            onTap: widget.onTap,
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
                 children: [
-                  TickerLogo(ticker: ticker, size: 38, borderRadius: 7),
+                  TickerLogo(ticker: widget.ticker, size: 38, borderRadius: 7),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      ticker,
+                      widget.ticker,
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -278,7 +303,7 @@ class _SimpleTickerTile extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          formatPrice(quote!.currentPrice),
+                          formatPrice(quote.currentPrice),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -287,7 +312,7 @@ class _SimpleTickerTile extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         ReturnBadge(
-                          value: quote!.changePercent,
+                          value: quote.changePercent,
                           size: ReturnBadgeSize.small,
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
@@ -295,17 +320,19 @@ class _SimpleTickerTile extends StatelessWidget {
                       ],
                     ),
                   ] else ...[
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                    Text(
+                      '—',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: context.appTextHint,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
           ),
-          if (!inGrid)
+          if (!widget.inGrid)
             Container(height: 4, color: context.appBackground),
         ],
       ),

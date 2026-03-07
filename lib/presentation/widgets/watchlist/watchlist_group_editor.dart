@@ -84,6 +84,7 @@ class _GroupRow extends ConsumerStatefulWidget {
 class _GroupRowState extends ConsumerState<_GroupRow> {
   bool _isEditing = false;
   late final TextEditingController _nameController;
+  final _renameFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -94,7 +95,16 @@ class _GroupRowState extends ConsumerState<_GroupRow> {
   @override
   void dispose() {
     _nameController.dispose();
+    _renameFocusNode.dispose();
     super.dispose();
+  }
+
+  void _startEditing() {
+    _nameController.text = widget.name;
+    setState(() => _isEditing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _renameFocusNode.requestFocus();
+    });
   }
 
   void _submitRename() {
@@ -104,6 +114,7 @@ class _GroupRowState extends ConsumerState<_GroupRow> {
           .read(watchlistGroupProvider.notifier)
           .renameGroup(widget.groupId, newName);
     }
+    _renameFocusNode.unfocus();
     setState(() => _isEditing = false);
   }
 
@@ -143,7 +154,7 @@ class _GroupRowState extends ConsumerState<_GroupRow> {
             child: _isEditing
                 ? TextField(
                     controller: _nameController,
-                    autofocus: true,
+                    focusNode: _renameFocusNode,
                     style: TextStyle(
                       fontSize: 15,
                       color: context.appTextPrimary,
@@ -167,10 +178,7 @@ class _GroupRowState extends ConsumerState<_GroupRow> {
                     onEditingComplete: _submitRename,
                   )
                 : GestureDetector(
-                    onTap: () {
-                      _nameController.text = widget.name;
-                      setState(() => _isEditing = true);
-                    },
+                    onTap: _startEditing,
                     behavior: HitTestBehavior.opaque,
                     child: Text(
                       widget.name,
@@ -224,11 +232,20 @@ class _AddGroupButton extends ConsumerStatefulWidget {
 class _AddGroupButtonState extends ConsumerState<_AddGroupButton> {
   bool _isCreating = false;
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
 
   @override
   void dispose() {
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _startCreating() {
+    setState(() => _isCreating = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusNode.requestFocus();
+    });
   }
 
   void _submit() {
@@ -237,6 +254,13 @@ class _AddGroupButtonState extends ConsumerState<_AddGroupButton> {
       ref.read(watchlistGroupProvider.notifier).createGroup(name);
     }
     _controller.clear();
+    _focusNode.unfocus();
+    setState(() => _isCreating = false);
+  }
+
+  void _cancel() {
+    _controller.clear();
+    _focusNode.unfocus();
     setState(() => _isCreating = false);
   }
 
@@ -260,7 +284,7 @@ class _AddGroupButtonState extends ConsumerState<_AddGroupButton> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    autofocus: true,
+                    focusNode: _focusNode,
                     style: TextStyle(
                       fontSize: 15,
                       color: context.appTextPrimary,
@@ -301,10 +325,7 @@ class _AddGroupButtonState extends ConsumerState<_AddGroupButton> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () {
-                    _controller.clear();
-                    setState(() => _isCreating = false);
-                  },
+                  onPressed: _cancel,
                   child: Text(
                     '취소',
                     style: TextStyle(
@@ -318,7 +339,7 @@ class _AddGroupButtonState extends ConsumerState<_AddGroupButton> {
           : SizedBox(
               width: double.infinity,
               child: TextButton.icon(
-                onPressed: () => setState(() => _isCreating = true),
+                onPressed: _startCreating,
                 icon: Icon(Icons.add, size: 20, color: context.appAccent),
                 label: Text(
                   '새 그룹',

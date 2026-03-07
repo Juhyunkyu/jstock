@@ -20,10 +20,12 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
   String? _selectedGroupId;
   bool _isSearching = false;
   final _searchController = TextEditingController();
+  final _searchFocusNode = FocusNode();
 
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
   }
 
@@ -180,7 +182,12 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
                 ),
                 if (!_isSearching && canAdd)
                   TextButton.icon(
-                    onPressed: () => setState(() => _isSearching = true),
+                    onPressed: () {
+                      setState(() => _isSearching = true);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _searchFocusNode.requestFocus();
+                      });
+                    },
                     icon: Icon(Icons.add, size: 18, color: context.appAccent),
                     label: Text(
                       '종목 추가',
@@ -215,7 +222,7 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
               Expanded(
                 child: TextField(
                   controller: _searchController,
-                  autofocus: true,
+                  focusNode: _searchFocusNode,
                   style: TextStyle(
                     fontSize: 14,
                     color: context.appTextPrimary,
@@ -254,6 +261,7 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
               const SizedBox(width: 8),
               TextButton(
                 onPressed: () {
+                  _searchFocusNode.unfocus();
                   setState(() => _isSearching = false);
                   _searchController.clear();
                   ref.read(searchProvider.notifier).clear();
