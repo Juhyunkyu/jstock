@@ -4,8 +4,8 @@ import '../../../data/models/cycle.dart';
 
 /// 전략 유형을 표시하는 소형 배지 위젯
 ///
-/// Alpha Cycle V3 → 딥블루/인디고 배지 + 쉴드 아이콘
-/// 순정 무한매수법 → 에메랄드/그린 배지 + 로켓 아이콘
+/// Smart Cycle → 딥블루/인디고 배지 + 쉴드 아이콘
+/// Steady Cycle → 에메랄드/그린 배지 + ∞ 아이콘
 class StrategyBadge extends StatelessWidget {
   final StrategyType strategyType;
 
@@ -56,14 +56,14 @@ class StrategyBadge extends StatelessWidget {
     switch (strategyType) {
       case StrategyType.alphaCycleV3:
         return _StrategyConfig(
-          label: 'Alpha',
+          label: 'Smart',
           icon: Icons.shield_outlined,
           color: isDark ? AppColors.blue400 : AppColors.blue600,
         );
       case StrategyType.infiniteBuy:
         return _StrategyConfig(
-          label: '\uBB34\uD55C\uB9E4\uC218',
-          icon: Icons.rocket_launch_outlined,
+          label: 'Steady',
+          icon: Icons.all_inclusive,
           color: isDark ? AppColors.green400 : AppColors.green600,
         );
     }

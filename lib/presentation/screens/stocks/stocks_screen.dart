@@ -115,18 +115,18 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
           body: TabBarView(
             controller: _tabController,
             children: [
-              // Tab 0: Alpha Cycle
+              // Tab 0: Smart Cycle
               _CycleListTab(
                 cycles: alphaCycles,
                 emptyIcon: Icons.shield_outlined,
-                emptyMessage: 'Alpha Cycle 전략으로\n안정적 수익을 추구해보세요',
+                emptyMessage: 'Smart Cycle 전략으로\n안정적 수익을 추구해보세요',
               ),
 
-              // Tab 1: 무한매수법
+              // Tab 1: Steady Cycle
               _CycleListTab(
                 cycles: infiniteBuyCycles,
-                emptyIcon: Icons.rocket_launch_outlined,
-                emptyMessage: '무한매수법으로\n복리 수익을 극대화해보세요',
+                emptyIcon: Icons.all_inclusive,
+                emptyMessage: 'Steady Cycle로\n꾸준한 복리 수익을 추구해보세요',
               ),
 
               // Tab 2: 일반 보유
@@ -212,8 +212,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
           fontWeight: FontWeight.w400,
         ),
         tabs: [
-          Tab(text: 'Alpha ($alphaCount)'),
-          Tab(text: '무한매수 ($infiniteBuyCount)'),
+          Tab(text: 'Smart ($alphaCount)'),
+          Tab(text: 'Steady ($infiniteBuyCount)'),
           Tab(text: '일반 ($holdingCount)'),
         ],
       ),
