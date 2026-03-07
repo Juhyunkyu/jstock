@@ -32,24 +32,10 @@ class WatchlistTile extends ConsumerWidget {
     final quoteState = ref.watch(stockQuoteProvider);
     final quote = quoteState.quotes[item.ticker];
 
+    final isDesktop = MediaQuery.of(context).size.width >= 768;
+
     final tileContent = Container(
-      decoration: inGrid
-          ? BoxDecoration(
-              color: context.appSurface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: context.appBorder),
-              boxShadow: [
-                BoxShadow(
-                  color: context.isDarkMode
-                      ? Colors.white.withValues(alpha: 0.03)
-                      : Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            )
-          : BoxDecoration(color: context.appSurface),
-      clipBehavior: inGrid ? Clip.antiAlias : Clip.none,
+      decoration: BoxDecoration(color: context.appSurface),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -62,6 +48,19 @@ class WatchlistTile extends ConsumerWidget {
                   left: 16, right: 16, top: 10, bottom: 10),
               child: Row(
                 children: [
+                  // 드래그 핸들 (데스크톱에서만 표시)
+                  if (isDesktop)
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          Icons.drag_indicator,
+                          size: 20,
+                          color: context.appTextHint,
+                        ),
+                      ),
+                    ),
                   // 아바타 (알림 배지 포함)
                   Stack(
                     clipBehavior: Clip.none,
@@ -251,17 +250,16 @@ class WatchlistTile extends ConsumerWidget {
             ),
           ),
 
-          // 타일 간 간격 (리스트 모드에서만)
-          if (!inGrid)
-            Container(height: 4, color: context.appBackground),
+          // 타일 간 간격
+          Container(height: 4, color: context.appBackground),
         ],
       ),
     );
 
-    // 그리드 모드: 드래그 불필요
-    if (inGrid) return tileContent;
+    // 데스크톱: 드래그 핸들로 드래그 (위에서 ReorderableDragStartListener 사용)
+    if (isDesktop) return tileContent;
 
-    // 리스트 모드: 드래그 지원 (딜레이 250ms)
+    // 모바일: long-press 드래그 (250ms 딜레이)
     return _ShortDelayDragStartListener(
       index: index,
       child: tileContent,

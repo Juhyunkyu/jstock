@@ -6,7 +6,6 @@ import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
-import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/watchlist/watchlist_tile.dart';
 import '../../widgets/watchlist/add_watchlist_sheet.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
@@ -53,45 +52,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                   ? _buildEmptyState()
                   : Builder(
                   builder: (context) {
-                    final useGrid = ResponsiveGrid.shouldUseGrid(context);
-
-                    if (useGrid) {
-                      final itemW = ResponsiveGrid.gridItemWidth(context);
-                      return RefreshIndicator(
-                        onRefresh: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: ResponsiveGrid.horizontalPadding,
-                              ),
-                              child: Wrap(
-                                spacing: ResponsiveGrid.spacing,
-                                runSpacing: ResponsiveGrid.runSpacing,
-                                children: List.generate(watchlistState.items.length, (index) {
-                                  final item = watchlistState.items[index];
-                                  return SizedBox(
-                                    width: itemW,
-                                    child: WatchlistTile(
-                                      key: ValueKey(item.ticker),
-                                      item: item,
-                                      index: index,
-                                      inGrid: true,
-                                      onTap: () => _onItemTap(item),
-                                      onRemove: () => _onRemove(item.ticker),
-                                      onAlertTap: (currentPrice) =>
-                                          _showAlertSettings(item, currentPrice),
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
                     return RefreshIndicator(
                       onRefresh: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
                       child: ReorderableListView.builder(
