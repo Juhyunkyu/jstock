@@ -6,6 +6,7 @@ import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
+import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/watchlist/watchlist_tile.dart';
 import '../../widgets/watchlist/add_watchlist_sheet.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
@@ -52,6 +53,54 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                   ? _buildEmptyState()
                   : Builder(
                   builder: (context) {
+                    final useGrid = ResponsiveGrid.shouldUseGrid(context);
+
+                    if (useGrid) {
+                      // 데스크톱/태블릿: 2열 그리드 + ↑↓ 이동 버튼
+                      final itemW = ResponsiveGrid.gridItemWidth(context);
+                      final items = watchlistState.items;
+                      return RefreshIndicator(
+                        onRefresh: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
+                        child: ListView(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: ResponsiveGrid.horizontalPadding,
+                              ),
+                              child: Wrap(
+                                spacing: ResponsiveGrid.spacing,
+                                runSpacing: ResponsiveGrid.runSpacing,
+                                children: List.generate(items.length, (index) {
+                                  final item = items[index];
+                                  return SizedBox(
+                                    width: itemW,
+                                    child: WatchlistTile(
+                                      key: ValueKey(item.ticker),
+                                      item: item,
+                                      index: index,
+                                      inGrid: true,
+                                      onTap: () => _onItemTap(item),
+                                      onRemove: () => _onRemove(item.ticker),
+                                      onAlertTap: (currentPrice) =>
+                                          _showAlertSettings(item, currentPrice),
+                                      onMoveUp: index > 0
+                                          ? () => ref.read(watchlistProvider.notifier).reorder(index, index - 1)
+                                          : null,
+                                      onMoveDown: index < items.length - 1
+                                          ? () => ref.read(watchlistProvider.notifier).reorder(index, index + 2)
+                                          : null,
+                                    ),
+                                  );
+                                }),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    // 모바일: 1열 리스트 + long-press 드래그
                     return RefreshIndicator(
                       onRefresh: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
                       child: ReorderableListView.builder(
