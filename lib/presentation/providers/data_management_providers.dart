@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/data/data_management_service.dart';
 import 'core/repository_providers.dart';
 import 'watchlist_providers.dart';
+import 'watchlist_group_providers.dart';
 import 'notification_history_provider.dart';
 
 /// DataManagementService Provider
@@ -13,5 +14,7 @@ final dataManagementServiceProvider = Provider<DataManagementService>((ref) {
     settingsRepository: ref.watch(settingsRepositoryProvider),
     cycleRepository: ref.watch(cycleRepositoryProvider),
     tradeRepository: ref.watch(tradeRepositoryProvider),
+    watchlistGroupRepository: ref.watch(watchlistGroupRepositoryProvider),
+    recentViewRepository: ref.watch(recentViewRepositoryProvider),
   );
 });

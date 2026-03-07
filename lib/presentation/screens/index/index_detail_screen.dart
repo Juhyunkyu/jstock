@@ -7,6 +7,7 @@ import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/api/finnhub_service.dart';
 import '../../../data/services/technical_indicator_service.dart';
 import '../../providers/api_providers.dart';
+import '../../providers/watchlist_group_providers.dart';
 import '../../widgets/index/detail_chart_section.dart';
 import '../../widgets/index/period_returns_section.dart';
 import '../../widgets/index/pivot_point_section.dart';
@@ -59,6 +60,11 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
   void initState() {
     super.initState();
     _loadData();
+    // 최근 조회 기록
+    ref.read(recentViewProvider.notifier).recordView(
+          ticker: widget.symbol,
+          name: widget.name,
+        );
   }
 
   Future<void> _loadData() async {

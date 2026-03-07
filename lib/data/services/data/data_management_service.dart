@@ -1,6 +1,8 @@
 import '../../models/cycle.dart';
 import '../../models/trade.dart';
 import '../../models/watchlist_item.dart';
+import '../../models/watchlist_group.dart';
+import '../../models/recent_view_item.dart';
 import '../../models/holding.dart';
 import '../../models/holding_transaction.dart';
 import '../../models/notification_record.dart';
@@ -8,6 +10,8 @@ import '../../models/settings.dart';
 import '../../repositories/cycle_repository.dart';
 import '../../repositories/trade_repository.dart';
 import '../../repositories/watchlist_repository.dart';
+import '../../repositories/watchlist_group_repository.dart';
+import '../../repositories/recent_view_repository.dart';
 import '../../repositories/holding_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../repositories/settings_repository.dart';
@@ -20,6 +24,8 @@ class DataManagementService {
   final SettingsRepository settingsRepository;
   final CycleRepository cycleRepository;
   final TradeRepository tradeRepository;
+  final WatchlistGroupRepository watchlistGroupRepository;
+  final RecentViewRepository recentViewRepository;
 
   DataManagementService({
     required this.watchlistRepository,
@@ -28,12 +34,14 @@ class DataManagementService {
     required this.settingsRepository,
     required this.cycleRepository,
     required this.tradeRepository,
+    required this.watchlistGroupRepository,
+    required this.recentViewRepository,
   });
 
   /// 전체 데이터를 JSON Map으로 백업
   Map<String, dynamic> createBackup() {
     return {
-      'version': 2,
+      'version': 3,
       'createdAt': DateTime.now().toIso8601String(),
       'data': {
         'settings': settingsRepository.settings.toJson(),
@@ -43,6 +51,8 @@ class DataManagementService {
         'notifications': notificationRepository.getAll().map((n) => n.toJson()).toList(),
         'cycles': cycleRepository.getAll().map((c) => c.toJson()).toList(),
         'trades': tradeRepository.getAll().map((t) => t.toJson()).toList(),
+        'watchlistGroups': watchlistGroupRepository.getAll().map((g) => g.toJson()).toList(),
+        'recentViews': recentViewRepository.getAll().map((r) => r.toJson()).toList(),
       },
     };
   }
@@ -50,7 +60,7 @@ class DataManagementService {
   /// JSON Map에서 데이터 복원 (기존 데이터 전체 삭제 후 삽입)
   Future<void> restoreFromBackup(Map<String, dynamic> backup) async {
     final version = backup['version'] as int? ?? 1;
-    if (version > 2) {
+    if (version > 3) {
       throw FormatException('지원하지 않는 백업 버전: $version');
     }
 
@@ -115,6 +125,22 @@ class DataManagementService {
         await tradeRepository.save(trade);
       }
     }
+
+    // 9. Watchlist Groups 복원 (v3+)
+    if (data['watchlistGroups'] != null) {
+      for (final json in (data['watchlistGroups'] as List)) {
+        final group = WatchlistGroup.fromJson(json as Map<String, dynamic>);
+        await watchlistGroupRepository.save(group);
+      }
+    }
+
+    // 10. Recent Views 복원 (v3+)
+    if (data['recentViews'] != null) {
+      for (final json in (data['recentViews'] as List)) {
+        final item = RecentViewItem.fromJson(json as Map<String, dynamic>);
+        await recentViewRepository.recordView(item);
+      }
+    }
   }
 
   /// 거래내역을 CSV 문자열로 내보내기
@@ -175,6 +201,8 @@ class DataManagementService {
       settingsRepository.reset(),
       cycleRepository.clearAll(),
       tradeRepository.clearAll(),
+      watchlistGroupRepository.clear(),
+      recentViewRepository.clear(),
     ]);
   }
 

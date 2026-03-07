@@ -18,3 +18,4 @@ export 'market_data_providers.dart';
 export 'fear_greed_providers.dart';
 export 'notification_history_provider.dart';
 export 'data_management_providers.dart';
+export 'watchlist_group_providers.dart';

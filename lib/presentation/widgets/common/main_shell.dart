@@ -11,6 +11,7 @@ import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
 import '../../providers/watchlist_alert_provider.dart';
 import '../../providers/watchlist_providers.dart';
+import '../../providers/watchlist_group_providers.dart';
 import 'app_title_logo.dart';
 import 'update_banner.dart';
 
@@ -52,6 +53,8 @@ class _MainShellState extends ConsumerState<MainShell> {
       await Future.wait([
         ref.read(notificationHistoryProvider.notifier).load(),
         ref.read(watchlistProvider.notifier).load(),
+        ref.read(watchlistGroupProvider.notifier).load(),
+        ref.read(recentViewProvider.notifier).load(),
       ]);
 
       if (!mounted) return;

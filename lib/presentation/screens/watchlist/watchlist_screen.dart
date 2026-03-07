@@ -2,17 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/watchlist_providers.dart';
+import '../../providers/watchlist_group_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
-import '../../widgets/common/responsive_grid.dart';
-import '../../widgets/watchlist/watchlist_tile.dart';
+import '../../widgets/watchlist/watchlist_tab_bar.dart';
+import '../../widgets/watchlist/watchlist_group_content.dart';
 import '../../widgets/watchlist/add_watchlist_sheet.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
+import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
 
-/// 관심종목 화면 (실시간 WebSocket 업데이트 지원)
+/// 관심종목 화면 (탭 기반 그룹 지원)
 class WatchlistScreen extends ConsumerStatefulWidget {
   const WatchlistScreen({super.key});
 
@@ -21,9 +22,24 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
+  int _selectedTabIndex = 0;
+
   @override
   Widget build(BuildContext context) {
     final watchlistState = ref.watch(watchlistProvider);
+    final groupState = ref.watch(watchlistGroupProvider);
+
+    // 탭 라벨 구성: 보유 | 최근 | [사용자 그룹들...]
+    final tabLabels = <String>[
+      '보유',
+      '최근',
+      ...groupState.groups.map((g) => g.name),
+    ];
+
+    // 탭 인덱스 범위 보정
+    if (_selectedTabIndex >= tabLabels.length) {
+      _selectedTabIndex = 0;
+    }
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -35,7 +51,8 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh, color: context.appTextSecondary),
-            onPressed: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
+            onPressed: () =>
+                ref.read(watchlistProvider.notifier).refreshQuotes(),
           ),
           const NotificationBellButton(),
         ],
@@ -45,104 +62,67 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         backgroundColor: AppColors.primary,
         child: const Icon(Icons.add, color: Colors.white),
       ),
-      body: watchlistState.isLoading
+      body: watchlistState.isLoading || groupState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : watchlistState.error != null
               ? _buildErrorState(watchlistState.error!)
-              : watchlistState.items.isEmpty
-                  ? _buildEmptyState()
-                  : Builder(
-                  builder: (context) {
-                    final useGrid = ResponsiveGrid.shouldUseGrid(context);
-
-                    if (useGrid) {
-                      // 데스크톱/태블릿: 2열 그리드 + 드래그앤드롭 정렬
-                      final itemW = ResponsiveGrid.gridItemWidth(context);
-                      final items = watchlistState.items;
-                      return RefreshIndicator(
-                        onRefresh: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
-                        child: ListView(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          children: [
-                            Padding(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: ResponsiveGrid.horizontalPadding,
-                              ),
-                              child: Wrap(
-                                spacing: ResponsiveGrid.spacing,
-                                runSpacing: ResponsiveGrid.runSpacing,
-                                children: List.generate(items.length, (index) {
-                                  final item = items[index];
-                                  return _DraggableGridItem(
-                                    key: ValueKey(item.ticker),
-                                    index: index,
-                                    width: itemW,
-                                    onReorder: (oldIndex, newIndex) {
-                                      ref.read(watchlistProvider.notifier).reorder(oldIndex, newIndex);
-                                    },
-                                    child: WatchlistTile(
-                                      item: item,
-                                      index: index,
-                                      inGrid: true,
-                                      onTap: () => _onItemTap(item),
-                                      onRemove: () => _onRemove(item.ticker),
-                                      onAlertTap: (currentPrice) =>
-                                          _showAlertSettings(item, currentPrice),
-                                    ),
-                                  );
-                                }),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }
-
-                    // 모바일: 1열 리스트 + long-press 드래그
-                    return RefreshIndicator(
-                      onRefresh: () => ref.read(watchlistProvider.notifier).refreshQuotes(),
-                      child: ReorderableListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        itemCount: watchlistState.items.length,
-                        buildDefaultDragHandles: false,
-                        onReorder: (oldIndex, newIndex) {
-                          ref.read(watchlistProvider.notifier).reorder(oldIndex, newIndex);
-                        },
-                        proxyDecorator: (child, index, animation) {
-                          return AnimatedBuilder(
-                            animation: animation,
-                            builder: (context, child) {
-                              final elevation = Tween<double>(begin: 0, end: 6).animate(animation).value;
-                              return Material(
-                                elevation: elevation,
-                                color: context.appSurface,
-                                shadowColor: context.isDarkMode
-                                    ? Colors.white.withValues(alpha: 0.2)
-                                    : Colors.black45,
-                                borderRadius: BorderRadius.circular(8),
-                                child: child,
-                              );
-                            },
-                            child: child,
-                          );
-                        },
-                        itemBuilder: (context, index) {
-                          final item = watchlistState.items[index];
-                          return WatchlistTile(
-                            key: ValueKey(item.ticker),
-                            item: item,
-                            index: index,
-                            onTap: () => _onItemTap(item),
-                            onRemove: () => _onRemove(item.ticker),
-                            onAlertTap: (currentPrice) =>
-                                _showAlertSettings(item, currentPrice),
-                          );
-                        },
-                      ),
-                    );
-                  },
+              : Column(
+                  children: [
+                    // 탭 바
+                    WatchlistTabBar(
+                      tabLabels: tabLabels,
+                      selectedIndex: _selectedTabIndex,
+                      onTap: (index) =>
+                          setState(() => _selectedTabIndex = index),
+                      onSettingsTap: () => _showSettingsSheet(context),
+                    ),
+                    // 탭 콘텐츠
+                    Expanded(
+                      child: _buildTabContent(watchlistState, groupState),
+                    ),
+                  ],
                 ),
     );
+  }
+
+  Widget _buildTabContent(
+    WatchlistState watchlistState,
+    WatchlistGroupState groupState,
+  ) {
+    // 0 = 보유, 1 = 최근, 2+ = 사용자 그룹
+    if (_selectedTabIndex == 0) {
+      return WatchlistGroupContent(
+        tabType: WatchlistTabType.owned,
+        onTickerTap: (ticker) => _onTickerTap(ticker),
+        onRemoveFromWatchlist: _onRemove,
+        onAlertTap: _onAlertTap,
+      );
+    }
+
+    if (_selectedTabIndex == 1) {
+      return WatchlistGroupContent(
+        tabType: WatchlistTabType.recent,
+        onTickerTap: (ticker) => _onTickerTap(ticker),
+        onRemoveFromWatchlist: _onRemove,
+        onAlertTap: _onAlertTap,
+      );
+    }
+
+    // 사용자 그룹
+    final groupIndex = _selectedTabIndex - 2;
+    if (groupIndex >= 0 && groupIndex < groupState.groups.length) {
+      final group = groupState.groups[groupIndex];
+      return WatchlistGroupContent(
+        key: ValueKey(group.id),
+        tabType: WatchlistTabType.custom,
+        groupId: group.id,
+        onTickerTap: (ticker) => _onTickerTap(ticker),
+        onRemoveFromWatchlist: _onRemove,
+        onAlertTap: _onAlertTap,
+      );
+    }
+
+    return const SizedBox.shrink();
   }
 
   Widget _buildErrorState(String error) {
@@ -179,53 +159,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.bookmark_border_rounded,
-            size: 64,
-            color: context.appBorder,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            '관심종목이 없습니다',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: context.appTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '오른쪽 하단 + 버튼을 눌러\n관심종목을 추가해보세요',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: context.appTextHint,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () => _showAddDialog(context),
-            icon: const Icon(Icons.add),
-            label: const Text('관심종목 추가'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAddDialog(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -235,10 +168,17 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     );
   }
 
-  void _onItemTap(WatchlistItem item) {
-    context.go(
-      '/index/${Uri.encodeComponent(item.ticker)}?from=watchlist',
+  void _showSettingsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appSurface,
+      builder: (context) => const WatchlistSettingsSheet(),
     );
+  }
+
+  void _onTickerTap(String ticker) {
+    context.go('/index/${Uri.encodeComponent(ticker)}?from=watchlist');
   }
 
   Future<void> _onRemove(String ticker) async {
@@ -260,7 +200,13 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     }
   }
 
-  Future<void> _showAlertSettings(WatchlistItem item, double? currentPrice) async {
+  void _onAlertTap(String ticker, double? currentPrice) async {
+    final watchlistState = ref.read(watchlistProvider);
+    final item = watchlistState.items
+        .where((i) => i.ticker == ticker)
+        .firstOrNull;
+    if (item == null) return;
+
     if (!WebNotificationService.isPermissionGranted) {
       await WebNotificationService.requestPermission();
     }
@@ -274,71 +220,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         item: item,
         currentPrice: currentPrice,
       ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 그리드 드래그앤드롭 아이템
-// ═══════════════════════════════════════════════════════════════
-
-class _DraggableGridItem extends StatelessWidget {
-  final int index;
-  final double width;
-  final Widget child;
-  final void Function(int oldIndex, int newIndex) onReorder;
-
-  const _DraggableGridItem({
-    super.key,
-    required this.index,
-    required this.width,
-    required this.child,
-    required this.onReorder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DragTarget<int>(
-      onWillAcceptWithDetails: (details) => details.data != index,
-      onAcceptWithDetails: (details) {
-        final oldIndex = details.data;
-        final newIndex = oldIndex < index ? index + 1 : index;
-        onReorder(oldIndex, newIndex);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isHovered = candidateData.isNotEmpty;
-        return LongPressDraggable<int>(
-          data: index,
-          delay: const Duration(milliseconds: 150),
-          feedback: Material(
-            elevation: 8,
-            borderRadius: BorderRadius.circular(12),
-            shadowColor: Colors.black45,
-            child: SizedBox(
-              width: width,
-              child: Opacity(opacity: 0.9, child: child),
-            ),
-          ),
-          childWhenDragging: SizedBox(
-            width: width,
-            child: Opacity(opacity: 0.3, child: child),
-          ),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: width,
-            decoration: isHovered
-                ? BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: context.appAccent.withValues(alpha: 0.6),
-                      width: 2,
-                    ),
-                  )
-                : null,
-            child: child,
-          ),
-        );
-      },
     );
   }
 }
