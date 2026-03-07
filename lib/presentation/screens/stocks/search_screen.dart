@@ -5,7 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/api/finnhub_service.dart';
 import '../../providers/api_providers.dart';
-import '../../providers/cycle_providers.dart';
+import '../../providers/holding_providers.dart';
 import '../../providers/stock_providers.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../widgets/stocks/popular_etf_list.dart';
@@ -14,7 +14,7 @@ import '../../widgets/stocks/watchlist_suggestion_tile.dart';
 
 /// 종목 검색 화면
 class SearchScreen extends ConsumerStatefulWidget {
-  /// true면 일반 보유용, false면 알파 사이클용
+  /// 보유 종목 검색 여부
   final bool forHolding;
 
   const SearchScreen({super.key, this.forHolding = false});
@@ -75,9 +75,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 실제 활성 사이클의 티커 목록 가져오기
-    final activeCycles = ref.watch(activeCyclesProvider);
-    final activeTickers = activeCycles.map((c) => c.ticker).toSet();
+    // 활성 보유 종목의 티커 목록 (중복 추가 방지)
+    final activeHoldings = ref.watch(activeHoldingsProvider);
+    final activeTickers = activeHoldings.map((h) => h.ticker).toSet();
     final searchState = ref.watch(searchProvider);
     // 관심종목 상태 - 직접 watch (단순화)
     final watchlistState = ref.watch(watchlistProvider);
@@ -222,10 +222,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       description: item.name,
       category: 'WATCHLIST',
     );
-    final route = widget.forHolding
-        ? '/holdings/setup/${item.ticker}'
-        : '/stocks/setup/${item.ticker}';
-    context.push(route, extra: etf);
+    context.push('/holdings/setup/${item.ticker}', extra: etf);
   }
 
   Widget _buildSearchResults(List<SearchResult> results, Set<String> activeTickers) {
@@ -287,10 +284,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onEtfSelected(PopularEtf etf) {
-    final route = widget.forHolding
-        ? '/holdings/setup/${etf.ticker}'
-        : '/stocks/setup/${etf.ticker}';
-    context.push(route, extra: etf);
+    context.push('/holdings/setup/${etf.ticker}', extra: etf);
   }
 
   void _onSearchResultSelected(SearchResult result) {
@@ -301,9 +295,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       description: result.name,
       category: result.type,
     );
-    final route = widget.forHolding
-        ? '/holdings/setup/${result.symbol}'
-        : '/stocks/setup/${result.symbol}';
-    context.push(route, extra: etf);
+    context.push('/holdings/setup/${result.symbol}', extra: etf);
   }
 }

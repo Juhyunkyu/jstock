@@ -2,8 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/services/notification/notification_service.dart';
 import '../../data/services/background/price_check_service.dart';
 import '../../data/services/background/background_task_handler.dart';
-import 'core/repository_providers.dart';
-import 'api_providers.dart';
 
 /// NotificationService Provider (싱글톤)
 final notificationServiceProvider = Provider<NotificationService>((ref) {
@@ -17,17 +15,7 @@ final backgroundTaskHandlerProvider = Provider<BackgroundTaskHandler>((ref) {
 
 /// PriceCheckService Provider
 final priceCheckServiceProvider = Provider<PriceCheckService>((ref) {
-  final stockService = ref.watch(finnhubServiceProvider);
-  final notificationService = ref.watch(notificationServiceProvider);
-  final cycleRepo = ref.watch(cycleRepositoryProvider);
-  final settingsRepo = ref.watch(settingsRepositoryProvider);
-
-  final service = PriceCheckService(
-    stockService: stockService,
-    notificationService: notificationService,
-    cycleRepository: cycleRepo,
-    settingsRepository: settingsRepo,
-  );
+  final service = PriceCheckService();
 
   ref.onDispose(() {
     service.dispose();

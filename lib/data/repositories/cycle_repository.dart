@@ -3,7 +3,7 @@ import '../models/cycle.dart';
 
 /// 사이클 데이터 저장소
 class CycleRepository {
-  static const String _boxName = 'cycles';
+  static const String _boxName = 'cycles_v3';
 
   Box<Cycle>? _box;
 
@@ -20,6 +20,10 @@ class CycleRepository {
     return _box!;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // CRUD
+  // ═══════════════════════════════════════════════════════════════
+
   /// 모든 사이클 조회
   List<Cycle> getAll() {
     return box.values.toList();
@@ -27,35 +31,26 @@ class CycleRepository {
 
   /// 활성 사이클만 조회
   List<Cycle> getActiveCycles() {
-    return box.values
-        .where((cycle) => cycle.status == CycleStatus.active)
-        .toList();
+    return box.values.where((c) => c.status == CycleStatus.active).toList();
   }
 
-  /// 특정 종목의 활성 사이클 조회
-  Cycle? getActiveCycleByTicker(String ticker) {
-    try {
-      return box.values.firstWhere(
-        (cycle) => cycle.ticker == ticker && cycle.status == CycleStatus.active,
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// 특정 종목의 모든 사이클 조회
-  List<Cycle> getCyclesByTicker(String ticker) {
-    return box.values.where((cycle) => cycle.ticker == ticker).toList()
-      ..sort((a, b) => b.cycleNumber.compareTo(a.cycleNumber));
+  /// 완료된 사이클 조회
+  List<Cycle> getCompletedCycles() {
+    return box.values.where((c) => c.status == CycleStatus.completed).toList();
   }
 
   /// ID로 사이클 조회
   Cycle? getById(String id) {
     try {
-      return box.values.firstWhere((cycle) => cycle.id == id);
+      return box.values.firstWhere((c) => c.id == id);
     } catch (e) {
       return null;
     }
+  }
+
+  /// 티커로 활성 사이클 조회
+  List<Cycle> getByTicker(String ticker) {
+    return box.values.where((c) => c.ticker == ticker).toList();
   }
 
   /// 사이클 저장
@@ -66,20 +61,6 @@ class CycleRepository {
   /// 사이클 삭제
   Future<void> delete(String id) async {
     await box.delete(id);
-  }
-
-  /// 완료된 사이클 수
-  int get completedCycleCount {
-    return box.values
-        .where((cycle) => cycle.status == CycleStatus.completed)
-        .length;
-  }
-
-  /// 특정 종목의 다음 사이클 번호
-  int getNextCycleNumber(String ticker) {
-    final cycles = getCyclesByTicker(ticker);
-    if (cycles.isEmpty) return 1;
-    return cycles.first.cycleNumber + 1;
   }
 
   /// 전체 삭제

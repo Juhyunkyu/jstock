@@ -1,9 +1,9 @@
 import 'package:hive/hive.dart';
 import '../models/trade.dart';
 
-/// 거래 기록 저장소
+/// 거래 기록 데이터 저장소
 class TradeRepository {
-  static const String _boxName = 'trades';
+  static const String _boxName = 'trades_v3';
 
   Box<Trade>? _box;
 
@@ -20,60 +20,22 @@ class TradeRepository {
     return _box!;
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // CRUD
+  // ═══════════════════════════════════════════════════════════════
+
   /// 모든 거래 조회
   List<Trade> getAll() {
-    return box.values.toList()..sort((a, b) => b.date.compareTo(a.date));
+    return box.values.toList()
+      ..sort((a, b) => b.tradedAt.compareTo(a.tradedAt));
   }
 
-  /// 특정 사이클의 거래 조회
+  /// 사이클 ID로 거래 조회
   List<Trade> getByCycleId(String cycleId) {
     return box.values
-        .where((trade) => trade.cycleId == cycleId)
+        .where((t) => t.cycleId == cycleId)
         .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  /// 특정 종목의 거래 조회
-  List<Trade> getByTicker(String ticker) {
-    return box.values
-        .where((trade) => trade.ticker == ticker)
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  /// 미체결 거래 조회
-  List<Trade> getUnexecuted() {
-    return box.values.where((trade) => !trade.isExecuted).toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  /// 특정 날짜의 거래 조회
-  List<Trade> getByDate(DateTime date) {
-    return box.values
-        .where((trade) =>
-            trade.date.year == date.year &&
-            trade.date.month == date.month &&
-            trade.date.day == date.day)
-        .toList();
-  }
-
-  /// 특정 기간의 거래 조회
-  List<Trade> getByDateRange(DateTime start, DateTime end) {
-    return box.values
-        .where((trade) =>
-            trade.date.isAfter(start.subtract(const Duration(days: 1))) &&
-            trade.date.isBefore(end.add(const Duration(days: 1))))
-        .toList()
-      ..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  /// ID로 거래 조회
-  Trade? getById(String id) {
-    try {
-      return box.values.firstWhere((trade) => trade.id == id);
-    } catch (e) {
-      return null;
-    }
+      ..sort((a, b) => b.tradedAt.compareTo(a.tradedAt));
   }
 
   /// 거래 저장
@@ -86,25 +48,12 @@ class TradeRepository {
     await box.delete(id);
   }
 
-  /// 통계: 권장 금액 총합
-  double get totalRecommendedAmount {
-    return box.values.fold(0.0, (sum, trade) => sum + trade.recommendedAmount);
-  }
-
-  /// 통계: 실투자 금액 총합
-  double get totalActualAmount {
-    return box.values
-        .where((trade) => trade.actualAmount != null)
-        .fold(0.0, (sum, trade) => sum + trade.actualAmount!);
-  }
-
-  /// 통계: 거래 유형별 카운트
-  Map<TradeAction, int> get tradeCountByAction {
-    final counts = <TradeAction, int>{};
-    for (final trade in box.values) {
-      counts[trade.action] = (counts[trade.action] ?? 0) + 1;
+  /// 사이클의 모든 거래 삭제
+  Future<void> deleteByCycleId(String cycleId) async {
+    final trades = getByCycleId(cycleId);
+    for (final trade in trades) {
+      await box.delete(trade.id);
     }
-    return counts;
   }
 
   /// 전체 삭제

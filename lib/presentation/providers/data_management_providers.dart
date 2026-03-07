@@ -7,11 +7,11 @@ import 'notification_history_provider.dart';
 /// DataManagementService Provider
 final dataManagementServiceProvider = Provider<DataManagementService>((ref) {
   return DataManagementService(
-    cycleRepository: ref.watch(cycleRepositoryProvider),
-    tradeRepository: ref.watch(tradeRepositoryProvider),
     watchlistRepository: ref.watch(watchlistRepositoryProvider),
     holdingRepository: ref.watch(holdingRepositoryProvider),
     notificationRepository: ref.watch(notificationRepositoryProvider),
     settingsRepository: ref.watch(settingsRepositoryProvider),
+    cycleRepository: ref.watch(cycleRepositoryProvider),
+    tradeRepository: ref.watch(tradeRepositoryProvider),
   );
 });

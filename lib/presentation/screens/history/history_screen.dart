@@ -2,26 +2,27 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/cycle.dart';
 import '../../../data/models/holding.dart';
 import '../../../data/models/holding_transaction.dart';
-import '../../../routes/app_router.dart';
 import '../../providers/providers.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../widgets/common/responsive_grid.dart';
-import '../../widgets/history/cycle_stats_card.dart';
+import '../../widgets/cycle/strategy_badge.dart';
 import '../../widgets/history/archived_holding_card.dart';
+import '../../widgets/shared/ticker_logo.dart';
+import '../../widgets/shared/return_badge.dart';
 
-/// 거래내역 화면 — 과거 거래기록 (완료된 알파사이클 + 아카이브된 일반보유)
+/// 거래내역 화면 — 과거 거래기록 (아카이브된 일반보유)
 class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final completedCycles = ref.watch(completedCyclesProvider);
     final archivedHoldings = ref.watch(archivedHoldingsProvider);
-    final prices = ref.watch(currentPricesProvider);
+    final completedCycles = ref.watch(completedCyclesProvider);
 
-    final hasData = completedCycles.isNotEmpty || archivedHoldings.isNotEmpty;
+    final hasData = archivedHoldings.isNotEmpty || completedCycles.isNotEmpty;
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -45,10 +46,10 @@ class HistoryScreen extends ConsumerWidget {
                       // 합계 요약 카드
                       _buildSummaryCard(context, ref),
 
-                      // 섹션 1: 완료된 알파 사이클
+                      // 완료된 사이클
                       if (completedCycles.isNotEmpty) ...[
                         _SectionHeader(
-                          title: '완료된 알파 사이클',
+                          title: '완료된 사이클',
                           count: completedCycles.length,
                         ),
                         Padding(
@@ -59,16 +60,13 @@ class HistoryScreen extends ConsumerWidget {
                             spacing: ResponsiveGrid.spacing,
                             runSpacing: ResponsiveGrid.runSpacing,
                             children: completedCycles.map((cycle) {
-                              final tradeCount = ref.watch(tradeCountForCycleProvider(cycle.id));
-                              final finalPrice = prices[cycle.ticker] ?? cycle.averagePrice;
                               return SizedBox(
                                 width: itemW,
-                                child: CycleStatsCard(
+                                child: _CompletedCycleCard(
                                   cycle: cycle,
-                                  finalPrice: finalPrice,
-                                  tradeCount: tradeCount,
                                   inGrid: true,
-                                  onTap: () => context.push('${AppRouter.stocksDetail}/${cycle.id}'),
+                                  onTap: () => context.push('/stocks/detail/${cycle.id}'),
+                                  onDelete: () => _confirmDeleteCycle(context, ref, cycle),
                                 ),
                               );
                             }).toList(),
@@ -76,14 +74,7 @@ class HistoryScreen extends ConsumerWidget {
                         ),
                       ],
 
-                      // 구분선
-                      if (completedCycles.isNotEmpty && archivedHoldings.isNotEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          child: Divider(),
-                        ),
-
-                      // 섹션 2: 완료된 일반 보유
+                      // 완료된 일반 보유
                       if (archivedHoldings.isNotEmpty) ...[
                         _SectionHeader(
                           title: '완료된 일반 보유',
@@ -125,32 +116,20 @@ class HistoryScreen extends ConsumerWidget {
                     // 합계 요약 카드
                     _buildSummaryCard(context, ref),
 
-                    // 섹션 1: 완료된 알파 사이클
+                    // 완료된 사이클
                     if (completedCycles.isNotEmpty) ...[
                       _SectionHeader(
-                        title: '완료된 알파 사이클',
+                        title: '완료된 사이클',
                         count: completedCycles.length,
                       ),
-                      ...completedCycles.map((cycle) {
-                        final tradeCount = ref.watch(tradeCountForCycleProvider(cycle.id));
-                        final finalPrice = prices[cycle.ticker] ?? cycle.averagePrice;
-                        return CycleStatsCard(
-                          cycle: cycle,
-                          finalPrice: finalPrice,
-                          tradeCount: tradeCount,
-                          onTap: () => context.push('${AppRouter.stocksDetail}/${cycle.id}'),
-                        );
-                      }),
+                      ...completedCycles.map((cycle) => _CompletedCycleCard(
+                        cycle: cycle,
+                        onTap: () => context.push('/stocks/detail/${cycle.id}'),
+                        onDelete: () => _confirmDeleteCycle(context, ref, cycle),
+                      )),
                     ],
 
-                    // 구분선
-                    if (completedCycles.isNotEmpty && archivedHoldings.isNotEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Divider(),
-                      ),
-
-                    // 섹션 2: 완료된 일반 보유
+                    // 완료된 일반 보유
                     if (archivedHoldings.isNotEmpty) ...[
                       _SectionHeader(
                         title: '완료된 일반 보유',
@@ -221,13 +200,13 @@ class HistoryScreen extends ConsumerWidget {
 
   /// 합계 요약 카드 (총 투자, 총 회수, 총 손익)
   Widget _buildSummaryCard(BuildContext context, WidgetRef ref) {
-    final completedCycles = ref.watch(completedCyclesProvider);
     final archivedHoldings = ref.watch(archivedHoldingsProvider);
+    final completedCycles = ref.watch(completedCyclesProvider);
 
     double totalInvested = 0;
     double totalRecovered = 0;
 
-    // 완료된 알파 사이클: seedAmount=투자, remainingCash=회수
+    // 완료된 사이클: seedAmount=투자, remainingCash=회수 (완료 시 주식=0)
     for (final cycle in completedCycles) {
       totalInvested += cycle.seedAmount;
       totalRecovered += cycle.remainingCash;
@@ -310,6 +289,33 @@ class HistoryScreen extends ConsumerWidget {
     );
   }
 
+  void _confirmDeleteCycle(BuildContext context, WidgetRef ref, Cycle cycle) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('사이클 기록 삭제'),
+        content: Text('${cycle.ticker} (${cycle.name}) 사이클 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(cycleListProvider.notifier).deleteCycle(cycle.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('${cycle.ticker} 사이클 기록이 삭제되었습니다')),
+              );
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.red500),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
@@ -341,6 +347,178 @@ class HistoryScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+class _CompletedCycleCard extends StatelessWidget {
+  final Cycle cycle;
+  final VoidCallback? onTap;
+  final VoidCallback? onDelete;
+  final bool inGrid;
+
+  const _CompletedCycleCard({
+    required this.cycle,
+    this.onTap,
+    this.onDelete,
+    this.inGrid = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final pnl = cycle.remainingCash - cycle.seedAmount;
+    final returnRate = cycle.seedAmount > 0
+        ? (pnl / cycle.seedAmount) * 100
+        : 0.0;
+    final isProfit = pnl >= 0;
+    final fgColor = isProfit
+        ? context.appStockChangePlusFg
+        : context.appStockChangeMinusFg;
+
+    return Container(
+      margin: inGrid
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.03)
+                : Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 헤더: 로고 + 티커 + 이름 + 전략 배지
+                Row(
+                  children: [
+                    TickerLogo(
+                      ticker: cycle.ticker,
+                      size: 32,
+                      borderRadius: 8,
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: context.appTickerColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        cycle.ticker,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: context.appTickerColor,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    StrategyBadge(strategyType: cycle.strategyType),
+                    const Spacer(),
+                    if (onDelete != null)
+                      GestureDetector(
+                        onTap: onDelete,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: context.appTextHint,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // 실현손익 + 등락률 배지
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${isProfit ? '+' : ''}${formatKrw(pnl)}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: fgColor,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ReturnBadge(
+                      value: returnRate,
+                      size: ReturnBadgeSize.small,
+                      colorScheme: ReturnBadgeColorScheme.redBlue,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // 시드 금액
+                Center(
+                  child: Text(
+                    '시드 ${formatKrw(cycle.seedAmount)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appTextHint,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // 기간
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _formatDate(cycle.startDate),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.appTextHint,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        size: 14,
+                        color: context.appTextHint,
+                      ),
+                    ),
+                    Text(
+                      _formatDate(cycle.updatedAt),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.appTextHint,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
   }
 }
 

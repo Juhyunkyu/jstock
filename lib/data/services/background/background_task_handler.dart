@@ -1,9 +1,6 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:workmanager/workmanager.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../api/finnhub_service.dart';
-import '../notification/notification_service.dart';
-import '../../repositories/cycle_repository.dart';
 import '../../repositories/settings_repository.dart';
 import 'price_check_service.dart';
 
@@ -139,25 +136,11 @@ void callbackDispatcher() {
       await Hive.initFlutter();
 
       // Repository 초기화
-      final cycleRepo = CycleRepository();
       final settingsRepo = SettingsRepository();
-      await Future.wait([
-        cycleRepo.init(),
-        settingsRepo.init(),
-      ]);
+      await settingsRepo.init();
 
       // 서비스 초기화
-      final notificationService = NotificationService();
-      await notificationService.initialize();
-
-      final stockService = FinnhubService();
-
-      final priceCheckService = PriceCheckService(
-        stockService: stockService,
-        notificationService: notificationService,
-        cycleRepository: cycleRepo,
-        settingsRepository: settingsRepo,
-      );
+      final priceCheckService = PriceCheckService();
 
       // 태스크 실행
       switch (taskName) {
@@ -176,10 +159,7 @@ void callbackDispatcher() {
       }
 
       // Repository 정리
-      await Future.wait([
-        cycleRepo.close(),
-        settingsRepo.close(),
-      ]);
+      await settingsRepo.close();
 
       return true;
     } catch (e) {

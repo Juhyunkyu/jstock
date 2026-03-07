@@ -6,53 +6,53 @@ import '../notification_providers.dart';
 
 /// Repository 인스턴스 저장을 위한 컨테이너
 class RepositoryContainer {
-  final CycleRepository cycleRepository;
-  final TradeRepository tradeRepository;
   final SettingsRepository settingsRepository;
   final HoldingRepository holdingRepository;
   final ChartDrawingRepository chartDrawingRepository;
+  final CycleRepository cycleRepository;
+  final TradeRepository tradeRepository;
 
   const RepositoryContainer({
-    required this.cycleRepository,
-    required this.tradeRepository,
     required this.settingsRepository,
     required this.holdingRepository,
     required this.chartDrawingRepository,
+    required this.cycleRepository,
+    required this.tradeRepository,
   });
 
   /// 모든 Repository 초기화
   static Future<RepositoryContainer> initialize() async {
-    final cycleRepo = CycleRepository();
-    final tradeRepo = TradeRepository();
     final settingsRepo = SettingsRepository();
     final holdingRepo = HoldingRepository();
     final chartDrawingRepo = ChartDrawingRepository();
+    final cycleRepo = CycleRepository();
+    final tradeRepo = TradeRepository();
 
     await Future.wait([
-      cycleRepo.init(),
-      tradeRepo.init(),
       settingsRepo.init(),
       holdingRepo.init(),
       chartDrawingRepo.init(),
+      cycleRepo.init(),
+      tradeRepo.init(),
     ]);
 
     return RepositoryContainer(
-      cycleRepository: cycleRepo,
-      tradeRepository: tradeRepo,
       settingsRepository: settingsRepo,
       holdingRepository: holdingRepo,
       chartDrawingRepository: chartDrawingRepo,
+      cycleRepository: cycleRepo,
+      tradeRepository: tradeRepo,
     );
   }
 
   /// 모든 Repository 닫기
   Future<void> close() async {
     await Future.wait([
-      cycleRepository.close(),
-      tradeRepository.close(),
       settingsRepository.close(),
       holdingRepository.close(),
       chartDrawingRepository.close(),
+      cycleRepository.close(),
+      tradeRepository.close(),
     ]);
   }
 }
@@ -67,24 +67,6 @@ final repositoryContainerProvider = FutureProvider<RepositoryContainer>((ref) as
   });
 
   return container;
-});
-
-/// Cycle Repository Provider
-final cycleRepositoryProvider = Provider<CycleRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.cycleRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
-});
-
-/// Trade Repository Provider
-final tradeRepositoryProvider = Provider<TradeRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.tradeRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
 });
 
 /// Settings Repository Provider
@@ -110,6 +92,24 @@ final chartDrawingRepositoryProvider = Provider<ChartDrawingRepository>((ref) {
   final container = ref.watch(repositoryContainerProvider);
   return container.maybeWhen(
     data: (c) => c.chartDrawingRepository,
+    orElse: () => throw StateError('Repository not initialized'),
+  );
+});
+
+/// Cycle Repository Provider
+final cycleRepositoryProvider = Provider<CycleRepository>((ref) {
+  final container = ref.watch(repositoryContainerProvider);
+  return container.maybeWhen(
+    data: (c) => c.cycleRepository,
+    orElse: () => throw StateError('Repository not initialized'),
+  );
+});
+
+/// Trade Repository Provider
+final tradeRepositoryProvider = Provider<TradeRepository>((ref) {
+  final container = ref.watch(repositoryContainerProvider);
+  return container.maybeWhen(
+    data: (c) => c.tradeRepository,
     orElse: () => throw StateError('Repository not initialized'),
   );
 });

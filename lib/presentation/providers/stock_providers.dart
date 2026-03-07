@@ -133,21 +133,21 @@ final stockPriceProvider = StateNotifierProvider<StockPriceNotifier, Map<String,
   return notifier;
 });
 
-/// 사용자 등록 종목 (활성 사이클 + 보유 종목) 티커 목록 Provider
+/// 사용자 등록 종목 (보유 종목 + 활성 사이클) 티커 목록 Provider
 final userTickersProvider = Provider<List<String>>((ref) {
-  final activeCycles = ref.watch(activeCyclesProvider);
   final activeHoldings = ref.watch(activeHoldingsProvider);
+  final activeCycles = ref.watch(activeCyclesProvider);
 
   final tickers = <String>{};
-
-  // 활성 사이클의 티커들 추가
-  for (final cycle in activeCycles) {
-    tickers.add(cycle.ticker);
-  }
 
   // 활성 보유 종목의 티커들 추가
   for (final holding in activeHoldings) {
     tickers.add(holding.ticker);
+  }
+
+  // 활성 사이클의 티커들 추가
+  for (final cycle in activeCycles) {
+    tickers.add(cycle.ticker);
   }
 
   return tickers.toList();
@@ -185,24 +185,11 @@ final currentPricesProvider = Provider<Map<String, double>>((ref) {
 /// 사용자 종목 목록 Provider (가격 정보 포함)
 final userStocksProvider = Provider<List<Stock>>((ref) {
   final prices = ref.watch(stockPriceProvider);
-  final activeCycles = ref.watch(activeCyclesProvider);
   final activeHoldings = ref.watch(activeHoldingsProvider);
 
   final stockMap = <String, Stock>{};
 
-  // 활성 사이클의 종목들 추가
-  for (final cycle in activeCycles) {
-    final priceData = prices[cycle.ticker];
-    stockMap[cycle.ticker] = Stock(
-      ticker: cycle.ticker,
-      name: cycle.ticker, // 이름은 티커로 대체
-      currentPrice: priceData?.price ?? 0.0,
-      changePercent: priceData?.changePercent ?? 0.0,
-      lastUpdated: priceData?.lastUpdated,
-    );
-  }
-
-  // 활성 보유 종목들 추가 (중복 시 덮어쓰기)
+  // 보유 종목들 추가
   for (final holding in activeHoldings) {
     final priceData = prices[holding.ticker];
     stockMap[holding.ticker] = Stock(

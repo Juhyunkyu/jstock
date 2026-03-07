@@ -1,5 +1,8 @@
 import 'trading_position.dart';
 
+/// @Deprecated('V3에서는 Cycle이 TradingPosition을 직접 구현. 향후 삭제 예정')
+/// V3에서 사용하지 않음. 다른 코드에서 참조하지 않는 것 확인 후 삭제 가능.
+
 /// 트레이딩 전략 유형
 ///
 /// 확장 가능한 매매법을 위한 열거형

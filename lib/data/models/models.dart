@@ -4,8 +4,6 @@
 library;
 
 export 'stock.dart';
-export 'cycle.dart';
-export 'trade.dart';
 export 'settings.dart';
 export 'holding.dart';
 export 'holding_transaction.dart';
@@ -13,3 +11,5 @@ export 'ohlc_data.dart';
 export 'watchlist_item.dart';
 export 'notification_record.dart';
 export 'chart_drawing.dart';
+export 'cycle.dart';
+export 'trade.dart';

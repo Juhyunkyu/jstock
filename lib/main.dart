@@ -13,12 +13,14 @@ void main() async {
   // Hive 초기화
   await Hive.initFlutter();
 
+  // 레거시 박스 삭제 (V2 -> V3 마이그레이션 안전)
+  try {
+    await Hive.deleteBoxFromDisk('cycles');
+    await Hive.deleteBoxFromDisk('trades');
+  } catch (_) {}
+
   // Hive 어댑터 등록
   Hive.registerAdapter(StockAdapter());
-  Hive.registerAdapter(CycleAdapter());
-  Hive.registerAdapter(CycleStatusAdapter());
-  Hive.registerAdapter(TradeAdapter());
-  Hive.registerAdapter(TradeActionAdapter());
   Hive.registerAdapter(SettingsAdapter());
   Hive.registerAdapter(HoldingAdapter());
   Hive.registerAdapter(HoldingTransactionAdapter());
@@ -27,6 +29,12 @@ void main() async {
   Hive.registerAdapter(NotificationRecordAdapter());
   Hive.registerAdapter(DrawingTypeAdapter());
   Hive.registerAdapter(ChartDrawingAdapter());
+  Hive.registerAdapter(CycleAdapter());
+  Hive.registerAdapter(TradeAdapter());
+  Hive.registerAdapter(StrategyTypeAdapter());
+  Hive.registerAdapter(TradeSignalAdapter());
+  Hive.registerAdapter(CycleStatusAdapter());
+  Hive.registerAdapter(TradeActionAdapter());
 
   // 로고 캐시 초기화
   final logoCache = LogoCacheService();

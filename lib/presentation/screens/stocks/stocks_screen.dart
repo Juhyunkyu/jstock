@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../domain/usecases/signal_detector.dart';
+import '../../../core/utils/krw_formatter.dart';
+import '../../../data/models/cycle.dart';
+import '../../../data/models/trade.dart';
 import '../../providers/providers.dart';
-import '../../widgets/home/active_cycle_card.dart';
-import '../../widgets/home/portfolio_allocation_chart.dart';
-import '../../widgets/common/responsive_grid.dart';
-import '../../widgets/holdings/holding_card.dart';
 import '../../widgets/common/notification_bell_button.dart';
+import '../../widgets/home/portfolio_allocation_chart.dart';
+import '../../widgets/cycle/signal_display.dart';
+import '../../widgets/holdings/holding_card.dart';
+import '../../widgets/shared/ticker_logo.dart';
 
-/// 종목 관리 화면
+/// My 탭 화면
+///
+/// 포트폴리오 요약, 자산 배분 차트, 전략별 사이클 및 보유 종목을 표시합니다.
 class StocksScreen extends ConsumerStatefulWidget {
   const StocksScreen({super.key});
 
@@ -21,443 +25,559 @@ class StocksScreen extends ConsumerStatefulWidget {
 class _StocksScreenState extends ConsumerState<StocksScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(_onTabChanged);
-    // 화면 로드 시 사이클 목록 새로고침
-    Future.microtask(() {
-      ref.read(cycleListProvider.notifier).refresh();
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
     });
-  }
-
-  void _onTabChanged() {
-    // 탭 변경 시 FAB 가시성 업데이트를 위해 setState 호출
-    if (_tabController.indexIsChanging == false) {
-      setState(() {
-        _currentTabIndex = _tabController.index;
-      });
-    }
   }
 
   @override
   void dispose() {
-    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
-  }
-
-  /// 현재 선택된 탭에 아이템이 있는 경우에만 FAB 표시
-  bool _shouldShowFab(int cycleCount, int holdingCount) {
-    if (_currentTabIndex == 0) {
-      // 알파 사이클 탭: 사이클이 있을 때만 FAB 표시
-      return cycleCount > 0;
-    } else {
-      // 일반 보유 탭: 보유 종목이 있을 때만 FAB 표시
-      return holdingCount > 0;
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final prices = ref.watch(currentPricesProvider);
-    final portfolio = ref.watch(unifiedPortfolioProvider(prices));
-    final activeCycles = ref.watch(activeCyclesProvider);
+    final summary = ref.watch(unifiedPortfolioProvider(prices));
+    final alphaCycles = ref.watch(alphaCyclesProvider);
+    final infiniteBuyCycles = ref.watch(infiniteBuyCyclesProvider);
     final activeHoldings = ref.watch(activeHoldingsProvider);
+    final exchangeRate = ref.watch(currentExchangeRateProvider);
 
     return Scaffold(
       backgroundColor: context.appBackground,
-      appBar: AppBar(
-        title: Text('종목 관리'),
-        backgroundColor: context.appBackground,
-        elevation: 0,
-        toolbarHeight: 64,
-        actions: const [
-          NotificationBellButton(),
-        ],
-      ),
-      floatingActionButton: _shouldShowFab(activeCycles.length, activeHoldings.length)
-          ? FloatingActionButton.small(
-              onPressed: () {
-                // 탭 1 = 일반 보유
-                final forHolding = _currentTabIndex == 1;
-                final route = forHolding ? '/stocks/search?forHolding=true' : '/stocks/search';
-                context.push(route);
-              },
-              backgroundColor: AppColors.primary,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
-      body: Column(
-        children: [
-          // 포트폴리오 요약 섹션 (스크롤 가능)
-          Expanded(
-            child: NestedScrollView(
-              headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 4),
-                      // 내 포트폴리오 (도넛 차트 + 시드 대비 손익)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: PortfolioAllocationChart(
-                          summary: portfolio,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // 탭 바
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: context.appIconBg,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: TabBar(
-                          controller: _tabController,
-                          indicator: BoxDecoration(
-                            color: context.appSurface,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: [
-                              BoxShadow(
-                                color: context.isDarkMode
-                                    ? Colors.white.withValues(alpha: 0.03)
-                                    : Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          indicatorPadding: const EdgeInsets.all(4),
-                          dividerColor: Colors.transparent,
-                          labelColor: context.appTextPrimary,
-                          unselectedLabelColor: context.appTextSecondary,
-                          labelStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          unselectedLabelStyle: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          tabs: [
-                            Tab(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.loop_rounded, size: 16),
-                                  const SizedBox(width: 6),
-                                  Text('알파 사이클 (${activeCycles.length}개)'),
-                                ],
-                              ),
-                            ),
-                            Tab(
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.account_balance_wallet_outlined, size: 16),
-                                  const SizedBox(width: 6),
-                                  Text('일반 보유 (${activeHoldings.length}개)'),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                    ],
-                  ),
+      body: SafeArea(
+        child: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverAppBar(
+              floating: true,
+              toolbarHeight: 56,
+              backgroundColor: context.appBackground,
+              elevation: 0,
+              centerTitle: false,
+              titleSpacing: 16,
+              title: Text(
+                'My',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: context.appTextPrimary,
                 ),
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(
+                    Icons.search,
+                    color: context.appTextPrimary,
+                  ),
+                  onPressed: () => context.push('/stocks/search'),
+                ),
+                const NotificationBellButton(),
+                const SizedBox(width: 8),
               ],
-              // 탭 콘텐츠
-              body: TabBarView(
-                controller: _tabController,
+            ),
+            SliverToBoxAdapter(
+              child: Column(
                 children: [
-                  // 알파 사이클 탭
-                  _AlphaCyclesTab(),
-                  // 일반 보유 탭
-                  _HoldingsTab(),
+                  const SizedBox(height: 8),
+
+                  // 도넛 차트 (총자산/총투자/총손익 포함)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: PortfolioAllocationChart(
+                      summary: summary,
+                      size: 130,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _TabBarDelegate(
+                tabController: _tabController,
+                alphaCount: alphaCycles.length,
+                infiniteBuyCount: infiniteBuyCycles.length,
+                holdingCount: activeHoldings.length,
+              ),
+            ),
+          ],
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              // Tab 0: Alpha Cycle
+              _CycleListTab(
+                cycles: alphaCycles,
+                emptyIcon: Icons.shield_outlined,
+                emptyMessage: 'Alpha Cycle 전략으로\n안정적 수익을 추구해보세요',
+              ),
+
+              // Tab 1: 무한매수법
+              _CycleListTab(
+                cycles: infiniteBuyCycles,
+                emptyIcon: Icons.rocket_launch_outlined,
+                emptyMessage: '무한매수법으로\n복리 수익을 극대화해보세요',
+              ),
+
+              // Tab 2: 일반 보유
+              _HoldingListTab(
+                holdings: activeHoldings,
+                prices: prices,
+                exchangeRate: exchangeRate,
+              ),
+            ],
           ),
+        ),
+      ),
+      floatingActionButton: _tabController.index == 2
+          ? FloatingActionButton.extended(
+              onPressed: () =>
+                  context.push('/stocks/search?forHolding=true'),
+              backgroundColor: context.appAccent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                '종목 추가',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            )
+          : FloatingActionButton.extended(
+              onPressed: () => context.push('/stocks/setup'),
+              backgroundColor: context.appAccent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                '새 사이클',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TabBar Delegate
+// ═══════════════════════════════════════════════════════════════
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabController tabController;
+  final int alphaCount;
+  final int infiniteBuyCount;
+  final int holdingCount;
+
+  const _TabBarDelegate({
+    required this.tabController,
+    required this.alphaCount,
+    required this.infiniteBuyCount,
+    required this.holdingCount,
+  });
+
+  @override
+  double get minExtent => 48;
+
+  @override
+  double get maxExtent => 48;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: context.appBackground,
+      child: TabBar(
+        controller: tabController,
+        indicatorColor: context.appAccent,
+        indicatorWeight: 2.5,
+        labelColor: context.appAccent,
+        unselectedLabelColor: context.appTextHint,
+        labelStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        tabs: [
+          Tab(text: 'Alpha ($alphaCount)'),
+          Tab(text: '무한매수 ($infiniteBuyCount)'),
+          Tab(text: '일반 ($holdingCount)'),
         ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _TabBarDelegate oldDelegate) {
+    return alphaCount != oldDelegate.alphaCount ||
+        infiniteBuyCount != oldDelegate.infiniteBuyCount ||
+        holdingCount != oldDelegate.holdingCount;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 사이클 목록 탭
+// ═══════════════════════════════════════════════════════════════
+
+class _CycleListTab extends ConsumerWidget {
+  final List<Cycle> cycles;
+  final IconData emptyIcon;
+  final String emptyMessage;
+
+  const _CycleListTab({
+    required this.cycles,
+    required this.emptyIcon,
+    required this.emptyMessage,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (cycles.isEmpty) {
+      return _EmptyState(
+        icon: emptyIcon,
+        message: emptyMessage,
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: cycles.length,
+      itemBuilder: (context, index) {
+        final cycle = cycles[index];
+        return _ActiveCycleCard(
+          cycle: cycle,
+          onTap: () => context.push('/stocks/detail/${cycle.id}'),
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 활성 사이클 카드
+// ═══════════════════════════════════════════════════════════════
+
+class _ActiveCycleCard extends ConsumerWidget {
+  final Cycle cycle;
+  final VoidCallback? onTap;
+
+  const _ActiveCycleCard({
+    required this.cycle,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final prices = ref.watch(currentPricesProvider);
+    final currentPrice = prices[cycle.ticker] ?? 0.0;
+    final liveExchangeRate = ref.watch(currentExchangeRateProvider);
+    final signal = ref.watch(cycleSignalProvider(cycle.id));
+
+    // 평가금액 계산 (라이브 환율 기준)
+    final evalAmount = cycle.totalShares * currentPrice * liveExchangeRate;
+    final totalValue = evalAmount + cycle.remainingCash;
+    final profit = totalValue - cycle.seedAmount;
+    final returnRate =
+        cycle.seedAmount > 0 ? (profit / cycle.seedAmount) * 100 : 0.0;
+    final isProfit = profit >= 0;
+    final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: context.isDarkMode
+                  ? Colors.white.withValues(alpha: 0.03)
+                  : Colors.black.withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            // 상단: 종목 정보 + 전략 배지 + 신호
+            Row(
+              children: [
+                TickerLogo(
+                  ticker: cycle.ticker,
+                  size: 32,
+                  borderRadius: 8,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  cycle.ticker,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: context.appTickerColor,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    cycle.name,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appTextSecondary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (signal != TradeSignal.hold) ...[
+                  const SizedBox(width: 6),
+                  SignalDisplay(signal: signal),
+                ],
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // 중단: 평가금 + 손익
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '평가금',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: context.appTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${formatKrwWithComma(totalValue)}\u2009원',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: context.appTextPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '손익',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: context.appTextSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${isProfit ? '+' : ''}${formatKrwWithComma(profit)}\u2009원'
+                      ' (${isProfit ? '+' : ''}${returnRate.toStringAsFixed(1)}%)',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: profit == 0
+                            ? context.appTextPrimary
+                            : profitColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            // 하단: 상세 정보
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: context.appBackground,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _CycleInfoColumn(
+                      label: '시드',
+                      value: '${formatKrwWithComma(cycle.seedAmount)}\u2009원',
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 24,
+                    color: context.appDivider,
+                  ),
+                  Expanded(
+                    child: _CycleInfoColumn(
+                      label: '잔여현금',
+                      value:
+                          '${formatKrwWithComma(cycle.remainingCash)}\u2009원',
+                    ),
+                  ),
+                  Container(
+                    width: 1,
+                    height: 24,
+                    color: context.appDivider,
+                  ),
+                  Expanded(
+                    child: _CycleInfoColumn(
+                      label: cycle.strategyType == StrategyType.alphaCycleV3
+                          ? '익절 목표'
+                          : '진행 회차',
+                      value: cycle.strategyType == StrategyType.alphaCycleV3
+                          ? '+${cycle.currentSellTarget.toStringAsFixed(0)}%'
+                          : '${cycle.roundsUsed}/${cycle.totalRounds}회',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// 알파 사이클 탭
-class _AlphaCyclesTab extends ConsumerWidget {
+class _CycleInfoColumn extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _CycleInfoColumn({
+    required this.label,
+    required this.value,
+  });
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final activeCycles = ref.watch(activeCyclesProvider);
-    // stockQuoteProvider에서 실시간 시세 구독 (WebSocket 연동)
-    final quoteState = ref.watch(stockQuoteProvider);
-
-    if (activeCycles.isEmpty) {
-      // 빈 상태: 스크롤 비활성화
-      return _buildEmptyState(
-        context,
-        ref,
-        icon: Icons.loop_rounded,
-        title: '활성 사이클이 없습니다',
-        subtitle: '새로운 알파 사이클을 시작해보세요',
-        disableScroll: true,
-      );
-    }
-
-    // 새로 추가된 사이클 중 시세가 없는 것 확인 및 자동 fetch
-    final missingTickers = activeCycles
-        .where((c) => !quoteState.quotes.containsKey(c.ticker))
-        .map((c) => c.ticker)
-        .toList();
-
-    if (missingTickers.isNotEmpty) {
-      // Schedule fetch after build to avoid modifying state during build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(stockQuoteProvider.notifier).fetchQuotes(missingTickers);
-      });
-    }
-
-    final useGrid = ResponsiveGrid.shouldUseGrid(context);
-
-    Widget buildCard(int index) {
-      final cycle = activeCycles[index];
-      final quote = quoteState.quotes[cycle.ticker];
-      final price = quote?.currentPrice ?? cycle.averagePrice;
-      final recommendation = SignalDetector.getRecommendation(cycle, price);
-
-      return ActiveCycleCard(
-        cycle: cycle,
-        currentPrice: price,
-        recommendation: recommendation,
-        inGrid: useGrid,
-        onTap: () => context.push('/stocks/${cycle.id}'),
-        onEndCycle: () async {
-          await ref.read(cycleListProvider.notifier).delete(cycle.id);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${cycle.ticker} #${cycle.cycleNumber} 사이클이 종료되었습니다.'),
-                backgroundColor: AppColors.primary,
-              ),
-            );
-          }
-        },
-        onArchive: cycle.totalShares == 0
-            ? () async {
-                await ref.read(cycleListProvider.notifier).archiveCycle(cycle.id);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${cycle.ticker} #${cycle.cycleNumber} 사이클이 거래내역으로 이동되었습니다.'),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                }
-              }
-            : null,
-      );
-    }
-
-    if (useGrid) {
-      final itemW = ResponsiveGrid.gridItemWidth(context);
-      return ListView(
-        padding: const EdgeInsets.only(bottom: 80),
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: ResponsiveGrid.horizontalPadding,
-            ),
-            child: Wrap(
-              spacing: ResponsiveGrid.spacing,
-              runSpacing: ResponsiveGrid.runSpacing,
-              children: List.generate(activeCycles.length, (index) {
-                return SizedBox(width: itemW, child: buildCard(index));
-              }),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      itemCount: activeCycles.length,
-      itemBuilder: (context, index) => buildCard(index),
-    );
-  }
-}
-
-/// 일반 보유 탭
-class _HoldingsTab extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final holdings = ref.watch(activeHoldingsProvider);
-    // stockQuoteProvider에서 실시간 시세 구독 (WebSocket 연동)
-    final quoteState = ref.watch(stockQuoteProvider);
-    // 현재 환율 (캐시된 값 또는 기본값 1400)
-    final exchangeRate = ref.watch(currentExchangeRateProvider);
-
-    if (holdings.isEmpty) {
-      return _buildEmptyState(
-        context,
-        ref,
-        icon: Icons.account_balance_wallet_outlined,
-        title: '보유 종목이 없습니다',
-        subtitle: '알파 사이클 없이 단순 보유할 종목을 추가하세요',
-        disableScroll: true,
-        forHolding: true,
-      );
-    }
-
-    // 새로 추가된 종목 중 시세가 없는 것 확인 및 자동 fetch
-    final missingTickers = holdings
-        .where((h) => !quoteState.quotes.containsKey(h.ticker))
-        .map((h) => h.ticker)
-        .toList();
-
-    if (missingTickers.isNotEmpty) {
-      // Schedule fetch after build to avoid modifying state during build
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(stockQuoteProvider.notifier).fetchQuotes(missingTickers);
-      });
-    }
-
-    // 실시간 데이터로 HoldingWithPrice 생성
-    final holdingsWithPrice = holdings.map((h) {
-      final quote = quoteState.quotes[h.ticker];
-      final price = quote?.currentPrice ?? h.averagePrice;
-      return HoldingWithPrice(
-        holding: h,
-        currentPrice: price,
-        currentExchangeRate: exchangeRate,
-      );
-    }).toList();
-
-    final useGrid = ResponsiveGrid.shouldUseGrid(context);
-
-    Widget buildCard(int index) {
-      final data = holdingsWithPrice[index];
-      return HoldingCard(
-        data: data,
-        inGrid: useGrid,
-        onTap: () => context.push('/holdings/${data.holding.id}'),
-        onArchive: data.holding.isEmpty
-            ? () async {
-                await ref.read(holdingListProvider.notifier).archiveHolding(data.holding.id);
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${data.holding.ticker} ${data.holding.name}이(가) 거래내역으로 이동되었습니다.'),
-                      backgroundColor: AppColors.primary,
-                    ),
-                  );
-                }
-              }
-            : null,
-      );
-    }
-
-    if (useGrid) {
-      final itemW = ResponsiveGrid.gridItemWidth(context);
-      return ListView(
-        padding: const EdgeInsets.only(bottom: 80),
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: ResponsiveGrid.horizontalPadding,
-            ),
-            child: Wrap(
-              spacing: ResponsiveGrid.spacing,
-              runSpacing: ResponsiveGrid.runSpacing,
-              children: List.generate(holdingsWithPrice.length, (index) {
-                return SizedBox(width: itemW, child: buildCard(index));
-              }),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
-      itemCount: holdingsWithPrice.length,
-      itemBuilder: (context, index) => buildCard(index),
-    );
-  }
-}
-
-Widget _buildEmptyState(
-  BuildContext context,
-  WidgetRef ref, {
-  required IconData icon,
-  required String title,
-  required String subtitle,
-  bool disableScroll = false,
-  bool forHolding = false,
-}) {
-  final searchRoute = forHolding ? '/stocks/search?forHolding=true' : '/stocks/search';
-  final content = Center(
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget build(BuildContext context) {
+    return Column(
       children: [
-        Icon(
-          icon,
-          size: 64,
-          color: context.appBorder,
-        ),
-        const SizedBox(height: 16),
         Text(
-          title,
+          label,
           style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+            fontSize: 10,
             color: context.appTextSecondary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 3),
         Text(
-          subtitle,
-          textAlign: TextAlign.center,
+          value,
           style: TextStyle(
-            fontSize: 14,
-            color: context.appTextHint,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: context.appTextPrimary,
           ),
-        ),
-        const SizedBox(height: 24),
-        ElevatedButton.icon(
-          onPressed: () => context.push(searchRoute),
-          icon: const Icon(Icons.add),
-          label: const Text('종목 추가하기'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
-    ),
-  );
+    );
+  }
+}
 
-  // 빈 상태에서 스크롤 비활성화
-  if (disableScroll) {
-    return SingleChildScrollView(
-      physics: const NeverScrollableScrollPhysics(),
-      child: SizedBox(
-        height: MediaQuery.of(context).size.height * 0.5,
-        child: content,
+// ═══════════════════════════════════════════════════════════════
+// 보유 종목 탭
+// ═══════════════════════════════════════════════════════════════
+
+class _HoldingListTab extends ConsumerWidget {
+  final List holdings;
+  final Map<String, double> prices;
+  final double exchangeRate;
+
+  const _HoldingListTab({
+    required this.holdings,
+    required this.prices,
+    required this.exchangeRate,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (holdings.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.account_balance_wallet_outlined,
+        message: '종목을 추가해보세요',
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: holdings.length,
+      itemBuilder: (context, index) {
+        final holding = holdings[index];
+        final currentPrice = prices[holding.ticker] ?? 0.0;
+        final data = HoldingWithPrice(
+          holding: holding,
+          currentPrice: currentPrice,
+          currentExchangeRate: exchangeRate,
+        );
+
+        return HoldingCard(
+          data: data,
+          onTap: () => context.push('/holdings/${holding.id}'),
+          onArchive: holding.isEmpty
+              ? () => ref
+                  .read(holdingListProvider.notifier)
+                  .archiveHolding(holding.id)
+              : null,
+        );
+      },
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 빈 상태 위젯
+// ═══════════════════════════════════════════════════════════════
+
+class _EmptyState extends StatelessWidget {
+  final IconData icon;
+  final String message;
+
+  const _EmptyState({
+    required this.icon,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(48),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 48,
+              color: context.appTextHint,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: context.appTextSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
-
-  return content;
 }

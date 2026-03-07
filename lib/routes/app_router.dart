@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../presentation/screens/home/home_screen.dart';
-import '../presentation/screens/stocks/stocks_screen.dart';
-import '../presentation/screens/stocks/search_screen.dart';
-import '../presentation/screens/stocks/cycle_setup_screen.dart';
 import '../presentation/screens/stocks/cycle_detail_screen.dart';
+import '../presentation/screens/stocks/cycle_setup_screen.dart';
+import '../presentation/screens/stocks/search_screen.dart';
+import '../presentation/screens/stocks/stocks_screen.dart';
 import '../presentation/screens/holdings/archived_holding_detail_screen.dart';
 import '../presentation/screens/holdings/holding_detail_screen.dart';
 import '../presentation/screens/holdings/holding_setup_screen.dart';
@@ -35,8 +35,8 @@ class AppRouter {
   static const String watchlist = '/watchlist';
   static const String stocks = '/stocks';
   static const String stocksSearch = '/stocks/search';
-  static const String stocksSetup = '/stocks/setup/:ticker';
-  static const String stocksDetail = '/stocks/:cycleId';
+  static const String stocksSetup = '/stocks/setup';
+  static const String cycleDetail = '/stocks/detail/:cycleId';
   static const String holdingsSetup = '/holdings/setup/:ticker';
   static const String holdingsDetail = '/holdings/:holdingId';
   static const String holdingsArchived = '/holdings/:holdingId/archived';
@@ -96,20 +96,15 @@ class AppRouter {
           ),
           GoRoute(
             path: stocksSetup,
-            builder: (context, state) {
-              final ticker = state.pathParameters['ticker']!;
-              final etfInfo = state.extra as PopularEtf?;
-              return CycleSetupScreen(ticker: ticker, etfInfo: etfInfo);
-            },
+            builder: (context, state) => const CycleSetupScreen(),
           ),
           GoRoute(
-            path: stocksDetail,
+            path: cycleDetail,
             builder: (context, state) {
               final cycleId = state.pathParameters['cycleId']!;
               return CycleDetailScreen(cycleId: cycleId);
             },
           ),
-
           // 보유 관련 라우트
           GoRoute(
             path: holdingsSetup,

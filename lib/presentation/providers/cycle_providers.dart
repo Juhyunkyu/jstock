@@ -1,161 +1,272 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../data/models/cycle.dart';
+import '../../data/models/trade.dart';
+import '../../data/repositories/cycle_repository.dart';
+import '../../data/repositories/trade_repository.dart';
+import '../../domain/trading/alpha_cycle_service.dart';
+import '../../domain/trading/infinite_buy_service.dart';
+import '../../domain/trading/trading_math.dart';
 import 'core/repository_providers.dart';
+import 'stock_providers.dart';
+import 'api_providers.dart';
 
-/// 사이클 목록 StateNotifier
+// === 사이클 목록 ===
+
+final cycleListProvider =
+    StateNotifierProvider<CycleListNotifier, List<Cycle>>((ref) {
+  final repo = ref.watch(cycleRepositoryProvider);
+  final tradeRepo = ref.watch(tradeRepositoryProvider);
+  return CycleListNotifier(ref, repo, tradeRepo);
+});
+
+/// HoldingListNotifier 패턴: 생성자에서 자동 로드, invalidate만으로 갱신 가능
 class CycleListNotifier extends StateNotifier<List<Cycle>> {
   final Ref _ref;
+  final CycleRepository _repository;
+  final TradeRepository _tradeRepository;
 
-  CycleListNotifier(this._ref) : super([]) {
-    refresh();
+  CycleListNotifier(this._ref, this._repository, this._tradeRepository)
+      : super([]) {
+    _loadCycles();
   }
 
-  /// 목록 새로고침
-  void refresh() {
+  void _loadCycles() {
+    state = _repository.getAll();
+  }
+
+  Future<void> refresh() async {
+    state = _repository.getAll();
+  }
+
+  Cycle? getCycle(String id) {
     try {
-      final repo = _ref.read(cycleRepositoryProvider);
-      state = repo.getAll()..sort((a, b) => b.startDate.compareTo(a.startDate));
-    } catch (e) {
-      // Repository 초기화 전
+      return state.firstWhere((c) => c.id == id);
+    } catch (_) {
+      return null;
     }
   }
 
-  /// 사이클 저장
-  Future<void> save(Cycle cycle) async {
-    final repo = _ref.read(cycleRepositoryProvider);
-    await repo.save(cycle);
-    refresh();
+  /// 새 사이클 추가
+  Future<Cycle> addCycle({
+    required String ticker,
+    required String name,
+    required double seedAmount,
+    required double exchangeRate,
+    required StrategyType strategyType,
+    // Strategy A 커스텀 파라미터
+    double initialEntryRatio = 0.20,
+    double weightedBuyThreshold = -20.0,
+    double weightedBuyDivisor = 1000.0,
+    double panicBuyThreshold = -50.0,
+    double panicBuyMultiplier = 0.50,
+    double firstProfitTarget = 30.0,
+    double profitTargetStep = 5.0,
+    double minProfitTarget = 10.0,
+    double cashSecureRatio = 0.3333,
+    // Strategy B 커스텀 파라미터
+    double takeProfitPercent = 10.0,
+    int totalRounds = 40,
+  }) async {
+    final cycle = Cycle(
+      id: const Uuid().v4(),
+      ticker: ticker,
+      name: name,
+      seedAmount: seedAmount,
+      exchangeRateAtEntry: exchangeRate,
+      strategyType: strategyType,
+      initialEntryRatio: initialEntryRatio,
+      weightedBuyThreshold: weightedBuyThreshold,
+      weightedBuyDivisor: weightedBuyDivisor,
+      panicBuyThreshold: panicBuyThreshold,
+      panicBuyMultiplier: panicBuyMultiplier,
+      firstProfitTarget: firstProfitTarget,
+      profitTargetStep: profitTargetStep,
+      minProfitTarget: minProfitTarget,
+      cashSecureRatio: cashSecureRatio,
+      takeProfitPercent: takeProfitPercent,
+      totalRounds: totalRounds,
+    );
+
+    await _repository.save(cycle);
+    state = [...state, cycle];
+
+    // WebSocket 티커 등록
+    try {
+      _ref.read(stockPriceProvider.notifier).loadSymbols([ticker]);
+    } catch (_) {}
+
+    return cycle;
+  }
+
+  /// 사이클 저장 (수정 후)
+  Future<void> saveCycle(Cycle cycle) async {
+    cycle.updatedAt = DateTime.now();
+    await _repository.save(cycle);
+    state = _repository.getAll();
   }
 
   /// 사이클 삭제
-  Future<void> delete(String id) async {
-    final repo = _ref.read(cycleRepositoryProvider);
-    await repo.delete(id);
-    refresh();
+  Future<void> deleteCycle(String id) async {
+    await _repository.delete(id);
+    state = state.where((c) => c.id != id).toList();
   }
 
-  /// 사이클 아카이브 (완료 처리)
-  Future<void> archiveCycle(String id) async {
-    final repo = _ref.read(cycleRepositoryProvider);
-    final cycle = repo.getById(id);
-    if (cycle != null) {
-      cycle.archive();
-      await repo.save(cycle);
-      refresh();
-    }
+  /// 익절 처리 — 매도 Trade 기록 + 기존 사이클 완료 + 새 사이클 생성
+  Future<Cycle> completeTakeProfit({
+    required String cycleId,
+    required double currentPrice,
+    required double exchangeRate,
+  }) async {
+    final cycle = getCycle(cycleId);
+    if (cycle == null) throw StateError('Cycle not found: $cycleId');
+
+    // 매도 Trade 기록 (전량 매도)
+    final sellAmountKrw = cycle.totalShares * currentPrice * exchangeRate;
+    final sellTrade = Trade(
+      id: const Uuid().v4(),
+      cycleId: cycleId,
+      action: TradeAction.sell,
+      signal: TradeSignal.takeProfit,
+      price: currentPrice,
+      shares: cycle.totalShares,
+      amountKrw: sellAmountKrw,
+      exchangeRate: exchangeRate,
+    );
+    await _tradeRepository.save(sellTrade);
+
+    final newSeed = sellAmountKrw + cycle.remainingCash;
+    final carryOverCount = cycle.consecutiveProfitCount + 1;
+
+    // 기존 사이클 완료 처리
+    cycle.status = CycleStatus.completed;
+    cycle.completedReturnRate =
+        TradingMath.returnRate(currentPrice, cycle.averagePrice);
+    cycle.totalShares = 0;
+    cycle.remainingCash += sellAmountKrw;
+    cycle.updatedAt = DateTime.now();
+    await _repository.save(cycle);
+
+    // 새 사이클 생성 (연속 익절 횟수 이월 + 커스텀 파라미터 복사)
+    final newCycle = Cycle(
+      id: const Uuid().v4(),
+      ticker: cycle.ticker,
+      name: cycle.name,
+      seedAmount: newSeed,
+      exchangeRateAtEntry: exchangeRate,
+      strategyType: cycle.strategyType,
+      consecutiveProfitCount: carryOverCount,
+      initialEntryRatio: cycle.initialEntryRatio,
+      weightedBuyThreshold: cycle.weightedBuyThreshold,
+      weightedBuyDivisor: cycle.weightedBuyDivisor,
+      panicBuyThreshold: cycle.panicBuyThreshold,
+      panicBuyMultiplier: cycle.panicBuyMultiplier,
+      firstProfitTarget: cycle.firstProfitTarget,
+      profitTargetStep: cycle.profitTargetStep,
+      minProfitTarget: cycle.minProfitTarget,
+      cashSecureRatio: cycle.cashSecureRatio,
+      takeProfitPercent: cycle.takeProfitPercent,
+      totalRounds: cycle.totalRounds,
+    );
+
+    await _repository.save(newCycle);
+    state = _repository.getAll();
+    return newCycle;
+  }
+
+  /// 사이클 수동 완료 (손절/종료) — consecutiveProfitCount 리셋
+  Future<void> completeCycle(String cycleId, {double? completedReturnRate}) async {
+    final cycle = getCycle(cycleId);
+    if (cycle == null) return;
+
+    cycle.status = CycleStatus.completed;
+    cycle.completedReturnRate = completedReturnRate;
+    cycle.updatedAt = DateTime.now();
+    await _repository.save(cycle);
+    state = _repository.getAll();
   }
 }
 
-/// 전체 사이클 목록 Provider
-final cycleListProvider = StateNotifierProvider<CycleListNotifier, List<Cycle>>((ref) {
-  return CycleListNotifier(ref);
-});
+// === 전략별 필터 ===
 
-/// 활성 사이클 목록 Provider
 final activeCyclesProvider = Provider<List<Cycle>>((ref) {
-  final cycles = ref.watch(cycleListProvider);
-  return cycles.where((c) => c.status == CycleStatus.active).toList();
+  return ref
+      .watch(cycleListProvider)
+      .where((c) => c.status == CycleStatus.active)
+      .toList();
 });
 
-/// 완료된 사이클 목록 Provider
+final alphaCyclesProvider = Provider<List<Cycle>>((ref) {
+  return ref
+      .watch(activeCyclesProvider)
+      .where((c) => c.strategyType == StrategyType.alphaCycleV3)
+      .toList();
+});
+
+final infiniteBuyCyclesProvider = Provider<List<Cycle>>((ref) {
+  return ref
+      .watch(activeCyclesProvider)
+      .where((c) => c.strategyType == StrategyType.infiniteBuy)
+      .toList();
+});
+
 final completedCyclesProvider = Provider<List<Cycle>>((ref) {
-  final cycles = ref.watch(cycleListProvider);
-  return cycles
+  return ref
+      .watch(cycleListProvider)
       .where((c) => c.status == CycleStatus.completed)
       .toList()
-    ..sort((a, b) => (b.endDate ?? DateTime.now()).compareTo(a.endDate ?? DateTime.now()));
+    ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 });
 
-/// 취소된 사이클 목록 Provider
-final cancelledCyclesProvider = Provider<List<Cycle>>((ref) {
+// === 신호 감지 (실시간 가격 연동) ===
+
+final cycleSignalProvider =
+    Provider.family<TradeSignal, String>((ref, cycleId) {
   final cycles = ref.watch(cycleListProvider);
-  return cycles.where((c) => c.status == CycleStatus.cancelled).toList();
-});
+  final cycle = cycles.where((c) => c.id == cycleId).firstOrNull;
+  if (cycle == null) return TradeSignal.hold;
 
-/// 특정 ID의 사이클 Provider (Family)
-final cycleByIdProvider = Provider.family<Cycle?, String>((ref, id) {
-  final cycles = ref.watch(cycleListProvider);
-  try {
-    return cycles.firstWhere((c) => c.id == id);
-  } catch (e) {
-    return null;
-  }
-});
+  final prices = ref.watch(currentPricesProvider);
+  final currentPrice = prices[cycle.ticker] ?? 0;
+  final liveExchangeRate = ref.watch(currentExchangeRateProvider);
 
-/// 특정 종목의 활성 사이클 Provider (Family)
-final activeCycleByTickerProvider = Provider.family<Cycle?, String>((ref, ticker) {
-  final activeCycles = ref.watch(activeCyclesProvider);
-  try {
-    return activeCycles.firstWhere((c) => c.ticker == ticker);
-  } catch (e) {
-    return null;
-  }
-});
+  if (currentPrice == 0) return TradeSignal.hold;
 
-/// 특정 종목의 모든 사이클 Provider (Family)
-final cyclesByTickerProvider = Provider.family<List<Cycle>, String>((ref, ticker) {
-  final cycles = ref.watch(cycleListProvider);
-  return cycles.where((c) => c.ticker == ticker).toList()
-    ..sort((a, b) => b.cycleNumber.compareTo(a.cycleNumber));
-});
+  final service = cycle.strategyType == StrategyType.alphaCycleV3
+      ? const AlphaCycleService()
+      : const InfiniteBuyService();
 
-/// 다음 사이클 번호 Provider (Family)
-final nextCycleNumberProvider = Provider.family<int, String>((ref, ticker) {
-  final tickerCycles = ref.watch(cyclesByTickerProvider(ticker));
-  if (tickerCycles.isEmpty) return 1;
-  return tickerCycles.first.cycleNumber + 1;
-});
-
-/// 활성 사이클 수 Provider
-final activeCycleCountProvider = Provider<int>((ref) {
-  return ref.watch(activeCyclesProvider).length;
-});
-
-/// 완료된 사이클 수 Provider
-final completedCycleCountProvider = Provider<int>((ref) {
-  return ref.watch(completedCyclesProvider).length;
-});
-
-/// 포트폴리오 요약 Provider
-final portfolioSummaryProvider = Provider.family<PortfolioSummary, Map<String, double>>((ref, prices) {
-  final activeCycles = ref.watch(activeCyclesProvider);
-
-  double totalInvested = 0;
-  double totalValue = 0;
-  double totalCash = 0;
-
-  for (final cycle in activeCycles) {
-    final price = prices[cycle.ticker] ?? cycle.averagePrice;
-    totalInvested += cycle.seedAmount;
-    totalValue += cycle.totalAsset(price);
-    totalCash += cycle.remainingCash;
-  }
-
-  return PortfolioSummary(
-    totalInvested: totalInvested,
-    totalValue: totalValue,
-    totalCash: totalCash,
-    cycleCount: activeCycles.length,
-    profitRate: totalInvested > 0 ? ((totalValue - totalInvested) / totalInvested) * 100 : 0,
+  return service.detectSignal(
+    cycle: cycle,
+    currentPrice: currentPrice,
+    liveExchangeRate: liveExchangeRate,
   );
 });
 
-/// 포트폴리오 요약 데이터 클래스
-class PortfolioSummary {
-  final double totalInvested;
-  final double totalValue;
-  final double totalCash;
-  final int cycleCount;
-  final double profitRate;
+/// 신호별 매수/매도 금액 (KRW)
+final cycleSignalAmountProvider =
+    Provider.family<double?, String>((ref, cycleId) {
+  final cycles = ref.watch(cycleListProvider);
+  final cycle = cycles.where((c) => c.id == cycleId).firstOrNull;
+  if (cycle == null) return null;
 
-  const PortfolioSummary({
-    required this.totalInvested,
-    required this.totalValue,
-    required this.totalCash,
-    required this.cycleCount,
-    required this.profitRate,
-  });
+  final signal = ref.watch(cycleSignalProvider(cycleId));
+  if (signal == TradeSignal.hold) return null;
 
-  double get totalProfit => totalValue - totalInvested;
-  double get stockValue => totalValue - totalCash;
-}
+  final prices = ref.watch(currentPricesProvider);
+  final currentPrice = prices[cycle.ticker] ?? 0;
+  final liveExchangeRate = ref.watch(currentExchangeRateProvider);
+
+  if (currentPrice == 0) return null;
+
+  final service = cycle.strategyType == StrategyType.alphaCycleV3
+      ? const AlphaCycleService()
+      : const InfiniteBuyService();
+
+  return service.calculateAmount(
+    cycle: cycle,
+    signal: signal,
+    currentPrice: currentPrice,
+    liveExchangeRate: liveExchangeRate,
+  );
+});

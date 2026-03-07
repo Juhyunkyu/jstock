@@ -1,192 +1,165 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+import '../../data/models/cycle.dart';
 import '../../data/models/trade.dart';
+import '../../data/repositories/trade_repository.dart';
 import 'core/repository_providers.dart';
+import 'cycle_providers.dart';
 
-/// 거래 목록 StateNotifier
+// === 거래 목록 (사이클별) ===
+
+final tradeListProvider =
+    StateNotifierProvider.family<TradeListNotifier, List<Trade>, String>(
+        (ref, cycleId) {
+  final repo = ref.watch(tradeRepositoryProvider);
+  return TradeListNotifier(ref, repo, cycleId);
+});
+
 class TradeListNotifier extends StateNotifier<List<Trade>> {
   final Ref _ref;
+  final TradeRepository _repository;
+  final String _cycleId;
 
-  TradeListNotifier(this._ref) : super([]) {
-    refresh();
+  TradeListNotifier(this._ref, this._repository, this._cycleId) : super([]) {
+    _loadTrades();
   }
 
-  /// 목록 새로고침
-  void refresh() {
-    try {
-      final repo = _ref.read(tradeRepositoryProvider);
-      state = repo.getAll();
-    } catch (e) {
-      // Repository 초기화 전
+  void _loadTrades() {
+    state = _repository.getByCycleId(_cycleId);
+  }
+
+  Future<void> refresh() async {
+    state = _repository.getByCycleId(_cycleId);
+  }
+
+  /// 매수 거래 기록 + 사이클 상태 업데이트
+  Future<Trade> recordBuy({
+    required String cycleId,
+    required TradeSignal signal,
+    required double price,
+    required double amountKrw,
+    required double exchangeRate,
+    String? memo,
+  }) async {
+    if (price <= 0 || exchangeRate <= 0) {
+      throw ArgumentError('Invalid price or exchange rate');
     }
-  }
 
-  /// 거래 저장
-  Future<void> save(Trade trade) async {
-    final repo = _ref.read(tradeRepositoryProvider);
-    await repo.save(trade);
-    refresh();
-  }
+    final cycles = _ref.read(cycleListProvider);
+    final cycle = cycles.firstWhere((c) => c.id == cycleId);
 
-  /// 거래 체결 처리
-  Future<void> markAsExecuted(String tradeId, double actualAmount) async {
-    final repo = _ref.read(tradeRepositoryProvider);
-    final trade = repo.getById(tradeId);
-    if (trade != null) {
-      trade.markAsExecuted(actualAmount);
-      await repo.save(trade);
-      refresh();
+    // remainingCash 초과 방지
+    final actualAmount = amountKrw.clamp(0.0, cycle.remainingCash);
+    if (actualAmount <= 0) {
+      throw StateError('No remaining cash for buy');
     }
+
+    final shares = actualAmount / (price * exchangeRate);
+
+    final trade = Trade(
+      id: const Uuid().v4(),
+      cycleId: cycleId,
+      action: TradeAction.buy,
+      signal: signal,
+      price: price,
+      shares: shares,
+      amountKrw: actualAmount,
+      exchangeRate: exchangeRate,
+      memo: memo,
+    );
+
+    await _repository.save(trade);
+
+    // 사이클 상태 업데이트 — 순수 USD VWAP (환율 혼합 방지)
+    final prevShares = cycle.totalShares;
+    final newTotalShares = prevShares + shares;
+    if (newTotalShares > 0) {
+      cycle.averagePrice =
+          (prevShares * cycle.averagePrice + shares * price) / newTotalShares;
+    }
+    cycle.totalShares = newTotalShares;
+    cycle.remainingCash -= actualAmount;
+
+    // Strategy A: 첫 매수 시 entryPrice 설정
+    if (cycle.strategyType == StrategyType.alphaCycleV3 &&
+        cycle.entryPrice == null) {
+      cycle.entryPrice = price;
+    }
+
+    // Strategy A: 승부수 사용 플래그
+    if (signal == TradeSignal.panicBuy) {
+      cycle.panicBuyUsed = true;
+    }
+
+    // Strategy B: 라운드 카운트
+    if (cycle.strategyType == StrategyType.infiniteBuy &&
+        (signal == TradeSignal.locAB ||
+         signal == TradeSignal.locB ||
+         signal == TradeSignal.manual)) {
+      cycle.roundsUsed += 1;
+    }
+
+    await _ref.read(cycleListProvider.notifier).saveCycle(cycle);
+    _ref.invalidate(allTradesProvider);
+    state = _repository.getByCycleId(_cycleId);
+    return trade;
+  }
+
+  /// 매도 거래 기록 + 사이클 상태 업데이트
+  Future<Trade> recordSell({
+    required String cycleId,
+    required TradeSignal signal,
+    required double price,
+    required double shares,
+    required double exchangeRate,
+    String? memo,
+  }) async {
+    if (price <= 0 || exchangeRate <= 0) {
+      throw ArgumentError('Invalid price or exchange rate');
+    }
+
+    final cycles = _ref.read(cycleListProvider);
+    final cycle = cycles.firstWhere((c) => c.id == cycleId);
+
+    // totalShares 초과 방지
+    final actualShares = shares > cycle.totalShares ? cycle.totalShares : shares;
+    final amountKrw = actualShares * price * exchangeRate;
+
+    final trade = Trade(
+      id: const Uuid().v4(),
+      cycleId: cycleId,
+      action: TradeAction.sell,
+      signal: signal,
+      price: price,
+      shares: actualShares,
+      amountKrw: amountKrw,
+      exchangeRate: exchangeRate,
+      memo: memo,
+    );
+
+    await _repository.save(trade);
+
+    // 사이클 상태 업데이트
+    cycle.totalShares -= actualShares;
+    cycle.remainingCash += amountKrw;
+
+    await _ref.read(cycleListProvider.notifier).saveCycle(cycle);
+    _ref.invalidate(allTradesProvider);
+    state = _repository.getByCycleId(_cycleId);
+    return trade;
   }
 
   /// 거래 삭제
-  Future<void> delete(String id) async {
-    final repo = _ref.read(tradeRepositoryProvider);
-    await repo.delete(id);
-    refresh();
+  Future<void> deleteTrade(String tradeId) async {
+    await _repository.delete(tradeId);
+    _ref.invalidate(allTradesProvider);
+    state = _repository.getByCycleId(_cycleId);
   }
 }
 
-/// 전체 거래 목록 Provider
-final tradeListProvider = StateNotifierProvider<TradeListNotifier, List<Trade>>((ref) {
-  return TradeListNotifier(ref);
+// === 전체 거래 내역 (히스토리용) ===
+
+final allTradesProvider = Provider<List<Trade>>((ref) {
+  final repo = ref.watch(tradeRepositoryProvider);
+  return repo.getAll()..sort((a, b) => b.tradedAt.compareTo(a.tradedAt));
 });
-
-/// 특정 사이클의 거래 Provider (Family)
-final tradesForCycleProvider = Provider.family<List<Trade>, String>((ref, cycleId) {
-  final trades = ref.watch(tradeListProvider);
-  return trades.where((t) => t.cycleId == cycleId).toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
-});
-
-/// 특정 종목의 거래 Provider (Family)
-final tradesForTickerProvider = Provider.family<List<Trade>, String>((ref, ticker) {
-  final trades = ref.watch(tradeListProvider);
-  return trades.where((t) => t.ticker == ticker).toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
-});
-
-/// 미체결 거래 Provider
-final unexecutedTradesProvider = Provider<List<Trade>>((ref) {
-  final trades = ref.watch(tradeListProvider);
-  return trades.where((t) => !t.isExecuted).toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
-});
-
-/// 거래 유형별 필터 Provider (Family)
-final tradesByActionProvider = Provider.family<List<Trade>, TradeAction?>((ref, action) {
-  final trades = ref.watch(tradeListProvider);
-  if (action == null) return trades;
-  return trades.where((t) => t.action == action).toList();
-});
-
-/// 날짜별 그룹화된 거래 Provider
-final groupedTradesProvider = Provider<Map<DateTime, List<Trade>>>((ref) {
-  final trades = ref.watch(tradeListProvider);
-  final grouped = <DateTime, List<Trade>>{};
-
-  for (final trade in trades) {
-    final dateKey = DateTime(trade.date.year, trade.date.month, trade.date.day);
-    grouped.putIfAbsent(dateKey, () => []).add(trade);
-  }
-
-  // 각 그룹 내 정렬
-  for (final entry in grouped.entries) {
-    entry.value.sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  return grouped;
-});
-
-/// 날짜별 그룹화된 거래 (필터 적용) Provider (Family)
-final filteredGroupedTradesProvider = Provider.family<Map<DateTime, List<Trade>>, TradeAction?>((ref, action) {
-  final trades = ref.watch(tradesByActionProvider(action));
-  final grouped = <DateTime, List<Trade>>{};
-
-  for (final trade in trades) {
-    final dateKey = DateTime(trade.date.year, trade.date.month, trade.date.day);
-    grouped.putIfAbsent(dateKey, () => []).add(trade);
-  }
-
-  // 각 그룹 내 정렬
-  for (final entry in grouped.entries) {
-    entry.value.sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  return grouped;
-});
-
-/// 특정 기간의 거래 Provider
-final tradesInRangeProvider = Provider.family<List<Trade>, DateRange>((ref, range) {
-  final trades = ref.watch(tradeListProvider);
-  return trades
-      .where((t) =>
-          t.date.isAfter(range.start.subtract(const Duration(days: 1))) &&
-          t.date.isBefore(range.end.add(const Duration(days: 1))))
-      .toList()
-    ..sort((a, b) => b.date.compareTo(a.date));
-});
-
-/// 거래 통계 Provider
-final tradeStatisticsProvider = Provider<TradeStatistics>((ref) {
-  final trades = ref.watch(tradeListProvider);
-
-  double totalRecommended = 0;
-  double totalActual = 0;
-  final countByAction = <TradeAction, int>{};
-
-  for (final trade in trades) {
-    totalRecommended += trade.recommendedAmount;
-    if (trade.actualAmount != null) {
-      totalActual += trade.actualAmount!;
-    }
-    countByAction[trade.action] = (countByAction[trade.action] ?? 0) + 1;
-  }
-
-  return TradeStatistics(
-    totalCount: trades.length,
-    totalRecommendedAmount: totalRecommended,
-    totalActualAmount: totalActual,
-    countByAction: countByAction,
-    executedCount: trades.where((t) => t.isExecuted).length,
-    pendingCount: trades.where((t) => !t.isExecuted).length,
-  );
-});
-
-/// 특정 사이클의 거래 수 Provider (Family)
-final tradeCountForCycleProvider = Provider.family<int, String>((ref, cycleId) {
-  return ref.watch(tradesForCycleProvider(cycleId)).length;
-});
-
-/// 날짜 범위 데이터 클래스
-class DateRange {
-  final DateTime start;
-  final DateTime end;
-
-  const DateRange({required this.start, required this.end});
-}
-
-/// 거래 통계 데이터 클래스
-class TradeStatistics {
-  final int totalCount;
-  final double totalRecommendedAmount;
-  final double totalActualAmount;
-  final Map<TradeAction, int> countByAction;
-  final int executedCount;
-  final int pendingCount;
-
-  const TradeStatistics({
-    required this.totalCount,
-    required this.totalRecommendedAmount,
-    required this.totalActualAmount,
-    required this.countByAction,
-    required this.executedCount,
-    required this.pendingCount,
-  });
-
-  int get initialBuyCount => countByAction[TradeAction.initialBuy] ?? 0;
-  int get weightedBuyCount => countByAction[TradeAction.weightedBuy] ?? 0;
-  int get panicBuyCount => countByAction[TradeAction.panicBuy] ?? 0;
-  int get takeProfitCount => countByAction[TradeAction.takeProfit] ?? 0;
-
-  double get executionRate => totalCount > 0 ? (executedCount / totalCount) * 100 : 0;
-}
