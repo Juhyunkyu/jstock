@@ -16,8 +16,6 @@ class WatchlistTile extends ConsumerWidget {
   final VoidCallback onRemove;
   final void Function(double? currentPrice) onAlertTap;
   final bool inGrid;
-  final VoidCallback? onMoveUp;
-  final VoidCallback? onMoveDown;
 
   const WatchlistTile({
     super.key,
@@ -27,8 +25,6 @@ class WatchlistTile extends ConsumerWidget {
     required this.onRemove,
     required this.onAlertTap,
     this.inGrid = false,
-    this.onMoveUp,
-    this.onMoveDown,
   });
 
   @override
@@ -252,42 +248,6 @@ class WatchlistTile extends ConsumerWidget {
                   ),
                 ),
 
-                // 그리드 모드: ↑↓ 이동 버튼
-                if (inGrid) ...[
-                  Container(
-                    width: 1,
-                    height: 16,
-                    color: context.appDivider,
-                  ),
-                  GestureDetector(
-                    onTap: onMoveUp,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                      child: Icon(
-                        Icons.keyboard_arrow_up,
-                        size: 18,
-                        color: onMoveUp != null
-                            ? context.appTextSecondary
-                            : context.appDivider,
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: onMoveDown,
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-                      child: Icon(
-                        Icons.keyboard_arrow_down,
-                        size: 18,
-                        color: onMoveDown != null
-                            ? context.appTextSecondary
-                            : context.appDivider,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

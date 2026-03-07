@@ -56,7 +56,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                     final useGrid = ResponsiveGrid.shouldUseGrid(context);
 
                     if (useGrid) {
-                      // 데스크톱/태블릿: 2열 그리드 + ↑↓ 이동 버튼
+                      // 데스크톱/태블릿: 2열 그리드 + 드래그앤드롭 정렬
                       final itemW = ResponsiveGrid.gridItemWidth(context);
                       final items = watchlistState.items;
                       return RefreshIndicator(
@@ -73,10 +73,14 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                                 runSpacing: ResponsiveGrid.runSpacing,
                                 children: List.generate(items.length, (index) {
                                   final item = items[index];
-                                  return SizedBox(
+                                  return _DraggableGridItem(
+                                    key: ValueKey(item.ticker),
+                                    index: index,
                                     width: itemW,
+                                    onReorder: (oldIndex, newIndex) {
+                                      ref.read(watchlistProvider.notifier).reorder(oldIndex, newIndex);
+                                    },
                                     child: WatchlistTile(
-                                      key: ValueKey(item.ticker),
                                       item: item,
                                       index: index,
                                       inGrid: true,
@@ -84,12 +88,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                                       onRemove: () => _onRemove(item.ticker),
                                       onAlertTap: (currentPrice) =>
                                           _showAlertSettings(item, currentPrice),
-                                      onMoveUp: index > 0
-                                          ? () => ref.read(watchlistProvider.notifier).reorder(index, index - 1)
-                                          : null,
-                                      onMoveDown: index < items.length - 1
-                                          ? () => ref.read(watchlistProvider.notifier).reorder(index, index + 2)
-                                          : null,
                                     ),
                                   );
                                 }),
@@ -276,6 +274,71 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         item: item,
         currentPrice: currentPrice,
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 그리드 드래그앤드롭 아이템
+// ═══════════════════════════════════════════════════════════════
+
+class _DraggableGridItem extends StatelessWidget {
+  final int index;
+  final double width;
+  final Widget child;
+  final void Function(int oldIndex, int newIndex) onReorder;
+
+  const _DraggableGridItem({
+    super.key,
+    required this.index,
+    required this.width,
+    required this.child,
+    required this.onReorder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (details) => details.data != index,
+      onAcceptWithDetails: (details) {
+        final oldIndex = details.data;
+        final newIndex = oldIndex < index ? index + 1 : index;
+        onReorder(oldIndex, newIndex);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isHovered = candidateData.isNotEmpty;
+        return LongPressDraggable<int>(
+          data: index,
+          delay: const Duration(milliseconds: 150),
+          feedback: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12),
+            shadowColor: Colors.black45,
+            child: SizedBox(
+              width: width,
+              child: Opacity(opacity: 0.9, child: child),
+            ),
+          ),
+          childWhenDragging: SizedBox(
+            width: width,
+            child: Opacity(opacity: 0.3, child: child),
+          ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: width,
+            decoration: isHovered
+                ? BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: context.appAccent.withValues(alpha: 0.6),
+                      width: 2,
+                    ),
+                  )
+                : null,
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
