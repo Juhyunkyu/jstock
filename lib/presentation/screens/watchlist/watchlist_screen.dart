@@ -8,7 +8,6 @@ import '../../providers/watchlist_group_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/watchlist/watchlist_tab_bar.dart';
 import '../../widgets/watchlist/watchlist_group_content.dart';
-import '../../widgets/watchlist/add_watchlist_sheet.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
@@ -56,11 +55,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
           ),
           const NotificationBellButton(),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () => _showAddDialog(context),
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
       body: watchlistState.isLoading || groupState.isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -156,15 +150,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showAddDialog(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: context.appSurface,
-      builder: (context) => const AddWatchlistSheet(),
     );
   }
 
