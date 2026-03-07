@@ -10,7 +10,12 @@ import '../../widgets/shared/ticker_logo.dart';
 
 /// 새 사이클 생성 화면
 class CycleSetupScreen extends ConsumerStatefulWidget {
-  const CycleSetupScreen({super.key});
+  const CycleSetupScreen({
+    super.key,
+    this.initialStrategy = StrategyType.alphaCycleV3,
+  });
+
+  final StrategyType initialStrategy;
 
   @override
   ConsumerState<CycleSetupScreen> createState() => _CycleSetupScreenState();
@@ -18,7 +23,7 @@ class CycleSetupScreen extends ConsumerStatefulWidget {
 
 class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   // === 기본 설정 ===
-  StrategyType _selectedStrategy = StrategyType.alphaCycleV3;
+  late StrategyType _selectedStrategy = widget.initialStrategy;
   String? _selectedTicker;
   String? _selectedName;
   final _seedController = TextEditingController();
@@ -222,7 +227,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.rocket_launch_outlined,
+                  Icons.all_inclusive,
                   size: 16,
                   color: _selectedStrategy == StrategyType.infiniteBuy
                       ? Colors.white

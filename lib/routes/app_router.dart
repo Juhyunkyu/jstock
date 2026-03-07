@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/models/cycle.dart';
 import '../presentation/screens/home/home_screen.dart';
 import '../presentation/screens/stocks/cycle_detail_screen.dart';
 import '../presentation/screens/stocks/cycle_setup_screen.dart';
@@ -96,7 +97,14 @@ class AppRouter {
           ),
           GoRoute(
             path: stocksSetup,
-            builder: (context, state) => const CycleSetupScreen(),
+            builder: (context, state) {
+              final strategy = state.uri.queryParameters['strategy'];
+              return CycleSetupScreen(
+                initialStrategy: strategy == 'infiniteBuy'
+                    ? StrategyType.infiniteBuy
+                    : StrategyType.alphaCycleV3,
+              );
+            },
           ),
           GoRoute(
             path: cycleDetail,

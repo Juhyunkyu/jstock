@@ -152,7 +152,11 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
               ),
             )
           : FloatingActionButton.extended(
-              onPressed: () => context.push('/stocks/setup'),
+              onPressed: () => context.push(
+                _tabController.index == 1
+                    ? '/stocks/setup?strategy=infiniteBuy'
+                    : '/stocks/setup',
+              ),
               backgroundColor: context.appAccent,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
