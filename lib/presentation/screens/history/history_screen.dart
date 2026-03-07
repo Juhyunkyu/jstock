@@ -233,7 +233,7 @@ class HistoryScreen extends ConsumerWidget {
     final totalPnl = totalRecovered - totalInvested;
     final returnRate = (totalPnl / totalInvested) * 100;
     final isProfit = totalPnl >= 0;
-    final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
+    final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
     final sign = isProfit ? '+' : '';
 
     return Padding(

@@ -345,7 +345,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   /// 총 투자 / 총 손익 — 세로 (데스크톱 3열용)
   Widget _buildSeedColumn(BuildContext context, UnifiedPortfolioSummary summary) {
     final isProfit = summary.totalProfit >= 0;
-    final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
+    final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
     final sign = isProfit ? '+' : '';
 
     return Column(
@@ -383,7 +383,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   /// 총 투자 / 총 손익 — 한 줄 50:50 중앙정렬 (모바일용)
   Widget _buildSeedRow(BuildContext context, UnifiedPortfolioSummary summary) {
     final isProfit = summary.totalProfit >= 0;
-    final profitColor = isProfit ? AppColors.green500 : AppColors.red500;
+    final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
     final sign = isProfit ? '+' : '';
 
     return Row(
