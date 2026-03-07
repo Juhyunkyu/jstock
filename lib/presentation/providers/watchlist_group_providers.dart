@@ -135,20 +135,28 @@ class RecentViewNotifier extends StateNotifier<List<RecentViewItem>> {
 
   RecentViewNotifier(this._repository) : super([]);
 
-  /// 초기 로드
+  /// 초기 로드 (지수 심볼 제외)
   Future<void> load() async {
     await _repository.init();
     if (!mounted) return;
-    state = _repository.getAll();
+    state = _repository.getAll()
+        .where((item) => !item.ticker.startsWith('^'))
+        .toList();
   }
 
-  /// 조회 기록
+  List<RecentViewItem> _filteredItems() =>
+      _repository.getAll()
+          .where((item) => !item.ticker.startsWith('^'))
+          .toList();
+
+  /// 조회 기록 (지수 심볼은 기록하지 않음)
   Future<void> recordView({
     required String ticker,
     required String name,
     String exchange = '',
     String type = '',
   }) async {
+    if (ticker.startsWith('^')) return;
     await _repository.recordView(RecentViewItem(
       ticker: ticker,
       name: name,
@@ -156,14 +164,14 @@ class RecentViewNotifier extends StateNotifier<List<RecentViewItem>> {
       type: type,
     ));
     if (!mounted) return;
-    state = _repository.getAll();
+    state = _filteredItems();
   }
 
   /// 삭제
   Future<void> remove(String ticker) async {
     await _repository.remove(ticker);
     if (!mounted) return;
-    state = _repository.getAll();
+    state = _filteredItems();
   }
 }
 

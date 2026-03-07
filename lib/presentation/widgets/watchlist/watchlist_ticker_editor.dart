@@ -56,14 +56,23 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
 
     return Column(
       children: [
-        // 그룹 선택 드롭다운
+        // 그룹 선택 드롭다운 + 카운터/추가 버튼
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: _buildGroupDropdown(groups, selectedGroup),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildGroupDropdown(groups, selectedGroup),
+              const SizedBox(height: 4),
+              _buildAddHeader(selectedGroup),
+            ],
+          ),
         ),
+        // 검색 영역 (상단에 표시)
+        if (_isSearching) _buildSearchArea(selectedGroup),
         // 종목 리스트
         Expanded(
-          child: selectedGroup.tickers.isEmpty && !_isSearching
+          child: selectedGroup.tickers.isEmpty
               ? Center(
                   child: Text(
                     '종목이 없습니다',
@@ -75,8 +84,6 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
                 )
               : _buildTickerList(selectedGroup),
         ),
-        // 하단: 종목 추가 영역
-        _buildAddSection(selectedGroup),
       ],
     );
   }
@@ -154,65 +161,51 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
     );
   }
 
-  Widget _buildAddSection(WatchlistGroup group) {
+  Widget _buildAddHeader(WatchlistGroup group) {
     final tickerCount = group.tickers.length;
     final canAdd = group.canAddTicker;
 
-    return Container(
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: context.appDivider, width: 1),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          '$tickerCount / ${WatchlistGroup.maxTickersPerGroup}',
+          style: TextStyle(
+            fontSize: 13,
+            color: context.appTextHint,
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 카운터
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$tickerCount / ${WatchlistGroup.maxTickersPerGroup}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: context.appTextHint,
-                  ),
-                ),
-                if (!_isSearching && canAdd)
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() => _isSearching = true);
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) _searchFocusNode.requestFocus();
-                      });
-                    },
-                    icon: Icon(Icons.add, size: 18, color: context.appAccent),
-                    label: Text(
-                      '종목 추가',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: context.appAccent,
-                      ),
-                    ),
-                  ),
-              ],
+        if (!_isSearching && canAdd)
+          TextButton.icon(
+            onPressed: () {
+              setState(() => _isSearching = true);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _searchFocusNode.requestFocus();
+              });
+            },
+            icon: Icon(Icons.add, size: 18, color: context.appAccent),
+            label: Text(
+              '종목 추가',
+              style: TextStyle(
+                fontSize: 14,
+                color: context.appAccent,
+              ),
             ),
           ),
-          // 검색 영역
-          if (_isSearching) _buildSearchArea(group),
-          SizedBox(height: MediaQuery.of(context).viewInsets.bottom + 8),
-        ],
-      ),
+      ],
     );
   }
 
   Widget _buildSearchArea(WatchlistGroup group) {
     final searchState = ref.watch(searchProvider);
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: context.appDivider, width: 0.5),
+        ),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [

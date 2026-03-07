@@ -60,11 +60,13 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
   void initState() {
     super.initState();
     _loadData();
-    // 최근 조회 기록
-    ref.read(recentViewProvider.notifier).recordView(
-          ticker: widget.symbol,
-          name: widget.name,
-        );
+    // 최근 조회 기록 (지수 심볼 제외)
+    if (!widget.symbol.startsWith('^')) {
+      ref.read(recentViewProvider.notifier).recordView(
+            ticker: widget.symbol,
+            name: widget.name,
+          );
+    }
   }
 
   Future<void> _loadData() async {
