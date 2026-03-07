@@ -175,7 +175,6 @@ class _GroupRowState extends ConsumerState<_GroupRow> {
                       ),
                     ),
                     onSubmitted: (_) => _submitRename(),
-                    onEditingComplete: _submitRename,
                   )
                 : GestureDetector(
                     onTap: _startEditing,

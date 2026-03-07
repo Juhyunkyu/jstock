@@ -416,10 +416,10 @@ class _TickerRow extends ConsumerWidget {
           ),
           // 삭제 버튼
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.remove_circle_outline,
               size: 20,
-              color: AppColors.red500,
+              color: context.appTextHint,
             ),
             onPressed: onDelete,
           ),

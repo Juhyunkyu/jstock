@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
-import '../../../data/services/api/finnhub_service.dart';
 import '../../providers/api_providers.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../providers/watchlist_group_providers.dart';
@@ -95,7 +94,6 @@ class WatchlistGroupContent extends ConsumerWidget {
     required bool isEditable,
   }) {
     final watchlistState = ref.watch(watchlistProvider);
-    final quoteState = ref.watch(stockQuoteProvider);
 
     // 관심종목에 있는 티커는 WatchlistItem 활용, 없으면 시세만 표시
     final items = <_TickerDisplayItem>[];
@@ -103,11 +101,9 @@ class WatchlistGroupContent extends ConsumerWidget {
       final watchlistItem = watchlistState.items
           .where((w) => w.ticker == ticker)
           .firstOrNull;
-      final quote = quoteState.quotes[ticker];
       items.add(_TickerDisplayItem(
         ticker: ticker,
         watchlistItem: watchlistItem,
-        quote: quote,
       ));
     }
 
@@ -143,7 +139,6 @@ class WatchlistGroupContent extends ConsumerWidget {
                   width: itemW,
                   child: _SimpleTickerTile(
                     ticker: item.ticker,
-                    quote: item.quote,
                     inGrid: true,
                     onTap: () => onTickerTap(item.ticker),
                   ),
@@ -174,7 +169,6 @@ class WatchlistGroupContent extends ConsumerWidget {
         return _SimpleTickerTile(
           key: ValueKey(item.ticker),
           ticker: item.ticker,
-          quote: item.quote,
           onTap: () => onTickerTap(item.ticker),
         );
       },
@@ -217,26 +211,22 @@ class WatchlistGroupContent extends ConsumerWidget {
 class _TickerDisplayItem {
   final String ticker;
   final WatchlistItem? watchlistItem;
-  final StockQuote? quote;
 
   _TickerDisplayItem({
     required this.ticker,
     this.watchlistItem,
-    this.quote,
   });
 }
 
 /// 관심종목에 없는 티커의 간단 타일 (시세만 표시, 자동 fetch)
 class _SimpleTickerTile extends ConsumerStatefulWidget {
   final String ticker;
-  final StockQuote? quote;
   final bool inGrid;
   final VoidCallback onTap;
 
   const _SimpleTickerTile({
     super.key,
     required this.ticker,
-    this.quote,
     this.inGrid = false,
     required this.onTap,
   });
@@ -265,8 +255,9 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
 
   @override
   Widget build(BuildContext context) {
-    final quoteState = ref.watch(stockQuoteProvider);
-    final quote = quoteState.quotes[widget.ticker];
+    final quote = ref.watch(
+      stockQuoteProvider.select((s) => s.quotes[widget.ticker]),
+    );
 
     return Container(
       decoration: widget.inGrid

@@ -139,9 +139,7 @@ class RecentViewNotifier extends StateNotifier<List<RecentViewItem>> {
   Future<void> load() async {
     await _repository.init();
     if (!mounted) return;
-    state = _repository.getAll()
-        .where((item) => !item.ticker.startsWith('^'))
-        .toList();
+    state = _filteredItems();
   }
 
   List<RecentViewItem> _filteredItems() =>
