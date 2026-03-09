@@ -53,7 +53,13 @@ class WatchlistGroupNotifier extends StateNotifier<WatchlistGroupState> {
     if (!mounted) return;
     state = state.copyWith(isLoading: true);
     await _repository.init();
-    final groups = _repository.getAll();
+    final groups = _repository.getAll().map((g) => WatchlistGroup(
+      id: g.id,
+      name: g.name,
+      tickers: List<String>.from(g.tickers),
+      sortOrder: g.sortOrder,
+      createdAt: g.createdAt,
+    )).toList();
     if (!mounted) return;
     state = state.copyWith(groups: groups, isLoading: false);
   }
@@ -116,7 +122,15 @@ class WatchlistGroupNotifier extends StateNotifier<WatchlistGroupState> {
 
   void _reload() {
     if (!mounted) return;
-    state = state.copyWith(groups: _repository.getAll());
+    // Deep copy to break Hive object identity — ensures Riverpod detects changes
+    final freshGroups = _repository.getAll().map((g) => WatchlistGroup(
+      id: g.id,
+      name: g.name,
+      tickers: List<String>.from(g.tickers),
+      sortOrder: g.sortOrder,
+      createdAt: g.createdAt,
+    )).toList();
+    state = state.copyWith(groups: freshGroups);
   }
 }
 
@@ -171,12 +185,29 @@ class RecentViewNotifier extends StateNotifier<List<RecentViewItem>> {
     if (!mounted) return;
     state = _filteredItems();
   }
+
+  /// 전체 삭제
+  Future<void> clearAll() async {
+    await _repository.clear();
+    if (!mounted) return;
+    state = [];
+  }
 }
 
 final recentViewProvider =
     StateNotifierProvider<RecentViewNotifier, List<RecentViewItem>>((ref) {
   final repository = ref.watch(recentViewRepositoryProvider);
   return RecentViewNotifier(repository);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// 파생 Provider
+// ═══════════════════════════════════════════════════════════════
+
+/// 특정 티커가 사용자 그룹에 포함되어 있는지 확인
+final isTickerInAnyGroupProvider = Provider.family<bool, String>((ref, ticker) {
+  final groupState = ref.watch(watchlistGroupProvider);
+  return groupState.groups.any((g) => g.containsTicker(ticker));
 });
 
 // ═══════════════════════════════════════════════════════════════

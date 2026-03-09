@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/krw_formatter.dart';
+import '../../../core/utils/number_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
 import '../../../domain/trading/trading_math.dart';
@@ -14,6 +16,7 @@ import '../../widgets/cycle/cycle_info_section.dart';
 import '../../widgets/shared/ticker_logo.dart';
 import '../../widgets/shared/return_badge.dart';
 import '../../widgets/shared/confirm_dialog.dart';
+import '../../widgets/stocks/trade_record_sheet.dart';
 
 /// 사이클 상세 화면
 ///
@@ -31,8 +34,9 @@ class CycleDetailScreen extends ConsumerStatefulWidget {
 class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   @override
   Widget build(BuildContext context) {
-    final cycles = ref.watch(cycleListProvider);
-    final cycle = cycles.where((c) => c.id == widget.cycleId).firstOrNull;
+    final cycle = ref.watch(cycleListProvider.select(
+      (cycles) => cycles.where((c) => c.id == widget.cycleId).firstOrNull,
+    ));
 
     if (cycle == null) {
       return Scaffold(
@@ -75,8 +79,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       );
     }
 
-    final prices = ref.watch(currentPricesProvider);
-    final currentPrice = prices[cycle.ticker] ?? 0.0;
+    final currentPrice = ref.watch(
+      currentPricesProvider.select((prices) => prices[cycle.ticker] ?? 0.0),
+    );
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(widget.cycleId));
     final signalAmount = ref.watch(cycleSignalAmountProvider(widget.cycleId));
@@ -92,17 +97,14 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     final profitLoss = evaluatedAmount - investedAmount;
     final isProfit = profitLoss >= 0;
 
-    final returnRate = cycle.totalShares > 0 && cycle.averagePrice > 0
-        ? TradingMath.returnRate(currentPrice, cycle.averagePrice)
-        : 0.0;
-
-    final lossRate = cycle.totalShares > 0 && cycle.averagePrice > 0
+    final hasPosition = cycle.totalShares > 0 && cycle.averagePrice > 0;
+    final lossRate = hasPosition
         ? TradingMath.returnRate(currentPrice, cycle.averagePrice)
         : null;
+    final returnRate = lossRate ?? 0.0;
 
-    // 거래 내역 날짜 내림차순 정렬
-    final sortedTrades = List<Trade>.from(trades)
-      ..sort((a, b) => b.tradedAt.compareTo(a.tradedAt));
+    // trades는 repository에서 이미 날짜 내림차순 정렬됨
+    final sortedTrades = trades;
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -151,7 +153,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             const SizedBox(height: 20),
 
             // === 거래 내역 ===
-            _buildTradeHistorySection(context, sortedTrades),
+            _buildTradeHistorySection(context, sortedTrades, cycle),
             const SizedBox(height: 20),
 
             // === 액션 버튼 (active 사이클만) ===
@@ -160,6 +162,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                 context,
                 cycle,
                 signal,
+                signalAmount,
                 currentPrice,
                 liveExchangeRate,
                 returnRate,
@@ -215,6 +218,23 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             onSelected: (value) => _handleMenuAction(value, cycle),
             itemBuilder: (ctx) => [
               PopupMenuItem(
+                value: 'editSeed',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: context.appTextSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '시드 수정',
+                      style: TextStyle(color: context.appTextPrimary),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
                 value: 'complete',
                 child: Row(
                   children: [
@@ -255,7 +275,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 헤더 섹션
+  // 헤더 섹션 (1A: 리디자인)
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildHeaderSection(
@@ -270,80 +290,74 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       decoration: BoxDecoration(
         color: context.appSurface,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: context.isDarkMode
-                ? Colors.white.withValues(alpha: 0.03)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        boxShadow: context.appCardShadow,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              TickerLogo(
-                ticker: cycle.ticker,
-                size: 40,
-                borderRadius: 10,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          cycle.ticker,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: context.appTickerColor,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (currentPrice > 0)
-                          Text(
-                            '\$${currentPrice.toStringAsFixed(2)}',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: context.appTextPrimary,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      cycle.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: context.appTextSecondary,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+          // 왼쪽: 로고 + 티커/사이클명
+          TickerLogo(
+            ticker: cycle.ticker,
+            size: 44,
+            borderRadius: 12,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  cycle.ticker,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: context.appTickerColor,
+                  ),
                 ),
-              ),
+                const SizedBox(height: 2),
+                Text(
+                  cycle.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: context.appTextSecondary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // 오른쪽: 현재가 + 수익률 배지
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (currentPrice > 0)
+                Text(
+                  '\$${currentPrice.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+              const SizedBox(height: 4),
               if (cycle.totalShares > 0)
                 ReturnBadge(
                   value: returnRate,
                   colorScheme: ReturnBadgeColorScheme.greenRed,
+                  size: ReturnBadgeSize.small,
                 )
               else if (cycle.status == CycleStatus.completed)
                 ReturnBadge(
                   value: cycle.completedReturnRate,
                   nullLabel: '완료',
                   colorScheme: ReturnBadgeColorScheme.greenRed,
+                  size: ReturnBadgeSize.small,
                 )
               else
                 ReturnBadge(
                   value: null,
                   nullLabel: '대기',
+                  size: ReturnBadgeSize.small,
                 ),
             ],
           ),
@@ -371,15 +385,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       decoration: BoxDecoration(
         color: context.appSurface,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: context.isDarkMode
-                ? Colors.white.withValues(alpha: 0.03)
-                : Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        boxShadow: context.appCardShadow,
       ),
       child: Column(
         children: [
@@ -447,7 +453,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   // 거래 내역
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildTradeHistorySection(BuildContext context, List<Trade> trades) {
+  Widget _buildTradeHistorySection(BuildContext context, List<Trade> trades, Cycle cycle) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -479,17 +485,18 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             ),
           )
         else
-          ...trades.map((trade) => _buildTradeCard(context, trade)),
+          ...trades.map((trade) => _buildTradeCard(context, trade, cycle)),
       ],
     );
   }
 
-  Widget _buildTradeCard(BuildContext context, Trade trade) {
+  Widget _buildTradeCard(BuildContext context, Trade trade, Cycle cycle) {
     final isBuy = trade.action == TradeAction.buy;
     final actionColor = isBuy ? AppColors.red500 : AppColors.blue500;
     final actionLabel = isBuy ? '매수' : '매도';
-    final signalConfig = _getSignalBadgeConfig(trade.signal);
-    final dateStr = _formatDate(trade.tradedAt);
+    final signalConfig = SignalBadgeConfig.fromSignal(trade.signal);
+    final dateStr = formatDateDot(trade.tradedAt);
+    final exchangeRateStr = '환율 ₩${_formatExchangeRate(trade.exchangeRate)}';
 
     return Container(
       width: double.infinity,
@@ -506,7 +513,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상단: 액션 + 신호 배지 + 날짜
+          // 상단: 액션 + 신호 배지 + 날짜 + 편집/삭제
           Row(
             children: [
               // 매수/매도 라벨
@@ -554,16 +561,60 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                   color: context.appTextHint,
                 ),
               ),
+              const SizedBox(width: 4),
+              // 편집 버튼
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  onPressed: () => _showEditTradeSheet(context, trade, cycle),
+                  icon: Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: context.appTextHint,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  splashRadius: 16,
+                  tooltip: '수정',
+                ),
+              ),
+              // 삭제 버튼
+              SizedBox(
+                width: 28,
+                height: 28,
+                child: IconButton(
+                  onPressed: () => _handleDeleteTrade(context, trade),
+                  icon: Icon(
+                    Icons.delete_outline,
+                    size: 16,
+                    color: context.appTextHint,
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  splashRadius: 16,
+                  tooltip: '삭제',
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          // 하단: 가격 x 수량 = 금액
+          // 가격 x 수량 = 금액
           Text(
-            '\$${trade.price.toStringAsFixed(2)} x ${_formatShares(trade.shares)}주 = ${formatKrwWithComma(trade.amountKrw)}\u2009원',
+            '\$${trade.price.toStringAsFixed(2)} x ${formatShares(trade.shares)}주 = ${formatKrwWithComma(trade.amountKrw)}\u2009원',
             style: TextStyle(
               fontSize: 13,
               color: context.appTextPrimary,
               fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          // 환율 표시
+          Text(
+            exchangeRateStr,
+            style: TextStyle(
+              fontSize: 11,
+              color: context.appTextHint,
             ),
           ),
           // 메모
@@ -584,43 +635,103 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 액션 버튼
+  // 거래 편집/삭제 핸들러
+  // ═══════════════════════════════════════════════════════════════
+
+  void _showEditTradeSheet(BuildContext context, Trade trade, Cycle cycle) {
+    final isBuy = trade.action == TradeAction.buy;
+    final signals = isBuy
+        ? _buySignalsFor(cycle.strategyType)
+        : _sellSignalsFor(cycle.strategyType);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: context.appCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => TradeRecordSheet(
+        title: isBuy ? '매수 기록 수정' : '매도 기록 수정',
+        action: trade.action,
+        cycleId: widget.cycleId,
+        signals: signals,
+        exchangeRate: trade.exchangeRate,
+        maxCash: isBuy ? cycle.remainingCash + trade.amountKrw : null,
+        maxShares: isBuy ? null : cycle.totalShares + trade.shares,
+        editingTrade: trade,
+        onSubmit: (signal, price, amount, shares, exchangeRate, memo,
+            {double extraFundingAmount = 0}) {
+          // 기존 Trade 객체의 필드를 업데이트
+          trade.signal = signal;
+          trade.price = price;
+          trade.exchangeRate = exchangeRate;
+          trade.memo = memo;
+
+          if (isBuy) {
+            final newShares = amount! / (price * exchangeRate);
+            trade.amountKrw = amount;
+            trade.shares = newShares;
+          } else {
+            trade.shares = shares!;
+            trade.amountKrw = shares * price * exchangeRate;
+          }
+
+          ref
+              .read(tradeListProvider(widget.cycleId).notifier)
+              .updateTrade(trade);
+        },
+      ),
+    );
+  }
+
+  Future<void> _handleDeleteTrade(BuildContext context, Trade trade) async {
+    final isBuy = trade.action == TradeAction.buy;
+    final actionLabel = isBuy ? '매수' : '매도';
+
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: '거래 기록 삭제',
+      message:
+          '$actionLabel 기록을 삭제하시겠습니까?\n(\$${trade.price.toStringAsFixed(2)} x ${formatShares(trade.shares)}주)\n\n삭제 후 사이클 상태가 재계산됩니다.',
+      confirmText: '삭제',
+      isDanger: true,
+    );
+
+    if (confirmed && mounted) {
+      await ref
+          .read(tradeListProvider(widget.cycleId).notifier)
+          .deleteTradeAndRecalculate(trade.id);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 액션 버튼 (1B: 조건부 매수 버튼)
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildActionButtons(
     BuildContext context,
     Cycle cycle,
     TradeSignal signal,
+    double? signalAmount,
     double currentPrice,
     double liveExchangeRate,
     double returnRate,
   ) {
     return Column(
       children: [
-        // Row 1: 매수 기록 / 매도 기록
+        // === 매수 버튼 영역 ===
+        _buildBuyButtons(context, cycle, signal, signalAmount, liveExchangeRate),
+        const SizedBox(height: 10),
+
+        // === 매도 + 익절/완료 영역 ===
         Row(
           children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _showBuySheet(context, cycle, liveExchangeRate),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('매수 기록'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.red500,
-                  side: const BorderSide(color: AppColors.red500, width: 1),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
+            // 매도 기록
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: cycle.totalShares > 0
-                    ? () =>
-                        _showSellSheet(context, cycle, liveExchangeRate)
+                    ? () => _showSellSheet(context, cycle, liveExchangeRate)
                     : null,
                 icon: const Icon(Icons.remove, size: 18),
                 label: const Text('매도 기록'),
@@ -639,12 +750,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                 ),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        // Row 2: 익절 처리 (signal이 takeProfit일 때) + 사이클 완료
-        Row(
-          children: [
+            const SizedBox(width: 10),
+            // 익절 또는 사이클 완료
             if (signal == TradeSignal.takeProfit && cycle.totalShares > 0)
               Expanded(
                 child: FilledButton.icon(
@@ -664,38 +771,260 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     ),
                   ),
                 ),
-              ),
-            if (signal == TradeSignal.takeProfit && cycle.totalShares > 0)
-              const SizedBox(width: 10),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => _handleCompleteCycle(
-                  cycle,
-                  currentPrice,
-                  returnRate,
-                ),
-                icon: Icon(
-                  Icons.check_circle_outline,
-                  size: 18,
-                  color: context.appTextSecondary,
-                ),
-                label: Text(
-                  '사이클 완료',
-                  style: TextStyle(color: context.appTextSecondary),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: context.appBorder, width: 1),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+              )
+            else
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _handleCompleteCycle(
+                    cycle,
+                    currentPrice,
+                    returnRate,
+                  ),
+                  icon: Icon(
+                    Icons.check_circle_outline,
+                    size: 18,
+                    color: context.appTextSecondary,
+                  ),
+                  label: Text(
+                    '사이클 완료',
+                    style: TextStyle(color: context.appTextSecondary),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: context.appBorder, width: 1),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ],
     );
+  }
+
+  /// 전략 및 상태별 매수 버튼 빌드
+  Widget _buildBuyButtons(
+    BuildContext context,
+    Cycle cycle,
+    TradeSignal signal,
+    double? signalAmount,
+    double liveExchangeRate,
+  ) {
+    final isStrategyA = cycle.strategyType == StrategyType.alphaCycleV3;
+
+    if (isStrategyA) {
+      return _buildStrategyABuyButtons(
+          context, cycle, signal, signalAmount, liveExchangeRate);
+    } else {
+      return _buildStrategyBBuyButtons(
+          context, cycle, signal, signalAmount, liveExchangeRate);
+    }
+  }
+
+  /// Strategy A (Alpha Cycle V3) 매수 버튼
+  Widget _buildStrategyABuyButtons(
+    BuildContext context,
+    Cycle cycle,
+    TradeSignal signal,
+    double? signalAmount,
+    double liveExchangeRate,
+  ) {
+    // 첫 매수 전 (totalShares == 0)
+    if (cycle.totalShares == 0) {
+      final initialAmount = cycle.initialEntryAmount;
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: () => _showBuySheet(
+            context,
+            cycle,
+            liveExchangeRate,
+            preSelectedSignal: TradeSignal.initial,
+            preFilledAmount: initialAmount,
+          ),
+          icon: const Icon(Icons.play_arrow, size: 18),
+          label: Text('초기진입 ${formatKrwWithComma(initialAmount)}원'),
+          style: _buyButtonStyle(AppColors.green600),
+        ),
+      );
+    }
+
+    // 첫 매수 후 — 신호별 버튼 + 수동 매수
+    final buttons = <Widget>[];
+
+    // 가중매수 신호
+    if (signal == TradeSignal.weightedBuy && signalAmount != null) {
+      buttons.add(
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _showBuySheet(
+              context,
+              cycle,
+              liveExchangeRate,
+              preSelectedSignal: TradeSignal.weightedBuy,
+              preFilledAmount: signalAmount,
+            ),
+            icon: const Icon(Icons.add_chart, size: 18),
+            label: Text(
+              '가중매수 ${formatKrwWithComma(signalAmount)}원',
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: _buyButtonStyle(AppColors.amber500),
+          ),
+        ),
+      );
+    }
+
+    // 승부수 신호
+    if (signal == TradeSignal.panicBuy && signalAmount != null) {
+      buttons.add(
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _showBuySheet(
+              context,
+              cycle,
+              liveExchangeRate,
+              preSelectedSignal: TradeSignal.panicBuy,
+              preFilledAmount: signalAmount,
+            ),
+            icon: const Icon(Icons.local_fire_department, size: 18),
+            label: Text(
+              '승부수 ${formatKrwWithComma(signalAmount)}원',
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: _buyButtonStyle(AppColors.red500),
+          ),
+        ),
+      );
+    }
+
+    // 수동 매수 (항상 표시)
+    if (buttons.isNotEmpty) {
+      buttons.add(const SizedBox(width: 10));
+    }
+    buttons.add(
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: () => _showBuySheet(context, cycle, liveExchangeRate),
+          icon: const Icon(Icons.edit, size: 18),
+          label: const Text('수동 매수'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.red500,
+            side: const BorderSide(color: AppColors.red500, width: 1),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Row(children: buttons);
+  }
+
+  /// Strategy B (Steady Cycle) 매수 버튼
+  Widget _buildStrategyBBuyButtons(
+    BuildContext context,
+    Cycle cycle,
+    TradeSignal signal,
+    double? signalAmount,
+    double liveExchangeRate,
+  ) {
+    // 첫 매수 전
+    if (cycle.totalShares == 0) {
+      final unitAmount = cycle.unitAmount;
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          onPressed: () => _showBuySheet(
+            context,
+            cycle,
+            liveExchangeRate,
+            preSelectedSignal: TradeSignal.locAB,
+            preFilledAmount: unitAmount,
+          ),
+          icon: const Icon(Icons.play_arrow, size: 18),
+          label: Text('첫 매수 ${formatKrwWithComma(unitAmount)}원'),
+          style: _buyButtonStyle(AppColors.green600),
+        ),
+      );
+    }
+
+    // 첫 매수 후 — 신호별 버튼 + 수동 매수
+    final buttons = <Widget>[];
+
+    // LOC A+B 신호
+    if (signal == TradeSignal.locAB && signalAmount != null) {
+      buttons.add(
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _showBuySheet(
+              context,
+              cycle,
+              liveExchangeRate,
+              preSelectedSignal: TradeSignal.locAB,
+              preFilledAmount: signalAmount,
+            ),
+            icon: const Icon(Icons.double_arrow, size: 18),
+            label: Text(
+              '매수 ${formatKrwWithComma(signalAmount)}원',
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: _buyButtonStyle(AppColors.amber500),
+          ),
+        ),
+      );
+    }
+
+    // LOC B 신호
+    if (signal == TradeSignal.locB && signalAmount != null) {
+      buttons.add(
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: () => _showBuySheet(
+              context,
+              cycle,
+              liveExchangeRate,
+              preSelectedSignal: TradeSignal.locB,
+              preFilledAmount: signalAmount,
+            ),
+            icon: const Icon(Icons.arrow_forward, size: 18),
+            label: Text(
+              '매수 ${formatKrwWithComma(signalAmount)}원',
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: _buyButtonStyle(AppColors.blue500),
+          ),
+        ),
+      );
+    }
+
+    // 수동 매수 (항상 표시)
+    if (buttons.isNotEmpty) {
+      buttons.add(const SizedBox(width: 10));
+    }
+    buttons.add(
+      Expanded(
+        child: OutlinedButton.icon(
+          onPressed: () => _showBuySheet(context, cycle, liveExchangeRate),
+          icon: const Icon(Icons.edit, size: 18),
+          label: const Text('수동 매수'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppColors.red500,
+            side: const BorderSide(color: AppColors.red500, width: 1),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    return Row(children: buttons);
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -705,21 +1034,10 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   void _showBuySheet(
     BuildContext context,
     Cycle cycle,
-    double liveExchangeRate,
-  ) {
-    final buySignals = cycle.strategyType == StrategyType.alphaCycleV3
-        ? [
-            TradeSignal.initial,
-            TradeSignal.weightedBuy,
-            TradeSignal.panicBuy,
-            TradeSignal.manual,
-          ]
-        : [
-            TradeSignal.locAB,
-            TradeSignal.locB,
-            TradeSignal.manual,
-          ];
-
+    double liveExchangeRate, {
+    TradeSignal? preSelectedSignal,
+    double? preFilledAmount,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -727,15 +1045,18 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetContext) => _TradeRecordSheet(
+      builder: (sheetContext) => TradeRecordSheet(
         title: '매수 기록',
         action: TradeAction.buy,
         cycleId: widget.cycleId,
-        signals: buySignals,
+        signals: _buySignalsFor(cycle.strategyType),
         exchangeRate: liveExchangeRate,
         maxCash: cycle.remainingCash,
         maxShares: null,
-        onSubmit: (signal, price, amount, shares, exchangeRate, memo) {
+        preSelectedSignal: preSelectedSignal,
+        preFilledAmount: preFilledAmount,
+        onSubmit: (signal, price, amount, shares, exchangeRate, memo,
+            {double extraFundingAmount = 0}) {
           ref.read(tradeListProvider(widget.cycleId).notifier).recordBuy(
                 cycleId: widget.cycleId,
                 signal: signal,
@@ -743,6 +1064,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                 amountKrw: amount!,
                 exchangeRate: exchangeRate,
                 memo: memo,
+                extraFundingAmount: extraFundingAmount,
               );
         },
       ),
@@ -758,17 +1080,6 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     Cycle cycle,
     double liveExchangeRate,
   ) {
-    final sellSignals = cycle.strategyType == StrategyType.alphaCycleV3
-        ? [
-            TradeSignal.cashSecure,
-            TradeSignal.takeProfit,
-            TradeSignal.manual,
-          ]
-        : [
-            TradeSignal.takeProfit,
-            TradeSignal.manual,
-          ];
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -776,15 +1087,16 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (sheetContext) => _TradeRecordSheet(
+      builder: (sheetContext) => TradeRecordSheet(
         title: '매도 기록',
         action: TradeAction.sell,
         cycleId: widget.cycleId,
-        signals: sellSignals,
+        signals: _sellSignalsFor(cycle.strategyType),
         exchangeRate: liveExchangeRate,
         maxCash: null,
         maxShares: cycle.totalShares,
-        onSubmit: (signal, price, amount, shares, exchangeRate, memo) {
+        onSubmit: (signal, price, amount, shares, exchangeRate, memo,
+            {double extraFundingAmount = 0}) {
           ref.read(tradeListProvider(widget.cycleId).notifier).recordSell(
                 cycleId: widget.cycleId,
                 signal: signal,
@@ -804,6 +1116,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
 
   void _handleMenuAction(String action, Cycle cycle) {
     switch (action) {
+      case 'editSeed':
+        _handleEditSeed(cycle);
       case 'delete':
         _handleDelete(cycle);
       case 'complete':
@@ -813,6 +1127,129 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             ? TradingMath.returnRate(currentPrice, cycle.averagePrice)
             : 0.0;
         _handleCompleteCycle(cycle, currentPrice, returnRate);
+    }
+  }
+
+  Future<void> _handleEditSeed(Cycle cycle) async {
+    final investedAmount = cycle.seedAmount - cycle.remainingCash;
+    final controller = TextEditingController(
+      text: cycle.seedAmount.round().toString(),
+    );
+
+    final newSeed = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) {
+        String? errorText;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: context.appCardBackground,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                '시드 수정',
+                style: TextStyle(color: context.appTextPrimary),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '현재 투자금: ${formatKrwWithComma(investedAmount)}원',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: context.appTextSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '새 시드는 투자금 이상이어야 합니다.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appTextHint,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
+                    style: TextStyle(color: context.appTextPrimary),
+                    decoration: InputDecoration(
+                      labelText: '시드 금액 (원)',
+                      labelStyle: TextStyle(color: context.appTextSecondary),
+                      errorText: errorText,
+                      suffixText: '원',
+                      suffixStyle: TextStyle(color: context.appTextSecondary),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: context.appBorder),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: context.appAccent),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppColors.red500),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(color: AppColors.red500),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    '취소',
+                    style: TextStyle(color: context.appTextSecondary),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: context.appAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () {
+                    final value = double.tryParse(controller.text);
+                    if (value == null || value <= 0) {
+                      setDialogState(() {
+                        errorText = '유효한 금액을 입력하세요';
+                      });
+                      return;
+                    }
+                    if (value < investedAmount) {
+                      setDialogState(() {
+                        errorText =
+                            '투자금(${formatKrwWithComma(investedAmount)}원) 이상이어야 합니다';
+                      });
+                      return;
+                    }
+                    Navigator.of(dialogContext).pop(value);
+                  },
+                  child: const Text('저장'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (newSeed != null && mounted) {
+      cycle.seedAmount = newSeed;
+      cycle.remainingCash = newSeed - investedAmount;
+      await ref.read(cycleListProvider.notifier).saveCycle(cycle);
     }
   }
 
@@ -884,479 +1321,43 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // 전략별 신호 리스트 (중앙 정의)
+  // ═══════════════════════════════════════════════════════════════
+
+  static List<TradeSignal> _buySignalsFor(StrategyType type) =>
+      type == StrategyType.alphaCycleV3
+          ? [TradeSignal.initial, TradeSignal.weightedBuy, TradeSignal.panicBuy, TradeSignal.manual]
+          : [TradeSignal.locAB, TradeSignal.locB, TradeSignal.manual];
+
+  static List<TradeSignal> _sellSignalsFor(StrategyType type) =>
+      type == StrategyType.alphaCycleV3
+          ? [TradeSignal.cashSecure, TradeSignal.takeProfit, TradeSignal.manual]
+          : [TradeSignal.takeProfit, TradeSignal.manual];
+
+  // ═══════════════════════════════════════════════════════════════
   // 유틸
   // ═══════════════════════════════════════════════════════════════
 
-  _SignalBadgeConfig _getSignalBadgeConfig(TradeSignal signal) {
-    switch (signal) {
-      case TradeSignal.initial:
-        return _SignalBadgeConfig(label: '초기진입', color: AppColors.green600);
-      case TradeSignal.weightedBuy:
-        return _SignalBadgeConfig(label: '가중매수', color: AppColors.blue500);
-      case TradeSignal.panicBuy:
-        return _SignalBadgeConfig(label: '승부수', color: AppColors.red500);
-      case TradeSignal.cashSecure:
-        return _SignalBadgeConfig(label: '현금확보', color: AppColors.amber500);
-      case TradeSignal.takeProfit:
-        return _SignalBadgeConfig(label: '익절', color: AppColors.green500);
-      case TradeSignal.locAB:
-        return _SignalBadgeConfig(label: 'LOC A+B', color: AppColors.blue500);
-      case TradeSignal.locA:
-        return _SignalBadgeConfig(label: 'LOC A', color: AppColors.blue500);
-      case TradeSignal.locB:
-        return _SignalBadgeConfig(label: 'LOC B', color: AppColors.blue400);
-      case TradeSignal.manual:
-        return _SignalBadgeConfig(label: '수동', color: AppColors.gray500);
-      case TradeSignal.hold:
-        return _SignalBadgeConfig(label: '대기', color: AppColors.gray400);
-    }
-  }
+  /// 매수 버튼 공통 스타일
+  static ButtonStyle _buyButtonStyle(Color color) => FilledButton.styleFrom(
+    backgroundColor: color,
+    foregroundColor: Colors.white,
+    padding: const EdgeInsets.symmetric(vertical: 14),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  );
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
-
-  String _formatShares(double shares) {
-    if (shares == shares.roundToDouble() && shares < 10000) {
-      return shares.round().toString();
-    }
-    return shares.toStringAsFixed(2);
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 신호 배지 설정
-// ═══════════════════════════════════════════════════════════════
-
-class _SignalBadgeConfig {
-  final String label;
-  final Color color;
-
-  const _SignalBadgeConfig({required this.label, required this.color});
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 매수/매도 기록 BottomSheet
-// ═══════════════════════════════════════════════════════════════
-
-class _TradeRecordSheet extends StatefulWidget {
-  final String title;
-  final TradeAction action;
-  final String cycleId;
-  final List<TradeSignal> signals;
-  final double exchangeRate;
-  final double? maxCash;
-  final double? maxShares;
-  final void Function(
-    TradeSignal signal,
-    double price,
-    double? amountKrw,
-    double? shares,
-    double exchangeRate,
-    String? memo,
-  ) onSubmit;
-
-  const _TradeRecordSheet({
-    required this.title,
-    required this.action,
-    required this.cycleId,
-    required this.signals,
-    required this.exchangeRate,
-    this.maxCash,
-    this.maxShares,
-    required this.onSubmit,
-  });
-
-  @override
-  State<_TradeRecordSheet> createState() => _TradeRecordSheetState();
-}
-
-class _TradeRecordSheetState extends State<_TradeRecordSheet> {
-  late TradeSignal _selectedSignal;
-  final _priceController = TextEditingController();
-  final _amountController = TextEditingController();
-  final _sharesController = TextEditingController();
-  final _exchangeRateController = TextEditingController();
-  final _memoController = TextEditingController();
-  bool _isSubmitting = false;
-
-  bool get _isBuy => widget.action == TradeAction.buy;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedSignal = widget.signals.first;
-    _exchangeRateController.text = widget.exchangeRate.toStringAsFixed(2);
-  }
-
-  @override
-  void dispose() {
-    _priceController.dispose();
-    _amountController.dispose();
-    _sharesController.dispose();
-    _exchangeRateController.dispose();
-    _memoController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 핸들바
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: context.appDivider,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 타이틀
-              Text(
-                widget.title,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: context.appTextPrimary,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 신호 선택
-              Text(
-                '신호',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _buildSignalSelector(context),
-              const SizedBox(height: 16),
-
-              // 체결가
-              _buildTextField(
-                context,
-                label: '체결가 (USD)',
-                controller: _priceController,
-                prefix: '\$',
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 매수: 금액 / 매도: 수량
-              if (_isBuy)
-                _buildTextField(
-                  context,
-                  label: '금액 (KRW)',
-                  controller: _amountController,
-                  suffix: '원',
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  helperText: widget.maxCash != null
-                      ? '잔여현금: ${formatKrwWithComma(widget.maxCash!)}\u2009원'
-                      : null,
-                )
-              else
-                _buildTextField(
-                  context,
-                  label: '수량 (주)',
-                  controller: _sharesController,
-                  suffix: '주',
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                  ],
-                  helperText: widget.maxShares != null
-                      ? '보유수량: ${_formatSharesHelper(widget.maxShares!)}주'
-                      : null,
-                ),
-              const SizedBox(height: 12),
-
-              // 환율
-              _buildTextField(
-                context,
-                label: '환율 (USD/KRW)',
-                controller: _exchangeRateController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // 메모
-              _buildTextField(
-                context,
-                label: '메모 (선택)',
-                controller: _memoController,
-                keyboardType: TextInputType.text,
-              ),
-              const SizedBox(height: 24),
-
-              // 기록 버튼
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isSubmitting ? null : _onSubmit,
-                  style: FilledButton.styleFrom(
-                    backgroundColor:
-                        _isBuy ? AppColors.red500 : AppColors.blue500,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: Text(
-                    _isSubmitting ? '처리 중...' : '기록',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSignalSelector(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: widget.signals.map((signal) {
-        final isSelected = _selectedSignal == signal;
-        final config = _getSignalChipConfig(signal);
-
-        return ChoiceChip(
-          label: Text(config.label),
-          selected: isSelected,
-          onSelected: (selected) {
-            if (selected) setState(() => _selectedSignal = signal);
-          },
-          selectedColor: config.color.withValues(
-            alpha: context.isDarkMode ? 0.25 : 0.15,
-          ),
-          backgroundColor: context.appBackground,
-          side: BorderSide(
-            color: isSelected
-                ? config.color
-                : context.appBorder,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-          labelStyle: TextStyle(
-            fontSize: 13,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? config.color : context.appTextSecondary,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          showCheckmark: false,
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildTextField(
-    BuildContext context, {
-    required String label,
-    required TextEditingController controller,
-    String? prefix,
-    String? suffix,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    String? helperText,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: controller,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          style: TextStyle(
-            fontSize: 16,
-            color: context.appTextPrimary,
-          ),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: TextStyle(
-              fontSize: 14,
-              color: context.appTextHint,
-            ),
-            prefixText: prefix,
-            prefixStyle: TextStyle(
-              fontSize: 16,
-              color: context.appTextPrimary,
-            ),
-            suffixText: suffix,
-            suffixStyle: TextStyle(
-              fontSize: 14,
-              color: context.appTextHint,
-            ),
-            filled: true,
-            fillColor: context.appBackground,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: context.appBorder),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: context.appBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: context.appAccent, width: 1.5),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
-          ),
-        ),
-        if (helperText != null) ...[
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(
-              helperText,
-              style: TextStyle(
-                fontSize: 12,
-                color: context.appTextHint,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  void _onSubmit() {
-    final price = double.tryParse(_priceController.text);
-    final exchangeRate = double.tryParse(_exchangeRateController.text);
-
-    if (price == null || price <= 0) {
-      _showError('체결가를 올바르게 입력하세요');
-      return;
-    }
-
-    if (exchangeRate == null || exchangeRate <= 0) {
-      _showError('환율을 올바르게 입력하세요');
-      return;
-    }
-
-    if (_isBuy) {
-      final amount = double.tryParse(_amountController.text);
-      if (amount == null || amount <= 0) {
-        _showError('금액을 올바르게 입력하세요');
-        return;
+  String _formatExchangeRate(double rate) {
+    // 천 단위 구분자 포함 소수점 2자리
+    final parts = rate.toStringAsFixed(2).split('.');
+    final intPart = parts[0];
+    final decPart = parts[1];
+    final buffer = StringBuffer();
+    for (int i = 0; i < intPart.length; i++) {
+      if (i > 0 && (intPart.length - i) % 3 == 0) {
+        buffer.write(',');
       }
-      if (widget.maxCash != null && amount > widget.maxCash!) {
-        _showError('잔여현금(${formatKrwWithComma(widget.maxCash!)}\u2009원)을 초과합니다');
-        return;
-      }
-
-      setState(() => _isSubmitting = true);
-      widget.onSubmit(
-        _selectedSignal,
-        price,
-        amount,
-        null,
-        exchangeRate,
-        _memoController.text.isEmpty ? null : _memoController.text,
-      );
-    } else {
-      final shares = double.tryParse(_sharesController.text);
-      if (shares == null || shares <= 0) {
-        _showError('수량을 올바르게 입력하세요');
-        return;
-      }
-      if (widget.maxShares != null && shares > widget.maxShares!) {
-        _showError('보유수량(${_formatSharesHelper(widget.maxShares!)}주)을 초과합니다');
-        return;
-      }
-
-      setState(() => _isSubmitting = true);
-      widget.onSubmit(
-        _selectedSignal,
-        price,
-        null,
-        shares,
-        exchangeRate,
-        _memoController.text.isEmpty ? null : _memoController.text,
-      );
+      buffer.write(intPart[i]);
     }
-
-    Navigator.of(context).pop();
-  }
-
-  void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-
-  _SignalBadgeConfig _getSignalChipConfig(TradeSignal signal) {
-    switch (signal) {
-      case TradeSignal.initial:
-        return _SignalBadgeConfig(label: '초기진입', color: AppColors.green600);
-      case TradeSignal.weightedBuy:
-        return _SignalBadgeConfig(label: '가중매수', color: AppColors.blue500);
-      case TradeSignal.panicBuy:
-        return _SignalBadgeConfig(label: '승부수', color: AppColors.red500);
-      case TradeSignal.cashSecure:
-        return _SignalBadgeConfig(label: '현금확보', color: AppColors.amber500);
-      case TradeSignal.takeProfit:
-        return _SignalBadgeConfig(label: '익절', color: AppColors.green500);
-      case TradeSignal.locAB:
-        return _SignalBadgeConfig(label: 'LOC A+B', color: AppColors.blue500);
-      case TradeSignal.locA:
-        return _SignalBadgeConfig(label: 'LOC A', color: AppColors.blue500);
-      case TradeSignal.locB:
-        return _SignalBadgeConfig(label: 'LOC B', color: AppColors.blue400);
-      case TradeSignal.manual:
-        return _SignalBadgeConfig(label: '수동', color: AppColors.gray500);
-      case TradeSignal.hold:
-        return _SignalBadgeConfig(label: '대기', color: AppColors.gray400);
-    }
-  }
-
-  String _formatSharesHelper(double shares) {
-    if (shares == shares.roundToDouble() && shares < 10000) {
-      return shares.round().toString();
-    }
-    return shares.toStringAsFixed(2);
+    return '$buffer.$decPart';
   }
 }

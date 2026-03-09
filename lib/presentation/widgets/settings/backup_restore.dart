@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 
 /// 데이터 백업/복원 위젯
 class BackupRestoreSection extends StatelessWidget {
@@ -49,7 +50,7 @@ class BackupRestoreSection extends StatelessWidget {
                 iconColor: AppColors.primary,
                 title: '데이터 백업',
                 subtitle: lastBackupDate != null
-                    ? '마지막 백업: ${_formatDate(lastBackupDate!)}'
+                    ? '마지막 백업: ${formatDateDot(lastBackupDate!)}'
                     : '백업 기록 없음',
                 onTap: () => _showBackupDialog(context),
               ),
@@ -235,9 +236,6 @@ class BackupRestoreSection extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
 }
 
 class _DataActionTile extends StatelessWidget {

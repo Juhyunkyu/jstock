@@ -3,6 +3,8 @@ import '../../core/constants/alert_direction.dart';
 import '../../data/models/watchlist_item.dart';
 import '../../data/services/api/finnhub_service.dart';
 import 'api_providers.dart';
+import 'stock_providers.dart';
+import 'watchlist_group_providers.dart';
 import 'watchlist_providers.dart';
 
 /// 알림 트리거 결과
@@ -135,25 +137,43 @@ final watchlistAlertCheckerProvider = Provider<WatchlistAlertChecker>((ref) {
   return WatchlistAlertChecker();
 });
 
+/// 알림 대상 티커 (보유 + 사용자 그룹에 속한 종목만)
+final alertEligibleTickersProvider = Provider<Set<String>>((ref) {
+  final ownedTickers = ref.watch(userTickersProvider);
+  final groupState = ref.watch(watchlistGroupProvider);
+  final tickers = <String>{...ownedTickers};
+  for (final group in groupState.groups) {
+    tickers.addAll(group.tickers);
+  }
+  return tickers;
+});
+
 /// 알림 감시 Provider
 ///
 /// UI에서 ref.watch()하여 활성화합니다.
 /// quotes나 items가 변경될 때마다 자동으로 알림 조건을 체크합니다.
+/// 보유 + 사용자 그룹에 속한 종목만 알림 대상입니다.
 ///
 /// 반환값: 트리거된 알림 리스트 (UI에서 SnackBar 표시에 사용)
 final watchlistAlertMonitorProvider = Provider<List<AlertNotification>>((ref) {
   final quoteState = ref.watch(stockQuoteProvider);
   final watchlistState = ref.watch(watchlistProvider);
+  final eligibleTickers = ref.watch(alertEligibleTickersProvider);
   final checker = ref.read(watchlistAlertCheckerProvider);
 
+  // 보유 + 그룹에 속한 종목만 필터
+  final eligibleItems = watchlistState.items
+      .where((item) => eligibleTickers.contains(item.ticker))
+      .toList();
+
   // 알림 설정이 있는 종목이 없으면 빈 리스트 반환
-  final hasAlerts = watchlistState.items.any((item) => item.hasAlert);
+  final hasAlerts = eligibleItems.any((item) => item.hasAlert);
   if (!hasAlerts) return [];
 
   // quotes가 비어있으면 빈 리스트 반환
   if (quoteState.quotes.isEmpty) return [];
 
-  final alerts = checker.checkAlerts(quoteState.quotes, watchlistState.items);
+  final alerts = checker.checkAlerts(quoteState.quotes, eligibleItems);
 
   return alerts;
 });

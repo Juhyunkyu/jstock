@@ -6,6 +6,7 @@ import '../../../data/models/cycle.dart';
 import '../../../data/models/holding.dart';
 import '../../../data/models/holding_transaction.dart';
 import '../../providers/providers.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/cycle/strategy_badge.dart';
@@ -486,7 +487,7 @@ class _CompletedCycleCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      _formatDate(cycle.startDate),
+                      formatDateDot(cycle.startDate),
                       style: TextStyle(
                         fontSize: 12,
                         color: context.appTextHint,
@@ -501,7 +502,7 @@ class _CompletedCycleCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _formatDate(cycle.updatedAt),
+                      formatDateDot(cycle.updatedAt),
                       style: TextStyle(
                         fontSize: 12,
                         color: context.appTextHint,
@@ -517,9 +518,6 @@ class _CompletedCycleCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
 }
 
 class _SectionHeader extends StatelessWidget {

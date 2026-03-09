@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/holding.dart';
 import '../shared/return_badge.dart';
@@ -118,7 +119,7 @@ class ArchivedHoldingCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      _formatDate(holding.startDate),
+                      formatDateDot(holding.startDate),
                       style: TextStyle(
                         fontSize: 12,
                         color: context.appTextHint,
@@ -133,7 +134,7 @@ class ArchivedHoldingCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      _formatDate(holding.updatedAt),
+                      formatDateDot(holding.updatedAt),
                       style: TextStyle(
                         fontSize: 12,
                         color: context.appTextHint,
@@ -189,9 +190,6 @@ class ArchivedHoldingCard extends StatelessWidget {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
 
   String _formatKrw(double amount) {
     return '${formatKrwWithComma(amount)}\u2009원';

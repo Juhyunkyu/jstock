@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../providers/api_providers.dart';
+import '../../providers/watchlist_group_providers.dart';
 import '../shared/return_badge.dart';
 import '../shared/ticker_logo.dart';
 import 'watchlist_helpers.dart';
@@ -15,7 +16,10 @@ class WatchlistTile extends ConsumerWidget {
   final VoidCallback onTap;
   final VoidCallback onRemove;
   final void Function(double? currentPrice) onAlertTap;
+  final VoidCallback? onStarTap;
   final bool inGrid;
+  final bool showAlert;
+  final bool showDelete;
 
   const WatchlistTile({
     super.key,
@@ -24,7 +28,10 @@ class WatchlistTile extends ConsumerWidget {
     required this.onTap,
     required this.onRemove,
     required this.onAlertTap,
+    this.onStarTap,
     this.inGrid = false,
+    this.showAlert = true,
+    this.showDelete = true,
   });
 
   @override
@@ -38,15 +45,7 @@ class WatchlistTile extends ConsumerWidget {
               color: context.appSurface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: context.appBorder),
-              boxShadow: [
-                BoxShadow(
-                  color: context.isDarkMode
-                      ? Colors.white.withValues(alpha: 0.03)
-                      : Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, 1),
-                ),
-              ],
+              boxShadow: context.appCardShadow,
             )
           : BoxDecoration(color: context.appSurface),
       clipBehavior: inGrid ? Clip.antiAlias : Clip.none,
@@ -181,75 +180,10 @@ class WatchlistTile extends ConsumerWidget {
             child: Divider(height: 1, color: context.appDivider),
           ),
 
-          // 액션 행 (알림 + 삭제)
+          // 액션 행 (별표 + 알림 + 삭제)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // 알림 버튼
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => onAlertTap(quote?.currentPrice),
-                    behavior: HitTestBehavior.opaque,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            item.hasAlert
-                                ? Icons.notifications_active
-                                : Icons.notifications_none,
-                            size: 16,
-                            color: item.hasAlert
-                                ? AppColors.amber600
-                                : context.appTextHint,
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              item.alertSummary,
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: item.hasAlert
-                                    ? FontWeight.w600
-                                    : FontWeight.w400,
-                                color: item.hasAlert
-                                    ? AppColors.amber600
-                                    : context.appTextHint,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // 구분선
-                Container(
-                  width: 1,
-                  height: 16,
-                  color: context.appDivider,
-                ),
-
-                // 삭제 버튼
-                GestureDetector(
-                  onTap: onRemove,
-                  behavior: HitTestBehavior.opaque,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                    child: Icon(
-                      Icons.delete_outline,
-                      size: 16,
-                      color: context.appTextHint,
-                    ),
-                  ),
-                ),
-
-              ],
-            ),
+            child: _buildActionRow(context, ref, quote?.currentPrice),
           ),
 
           // 타일 간 간격 (리스트 모드에서만)
@@ -259,13 +193,100 @@ class WatchlistTile extends ConsumerWidget {
       ),
     );
 
-    // 그리드 모드: ↑↓ 버튼으로 이동 (드래그 불필요)
     if (inGrid) return tileContent;
 
     // 모바일: long-press 드래그 (250ms 딜레이)
     return _ShortDelayDragStartListener(
       index: index,
       child: tileContent,
+    );
+  }
+
+  Widget _buildActionRow(
+      BuildContext context, WidgetRef ref, double? currentPrice) {
+    final isInGroup = ref.watch(isTickerInAnyGroupProvider(item.ticker));
+
+    return Row(
+      children: [
+        // 별표 (그룹 추가/확인)
+        if (onStarTap != null) ...[
+          GestureDetector(
+            onTap: onStarTap,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              child: Icon(
+                isInGroup ? Icons.star : Icons.star_border,
+                size: 18,
+                color: isInGroup ? AppColors.amber500 : context.appTextHint,
+              ),
+            ),
+          ),
+          Container(width: 1, height: 16, color: context.appDivider),
+        ],
+
+        // 알림 버튼 (showAlert일 때만)
+        if (showAlert)
+          Expanded(
+            child: GestureDetector(
+              onTap: () => onAlertTap(currentPrice),
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 7),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      item.hasAlert
+                          ? Icons.notifications_active
+                          : Icons.notifications_none,
+                      size: 16,
+                      color: item.hasAlert
+                          ? AppColors.amber600
+                          : context.appTextHint,
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        item.alertSummary,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight:
+                              item.hasAlert ? FontWeight.w600 : FontWeight.w400,
+                          color: item.hasAlert
+                              ? AppColors.amber600
+                              : context.appTextHint,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // 알림 없을 때 — 삭제를 우측으로 밀어줌
+        if (!showAlert) const Spacer(),
+
+        if (showDelete) ...[
+          Container(width: 1, height: 16, color: context.appDivider),
+
+          // 삭제 버튼
+          GestureDetector(
+            onTap: onRemove,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+              child: Icon(
+                Icons.delete_outline,
+                size: 16,
+                color: context.appTextHint,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

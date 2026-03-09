@@ -51,15 +51,7 @@ class HoldingCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: context.appSurface,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: context.isDarkMode
-                  ? Colors.white.withValues(alpha: 0.03)
-                  : Colors.black.withValues(alpha: 0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          boxShadow: context.appCardShadow,
         ),
         child: Column(
           children: [

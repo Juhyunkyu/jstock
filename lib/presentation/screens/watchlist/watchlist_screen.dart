@@ -5,10 +5,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../providers/watchlist_group_providers.dart';
+import '../../providers/stock_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/watchlist/watchlist_tab_bar.dart';
 import '../../widgets/watchlist/watchlist_group_content.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
+import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
 
@@ -89,7 +91,9 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         tabType: WatchlistTabType.owned,
         onTickerTap: (ticker) => _onTickerTap(ticker),
         onRemoveFromWatchlist: _onRemove,
+        onRemoveFromRecent: _onRemoveFromRecent,
         onAlertTap: _onAlertTap,
+        onStarTap: _onStarTap,
       );
     }
 
@@ -98,7 +102,10 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         tabType: WatchlistTabType.recent,
         onTickerTap: (ticker) => _onTickerTap(ticker),
         onRemoveFromWatchlist: _onRemove,
+        onRemoveFromRecent: _onRemoveFromRecent,
         onAlertTap: _onAlertTap,
+        onStarTap: _onStarTap,
+        onClearAllRecent: _onClearAllRecent,
       );
     }
 
@@ -112,7 +119,9 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         groupId: group.id,
         onTickerTap: (ticker) => _onTickerTap(ticker),
         onRemoveFromWatchlist: _onRemove,
+        onRemoveFromRecent: _onRemoveFromRecent,
         onAlertTap: _onAlertTap,
+        onStarTap: _onStarTap,
       );
     }
 
@@ -167,22 +176,75 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   }
 
   Future<void> _onRemove(String ticker) async {
+    final watchlistState = ref.read(watchlistProvider);
+    final item = watchlistState.items
+        .where((i) => i.ticker == ticker)
+        .firstOrNull;
+
+    // 알림이 있는 종목: 삭제 후에도 알림 대상인지 확인
+    String message = '$ticker을(를) 삭제하시겠습니까?';
+    if (item != null && item.hasAlert) {
+      // 삭제 후에도 보유 또는 다른 그룹에 있으면 알림 유지
+      final ownedTickers = ref.read(userTickersProvider);
+      final groupState = ref.read(watchlistGroupProvider);
+      final inOwned = ownedTickers.contains(ticker);
+      final groupCount = groupState.groups
+          .where((g) => g.containsTicker(ticker))
+          .length;
+      // 현재 삭제 대상이 그룹 소속이면 1개 빼야 함
+      final remainsEligible = inOwned || groupCount > 1;
+
+      if (!remainsEligible) {
+        message = '$ticker에 ${item.alertSummary} 알림이 설정되어 있습니다.\n'
+            '삭제하면 알림도 함께 삭제됩니다.';
+      }
+    }
+
     final confirmed = await ConfirmDialog.show(
       context: context,
-      title: '관심종목 삭제',
-      message: '$ticker을(를) 관심종목에서 삭제하시겠습니까?',
+      title: '종목 삭제',
+      message: message,
       confirmText: '삭제',
       isDanger: true,
     );
     if (confirmed && mounted) {
+      // 알림 대상에서 빠지는 경우 알림 해제
+      if (item != null && item.hasAlert) {
+        final ownedTickers = ref.read(userTickersProvider);
+        final groupState = ref.read(watchlistGroupProvider);
+        final inOwned = ownedTickers.contains(ticker);
+        final groupCount = groupState.groups
+            .where((g) => g.containsTicker(ticker))
+            .length;
+        if (!inOwned && groupCount <= 1) {
+          await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
+        }
+      }
+
       ref.read(watchlistProvider.notifier).remove(ticker);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$ticker 관심종목에서 삭제됨'),
+          content: Text('$ticker 삭제됨'),
           duration: const Duration(seconds: 2),
         ),
       );
     }
+  }
+
+  void _onRemoveFromRecent(String ticker) {
+    ref.read(recentViewProvider.notifier).remove(ticker);
+  }
+
+  void _onClearAllRecent() {
+    ref.read(recentViewProvider.notifier).clearAll();
+  }
+
+  void _onStarTap(String ticker) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appSurface,
+      builder: (context) => GroupSelectionSheet(ticker: ticker),
+    );
   }
 
   void _onAlertTap(String ticker, double? currentPrice) async {

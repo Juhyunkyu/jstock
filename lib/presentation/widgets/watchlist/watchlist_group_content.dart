@@ -25,7 +25,10 @@ class WatchlistGroupContent extends ConsumerWidget {
   final String? groupId;
   final void Function(String ticker) onTickerTap;
   final void Function(String ticker) onRemoveFromWatchlist;
+  final void Function(String ticker) onRemoveFromRecent;
   final void Function(String ticker, double? currentPrice) onAlertTap;
+  final void Function(String ticker) onStarTap;
+  final VoidCallback? onClearAllRecent;
 
   const WatchlistGroupContent({
     super.key,
@@ -33,7 +36,10 @@ class WatchlistGroupContent extends ConsumerWidget {
     this.groupId,
     required this.onTickerTap,
     required this.onRemoveFromWatchlist,
+    required this.onRemoveFromRecent,
     required this.onAlertTap,
+    required this.onStarTap,
+    this.onClearAllRecent,
   });
 
   @override
@@ -108,12 +114,75 @@ class WatchlistGroupContent extends ConsumerWidget {
     }
 
     final useGrid = ResponsiveGrid.shouldUseGrid(context);
+    // 탭별 액션 표시 규칙
+    // 보유: ★ + 🔔 / 최근: ★ + 🗑 / 사용자 그룹: ★ + 🔔 + 🗑
+    final canAlert = tabType == WatchlistTabType.owned || tabType == WatchlistTabType.custom;
+    final canDelete = tabType == WatchlistTabType.recent || tabType == WatchlistTabType.custom;
+
+    Widget buildWatchlistTile(
+        _TickerDisplayItem item, int idx, {bool grid = false}) {
+      return WatchlistTile(
+        item: item.watchlistItem!,
+        index: idx,
+        inGrid: grid,
+        showAlert: canAlert,
+        showDelete: canDelete,
+        onTap: () => onTickerTap(item.ticker),
+        onRemove: () => tabType == WatchlistTabType.recent
+            ? onRemoveFromRecent(item.ticker)
+            : onRemoveFromWatchlist(item.ticker),
+        onAlertTap: (price) => onAlertTap(item.ticker, price),
+        onStarTap: () => onStarTap(item.ticker),
+      );
+    }
+
+    Widget buildSimpleTile(_TickerDisplayItem item, {bool grid = false}) {
+      return _SimpleTickerTile(
+        ticker: item.ticker,
+        inGrid: grid,
+        showAlert: canAlert,
+        showDelete: canDelete,
+        onTap: () => onTickerTap(item.ticker),
+        onStarTap: () => onStarTap(item.ticker),
+        onDelete: canDelete
+            ? () => tabType == WatchlistTabType.recent
+                ? onRemoveFromRecent(item.ticker)
+                : onRemoveFromWatchlist(item.ticker)
+            : null,
+      );
+    }
+
+    // 최근 탭: "전체삭제" 버튼
+    Widget? clearAllButton;
+    if (tabType == WatchlistTabType.recent && onClearAllRecent != null && items.isNotEmpty) {
+      clearAllButton = Padding(
+        padding: const EdgeInsets.only(right: 16, top: 4, bottom: 2),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: GestureDetector(
+            onTap: onClearAllRecent,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              child: Text(
+                '전체삭제',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: context.appTextHint,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
 
     if (useGrid) {
       final itemW = ResponsiveGrid.gridItemWidth(context);
       return ListView(
         padding: const EdgeInsets.symmetric(vertical: 12),
         children: [
+          if (clearAllButton != null) clearAllButton,
           Padding(
             padding: EdgeInsets.symmetric(
               horizontal: ResponsiveGrid.horizontalPadding,
@@ -122,27 +191,10 @@ class WatchlistGroupContent extends ConsumerWidget {
               spacing: ResponsiveGrid.spacing,
               runSpacing: ResponsiveGrid.runSpacing,
               children: items.map((item) {
-                if (item.watchlistItem != null) {
-                  return SizedBox(
-                    width: itemW,
-                    child: WatchlistTile(
-                      item: item.watchlistItem!,
-                      index: items.indexOf(item),
-                      inGrid: true,
-                      onTap: () => onTickerTap(item.ticker),
-                      onRemove: () => onRemoveFromWatchlist(item.ticker),
-                      onAlertTap: (price) => onAlertTap(item.ticker, price),
-                    ),
-                  );
-                }
-                return SizedBox(
-                  width: itemW,
-                  child: _SimpleTickerTile(
-                    ticker: item.ticker,
-                    inGrid: true,
-                    onTap: () => onTickerTap(item.ticker),
-                  ),
-                );
+                final w = item.watchlistItem != null
+                    ? buildWatchlistTile(item, items.indexOf(item), grid: true)
+                    : buildSimpleTile(item, grid: true);
+                return SizedBox(width: itemW, child: w);
               }).toList(),
             ),
           ),
@@ -153,24 +205,17 @@ class WatchlistGroupContent extends ConsumerWidget {
     // 모바일: 세로 리스트
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      itemCount: items.length,
+      itemCount: items.length + (clearAllButton != null ? 1 : 0),
       itemBuilder: (context, index) {
-        final item = items[index];
-        if (item.watchlistItem != null) {
-          return WatchlistTile(
-            key: ValueKey(item.ticker),
-            item: item.watchlistItem!,
-            index: index,
-            onTap: () => onTickerTap(item.ticker),
-            onRemove: () => onRemoveFromWatchlist(item.ticker),
-            onAlertTap: (price) => onAlertTap(item.ticker, price),
-          );
+        if (clearAllButton != null && index == 0) {
+          return clearAllButton;
         }
-        return _SimpleTickerTile(
-          key: ValueKey(item.ticker),
-          ticker: item.ticker,
-          onTap: () => onTickerTap(item.ticker),
-        );
+        final itemIndex = clearAllButton != null ? index - 1 : index;
+        final item = items[itemIndex];
+        if (item.watchlistItem != null) {
+          return buildWatchlistTile(item, itemIndex);
+        }
+        return buildSimpleTile(item);
       },
     );
   }
@@ -222,13 +267,21 @@ class _TickerDisplayItem {
 class _SimpleTickerTile extends ConsumerStatefulWidget {
   final String ticker;
   final bool inGrid;
+  final bool showAlert;
+  final bool showDelete;
   final VoidCallback onTap;
+  final VoidCallback? onStarTap;
+  final VoidCallback? onDelete;
 
   const _SimpleTickerTile({
     super.key,
     required this.ticker,
     this.inGrid = false,
+    this.showAlert = false,
+    this.showDelete = false,
     required this.onTap,
+    this.onStarTap,
+    this.onDelete,
   });
 
   @override
@@ -323,9 +376,103 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
               ),
             ),
           ),
+
+          // 액션 행 (별표 + 알림 + 삭제) — WatchlistTile과 동일 레이아웃
+          if (widget.onStarTap != null || widget.showAlert || widget.showDelete) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(height: 1, color: context.appDivider),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  // Star — padding horizontal:12, vertical:7, icon size 18
+                  if (widget.onStarTap != null) ...[
+                    _StarIcon(
+                      ticker: widget.ticker,
+                      onTap: widget.onStarTap!,
+                    ),
+                    Container(width: 1, height: 16, color: context.appDivider),
+                  ],
+                  // Alert area (Expanded, center-aligned) — disabled placeholder
+                  if (widget.showAlert)
+                    Expanded(
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.notifications_none,
+                                size: 14,
+                                color: context.appTextHint,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '알림 없음',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: context.appTextHint,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  // Spacer when no alert — 삭제를 우측으로 밀어줌
+                  if (!widget.showAlert) const Spacer(),
+                  // Delete — padding horizontal:16, vertical:7, icon size 16
+                  if (widget.showDelete && widget.onDelete != null) ...[
+                    Container(width: 1, height: 16, color: context.appDivider),
+                    GestureDetector(
+                      onTap: widget.onDelete,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                        child: Icon(
+                          Icons.delete_outline,
+                          size: 16,
+                          color: context.appTextHint,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+
           if (!widget.inGrid)
             Container(height: 4, color: context.appBackground),
         ],
+      ),
+    );
+  }
+}
+
+/// 별표 아이콘 (그룹 소속 여부 표시)
+class _StarIcon extends ConsumerWidget {
+  final String ticker;
+  final VoidCallback onTap;
+
+  const _StarIcon({required this.ticker, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isInGroup = ref.watch(isTickerInAnyGroupProvider(ticker));
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        child: Icon(
+          isInGroup ? Icons.star : Icons.star_border,
+          size: 18,
+          color: isInGroup ? AppColors.amber500 : context.appTextHint,
+        ),
       ),
     );
   }

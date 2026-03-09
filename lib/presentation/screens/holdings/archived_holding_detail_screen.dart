@@ -9,6 +9,7 @@ import '../../providers/holding_providers.dart';
 import '../../providers/providers.dart';
 import 'widgets/holding_info_card.dart';
 import '../../../core/utils/krw_formatter.dart';
+import '../../../core/utils/number_formatter.dart';
 import 'widgets/transaction_list.dart';
 
 /// 아카이브된 보유 상세 화면 (읽기 전용)
@@ -401,7 +402,7 @@ class _InvestmentInfoCard extends StatelessWidget {
           const Divider(height: 16),
           InfoRow(
             label: '총 거래량',
-            value: '매수 ${_formatShares(stats.totalBuyShares)} / 매도 ${_formatShares(stats.totalSellShares)}',
+            value: '매수 ${formatShares(stats.totalBuyShares)}주 / 매도 ${formatShares(stats.totalSellShares)}주',
           ),
           const Divider(height: 16),
           InfoRow(
@@ -420,10 +421,4 @@ class _InvestmentInfoCard extends StatelessWidget {
     );
   }
 
-  String _formatShares(double shares) {
-    if (shares == shares.roundToDouble()) {
-      return '${shares.toInt()}주';
-    }
-    return '${shares.toStringAsFixed(2)}주';
-  }
 }

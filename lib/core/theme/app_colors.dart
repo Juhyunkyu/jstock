@@ -197,4 +197,15 @@ extension ThemeAwareColors on BuildContext {
       isDarkMode ? AppColors.blue600.withValues(alpha: 0.15) : AppColors.blue100;
   Color get appStockChangeMinusFg =>
       isDarkMode ? AppColors.blue400 : AppColors.blue500;
+
+  // 카드 그림자
+  List<BoxShadow> get appCardShadow => [
+        BoxShadow(
+          color: isDarkMode
+              ? Colors.white.withValues(alpha: 0.03)
+              : Colors.black.withValues(alpha: 0.05),
+          blurRadius: 6,
+          offset: const Offset(0, 1),
+        ),
+      ];
 }

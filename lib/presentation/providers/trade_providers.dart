@@ -33,6 +33,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
   }
 
   /// 매수 거래 기록 + 사이클 상태 업데이트
+  /// [extraFundingAmount] > 0 이면 시드 금액을 해당 금액만큼 증가시킵니다 (추가 자금 투입)
   Future<Trade> recordBuy({
     required String cycleId,
     required TradeSignal signal,
@@ -40,6 +41,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     required double amountKrw,
     required double exchangeRate,
     String? memo,
+    double extraFundingAmount = 0,
   }) async {
     if (price <= 0 || exchangeRate <= 0) {
       throw ArgumentError('Invalid price or exchange rate');
@@ -47,6 +49,12 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
 
     final cycles = _ref.read(cycleListProvider);
     final cycle = cycles.firstWhere((c) => c.id == cycleId);
+
+    // 추가 자금 투입: 시드 및 잔여현금 증가
+    if (extraFundingAmount > 0) {
+      cycle.seedAmount += extraFundingAmount;
+      cycle.remainingCash += extraFundingAmount;
+    }
 
     // remainingCash 초과 방지
     final actualAmount = amountKrw.clamp(0.0, cycle.remainingCash);
@@ -70,38 +78,10 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
 
     await _repository.save(trade);
 
-    // 사이클 상태 업데이트 — 순수 USD VWAP (환율 혼합 방지)
-    final prevShares = cycle.totalShares;
-    final newTotalShares = prevShares + shares;
-    if (newTotalShares > 0) {
-      cycle.averagePrice =
-          (prevShares * cycle.averagePrice + shares * price) / newTotalShares;
-    }
-    cycle.totalShares = newTotalShares;
-    cycle.remainingCash -= actualAmount;
-
-    // Strategy A: 첫 매수 시 entryPrice 설정
-    if (cycle.strategyType == StrategyType.alphaCycleV3 &&
-        cycle.entryPrice == null) {
-      cycle.entryPrice = price;
-    }
-
-    // Strategy A: 승부수 사용 플래그
-    if (signal == TradeSignal.panicBuy) {
-      cycle.panicBuyUsed = true;
-    }
-
-    // Strategy B: 라운드 카운트
-    if (cycle.strategyType == StrategyType.infiniteBuy &&
-        (signal == TradeSignal.locAB ||
-         signal == TradeSignal.locB ||
-         signal == TradeSignal.manual)) {
-      cycle.roundsUsed += 1;
-    }
-
-    await _ref.read(cycleListProvider.notifier).saveCycle(cycle);
+    // 사이클 상태 재계산 (VWAP, entryPrice, panicBuyUsed, roundsUsed, remainingCash)
     _ref.invalidate(allTradesProvider);
     state = _repository.getByCycleId(_cycleId);
+    await _recalculateCycleState();
     return trade;
   }
 
@@ -139,21 +119,87 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
 
     await _repository.save(trade);
 
-    // 사이클 상태 업데이트
-    cycle.totalShares -= actualShares;
-    cycle.remainingCash += amountKrw;
-
-    await _ref.read(cycleListProvider.notifier).saveCycle(cycle);
+    // 사이클 상태 재계산 (totalShares, remainingCash 등)
     _ref.invalidate(allTradesProvider);
     state = _repository.getByCycleId(_cycleId);
+    await _recalculateCycleState();
     return trade;
   }
 
-  /// 거래 삭제
-  Future<void> deleteTrade(String tradeId) async {
+  /// 거래 수정 + 사이클 상태 재계산
+  Future<void> updateTrade(Trade updatedTrade) async {
+    await _repository.save(updatedTrade);
+    _ref.invalidate(allTradesProvider);
+    state = _repository.getByCycleId(_cycleId);
+    await _recalculateCycleState();
+  }
+
+  /// 거래 삭제 + 사이클 상태 재계산
+  Future<void> deleteTradeAndRecalculate(String tradeId) async {
     await _repository.delete(tradeId);
     _ref.invalidate(allTradesProvider);
     state = _repository.getByCycleId(_cycleId);
+    await _recalculateCycleState();
+  }
+
+  /// 남은 거래 내역으로 사이클 상태 재계산
+  Future<void> _recalculateCycleState() async {
+    final cycles = _ref.read(cycleListProvider);
+    final cycle = cycles.where((c) => c.id == _cycleId).firstOrNull;
+    if (cycle == null) return;
+
+    final trades = state; // updateTrade/deleteTradeAndRecalculate에서 이미 로드됨
+
+    // 순수 USD VWAP 재계산
+    double totalBuyShares = 0;
+    double totalSellShares = 0;
+    double weightedPriceSum = 0; // shares * price (USD)
+    double totalBuyAmountKrw = 0;
+    double totalSellAmountKrw = 0;
+    bool panicBuyUsed = false;
+    int roundsUsed = 0;
+    double? entryPrice;
+
+    for (final trade in trades) {
+      if (trade.action == TradeAction.buy) {
+        totalBuyShares += trade.shares;
+        weightedPriceSum += trade.shares * trade.price;
+        totalBuyAmountKrw += trade.amountKrw;
+
+        // Strategy A: 첫 매수 entryPrice (시간순 첫 매수)
+        if (cycle.strategyType == StrategyType.alphaCycleV3 && entryPrice == null) {
+          entryPrice = trade.price;
+        }
+
+        // Strategy A: 승부수 플래그
+        if (trade.signal == TradeSignal.panicBuy) {
+          panicBuyUsed = true;
+        }
+
+        // Strategy B: 라운드 카운트
+        if (cycle.strategyType == StrategyType.infiniteBuy &&
+            (trade.signal == TradeSignal.locAB ||
+             trade.signal == TradeSignal.locB ||
+             trade.signal == TradeSignal.manual)) {
+          roundsUsed += 1;
+        }
+      } else {
+        totalSellShares += trade.shares;
+        totalSellAmountKrw += trade.amountKrw;
+      }
+    }
+
+    final netShares = totalBuyShares - totalSellShares;
+    final avgPrice = netShares > 0 ? weightedPriceSum / totalBuyShares : 0.0;
+
+    cycle.totalShares = netShares > 0 ? netShares : 0;
+    cycle.averagePrice = avgPrice;
+    cycle.remainingCash = cycle.seedAmount - totalBuyAmountKrw + totalSellAmountKrw;
+    cycle.entryPrice = entryPrice;
+    cycle.panicBuyUsed = panicBuyUsed;
+    cycle.roundsUsed = roundsUsed;
+
+    await _ref.read(cycleListProvider.notifier).saveCycle(cycle);
   }
 }
 

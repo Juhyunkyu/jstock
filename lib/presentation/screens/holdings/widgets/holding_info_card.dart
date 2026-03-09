@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../data/models/holding.dart';
 import '../../../providers/holding_providers.dart';
 import '../../../../core/utils/krw_formatter.dart';
@@ -278,9 +279,6 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
-  }
 }
 
 class InfoRow extends StatelessWidget {
