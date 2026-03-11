@@ -84,6 +84,12 @@ class StockQuote {
     switch (marketState) {
       case 'REGULAR':
         return '개장중';
+      case 'PRE':
+      case 'PREPRE':
+        return '프리마켓';
+      case 'POST':
+      case 'POSTPOST':
+        return '애프터마켓';
       case 'CLOSED':
       default:
         return '휴장';
