@@ -77,7 +77,7 @@ class _FearGreedGaugeState extends State<FearGreedGauge>
       builder: (context, child) {
         return LayoutBuilder(
           builder: (context, constraints) {
-            final screenW = MediaQuery.of(context).size.width;
+            final screenW = MediaQuery.sizeOf(context).width;
             final maxGaugeWidth = screenW >= 1200 ? 600.0 : screenW >= 768 ? 420.0 : 550.0;
             final width = math.min(constraints.maxWidth, maxGaugeWidth);
             final gaugeHeight = width * 0.55;

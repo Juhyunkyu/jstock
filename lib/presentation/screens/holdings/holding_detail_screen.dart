@@ -10,6 +10,7 @@ import 'widgets/holding_info_card.dart';
 import 'widgets/transaction_list.dart';
 import 'widgets/edit_holding_sheet.dart';
 import 'widgets/trade_record_sheet.dart';
+import '../../widgets/shared/confirm_dialog.dart';
 
 /// 보유 상세 화면
 ///
@@ -41,12 +42,12 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
       );
     }
 
-    // 종가 기반 Provider (프리/애프터에서 previousClose 사용)
-    final prices = ref.watch(closingPricesProvider);
-    final currentPrice = prices[holding.ticker] ?? holding.averagePrice;
+    // 종가 기반 Provider (프리/애프터에서 previousClose 사용) — 해당 ticker만 select
+    final currentPrice = ref.watch(
+      closingPricesProvider.select((prices) => prices[holding.ticker] ?? holding.averagePrice),
+    );
     final currentExchangeRate = ref.watch(currentExchangeRateProvider);
-    final quoteState = ref.watch(stockQuoteProvider);
-    final changePercent = quoteState.quotes[holding.ticker]?.changePercent;
+    // stockQuoteProvider — build에서는 불필요, _showTradeDialog에서 ref.read로 직접 조회
 
     // 손익 계산
     final usdPL = holding.usdProfitLoss(currentPrice);
@@ -174,7 +175,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
       ),
       floatingActionButton: LayoutBuilder(
         builder: (context, constraints) {
-          final isCompact = MediaQuery.of(context).size.width < 600;
+          final isCompact = MediaQuery.sizeOf(context).width < 600;
           if (isCompact) {
             return FloatingActionButton.small(
               onPressed: () => _showTradeDialog(context, holding),
@@ -211,28 +212,15 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
   }
 
   Future<void> _recalculateFromTransactions(Holding holding) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await ConfirmDialog.show(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('거래 내역으로 재계산'),
-        content: Text(
-          '${holding.ticker}의 보유 정보를 거래 내역 기준으로 재계산합니다.\n\n'
+      title: '거래 내역으로 재계산',
+      message: '${holding.ticker}의 보유 정보를 거래 내역 기준으로 재계산합니다.\n\n'
           '현재 보유 수량, 매입가, 투자금이 거래 내역 합계로 변경됩니다.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('재계산', style: TextStyle(color: AppColors.blue500)),
-          ),
-        ],
-      ),
+      confirmText: '재계산',
     );
 
-    if (confirmed == true) {
+    if (confirmed) {
       await ref.read(holdingListProvider.notifier).recalculateHoldingFromTransactions(holding.id);
       refreshTransactions(ref);
       if (mounted) {
@@ -254,32 +242,22 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(),
       builder: (context) => SizedBox(
-        height: MediaQuery.of(context).size.height,
+        height: MediaQuery.sizeOf(context).height,
         child: EditHoldingSheet(holding: holding),
       ),
     );
   }
 
   Future<void> _showDeleteConfirmation(Holding holding) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await ConfirmDialog.show(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('보유 삭제'),
-        content: Text('${holding.ticker} 보유를 삭제하시겠습니까?\n모든 거래 내역도 함께 삭제됩니다.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('삭제', style: TextStyle(color: AppColors.red500)),
-          ),
-        ],
-      ),
+      title: '보유 삭제',
+      message: '${holding.ticker} 보유를 삭제하시겠습니까?\n모든 거래 내역도 함께 삭제됩니다.',
+      confirmText: '삭제',
+      isDanger: true,
     );
 
-    if (confirmed == true) {
+    if (confirmed) {
       await ref.read(holdingListProvider.notifier).deleteHolding(holding.id);
       if (mounted) context.pop();
     }
@@ -298,7 +276,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(),
       builder: (context) => SizedBox(
-        height: MediaQuery.of(context).size.height,
+        height: MediaQuery.sizeOf(context).height,
         child: TradeRecordSheet(
           holding: holding,
           currentExchangeRate: rate,

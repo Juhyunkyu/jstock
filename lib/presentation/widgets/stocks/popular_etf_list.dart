@@ -258,17 +258,17 @@ class PopularEtfTile extends StatelessWidget {
       case 'S&P500':
         return AppColors.sp500;
       case '반도체':
-        return const Color(0xFF00BCD4);
+        return AppColors.etfCategorySemiconductor;
       case '기술':
-        return const Color(0xFF9C27B0);
+        return AppColors.etfCategoryTech;
       case 'FANG+':
-        return const Color(0xFFFF5722);
+        return AppColors.etfCategoryFangPlus;
       case '바이오':
-        return const Color(0xFF4CAF50);
+        return AppColors.etfCategoryBio;
       case '소형주':
-        return const Color(0xFF795548);
+        return AppColors.etfCategorySmallCap;
       case '헬스케어':
-        return const Color(0xFFE91E63);
+        return AppColors.etfCategoryHealthcare;
       default:
         return AppColors.primary;
     }

@@ -14,8 +14,6 @@ class PeriodReturnsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final periods = ['1D', '1W', '1M', '3M', 'YTD', '1Y'];
     final labels = ['1일', '1주', '1개월', '3개월', 'YTD', '1년'];
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return Container(
       color: context.appSurface,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -28,8 +26,8 @@ class PeriodReturnsSection extends StatelessWidget {
               : context.appTextHint;
           final bgColor = value != null
               ? (isPositive
-                  ? (isDark ? const Color(0xFF2D1A1A) : const Color(0xFFFEF2F2))
-                  : (isDark ? const Color(0xFF1A2D3D) : const Color(0xFFEFF6FF)))
+                  ? context.appPeriodReturnPositiveBg
+                  : context.appPeriodReturnNegativeBg)
               : context.appIconBg;
 
           return Expanded(

@@ -45,6 +45,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
 
   @override
   Widget build(BuildContext context) {
+    // 여러 ticker 사용 — select 적용 불가 (unifiedPortfolioProvider + _HoldingListTab에 전체 Map 전달)
     final prices = ref.watch(closingPricesProvider);
     final summary = ref.watch(unifiedPortfolioProvider(prices));
     final alphaCycles = ref.watch(alphaCyclesProvider);
@@ -281,8 +282,9 @@ class _ActiveCycleCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prices = ref.watch(closingPricesProvider);
-    final currentPrice = prices[cycle.ticker] ?? 0.0;
+    final currentPrice = ref.watch(
+      closingPricesProvider.select((prices) => prices[cycle.ticker] ?? 0.0),
+    );
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(cycle.id));
 

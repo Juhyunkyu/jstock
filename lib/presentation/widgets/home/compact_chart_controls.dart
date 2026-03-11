@@ -16,7 +16,7 @@ class CompactPeriodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 768;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     return Row(
       children: periods.map((period) {
         final isSelected = period == selectedPeriod;
@@ -36,7 +36,7 @@ class CompactPeriodSelector extends StatelessWidget {
                 style: TextStyle(
                   fontSize: isDesktop ? 12 : 10,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                  color: isSelected ? Colors.white : context.appTextSecondary,
                 ),
               ),
             ),
@@ -53,7 +53,7 @@ class MALegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 768;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     return Row(
       mainAxisAlignment: MainAxisAlignment.start,
       children: [

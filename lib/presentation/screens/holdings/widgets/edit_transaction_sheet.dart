@@ -297,7 +297,7 @@ class EditTransactionSheetState extends ConsumerState<EditTransactionSheet> {
                 onPressed: isFormValid ? _saveChanges : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: typeColor,
-                  disabledBackgroundColor: context.isDarkMode ? const Color(0xFF2D333B) : AppColors.gray300,
+                  disabledBackgroundColor: context.appDisabledBackground,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

@@ -85,7 +85,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     final item = widget.item;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.65,
+      height: MediaQuery.sizeOf(context).height * 0.65,
       decoration: BoxDecoration(
         color: context.appCardBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),

@@ -244,9 +244,7 @@ class _PerformanceSummaryCard extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: context.isDarkMode
-              ? [const Color(0xFF1A1F2E), const Color(0xFF0F1923)]
-              : [const Color(0xFF2C3E50), const Color(0xFF1A252F)],
+          colors: [context.appGradientCardStart, context.appGradientCardEnd],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: context.isDarkMode

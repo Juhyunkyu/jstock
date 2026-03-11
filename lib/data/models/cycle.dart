@@ -264,6 +264,70 @@ class Cycle extends HiveObject implements TradingPosition {
     return cycle;
   }
 
+  Cycle copyWith({
+    String? id,
+    String? ticker,
+    String? name,
+    double? seedAmount,
+    double? averagePrice,
+    double? totalShares,
+    double? remainingCash,
+    CycleStatus? status,
+    DateTime? startDate,
+    DateTime? updatedAt,
+    double? completedReturnRate,
+    double? exchangeRateAtEntry,
+    StrategyType? strategyType,
+    double? entryPrice,
+    int? consecutiveProfitCount,
+    bool? panicBuyUsed,
+    int? roundsUsed,
+    int? totalRounds,
+    double? initialEntryRatio,
+    double? weightedBuyThreshold,
+    double? weightedBuyDivisor,
+    double? panicBuyThreshold,
+    double? panicBuyMultiplier,
+    double? firstProfitTarget,
+    double? profitTargetStep,
+    double? minProfitTarget,
+    double? cashSecureRatio,
+    double? takeProfitPercent,
+  }) {
+    final cycle = Cycle(
+      id: id ?? this.id,
+      ticker: ticker ?? this.ticker,
+      name: name ?? this.name,
+      seedAmount: seedAmount ?? this.seedAmount,
+      exchangeRateAtEntry: exchangeRateAtEntry ?? this.exchangeRateAtEntry,
+      strategyType: strategyType ?? this.strategyType,
+      entryPrice: entryPrice ?? this.entryPrice,
+      consecutiveProfitCount: consecutiveProfitCount ?? this.consecutiveProfitCount,
+      panicBuyUsed: panicBuyUsed ?? this.panicBuyUsed,
+      roundsUsed: roundsUsed ?? this.roundsUsed,
+      totalRounds: totalRounds ?? this.totalRounds,
+      initialEntryRatio: initialEntryRatio ?? this.initialEntryRatio,
+      weightedBuyThreshold: weightedBuyThreshold ?? this.weightedBuyThreshold,
+      weightedBuyDivisor: weightedBuyDivisor ?? this.weightedBuyDivisor,
+      panicBuyThreshold: panicBuyThreshold ?? this.panicBuyThreshold,
+      panicBuyMultiplier: panicBuyMultiplier ?? this.panicBuyMultiplier,
+      firstProfitTarget: firstProfitTarget ?? this.firstProfitTarget,
+      profitTargetStep: profitTargetStep ?? this.profitTargetStep,
+      minProfitTarget: minProfitTarget ?? this.minProfitTarget,
+      cashSecureRatio: cashSecureRatio ?? this.cashSecureRatio,
+      takeProfitPercent: takeProfitPercent ?? this.takeProfitPercent,
+      completedReturnRate: completedReturnRate ?? this.completedReturnRate,
+      startDate: startDate ?? this.startDate,
+    );
+    // 생성자 기본값을 덮어쓰는 mutable 필드 복원
+    cycle.averagePrice = averagePrice ?? this.averagePrice;
+    cycle.totalShares = totalShares ?? this.totalShares;
+    cycle.remainingCash = remainingCash ?? this.remainingCash;
+    cycle.status = status ?? this.status;
+    cycle.updatedAt = updatedAt ?? this.updatedAt;
+    return cycle;
+  }
+
   @override
   String toString() {
     return 'Cycle(id: $id, ticker: $ticker, strategy: ${strategyType.name}, '

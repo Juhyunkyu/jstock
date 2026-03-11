@@ -162,7 +162,7 @@ class EditHoldingSheetState extends ConsumerState<EditHoldingSheet> {
                 onPressed: isFormValid ? _saveChanges : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondary,
-                  disabledBackgroundColor: context.isDarkMode ? const Color(0xFF2D333B) : AppColors.gray300,
+                  disabledBackgroundColor: context.appDisabledBackground,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

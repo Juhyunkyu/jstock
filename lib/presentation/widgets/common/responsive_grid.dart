@@ -28,7 +28,7 @@ class ResponsiveGrid {
   /// main_shell.dart의 레이아웃 규칙에 맞춰 콘텐츠 영역 너비를 계산합니다.
   /// LayoutBuilder가 NestedScrollView 등에서 올바른 값을 주지 않을 때 사용.
   static double contentWidth(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     if (screenWidth >= 1200) {
       // 데스크톱: Extended NavigationRail(220px) + 좌측 정렬 (95%, max 1600)
       final available = screenWidth - 220;

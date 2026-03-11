@@ -123,6 +123,18 @@ class AppColors {
   static const Color darkBorder = Color(0xFF30363D);
   static const Color darkIconBg = Color(0xFF21262D);
 
+  // ETF 카테고리 색상 (고정 팔레트)
+  static const Color etfCategorySemiconductor = Color(0xFF00BCD4);
+  static const Color etfCategoryTech = Color(0xFF9C27B0);
+  static const Color etfCategoryFangPlus = Color(0xFFFF5722);
+  static const Color etfCategoryBio = Color(0xFF4CAF50);
+  static const Color etfCategorySmallCap = Color(0xFF795548);
+  static const Color etfCategoryHealthcare = Color(0xFFE91E63);
+
+  // 그라데이션 카드 위 수익/손실 텍스트 (밝은 톤, 카드 위 전용)
+  static const Color overlayGreen = Color(0xFF4ADE80);
+  static const Color overlayRed = Color(0xFFF87171);
+
   // 다크 주식 배경색
   static const Color darkStockUp50 = Color(0xFF2D1B1B);
   static const Color darkStockDown50 = Color(0xFF1B2333);
@@ -197,6 +209,22 @@ extension ThemeAwareColors on BuildContext {
       isDarkMode ? AppColors.blue600.withValues(alpha: 0.15) : AppColors.blue100;
   Color get appStockChangeMinusFg =>
       isDarkMode ? AppColors.blue400 : AppColors.blue500;
+
+  // 비활성(disabled) 배경
+  Color get appDisabledBackground =>
+      isDarkMode ? AppColors.darkBorder : AppColors.gray300;
+
+  // 그라데이션 PnL 카드 배경 (dark tone)
+  Color get appGradientCardStart =>
+      isDarkMode ? const Color(0xFF1A1F2E) : const Color(0xFF2C3E50);
+  Color get appGradientCardEnd =>
+      isDarkMode ? const Color(0xFF0F1923) : const Color(0xFF1A252F);
+
+  // 기간별 수익률 배경
+  Color get appPeriodReturnPositiveBg =>
+      isDarkMode ? const Color(0xFF2D1A1A) : AppColors.red50;
+  Color get appPeriodReturnNegativeBg =>
+      isDarkMode ? const Color(0xFF1A2D3D) : AppColors.blue50;
 
   // 카드 그림자
   List<BoxShadow> get appCardShadow => [

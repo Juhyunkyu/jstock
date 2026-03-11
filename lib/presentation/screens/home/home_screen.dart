@@ -60,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               titleSpacing: 16,
               leadingWidth: 0,
               automaticallyImplyLeading: false,
-              title: MediaQuery.of(context).size.width >= 1200
+              title: MediaQuery.sizeOf(context).width >= 1200
                   ? null
                   : const AppTitleLogo(
                       fontSize: 22,
@@ -96,7 +96,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             children: [
                               Builder(
                                 builder: (context) {
-                                  final isDesktop = MediaQuery.of(context).size.width >= 768;
+                                  final isDesktop = MediaQuery.sizeOf(context).width >= 768;
                                   final dotSize = isDesktop ? 7.0 : 6.0;
                                   return Container(
                                     width: dotSize,
@@ -114,7 +114,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               Text(
                                 marketStatusText,
                                 style: TextStyle(
-                                  fontSize: MediaQuery.of(context).size.width >= 768 ? 13 : 11,
+                                  fontSize: MediaQuery.sizeOf(context).width >= 768 ? 13 : 11,
                                   fontWeight: FontWeight.w500,
                                   color: context.appTextSecondary,
                                 ),
@@ -171,7 +171,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: TextStyle(
-              fontSize: MediaQuery.of(context).size.width >= 768 ? 18 : 16,
+              fontSize: MediaQuery.sizeOf(context).width >= 768 ? 18 : 16,
               fontWeight: FontWeight.bold,
               color: context.appTextPrimary,
             ),

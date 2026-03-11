@@ -223,8 +223,9 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final quoteState = ref.watch(stockQuoteProvider);
-    final quote = quoteState.quotes[_chartSymbol];
+    final quote = ref.watch(
+      stockQuoteProvider.select((s) => s.quotes[_chartSymbol]),
+    );
 
     return Scaffold(
       backgroundColor: context.appBackground,

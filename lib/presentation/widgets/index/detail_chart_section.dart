@@ -606,7 +606,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   OverlayEntry? _toolHelpOverlay;
 
   Widget _buildDrawingToggle() {
-    final isDesktop = MediaQuery.of(context).size.width >= 600;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
 
     if (_drawingMode != DrawingMode.none) {
       // 드로잉 모드 활성 → 취소(X) 버튼
@@ -655,7 +655,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     final offset = renderBox.localToGlobal(Offset.zero);
     final size = renderBox.size;
 
-    final isDesktop = MediaQuery.of(context).size.width >= 600;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 600;
 
     _drawingMenuOverlay = OverlayEntry(
       builder: (ctx) => Stack(
@@ -670,7 +670,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           ),
           // 메뉴 버블 (연필 아이콘 아래에 표시)
           Positioned(
-            right: MediaQuery.of(context).size.width - offset.dx - size.width - 4,
+            right: MediaQuery.sizeOf(context).width - offset.dx - size.width - 4,
             top: offset.dy + size.height + 6,
             child: Material(
               color: Colors.transparent,
@@ -846,7 +846,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     final helpData = _getToolHelpData(helpKey);
     if (helpData == null) return;
 
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth >= 600;
 
     _toolHelpOverlay = OverlayEntry(
@@ -1629,7 +1629,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           LayoutBuilder(
             builder: (context, constraints) {
               // 데스크톱/태블릿에서 우측 여백 추가 (마우스 휠로 페이지 스크롤 가능 영역)
-              final screenWidth = MediaQuery.of(context).size.width;
+              final screenWidth = MediaQuery.sizeOf(context).width;
               final rightMargin = screenWidth >= 768 ? 40.0 : 0.0;
               final chartWidth = constraints.maxWidth - rightMargin;
               return Row(

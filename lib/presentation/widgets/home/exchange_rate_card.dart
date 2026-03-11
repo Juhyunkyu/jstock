@@ -26,7 +26,7 @@ class ExchangeRateChip extends ConsumerWidget {
           children: [
             Builder(
               builder: (context) {
-                final isDesktop = MediaQuery.of(context).size.width >= 768;
+                final isDesktop = MediaQuery.sizeOf(context).width >= 768;
                 return Text(
                   'USD',
                   style: TextStyle(
@@ -42,7 +42,7 @@ class ExchangeRateChip extends ConsumerWidget {
               Text(
                 '₩${rateState.usdKrw!.rate.toStringAsFixed(0)}',
                 style: TextStyle(
-                  fontSize: MediaQuery.of(context).size.width >= 768 ? 14 : 12,
+                  fontSize: MediaQuery.sizeOf(context).width >= 768 ? 14 : 12,
                   fontWeight: FontWeight.w600,
                   color: context.appTextPrimary,
                 ),

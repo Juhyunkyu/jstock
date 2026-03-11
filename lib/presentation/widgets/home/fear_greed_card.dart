@@ -25,7 +25,7 @@ class FearGreedCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final clampedValue = value.clamp(0, 100);
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     // Smooth linear scale: 320px→0.92, 1400px→1.35 (no jumps)
     final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
 

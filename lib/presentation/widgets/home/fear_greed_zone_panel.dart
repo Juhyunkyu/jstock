@@ -88,7 +88,7 @@ class ZoneDescriptionPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final activeZone = getActiveZoneIndex(value);
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
 
     return Column(
@@ -133,7 +133,7 @@ class _ZoneDescriptionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = context.isDarkMode;
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
 
     return AnimatedContainer(

@@ -432,8 +432,9 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   }
 
   Widget _buildSelectedTicker() {
-    final quoteState = ref.watch(stockQuoteProvider);
-    final quote = quoteState.quotes[_selectedTicker!];
+    final quote = ref.watch(
+      stockQuoteProvider.select((s) => s.quotes[_selectedTicker!]),
+    );
     final currentPrice = quote?.currentPrice ?? 0.0;
     final changePercent = quote?.changePercent ?? 0.0;
     final isUp = changePercent >= 0;
@@ -838,10 +839,11 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   Widget _buildInfiniteBuyCalcRows(double seed) {
     final perRound = seed / _totalRounds;
     final exchangeRate = ref.watch(currentExchangeRateProvider);
-    final quoteState = ref.watch(stockQuoteProvider);
-    final quote = _selectedTicker != null
-        ? quoteState.quotes[_selectedTicker!]
-        : null;
+    final quote = ref.watch(
+      stockQuoteProvider.select((s) => _selectedTicker != null
+          ? s.quotes[_selectedTicker!]
+          : null),
+    );
     final currentPrice = quote?.currentPrice ?? 0.0;
 
     // 달러 환산

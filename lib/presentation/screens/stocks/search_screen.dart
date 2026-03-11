@@ -81,7 +81,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final searchState = ref.watch(searchProvider);
     // 관심종목 상태 - 직접 watch (단순화)
     final watchlistState = ref.watch(watchlistProvider);
-    // 실시간 시세 (WebSocket)
+    // 여러 ticker 사용 — select 적용 불가 (관심종목 + ETF 목록 순회)
     final stockQuoteState = ref.watch(stockQuoteProvider);
     // 인기 ETF 가격 정보
     final stockPriceState = ref.watch(stockPriceProvider);

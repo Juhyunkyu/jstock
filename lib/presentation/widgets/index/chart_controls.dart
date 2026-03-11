@@ -168,7 +168,7 @@ class SubChartHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     final fontSize = isMobile ? 11.0 : 13.0;
     return Padding(
       padding: EdgeInsets.only(top: isMobile ? 4 : 6, bottom: 2),
@@ -225,7 +225,7 @@ class SignalBadge extends StatelessWidget {
         fgColor = AppColors.stockDown;
         break;
     }
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
     final fontSize = isMobile ? 10.0 : 12.0;
     final hPad = isMobile ? 5.0 : 8.0;
     final vPad = isMobile ? 2.0 : 3.0;

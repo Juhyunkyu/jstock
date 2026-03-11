@@ -363,7 +363,7 @@ class TransactionCard extends ConsumerWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: context.isDarkMode ? const Color(0xFF2D333B) : AppColors.gray300,
+                color: context.appDisabledBackground,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -434,7 +434,7 @@ class TransactionCard extends ConsumerWidget {
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(),
       builder: (context) => SizedBox(
-        height: MediaQuery.of(context).size.height,
+        height: MediaQuery.sizeOf(context).height,
         child: EditTransactionSheet(transaction: transaction),
       ),
     );

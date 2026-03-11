@@ -431,8 +431,8 @@ class _TickerInfoCard extends StatelessWidget {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: quote!.isPositive
-                          ? const Color(0xFF4ADE80)
-                          : const Color(0xFFF87171),
+                          ? AppColors.overlayGreen
+                          : AppColors.overlayRed,
                     ),
                   ),
                 ),

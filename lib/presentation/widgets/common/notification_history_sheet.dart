@@ -19,7 +19,7 @@ class _NotificationHistorySheetState
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(notificationHistoryProvider);
-    final sheetHeight = MediaQuery.of(context).size.height * 0.6;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.6;
 
     return SizedBox(
       height: sheetHeight,

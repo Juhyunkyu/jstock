@@ -411,7 +411,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(),
       builder: (context) => SizedBox(
-        height: MediaQuery.of(context).size.height,
+        height: MediaQuery.sizeOf(context).height,
         child: CycleTradeRecordSheet(
           cycle: cycle,
           currentExchangeRate: liveExchangeRate,

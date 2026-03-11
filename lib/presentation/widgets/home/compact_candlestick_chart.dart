@@ -43,8 +43,8 @@ class _CompactCandlestickChartState extends State<CompactCandlestickChart> {
   Widget build(BuildContext context) {
     final data = widget.data;
     if (data.isEmpty) {
-      return const Center(
-        child: Text('데이터 없음', style: TextStyle(color: AppColors.textHint, fontSize: 10)),
+      return Center(
+        child: Text('데이터 없음', style: TextStyle(color: context.appTextHint, fontSize: 10)),
       );
     }
 
@@ -89,7 +89,8 @@ class _CompactCandlestickChartState extends State<CompactCandlestickChart> {
                 ma60: displayMa60,
                 ma120: displayMa120,
                 selectedPeriod: widget.selectedPeriod,
-                isDesktop: MediaQuery.of(context).size.width >= 768,
+                isDesktop: MediaQuery.sizeOf(context).width >= 768,
+                isDarkMode: Theme.of(context).brightness == Brightness.dark,
               ),
             );
           },
@@ -149,6 +150,7 @@ class _CompactCandlestickPainter extends CustomPainter {
   final List<double> ma120;
   final String selectedPeriod;
   final bool isDesktop;
+  final bool isDarkMode;
 
   _CompactCandlestickPainter({
     required this.data,
@@ -158,6 +160,7 @@ class _CompactCandlestickPainter extends CustomPainter {
     required this.ma120,
     required this.selectedPeriod,
     required this.isDesktop,
+    required this.isDarkMode,
   });
 
   @override
@@ -279,7 +282,7 @@ class _CompactCandlestickPainter extends CustomPainter {
 
   void _drawYAxisLabels(Canvas canvas, Size size, double minY, double maxY, double topPadding, double chartHeight, double rightPadding) {
     final textStyle = TextStyle(
-      color: AppColors.textHint,
+      color: isDarkMode ? AppColors.darkTextHint : AppColors.textHint,
       fontSize: isDesktop ? 10 : 8,
     );
 
@@ -307,7 +310,7 @@ class _CompactCandlestickPainter extends CustomPainter {
     if (data.isEmpty) return;
 
     final textStyle = TextStyle(
-      color: AppColors.textHint,
+      color: isDarkMode ? AppColors.darkTextHint : AppColors.textHint,
       fontSize: isDesktop ? 10 : 8,
     );
 
@@ -352,6 +355,7 @@ class _CompactCandlestickPainter extends CustomPainter {
   bool shouldRepaint(covariant _CompactCandlestickPainter oldDelegate) {
     return oldDelegate.data != data ||
            oldDelegate.selectedPeriod != selectedPeriod ||
-           oldDelegate.isDesktop != isDesktop;
+           oldDelegate.isDesktop != isDesktop ||
+           oldDelegate.isDarkMode != isDarkMode;
   }
 }

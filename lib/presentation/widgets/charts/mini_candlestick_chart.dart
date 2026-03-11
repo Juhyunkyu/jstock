@@ -64,6 +64,7 @@ class MiniCandlestickChart extends StatelessWidget {
           maxY: maxY,
           upColor: upColor,
           downColor: downColor,
+          isDarkMode: Theme.of(context).brightness == Brightness.dark,
         ),
       ),
     );
@@ -76,6 +77,7 @@ class _CandlestickPainter extends CustomPainter {
   final double maxY;
   final Color upColor;
   final Color downColor;
+  final bool isDarkMode;
 
   _CandlestickPainter({
     required this.data,
@@ -83,6 +85,7 @@ class _CandlestickPainter extends CustomPainter {
     required this.maxY,
     required this.upColor,
     required this.downColor,
+    required this.isDarkMode,
   });
 
   @override
@@ -144,7 +147,8 @@ class _CandlestickPainter extends CustomPainter {
   bool shouldRepaint(covariant _CandlestickPainter oldDelegate) {
     return data != oldDelegate.data ||
         minY != oldDelegate.minY ||
-        maxY != oldDelegate.maxY;
+        maxY != oldDelegate.maxY ||
+        isDarkMode != oldDelegate.isDarkMode;
   }
 }
 

@@ -13,7 +13,7 @@ class MarketIndexCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery.sizeOf(context).width;
     final isMobile = screenWidth < 600;
 
     final nasdaqCard = _CompactIndexSection(
@@ -95,7 +95,7 @@ class _CompactIndexSectionState extends ConsumerState<_CompactIndexSection> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(widget.stateProvider);
-    final isDesktop = MediaQuery.of(context).size.width >= 768;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -220,8 +220,8 @@ class _CompactIndexSectionState extends ConsumerState<_CompactIndexSection> {
                           )
                         : Text(
                             '차트 없음',
-                            style: const TextStyle(
-                              color: AppColors.textHint,
+                            style: TextStyle(
+                              color: context.appTextHint,
                               fontSize: 10,
                             ),
                           ),
