@@ -77,13 +77,13 @@ class ConfirmDialog extends StatelessWidget {
           TextButton(
             onPressed: () => Navigator.of(buildContext).pop(true),
             style: TextButton.styleFrom(
-              foregroundColor: isDanger ? AppColors.red500 : AppColors.primary,
+              foregroundColor: isDanger ? AppColors.red500 : buildContext.appAccent,
             ),
             child: Text(
               confirmText,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: isDanger ? AppColors.red500 : AppColors.primary,
+                color: isDanger ? AppColors.red500 : buildContext.appAccent,
               ),
             ),
           ),

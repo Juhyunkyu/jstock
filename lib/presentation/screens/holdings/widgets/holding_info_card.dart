@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/date_formatter.dart';
 import '../../../../data/models/holding.dart';
 import '../../../providers/holding_providers.dart';
 import '../../../../core/utils/krw_formatter.dart';
+import '../../../widgets/shared/exchange_rate_edit_dialog.dart';
+import '../../../widgets/shared/info_row.dart';
 
 /// 보유 정보 카드
 class HoldingInfoCard extends ConsumerStatefulWidget {
@@ -188,7 +188,18 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
                   ),
                   const SizedBox(width: 4),
                   GestureDetector(
-                    onTap: () => _showExchangeRateEditDialog(context, ref, holding),
+                    onTap: () async {
+                      final newRate = await showExchangeRateEditDialog(
+                        context,
+                        currentRate: holding.exchangeRate,
+                      );
+                      if (newRate != null) {
+                        ref.read(holdingListProvider.notifier).updateExchangeRate(
+                          holdingId: holding.id,
+                          newExchangeRate: newRate,
+                        );
+                      }
+                    },
                     child: Icon(
                       Icons.edit_outlined,
                       size: 14,
@@ -199,8 +210,6 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
               ),
             ],
           ),
-          const Divider(height: 16),
-          InfoRow(label: '기준환율', value: '\u20a9${currentExchangeRate.toStringAsFixed(2)} / \$1'),
           const Divider(height: 16),
           // 누적손익 (매도 실현손익 합계)
           Row(
@@ -234,111 +243,4 @@ class HoldingInfoCardState extends ConsumerState<HoldingInfoCard> {
     );
   }
 
-  void _showExchangeRateEditDialog(BuildContext context, WidgetRef ref, Holding holding) {
-    final controller = TextEditingController(
-      text: holding.exchangeRate.toStringAsFixed(2),
-    );
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('평균 매입환율 수정'),
-        content: TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [
-            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-          ],
-          decoration: const InputDecoration(
-            prefixText: '\u20a9',
-            suffixText: '/ \$1',
-            border: OutlineInputBorder(),
-          ),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () {
-              final newRate = double.tryParse(controller.text);
-              if (newRate != null && newRate > 0) {
-                ref.read(holdingListProvider.notifier).updateExchangeRate(
-                  holdingId: holding.id,
-                  newExchangeRate: newRate,
-                );
-                Navigator.pop(context);
-              }
-            },
-            child: const Text('저장', style: TextStyle(color: AppColors.primary)),
-          ),
-        ],
-      ),
-    );
-  }
-
-}
-
-class InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const InfoRow({super.key, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: context.appTextSecondary,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: context.appTextPrimary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const DetailRow({super.key, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 14, color: context.appTextSecondary),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: context.appTextPrimary,
-            ),
-            textAlign: TextAlign.end,
-          ),
-        ),
-      ],
-    );
-  }
 }

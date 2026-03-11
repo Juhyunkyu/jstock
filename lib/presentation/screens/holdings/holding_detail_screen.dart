@@ -24,55 +24,10 @@ class HoldingDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
-  bool _isLoading = true;
-  double? _currentPrice;
-  double? _changePercent;
-  double? _currentExchangeRate;
-
-  @override
-  void initState() {
-    super.initState();
-    // 화면 진입 시 실시간 데이터 로드
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadRealtimeData();
-    });
-  }
-
-  Future<void> _loadRealtimeData() async {
-    final holding = ref.read(holdingByIdProvider(widget.holdingId));
-    if (holding == null) return;
-
-    try {
-      // 실시간 가격 및 환율 API 호출 (병렬로 실행)
-      final finnhubService = ref.read(finnhubServiceProvider);
-      final exchangeRateService = ref.read(exchangeRateServiceProvider);
-
-      final quoteResult = await finnhubService.getQuote(holding.ticker);
-      final rateResult = await exchangeRateService.getUsdKrwRate();
-
-      if (mounted) {
-        setState(() {
-          _currentPrice = quoteResult.currentPrice;
-          _changePercent = quoteResult.changePercent;
-          _currentExchangeRate = rateResult.rate;
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      // API 실패 시 기본값 사용
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     ref.watch(transactionRefreshProvider); // 거래 기록 후 즉시 리빌드 트리거
     final holding = ref.watch(holdingByIdProvider(widget.holdingId));
-    final settings = ref.watch(settingsProvider);
 
     if (holding == null) {
       return Scaffold(
@@ -86,15 +41,16 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
       );
     }
 
-    // 실시간 데이터 또는 기본값 사용
-    final currentPrice = _currentPrice ?? holding.averagePrice;
-    final currentExchangeRate = _currentExchangeRate ?? settings.exchangeRate;
+    // 종가 기반 Provider (프리/애프터에서 previousClose 사용)
+    final prices = ref.watch(closingPricesProvider);
+    final currentPrice = prices[holding.ticker] ?? holding.averagePrice;
+    final currentExchangeRate = ref.watch(currentExchangeRateProvider);
+    final quoteState = ref.watch(stockQuoteProvider);
+    final changePercent = quoteState.quotes[holding.ticker]?.changePercent;
 
     // 손익 계산
     final usdPL = holding.usdProfitLoss(currentPrice);
     final usdReturnRate = holding.usdReturnRate(currentPrice);
-    final krwTotalPL = holding.krwTotalProfitLoss(currentPrice, currentExchangeRate);
-    final krwReturnRate = holding.krwReturnRate(currentPrice, currentExchangeRate);
     final currencyPL = holding.currencyProfitLoss(currentExchangeRate);
 
     // 누적 실현손익 계산 (매도 거래의 realizedPnlKrw 합산)
@@ -185,8 +141,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
                   currentExchangeRate: currentExchangeRate,
                   usdPL: usdPL,
                   usdReturnRate: usdReturnRate,
-                  krwTotalPL: krwTotalPL,
-                  krwReturnRate: krwReturnRate,
+                  investedAmount: holding.totalInvestedAmount,
                   currencyPL: currencyPL,
                   quantity: holding.quantity,
                 ),
@@ -331,6 +286,11 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
   }
 
   void _showTradeDialog(BuildContext context, Holding holding) {
+    final prices = ref.read(closingPricesProvider);
+    final price = prices[holding.ticker];
+    final rate = ref.read(currentExchangeRateProvider);
+    final quote = ref.read(stockQuoteProvider).quotes[holding.ticker];
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -341,9 +301,9 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
         height: MediaQuery.of(context).size.height,
         child: TradeRecordSheet(
           holding: holding,
-          currentExchangeRate: _currentExchangeRate,
-          currentPrice: _currentPrice,
-          changePercent: _changePercent,
+          currentExchangeRate: rate,
+          currentPrice: price,
+          changePercent: quote?.changePercent,
         ),
       ),
     );

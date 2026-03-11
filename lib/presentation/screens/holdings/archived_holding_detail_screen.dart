@@ -7,7 +7,7 @@ import '../../../data/models/holding.dart';
 import '../../../data/models/holding_transaction.dart';
 import '../../providers/holding_providers.dart';
 import '../../providers/providers.dart';
-import 'widgets/holding_info_card.dart';
+import '../../widgets/shared/info_row.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../core/utils/number_formatter.dart';
 import 'widgets/transaction_list.dart';

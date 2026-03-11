@@ -78,10 +78,14 @@ class SignalDisplay extends StatelessWidget {
 
   Widget _buildLarge(BuildContext context, _SignalConfig config) {
     final bgOpacity = context.isDarkMode ? 0.15 : 0.08;
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 12 : 16,
+        vertical: isMobile ? 10 : 14,
+      ),
       decoration: BoxDecoration(
         color: config.color.withValues(alpha: bgOpacity),
         borderRadius: BorderRadius.circular(12),
@@ -93,47 +97,52 @@ class SignalDisplay extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 신호 아이콘 + 라벨
+          // 신호 아이콘 + 라벨 + 권장 금액 (같은 행)
           Row(
             children: [
-              Icon(
-                config.icon,
-                size: 20,
-                color: config.color,
-              ),
-              const SizedBox(width: 8),
+              Icon(config.icon, size: isMobile ? 18 : 20, color: config.color),
+              SizedBox(width: isMobile ? 6 : 8),
               Text(
                 config.label,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: isMobile ? 15 : 18,
                   fontWeight: FontWeight.bold,
                   color: config.color,
                 ),
               ),
+              if (amount != null && amount! > 0) ...[
+                const Spacer(),
+                Text(
+                  '$_actionLabel',
+                  style: TextStyle(
+                    fontSize: isMobile ? 11 : 13,
+                    color: context.appTextSecondary,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${formatKrwWithComma(amount!)}\u2009원',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+              ],
             ],
           ),
 
-          // 권장 금액
-          if (amount != null && amount! > 0) ...[
-            const SizedBox(height: 8),
-            Text(
-              '\u20A9${formatKrwWithComma(amount!)} $_actionLabel',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: context.appTextPrimary,
-              ),
-            ),
-          ],
-
-          // 손실률
+          // 손실률 (오른쪽 정렬)
           if (lossRate != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              '\uC190\uC2E4\uB960 ${lossRate! >= 0 ? '+' : ''}${lossRate!.toStringAsFixed(1)}%',
-              style: TextStyle(
-                fontSize: 13,
-                color: context.appTextSecondary,
+            SizedBox(height: isMobile ? 2 : 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                '\uC190\uC2E4\uB960 ${lossRate! >= 0 ? '+' : ''}${lossRate!.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 13,
+                  color: context.appTextSecondary,
+                ),
               ),
             ),
           ],

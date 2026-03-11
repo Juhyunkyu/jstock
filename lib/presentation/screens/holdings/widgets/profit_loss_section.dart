@@ -8,8 +8,7 @@ class ProfitLossSummaryCard extends StatelessWidget {
   final double currentExchangeRate;
   final double usdPL;
   final double usdReturnRate;
-  final double krwTotalPL;
-  final double krwReturnRate;
+  final double investedAmount;
   final double currencyPL;
   final int quantity;
 
@@ -19,18 +18,22 @@ class ProfitLossSummaryCard extends StatelessWidget {
     required this.currentExchangeRate,
     required this.usdPL,
     required this.usdReturnRate,
-    required this.krwTotalPL,
-    required this.krwReturnRate,
+    required this.investedAmount,
     required this.currencyPL,
     required this.quantity,
   });
 
   @override
   Widget build(BuildContext context) {
-    // 순수 원화 손익 (환차 제외) = 외화손익 * 현재환율
+    // 원화손익 = 외화손익 × 현재환율 (주가 변동분의 원화 환산)
     final pureKrwPL = usdPL * currentExchangeRate;
-    // 순수 원화 수익률
-    final pureKrwReturnRate = usdReturnRate; // 외화 수익률과 동일
+    final pureKrwReturnRate = usdReturnRate;
+
+    // 환차손익 행: 총합 = 원화손익 + 환차손익, 수익률도 총합 기준
+    final totalKrwPL = pureKrwPL + currencyPL;
+    final totalKrwReturnRate = investedAmount > 0
+        ? (totalKrwPL / investedAmount) * 100
+        : 0.0;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -105,12 +108,12 @@ class ProfitLossSummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
 
-          // 3. 환차손익: 총원화손익(환차손익만)
+          // 3. 환차손익: (원화손익+환차손익)(환차손익) 형식
           CurrencyProfitRow(
             label: '환차손익',
-            totalValue: krwTotalPL,
+            totalValue: totalKrwPL,
             currencyValue: currencyPL,
-            percentage: krwReturnRate,
+            percentage: totalKrwReturnRate,
           ),
         ],
       ),

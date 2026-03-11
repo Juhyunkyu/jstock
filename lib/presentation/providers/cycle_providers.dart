@@ -226,7 +226,7 @@ final cycleSignalProvider =
   final cycle = cycles.where((c) => c.id == cycleId).firstOrNull;
   if (cycle == null) return TradeSignal.hold;
 
-  final prices = ref.watch(currentPricesProvider);
+  final prices = ref.watch(closingPricesProvider);
   final currentPrice = prices[cycle.ticker] ?? 0;
   final liveExchangeRate = ref.watch(currentExchangeRateProvider);
 
@@ -253,7 +253,7 @@ final cycleSignalAmountProvider =
   final signal = ref.watch(cycleSignalProvider(cycleId));
   if (signal == TradeSignal.hold) return null;
 
-  final prices = ref.watch(currentPricesProvider);
+  final prices = ref.watch(closingPricesProvider);
   final currentPrice = prices[cycle.ticker] ?? 0;
   final liveExchangeRate = ref.watch(currentExchangeRateProvider);
 

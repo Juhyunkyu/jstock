@@ -35,23 +35,16 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
   final _priceController = TextEditingController();
   final _sharesController = TextEditingController();
   final _noteController = TextEditingController();
-  final _exchangeRateController = TextEditingController();
   final _realizedPnlController = TextEditingController();
   bool _isManualPnl = false;
 
   double get _price => double.tryParse(_priceController.text) ?? 0;
   double get _shares => double.tryParse(_sharesController.text) ?? 0;
-  double get _sellExchangeRate => double.tryParse(_exchangeRateController.text) ?? 0;
 
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
-    // 기준환율 초기값: 실시간 환율 > 설정 환율 (fallback)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final rate = widget.currentExchangeRate ?? ref.read(settingsProvider).exchangeRate;
-      _exchangeRateController.text = rate.toStringAsFixed(0);
-    });
   }
 
   @override
@@ -59,7 +52,6 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
     _priceController.dispose();
     _sharesController.dispose();
     _noteController.dispose();
-    _exchangeRateController.dispose();
     _realizedPnlController.dispose();
     super.dispose();
   }
@@ -68,7 +60,7 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
   Widget build(BuildContext context) {
     final exchangeRate = _isBuy
         ? widget.holding.exchangeRate
-        : (_sellExchangeRate > 0 ? _sellExchangeRate : widget.holding.exchangeRate);
+        : (widget.currentExchangeRate ?? widget.holding.exchangeRate);
     final amountKrw = _price * _shares * exchangeRate;
 
     // 매도 시 실현손익 자동계산 (수동 입력이 아닌 경우)
@@ -315,18 +307,6 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
             ),
             const SizedBox(height: 16),
 
-            // 기준환율 입력 (매도 시에만 표시)
-            if (!_isBuy) ...[
-              HoldingInputField(
-                label: '기준환율 (₩/\$)',
-                controller: _exchangeRateController,
-                prefix: '₩',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 16),
-            ],
-
             // 금액 표시
             Container(
               width: double.infinity,
@@ -352,9 +332,7 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _isBuy
-                        ? '(매입환율: \u20a9${exchangeRate.toStringAsFixed(0)}/\$)'
-                        : '(기준환율: \u20a9${exchangeRate.toStringAsFixed(0)}/\$)',
+                    '(환율: \u20a9${exchangeRate.toStringAsFixed(0)}/\$)',
                     style: TextStyle(fontSize: 11, color: context.appTextHint),
                   ),
                 ],
@@ -431,7 +409,7 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
               price: _price,
               shares: _shares,
               date: _selectedDate,
-              sellExchangeRate: _sellExchangeRate > 0 ? _sellExchangeRate : null,
+              sellExchangeRate: widget.currentExchangeRate,
               realizedPnlKrw: manualPnl,
               note: _noteController.text.isEmpty ? null : _noteController.text,
             );

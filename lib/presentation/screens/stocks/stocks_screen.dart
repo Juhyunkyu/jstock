@@ -45,7 +45,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
 
   @override
   Widget build(BuildContext context) {
-    final prices = ref.watch(currentPricesProvider);
+    final prices = ref.watch(closingPricesProvider);
     final summary = ref.watch(unifiedPortfolioProvider(prices));
     final alphaCycles = ref.watch(alphaCyclesProvider);
     final infiniteBuyCycles = ref.watch(infiniteBuyCyclesProvider);
@@ -281,7 +281,7 @@ class _ActiveCycleCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prices = ref.watch(currentPricesProvider);
+    final prices = ref.watch(closingPricesProvider);
     final currentPrice = prices[cycle.ticker] ?? 0.0;
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(cycle.id));
@@ -345,7 +345,9 @@ class _ActiveCycleCard extends ConsumerWidget {
             const SizedBox(height: 12),
 
             // 중단: 평가금 + 손익
-            Row(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
@@ -394,6 +396,7 @@ class _ActiveCycleCard extends ConsumerWidget {
                   ],
                 ),
               ],
+            ),
             ),
 
             const SizedBox(height: 10),

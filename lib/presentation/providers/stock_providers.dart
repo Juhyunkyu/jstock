@@ -182,6 +182,86 @@ final currentPricesProvider = Provider<Map<String, double>>((ref) {
   return quoteState.quotes.map((key, value) => MapEntry(key, value.currentPrice));
 });
 
+/// 캐시된 시장 상태 Provider (1분 간격 갱신)
+///
+/// FinnhubService.calculateMarketState()는 DST 계산 포함 — 매 WS 틱마다
+/// 호출하면 낭비. keepAlive + 1분 타이머로 캐시.
+final cachedMarketStateProvider = Provider<String>((ref) {
+  ref.keepAlive();
+  final state = FinnhubService.calculateMarketState();
+
+  // 1분 후 자동 무효화 → 다음 읽기 시 재계산
+  final timer = Future.delayed(const Duration(minutes: 1), () {
+    ref.invalidateSelf();
+  });
+  ref.onDispose(() {
+    // timer는 자동 GC되지만 명시적으로 무시
+    timer.ignore();
+  });
+
+  return state;
+});
+
+/// 종가 기반 가격 Provider (사이클/보유용)
+///
+/// 정규장: currentPrice (실시간)
+/// 프리/애프터/휴장: previousClose (종가)
+final closingPricesProvider = Provider<Map<String, double>>((ref) {
+  final quoteState = ref.watch(stockQuoteProvider);
+  final isRegular = ref.watch(cachedMarketStateProvider) == 'REGULAR';
+  return quoteState.quotes.map((key, quote) {
+    if (isRegular) {
+      return MapEntry(key, quote.currentPrice);
+    }
+    // 프리/애프터/휴장 → 종가 사용 (previousClose가 0이면 currentPrice 폴백)
+    return MapEntry(key, quote.previousClose > 0 ? quote.previousClose : quote.currentPrice);
+  });
+});
+
+/// 프리/애프터 가격 정보 Provider (관심종목 서브라인용)
+///
+/// 프리/애프터 시간에만 값이 있음. 정규장/휴장에는 null.
+final extendedHoursPriceProvider = Provider<Map<String, ExtendedHoursPrice>>((ref) {
+  final quoteState = ref.watch(stockQuoteProvider);
+  final marketState = ref.watch(cachedMarketStateProvider);
+  final result = <String, ExtendedHoursPrice>{};
+
+  // 정규장/휴장에는 프리/애프터 데이터 없음
+  if (marketState != 'PRE' && marketState != 'PREPRE' &&
+      marketState != 'POST' && marketState != 'POSTPOST') {
+    return result;
+  }
+
+  for (final entry in quoteState.quotes.entries) {
+    final quote = entry.value;
+    final extPrice = quote.currentPrice;
+    final closePrice = quote.previousClose > 0 ? quote.previousClose : 0.0;
+    if (closePrice > 0 && extPrice > 0) {
+      final changePct = ((extPrice - closePrice) / closePrice) * 100;
+      result[entry.key] = ExtendedHoursPrice(
+        price: extPrice,
+        changePercent: changePct,
+        label: (marketState == 'PRE' || marketState == 'PREPRE') ? '프리' : '애프터',
+      );
+    }
+  }
+
+  return result;
+});
+
+/// 프리/애프터 가격 데이터
+class ExtendedHoursPrice {
+  final double price;
+  final double changePercent;
+  final String label; // '프리' or '애프터'
+
+  const ExtendedHoursPrice({
+    required this.price,
+    required this.changePercent,
+    required this.label,
+  });
+}
+
 /// 사용자 종목 목록 Provider (가격 정보 포함)
 final userStocksProvider = Provider<List<Stock>>((ref) {
   final prices = ref.watch(stockPriceProvider);

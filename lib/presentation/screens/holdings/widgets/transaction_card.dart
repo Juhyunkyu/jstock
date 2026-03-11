@@ -8,6 +8,7 @@ import '../../../../data/models/holding_transaction.dart';
 import '../../../providers/holding_providers.dart';
 import '../../../providers/providers.dart';
 import '../../../widgets/shared/confirm_dialog.dart';
+import '../../../widgets/shared/info_row.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import 'edit_transaction_sheet.dart'; // EditTransactionSheet to be extracted later
 
@@ -291,21 +292,21 @@ class TransactionCard extends ConsumerWidget {
             const Divider(height: 1),
             const SizedBox(height: 16),
             // 상세 정보
-            _DetailRow(label: '단가', value: '\$${transaction.price.toStringAsFixed(2)}'),
+            InfoRow(flexible: true, fontSize: 14,label: '단가', value: '\$${transaction.price.toStringAsFixed(2)}'),
             const SizedBox(height: 10),
-            _DetailRow(
+            InfoRow(flexible: true, fontSize: 14,
               label: '수량',
               value: '${transaction.shares.toStringAsFixed(transaction.shares == transaction.shares.roundToDouble() ? 0 : 2)}주',
             ),
             const SizedBox(height: 10),
-            _DetailRow(label: '거래금액 (USD)', value: '\$${amountUsd.toStringAsFixed(2)}'),
+            InfoRow(flexible: true, fontSize: 14,label: '거래금액 (USD)', value: '\$${amountUsd.toStringAsFixed(2)}'),
             const SizedBox(height: 10),
-            _DetailRow(
+            InfoRow(flexible: true, fontSize: 14,
               label: '거래금액 (원)',
               value: formatKrw(amountKrw),
             ),
             const SizedBox(height: 10),
-            _DetailRow(
+            InfoRow(flexible: true, fontSize: 14,
               label: '적용환율',
               value: '₩${exchangeRate.toStringAsFixed(0)} / \$1',
             ),
@@ -333,7 +334,7 @@ class TransactionCard extends ConsumerWidget {
             ],
             if (transaction.note != null && transaction.note!.isNotEmpty) ...[
               const SizedBox(height: 10),
-              _DetailRow(label: '메모', value: transaction.note!),
+              InfoRow(flexible: true, fontSize: 14,label: '메모', value: transaction.note!),
             ],
             const SizedBox(height: 16),
           ],
@@ -445,36 +446,5 @@ class TransactionCard extends ConsumerWidget {
 
   Color _getTypeColor(HoldingTransaction transaction) {
     return transaction.isBuy ? AppColors.buyAction : AppColors.sellAction;
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _DetailRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 14, color: context.appTextSecondary),
-        ),
-        Flexible(
-          child: Text(
-            value,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: context.appTextPrimary,
-            ),
-            textAlign: TextAlign.end,
-          ),
-        ),
-      ],
-    );
   }
 }

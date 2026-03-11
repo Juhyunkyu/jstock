@@ -183,7 +183,7 @@ class FinnhubService {
     }
 
     // 시장 상태 계산 (미국 동부시간 기준)
-    final marketState = _calculateMarketState();
+    final marketState = calculateMarketState();
 
     return StockQuote(
       symbol: symbol.toUpperCase(),
@@ -198,12 +198,12 @@ class FinnhubService {
     );
   }
 
-  /// 시장 상태 계산 (미국 동부시간 기준)
-  String _calculateMarketState() {
+  /// 시장 상태 계산 (미국 동부시간 기준) — 공개 static
+  static String calculateMarketState() {
     final now = DateTime.now().toUtc();
-    // EDT: UTC-4, EST: UTC-5 (DST 적용 여부에 따라)
-    // 간단히 UTC-5로 계산 (EST)
-    final eastern = now.subtract(const Duration(hours: 5));
+    // DST: 3월 둘째 일요일 ~ 11월 첫째 일요일 → EDT(UTC-4), 그 외 EST(UTC-5)
+    final isDst = _isDaylightSavingTime(now);
+    final eastern = now.subtract(Duration(hours: isDst ? 4 : 5));
     final hour = eastern.hour;
     final minute = eastern.minute;
     final weekday = eastern.weekday;
@@ -228,6 +228,27 @@ class FinnhubService {
     }
 
     return 'CLOSED';
+  }
+
+  /// 미국 서머타임 판별 (3월 둘째 일요일 ~ 11월 첫째 일요일)
+  static bool _isDaylightSavingTime(DateTime utcNow) {
+    final year = utcNow.year;
+
+    // 3월 둘째 일요일 02:00 EST → UTC 07:00
+    final marchFirst = DateTime.utc(year, 3, 1);
+    final marchSecondSunday = marchFirst.add(
+      Duration(days: (7 - marchFirst.weekday) % 7 + 7),
+    );
+    final dstStart = marchSecondSunday.add(const Duration(hours: 7));
+
+    // 11월 첫째 일요일 02:00 EDT → UTC 06:00
+    final novFirst = DateTime.utc(year, 11, 1);
+    final novFirstSunday = novFirst.weekday == DateTime.sunday
+        ? novFirst
+        : novFirst.add(Duration(days: 7 - novFirst.weekday));
+    final dstEnd = novFirstSunday.add(const Duration(hours: 6));
+
+    return utcNow.isAfter(dstStart) && utcNow.isBefore(dstEnd);
   }
 
   /// 여러 종목 시세 일괄 조회

@@ -560,7 +560,7 @@ class HoldingWithPrice {
 /// 보유 + 현재가 Provider
 final holdingsWithPriceProvider = Provider<List<HoldingWithPrice>>((ref) {
   final holdings = ref.watch(activeHoldingsProvider);
-  final prices = ref.watch(currentPricesProvider);
+  final prices = ref.watch(closingPricesProvider);
   final settings = ref.watch(settingsProvider);
   final exchangeRate = settings.exchangeRate;
 

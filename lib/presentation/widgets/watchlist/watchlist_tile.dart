@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../providers/api_providers.dart';
+import '../../providers/stock_providers.dart';
 import '../../providers/watchlist_group_providers.dart';
 import '../shared/return_badge.dart';
 import '../shared/ticker_logo.dart';
@@ -36,8 +37,10 @@ class WatchlistTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final quoteState = ref.watch(stockQuoteProvider);
-    final quote = quoteState.quotes[item.ticker];
+    // .select()로 해당 심볼의 quote만 watch → 다른 심볼 WS 틱에 rebuild 방지
+    final quote = ref.watch(
+      stockQuoteProvider.select((state) => state.quotes[item.ticker]),
+    );
 
     final tileContent = Container(
       decoration: inGrid
@@ -140,13 +143,17 @@ class WatchlistTile extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // 현재가 / 등락률
+                  // 현재가 / 등락률 / 프리·애프터
                   if (quote != null) ...[
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          formatPrice(quote.currentPrice),
+                          formatPrice(ref.watch(
+                            closingPricesProvider.select(
+                              (map) => map[item.ticker] ?? quote.currentPrice,
+                            ),
+                          )),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -159,6 +166,13 @@ class WatchlistTile extends ConsumerWidget {
                           size: ReturnBadgeSize.small,
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
+                        ),
+                        ExtendedHoursSubLine(
+                          extPrice: ref.watch(
+                            extendedHoursPriceProvider.select(
+                              (map) => map[item.ticker],
+                            ),
+                          ),
                         ),
                       ],
                     ),

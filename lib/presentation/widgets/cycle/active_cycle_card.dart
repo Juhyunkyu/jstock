@@ -27,7 +27,7 @@ class ActiveCycleCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prices = ref.watch(currentPricesProvider);
+    final prices = ref.watch(closingPricesProvider);
     final currentPrice = prices[cycle.ticker] ?? 0.0;
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(cycle.id));

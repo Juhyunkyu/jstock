@@ -347,7 +347,11 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          formatPrice(quote.currentPrice),
+                          formatPrice(ref.watch(
+                            closingPricesProvider.select(
+                              (map) => map[widget.ticker] ?? quote.currentPrice,
+                            ),
+                          )),
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
@@ -360,6 +364,13 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
                           size: ReturnBadgeSize.small,
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
+                        ),
+                        ExtendedHoursSubLine(
+                          extPrice: ref.watch(
+                            extendedHoursPriceProvider.select(
+                              (map) => map[widget.ticker],
+                            ),
+                          ),
                         ),
                       ],
                     ),
