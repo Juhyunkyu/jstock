@@ -64,10 +64,6 @@ class StockQuote {
   final double volume;
   final DateTime timestamp;
   final String marketState;
-  final double? preMarketPrice;
-  final double? preMarketChange;
-  final double? postMarketPrice;
-  final double? postMarketChange;
 
   const StockQuote({
     required this.symbol,
@@ -79,40 +75,15 @@ class StockQuote {
     required this.volume,
     required this.timestamp,
     this.marketState = 'CLOSED',
-    this.preMarketPrice,
-    this.preMarketChange,
-    this.postMarketPrice,
-    this.postMarketChange,
   });
 
   bool get isPositive => changePercent >= 0;
   bool get isMarketOpen => marketState == 'REGULAR';
-  bool get hasPreMarketData => preMarketPrice != null && preMarketPrice! > 0;
-  bool get hasPostMarketData => postMarketPrice != null && postMarketPrice! > 0;
-
-  double get relevantPrice {
-    switch (marketState) {
-      case 'PRE':
-      case 'PREPRE':
-        return preMarketPrice ?? currentPrice;
-      case 'POST':
-      case 'POSTPOST':
-        return postMarketPrice ?? currentPrice;
-      default:
-        return currentPrice;
-    }
-  }
 
   String get marketStateKorean {
     switch (marketState) {
       case 'REGULAR':
         return '개장중';
-      case 'PRE':
-      case 'PREPRE':
-        return '프리마켓';
-      case 'POST':
-      case 'POSTPOST':
-        return '애프터마켓';
       case 'CLOSED':
       default:
         return '휴장';

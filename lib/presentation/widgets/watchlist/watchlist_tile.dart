@@ -143,7 +143,7 @@ class WatchlistTile extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  // 현재가 / 등락률 / 프리·애프터
+                  // 현재가 / 등락률
                   if (quote != null) ...[
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -166,13 +166,6 @@ class WatchlistTile extends ConsumerWidget {
                           size: ReturnBadgeSize.small,
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
-                        ),
-                        ExtendedHoursSubLine(
-                          extPrice: ref.watch(
-                            extendedHoursPriceProvider.select(
-                              (map) => map[item.ticker],
-                            ),
-                          ),
                         ),
                       ],
                     ),

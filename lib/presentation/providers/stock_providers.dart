@@ -218,50 +218,6 @@ final closingPricesProvider = Provider<Map<String, double>>((ref) {
   });
 });
 
-/// 프리/애프터 가격 정보 Provider (관심종목 서브라인용)
-///
-/// 프리/애프터 시간에만 값이 있음. 정규장/휴장에는 null.
-final extendedHoursPriceProvider = Provider<Map<String, ExtendedHoursPrice>>((ref) {
-  final quoteState = ref.watch(stockQuoteProvider);
-  final marketState = ref.watch(cachedMarketStateProvider);
-  final result = <String, ExtendedHoursPrice>{};
-
-  // 정규장/휴장에는 프리/애프터 데이터 없음
-  if (marketState != 'PRE' && marketState != 'PREPRE' &&
-      marketState != 'POST' && marketState != 'POSTPOST') {
-    return result;
-  }
-
-  for (final entry in quoteState.quotes.entries) {
-    final quote = entry.value;
-    final extPrice = quote.currentPrice;
-    final closePrice = quote.previousClose > 0 ? quote.previousClose : 0.0;
-    if (closePrice > 0 && extPrice > 0) {
-      final changePct = ((extPrice - closePrice) / closePrice) * 100;
-      result[entry.key] = ExtendedHoursPrice(
-        price: extPrice,
-        changePercent: changePct,
-        label: (marketState == 'PRE' || marketState == 'PREPRE') ? '프리' : '애프터',
-      );
-    }
-  }
-
-  return result;
-});
-
-/// 프리/애프터 가격 데이터
-class ExtendedHoursPrice {
-  final double price;
-  final double changePercent;
-  final String label; // '프리' or '애프터'
-
-  const ExtendedHoursPrice({
-    required this.price,
-    required this.changePercent,
-    required this.label,
-  });
-}
-
 /// 사용자 종목 목록 Provider (가격 정보 포함)
 final userStocksProvider = Provider<List<Stock>>((ref) {
   final prices = ref.watch(stockPriceProvider);

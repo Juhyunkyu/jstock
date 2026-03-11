@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../providers/stock_providers.dart';
 
 /// 종목 타입별 색상
 Color getTypeColor(String type) {
@@ -45,54 +44,3 @@ String formatPrice(double price) {
       );
 }
 
-/// 프리/애프터 마켓 가격 서브라인 위젯
-///
-/// [extPrice]가 null이면 아무것도 렌더링하지 않음.
-/// 우측 정렬로 정규장 가격 아래에 표시.
-class ExtendedHoursSubLine extends StatelessWidget {
-  final ExtendedHoursPrice? extPrice;
-
-  const ExtendedHoursSubLine({super.key, required this.extPrice});
-
-  @override
-  Widget build(BuildContext context) {
-    if (extPrice == null) return const SizedBox.shrink();
-    final ep = extPrice!;
-    final isPositive = ep.changePercent >= 0;
-    final changeColor = (isPositive ? AppColors.red500 : AppColors.blue500)
-        .withValues(alpha: 0.7);
-    final sign = isPositive ? '+' : '';
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            ep.label,
-            style: TextStyle(
-              fontSize: 11,
-              color: context.appTextHint,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            '\$${formatPrice(ep.price)}',
-            style: TextStyle(
-              fontSize: 12,
-              color: context.appTextSecondary,
-            ),
-          ),
-          const SizedBox(width: 3),
-          Text(
-            '$sign${ep.changePercent.toStringAsFixed(2)}%',
-            style: TextStyle(
-              fontSize: 11,
-              color: changeColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

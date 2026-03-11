@@ -365,13 +365,6 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
                         ),
-                        ExtendedHoursSubLine(
-                          extPrice: ref.watch(
-                            extendedHoursPriceProvider.select(
-                              (map) => map[widget.ticker],
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ] else ...[
