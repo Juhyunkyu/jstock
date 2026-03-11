@@ -148,7 +148,8 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     final cycle = cycles.where((c) => c.id == _cycleId).firstOrNull;
     if (cycle == null) return;
 
-    final trades = state; // updateTrade/deleteTradeAndRecalculate에서 이미 로드됨
+    // 시간순 정렬 (오래된 것 먼저) — entryPrice는 첫 매수 가격이어야 함
+    final trades = [...state]..sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
 
     // 순수 USD VWAP 재계산
     double totalBuyShares = 0;

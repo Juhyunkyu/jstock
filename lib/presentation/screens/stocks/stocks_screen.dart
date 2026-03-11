@@ -43,6 +43,20 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
     super.dispose();
   }
 
+  List<Color> _getTabColors(WidgetRef ref) {
+    final settings = ref.watch(settingsProvider);
+    final smartColor = settings.alphaCycleChartColor != 0
+        ? Color(settings.alphaCycleChartColor)
+        : const Color(0xFF58A6FF);
+    final steadyColor = settings.steadyCycleChartColor != 0
+        ? Color(settings.steadyCycleChartColor)
+        : const Color(0xFF4ADE80);
+    final holdingColor = settings.holdingChartColor != 0
+        ? Color(settings.holdingChartColor)
+        : const Color(0xFFA78BFA);
+    return [smartColor, steadyColor, holdingColor];
+  }
+
   Widget _buildFab(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
     final isHoldingTab = _tabController.index == 2;
@@ -142,6 +156,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                 alphaCount: alphaCycles.length,
                 infiniteBuyCount: infiniteBuyCycles.length,
                 holdingCount: activeHoldings.length,
+                tabColors: _getTabColors(ref),
               ),
             ),
           ],
@@ -186,12 +201,14 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final int alphaCount;
   final int infiniteBuyCount;
   final int holdingCount;
+  final List<Color> tabColors;
 
   const _TabBarDelegate({
     required this.tabController,
     required this.alphaCount,
     required this.infiniteBuyCount,
     required this.holdingCount,
+    required this.tabColors,
   });
 
   @override
@@ -203,26 +220,125 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(
       BuildContext context, double shrinkOffset, bool overlapsContent) {
+    final selectedIndex = tabController.index;
+    final hintColor = context.appTextHint;
+
     return Container(
       color: context.appBackground,
       child: TabBar(
         controller: tabController,
-        indicatorColor: context.appAccent,
+        indicatorColor: tabColors[selectedIndex],
         indicatorWeight: 2.5,
-        labelColor: context.appAccent,
-        unselectedLabelColor: context.appTextHint,
-        labelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
+        labelPadding: EdgeInsets.zero,
         tabs: [
-          Tab(text: 'Smart ($alphaCount)'),
-          Tab(text: 'Steady ($infiniteBuyCount)'),
-          Tab(text: '일반 ($holdingCount)'),
+          _buildTab(
+            context: context,
+            label: 'Smart ($alphaCount)',
+            color: selectedIndex == 0 ? tabColors[0] : hintColor,
+            isSelected: selectedIndex == 0,
+            helpColor: tabColors[0],
+            helpContent: _smartCycleHelp,
+            helpTitle: 'Smart Cycle',
+          ),
+          _buildTab(
+            context: context,
+            label: 'Steady ($infiniteBuyCount)',
+            color: selectedIndex == 1 ? tabColors[1] : hintColor,
+            isSelected: selectedIndex == 1,
+            helpColor: tabColors[1],
+            helpContent: _steadyCycleHelp,
+            helpTitle: 'Steady Cycle',
+          ),
+          _buildTab(
+            context: context,
+            label: '일반 ($holdingCount)',
+            color: selectedIndex == 2 ? tabColors[2] : hintColor,
+            isSelected: selectedIndex == 2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Tab _buildTab({
+    required BuildContext context,
+    required String label,
+    required Color color,
+    required bool isSelected,
+    Color? helpColor,
+    String? helpContent,
+    String? helpTitle,
+  }) {
+    return Tab(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (helpContent != null) ...[
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _showStrategyHelpDialog(
+                context,
+                title: helpTitle!,
+                titleColor: helpColor!,
+                content: helpContent,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+                child: Icon(
+                  Icons.help_outline,
+                  size: 14,
+                  color: color,
+                ),
+              ),
+            ),
+            const SizedBox(width: 2),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStrategyHelpDialog(
+    BuildContext context, {
+    required String title,
+    required Color titleColor,
+    required String content,
+  }) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.appSurface,
+        title: Text(
+          title,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: titleColor,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            content,
+            style: TextStyle(
+              fontSize: 13,
+              color: context.appTextSecondary,
+              height: 1.6,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('닫기'),
+          ),
         ],
       ),
     );
@@ -232,9 +348,32 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _TabBarDelegate oldDelegate) {
     return alphaCount != oldDelegate.alphaCount ||
         infiniteBuyCount != oldDelegate.infiniteBuyCount ||
-        holdingCount != oldDelegate.holdingCount;
+        holdingCount != oldDelegate.holdingCount ||
+        tabColors != oldDelegate.tabColors;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// 전략 설명 텍스트
+// ═══════════════════════════════════════════════════════════════
+
+const _smartCycleHelp = '스마트 방어형 매매법\n\n'
+    '핵심 메커니즘:\n'
+    '• 초기 매수: 시드머니의 20%로 첫 매수\n'
+    '• 가중 매수: 하락 시 점진적으로 비중 확대\n'
+    '• 승부수: -50% 하락 시 잔여 현금 전량 투입\n'
+    '• 적응형 익절: 연속 익절 시 목표가 자동 상향\n'
+    '• 현금 보존: 익절 시 원금 회수로 현금 확보\n\n'
+    '추천 대상: 안전지향형 투자자, 규칙기반 매매, 단일 종목 집중';
+
+const _steadyCycleHelp = '꾸준한 분할매수형\n\n'
+    '핵심 메커니즘:\n'
+    '• 40분할: 시드머니를 40등분하여 기계적 매수\n'
+    '• 조건부 매수: 평단 이하면 1회분, 이상이면 0.5회분\n'
+    '• +10% 익절: 전량 매도 후 새 사이클 시작\n'
+    '• 복리 효과: 사이클 반복으로 수익 극대화\n'
+    '• 40회 소진: 추가 매수 없이 익절 대기\n\n'
+    '추천 대상: 기계적 매매 선호, 레버리지 ETF 투자자, 복리 성장 추구';
 
 // ═══════════════════════════════════════════════════════════════
 // 사이클 목록 탭

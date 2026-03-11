@@ -33,6 +33,37 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
 
   void _loadCycles() {
     state = _repository.getAll();
+    // 기존 사이클의 잘못된 entryPrice 교정 (비동기 → 완료 후 state 갱신)
+    _fixEntryPrices();
+  }
+
+  /// 기존 Smart 사이클의 entryPrice를 시간순 첫 매수 가격으로 교정
+  /// (getByCycleId가 역순 정렬이어서 잘못된 값이 저장된 버그 수정)
+  Future<void> _fixEntryPrices() async {
+    bool changed = false;
+    for (final cycle in state) {
+      if (cycle.strategyType != StrategyType.alphaCycleV3) continue;
+      if (cycle.status != CycleStatus.active) continue;
+
+      final trades = _tradeRepository.getByCycleId(cycle.id);
+      if (trades.isEmpty) continue;
+
+      // 시간순 정렬 (오래된 것 먼저)
+      trades.sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
+      final firstBuy = trades
+          .where((t) => t.action == TradeAction.buy)
+          .firstOrNull;
+      if (firstBuy == null) continue;
+
+      if (cycle.entryPrice != firstBuy.price) {
+        cycle.entryPrice = firstBuy.price;
+        await _repository.save(cycle);
+        changed = true;
+      }
+    }
+    if (changed) {
+      state = _repository.getAll();
+    }
   }
 
   Future<void> refresh() async {
