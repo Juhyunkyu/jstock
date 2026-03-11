@@ -111,6 +111,10 @@ class Settings extends HiveObject {
   @HiveField(18, defaultValue: 0)
   int holdingChartColor;
 
+  /// Steady Cycle 차트 색상 (0 = 기본색 사용, 양수 = Color.value)
+  @HiveField(19, defaultValue: 0)
+  int steadyCycleChartColor;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -131,6 +135,7 @@ class Settings extends HiveObject {
     this.chartIndicators = 'VOL',
     this.alphaCycleChartColor = 0,
     this.holdingChartColor = 0,
+    this.steadyCycleChartColor = 0,
   });
 
   /// 기본 설정 생성
@@ -157,6 +162,7 @@ class Settings extends HiveObject {
     String? chartIndicators,
     int? alphaCycleChartColor,
     int? holdingChartColor,
+    int? steadyCycleChartColor,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -178,6 +184,7 @@ class Settings extends HiveObject {
       chartIndicators: chartIndicators ?? this.chartIndicators,
       alphaCycleChartColor: alphaCycleChartColor ?? this.alphaCycleChartColor,
       holdingChartColor: holdingChartColor ?? this.holdingChartColor,
+      steadyCycleChartColor: steadyCycleChartColor ?? this.steadyCycleChartColor,
     );
   }
 
@@ -201,6 +208,7 @@ class Settings extends HiveObject {
         'chartIndicators': chartIndicators,
         'alphaCycleChartColor': alphaCycleChartColor,
         'holdingChartColor': holdingChartColor,
+        'steadyCycleChartColor': steadyCycleChartColor,
       };
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
@@ -223,6 +231,7 @@ class Settings extends HiveObject {
         chartIndicators: json['chartIndicators'] as String? ?? 'VOL',
         alphaCycleChartColor: json['alphaCycleChartColor'] as int? ?? 0,
         holdingChartColor: json['holdingChartColor'] as int? ?? 0,
+        steadyCycleChartColor: json['steadyCycleChartColor'] as int? ?? 0,
       );
 
   @override

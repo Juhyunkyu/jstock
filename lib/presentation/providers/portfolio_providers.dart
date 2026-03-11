@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/models/cycle.dart';
 import '../../domain/trading/trading_math.dart';
 import 'cycle_providers.dart';
 import 'holding_providers.dart';
@@ -21,17 +22,29 @@ class UnifiedPortfolioSummary {
   /// 보유 종목 수
   final int holdingCount;
 
-  /// 사이클 총 자산 (평가금 + 잔여현금)
-  final double cycleValue;
+  /// Smart Cycle 총 자산 (평가금 + 잔여현금)
+  final double smartCycleValue;
 
-  /// 사이클 총 투자금 (seedAmount 합계)
-  final double cycleInvested;
+  /// Smart Cycle 총 투자금 (seedAmount 합계)
+  final double smartCycleInvested;
 
-  /// 사이클 손익
-  final double cycleProfit;
+  /// Smart Cycle 손익
+  final double smartCycleProfit;
 
-  /// 사이클 수
-  final int cycleCount;
+  /// Smart Cycle 수
+  final int smartCycleCount;
+
+  /// Steady Cycle 총 자산 (평가금 + 잔여현금)
+  final double steadyCycleValue;
+
+  /// Steady Cycle 총 투자금 (seedAmount 합계)
+  final double steadyCycleInvested;
+
+  /// Steady Cycle 손익
+  final double steadyCycleProfit;
+
+  /// Steady Cycle 수
+  final int steadyCycleCount;
 
   const UnifiedPortfolioSummary({
     this.holdingValue = 0,
@@ -39,20 +52,40 @@ class UnifiedPortfolioSummary {
     this.holdingProfit = 0,
     this.holdingReturnRate = 0,
     this.holdingCount = 0,
-    this.cycleValue = 0,
-    this.cycleInvested = 0,
-    this.cycleProfit = 0,
-    this.cycleCount = 0,
+    this.smartCycleValue = 0,
+    this.smartCycleInvested = 0,
+    this.smartCycleProfit = 0,
+    this.smartCycleCount = 0,
+    this.steadyCycleValue = 0,
+    this.steadyCycleInvested = 0,
+    this.steadyCycleProfit = 0,
+    this.steadyCycleCount = 0,
   });
 
+  // === 합산 getters (backward compat) ===
+
+  /// 사이클 총 자산 (Smart + Steady)
+  double get cycleValue => smartCycleValue + steadyCycleValue;
+
+  /// 사이클 총 투자금 (Smart + Steady)
+  double get cycleInvested => smartCycleInvested + steadyCycleInvested;
+
+  /// 사이클 총 손익 (Smart + Steady)
+  double get cycleProfit => smartCycleProfit + steadyCycleProfit;
+
+  /// 사이클 총 수 (Smart + Steady)
+  int get cycleCount => smartCycleCount + steadyCycleCount;
+
+  // === 전체 합산 ===
+
   /// 전체 자산
-  double get totalValue => holdingValue + cycleValue;
+  double get totalValue => holdingValue + smartCycleValue + steadyCycleValue;
 
   /// 전체 투자금
-  double get totalInvested => holdingInvested + cycleInvested;
+  double get totalInvested => holdingInvested + smartCycleInvested + steadyCycleInvested;
 
   /// 전체 손익
-  double get totalProfit => holdingProfit + cycleProfit;
+  double get totalProfit => holdingProfit + smartCycleProfit + steadyCycleProfit;
 
   /// 전체 수익률
   double get totalReturnRate {
@@ -60,11 +93,22 @@ class UnifiedPortfolioSummary {
     return (totalProfit / totalInvested) * 100;
   }
 
-  /// 알파 사이클 비율 (%)
-  double get alphaCycleRatio {
+  // === 비율 getters ===
+
+  /// Smart Cycle 비율 (%)
+  double get smartCycleRatio {
     if (totalValue == 0) return 0;
-    return (cycleValue / totalValue) * 100;
+    return (smartCycleValue / totalValue) * 100;
   }
+
+  /// Steady Cycle 비율 (%)
+  double get steadyCycleRatio {
+    if (totalValue == 0) return 0;
+    return (steadyCycleValue / totalValue) * 100;
+  }
+
+  /// 알파 사이클 비율 (%) — backward compat (Smart + Steady)
+  double get alphaCycleRatio => smartCycleRatio + steadyCycleRatio;
 
   /// 보유 비율 (%)
   double get holdingRatio {
@@ -76,14 +120,16 @@ class UnifiedPortfolioSummary {
   int get totalPositionCount => holdingCount + cycleCount;
 
   /// 데이터 존재 여부
-  bool get hasData => holdingCount > 0 || cycleCount > 0;
+  bool get hasData => smartCycleCount > 0 || steadyCycleCount > 0 || holdingCount > 0;
 
   /// 이상 데이터 감지 (음수 자산, 음수 투자금 등)
   bool get hasAnomalousData =>
       holdingValue < 0 ||
       holdingInvested < 0 ||
-      cycleValue < 0 ||
-      cycleInvested < 0 ||
+      smartCycleValue < 0 ||
+      smartCycleInvested < 0 ||
+      steadyCycleValue < 0 ||
+      steadyCycleInvested < 0 ||
       totalValue.isNaN ||
       totalInvested.isNaN;
 }
@@ -103,12 +149,14 @@ final unifiedPortfolioProvider =
     holdingReturnRate = (holdingTotalProfit / holdingTotalInvested) * 100;
   }
 
-  // 사이클 데이터
+  // 사이클 데이터 (Smart / Steady 분리)
   final activeCycles = ref.watch(activeCyclesProvider);
   final liveExchangeRate = ref.watch(currentExchangeRateProvider);
 
-  double cycleValueTotal = 0;
-  double cycleInvestedTotal = 0;
+  double smartValue = 0, smartInvested = 0;
+  double steadyValue = 0, steadyInvested = 0;
+  int smartCount = 0, steadyCount = 0;
+
   for (final cycle in activeCycles) {
     final currentPrice = prices[cycle.ticker] ?? 0;
     final evalAmt = TradingMath.evaluatedAmount(
@@ -116,10 +164,18 @@ final unifiedPortfolioProvider =
       currentPrice,
       liveExchangeRate,
     );
-    cycleValueTotal += evalAmt + cycle.remainingCash;
-    cycleInvestedTotal += cycle.seedAmount;
+    final totalVal = evalAmt + cycle.remainingCash;
+
+    if (cycle.strategyType == StrategyType.alphaCycleV3) {
+      smartValue += totalVal;
+      smartInvested += cycle.seedAmount;
+      smartCount++;
+    } else {
+      steadyValue += totalVal;
+      steadyInvested += cycle.seedAmount;
+      steadyCount++;
+    }
   }
-  final cycleProfitTotal = cycleValueTotal - cycleInvestedTotal;
 
   return UnifiedPortfolioSummary(
     holdingValue: holdingTotalValue,
@@ -127,10 +183,14 @@ final unifiedPortfolioProvider =
     holdingProfit: holdingTotalProfit,
     holdingReturnRate: holdingReturnRate,
     holdingCount: activeHoldings.length,
-    cycleValue: cycleValueTotal,
-    cycleInvested: cycleInvestedTotal,
-    cycleProfit: cycleProfitTotal,
-    cycleCount: activeCycles.length,
+    smartCycleValue: smartValue,
+    smartCycleInvested: smartInvested,
+    smartCycleProfit: smartValue - smartInvested,
+    smartCycleCount: smartCount,
+    steadyCycleValue: steadyValue,
+    steadyCycleInvested: steadyInvested,
+    steadyCycleProfit: steadyValue - steadyInvested,
+    steadyCycleCount: steadyCount,
   );
 });
 

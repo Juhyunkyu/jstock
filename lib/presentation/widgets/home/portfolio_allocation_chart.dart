@@ -8,7 +8,7 @@ import '../../../presentation/providers/settings_providers.dart';
 
 /// 내 포트폴리오 차트 위젯
 ///
-/// 사이클 + 일반 보유의 자산을 도넛 차트로 표시하고,
+/// Smart Cycle + Steady Cycle + 일반 보유의 자산을 도넛 차트로 표시하고,
 /// 하단에 총 시드 대비 손익을 보여줍니다.
 /// 범례의 색상 네모를 탭하면 색상을 변경할 수 있습니다.
 class PortfolioAllocationChart extends ConsumerStatefulWidget {
@@ -31,11 +31,17 @@ class PortfolioAllocationChart extends ConsumerStatefulWidget {
 
 class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationChart> {
   /// 사용자 선택 색상 (null이면 기본값 사용)
-  Color? _cycleColor;
+  Color? _smartCycleColor;
+  Color? _steadyCycleColor;
   Color? _holdingColor;
 
-  /// 현재 편집 중인 범례 인덱스 (0=사이클, 1=일반 보유, null=없음)
+  /// 현재 편집 중인 범례 인덱스 (0=Smart, 1=Steady, 2=일반 보유, null=없음)
   int? _editingIndex;
+
+  /// 기본 세그먼트 색상 (밝고 선명, 라이트/다크 모두에서 잘 보임)
+  static const Color _defaultSmartColor = Color(0xFF58A6FF);  // bright blue
+  static const Color _defaultSteadyColor = Color(0xFF4ADE80); // bright green
+  static const Color _defaultHoldingColor = Color(0xFFA78BFA); // purple
 
   /// 선택 가능한 색상 팔레트
   static const List<Color> _colorPalette = [
@@ -61,22 +67,28 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     // 저장된 색상 로드 (0이면 기본색 사용)
     final settings = ref.read(settingsProvider);
     if (settings.alphaCycleChartColor != 0) {
-      _cycleColor = Color(settings.alphaCycleChartColor);
+      _smartCycleColor = Color(settings.alphaCycleChartColor);
+    }
+    if (settings.steadyCycleChartColor != 0) {
+      _steadyCycleColor = Color(settings.steadyCycleChartColor);
     }
     if (settings.holdingChartColor != 0) {
       _holdingColor = Color(settings.holdingChartColor);
     }
   }
 
-  Color _getCycleColor() => _cycleColor ?? AppColors.primary;
-
-  Color _getHoldingColor() => _holdingColor ?? AppColors.secondary;
+  Color _getSmartColor() => _smartCycleColor ?? _defaultSmartColor;
+  Color _getSteadyColor() => _steadyCycleColor ?? _defaultSteadyColor;
+  Color _getHoldingColor() => _holdingColor ?? _defaultHoldingColor;
 
   @override
   Widget build(BuildContext context) {
     final summary = widget.summary;
-    final hasData = summary.cycleCount > 0 || summary.holdingCount > 0;
-    final cycleColor = _getCycleColor();
+    final hasData = summary.smartCycleCount > 0 ||
+        summary.steadyCycleCount > 0 ||
+        summary.holdingCount > 0;
+    final smartColor = _getSmartColor();
+    final steadyColor = _getSteadyColor();
     final holdingColor = _getHoldingColor();
 
     return Container(
@@ -120,22 +132,27 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                       itemBuilder: (context, i) {
                         final color = _colorPalette[i];
                         final isSelected = (_editingIndex == 0 &&
-                                color.value == cycleColor.value) ||
+                                color.value == smartColor.value) ||
                             (_editingIndex == 1 &&
+                                color.value == steadyColor.value) ||
+                            (_editingIndex == 2 &&
                                 color.value == holdingColor.value);
                         return GestureDetector(
                           onTap: () {
                             setState(() {
                               if (_editingIndex == 0) {
-                                _cycleColor = color;
+                                _smartCycleColor = color;
                               } else if (_editingIndex == 1) {
+                                _steadyCycleColor = color;
+                              } else if (_editingIndex == 2) {
                                 _holdingColor = color;
                               }
                               _editingIndex = null;
                             });
                             // Hive에 색상 영속화
                             ref.read(settingsProvider.notifier).updateChartColors(
-                              alphaColor: (_cycleColor?.value) ?? 0,
+                              alphaColor: (_smartCycleColor?.value) ?? 0,
+                              steadyColor: (_steadyCycleColor?.value) ?? 0,
                               holdingColor: (_holdingColor?.value) ?? 0,
                             );
                           },
@@ -205,7 +222,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
               final legendItems = _buildLegendItems(
                 context: context,
                 summary: summary,
-                cycleColor: cycleColor,
+                smartColor: smartColor,
+                steadyColor: steadyColor,
                 holdingColor: holdingColor,
               );
 
@@ -215,7 +233,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   children: [
                     Row(
                       children: [
-                        _buildDonutChart(context, summary, chartSize, cycleColor, holdingColor, hasData, false),
+                        _buildDonutChart(context, summary, chartSize,
+                            smartColor, steadyColor, holdingColor, hasData, false),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
@@ -247,7 +266,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                         constraints: BoxConstraints(maxWidth: chartSize + 16 + 220),
                         child: Row(
                           children: [
-                            _buildDonutChart(context, summary, chartSize, cycleColor, holdingColor, hasData, true),
+                            _buildDonutChart(context, summary, chartSize,
+                                smartColor, steadyColor, holdingColor, hasData, true),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
@@ -289,23 +309,38 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     );
   }
 
-  /// 범례 아이템 목록 생성 (사이클 + 일반 보유)
+  /// 범례 아이템 목록 생성 (Smart + Steady + 일반 보유)
   List<Widget> _buildLegendItems({
     required BuildContext context,
     required UnifiedPortfolioSummary summary,
-    required Color cycleColor,
+    required Color smartColor,
+    required Color steadyColor,
     required Color holdingColor,
   }) {
     final items = <Widget>[];
 
-    if (summary.cycleCount > 0) {
+    if (summary.smartCycleCount > 0) {
       items.add(_buildLegendItem(
         context: context,
-        color: cycleColor,
-        label: '사이클 (${summary.cycleCount}개)',
-        value: formatKrw(summary.cycleValue),
-        ratio: summary.alphaCycleRatio,
+        color: smartColor,
+        label: 'Smart (${summary.smartCycleCount}개)',
+        value: formatKrw(summary.smartCycleValue),
+        ratio: summary.smartCycleRatio,
         index: 0,
+      ));
+    }
+
+    if (summary.steadyCycleCount > 0) {
+      if (items.isNotEmpty) {
+        items.add(const SizedBox(height: 8));
+      }
+      items.add(_buildLegendItem(
+        context: context,
+        color: steadyColor,
+        label: 'Steady (${summary.steadyCycleCount}개)',
+        value: formatKrw(summary.steadyCycleValue),
+        ratio: summary.steadyCycleRatio,
+        index: 1,
       ));
     }
 
@@ -319,7 +354,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
         label: '일반 보유 (${summary.holdingCount}개)',
         value: formatKrw(summary.holdingValue),
         ratio: summary.holdingRatio,
-        index: 1,
+        index: 2,
       ));
     }
 
@@ -331,7 +366,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     BuildContext context,
     UnifiedPortfolioSummary summary,
     double chartSize,
-    Color cycleColor,
+    Color smartColor,
+    Color steadyColor,
     Color holdingColor,
     bool hasData,
     bool isWide,
@@ -347,7 +383,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   PieChartData(
                     sectionsSpace: 3,
                     centerSpaceRadius: chartSize * 0.38,
-                    sections: _buildSections(context, summary, cycleColor, holdingColor),
+                    sections: _buildSections(
+                        context, summary, smartColor, steadyColor, holdingColor),
                     pieTouchData: PieTouchData(enabled: false),
                   ),
                 ),
@@ -554,13 +591,15 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   List<PieChartSectionData> _buildSections(
     BuildContext context,
     UnifiedPortfolioSummary summary,
-    Color cycleColor,
+    Color smartColor,
+    Color steadyColor,
     Color holdingColor,
   ) {
-    final hasCycles = summary.cycleCount > 0;
+    final hasSmartCycles = summary.smartCycleCount > 0;
+    final hasSteadyCycles = summary.steadyCycleCount > 0;
     final hasHoldings = summary.holdingCount > 0;
 
-    if (!hasCycles && !hasHoldings) {
+    if (!hasSmartCycles && !hasSteadyCycles && !hasHoldings) {
       return [
         PieChartSectionData(
           color: AppColors.gray200,
@@ -573,10 +612,19 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
 
     final sections = <PieChartSectionData>[];
 
-    if (hasCycles) {
+    if (hasSmartCycles) {
       sections.add(PieChartSectionData(
-        color: cycleColor,
-        value: summary.cycleValue > 0 ? summary.cycleValue : 0.01,
+        color: smartColor,
+        value: summary.smartCycleValue > 0 ? summary.smartCycleValue : 0.01,
+        title: '',
+        radius: 15,
+      ));
+    }
+
+    if (hasSteadyCycles) {
+      sections.add(PieChartSectionData(
+        color: steadyColor,
+        value: summary.steadyCycleValue > 0 ? summary.steadyCycleValue : 0.01,
         title: '',
         radius: 15,
       ));

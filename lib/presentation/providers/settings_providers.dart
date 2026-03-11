@@ -94,10 +94,11 @@ class SettingsNotifier extends StateNotifier<Settings> {
   }
 
   /// 포트폴리오 차트 색상 업데이트
-  Future<void> updateChartColors({int? alphaColor, int? holdingColor}) async {
+  Future<void> updateChartColors({int? alphaColor, int? steadyColor, int? holdingColor}) async {
     final repo = _ref.read(settingsRepositoryProvider);
     await repo.save(state.copyWith(
       alphaCycleChartColor: alphaColor,
+      steadyCycleChartColor: steadyColor,
       holdingChartColor: holdingColor,
     ));
     state = repo.settings;
