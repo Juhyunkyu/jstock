@@ -8,7 +8,7 @@ import '../../../presentation/providers/settings_providers.dart';
 
 /// 내 포트폴리오 차트 위젯
 ///
-/// 일반 보유의 자산을 도넛 차트로 표시하고,
+/// 사이클 + 일반 보유의 자산을 도넛 차트로 표시하고,
 /// 하단에 총 시드 대비 손익을 보여줍니다.
 /// 범례의 색상 네모를 탭하면 색상을 변경할 수 있습니다.
 class PortfolioAllocationChart extends ConsumerStatefulWidget {
@@ -31,9 +31,10 @@ class PortfolioAllocationChart extends ConsumerStatefulWidget {
 
 class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationChart> {
   /// 사용자 선택 색상 (null이면 기본값 사용)
+  Color? _cycleColor;
   Color? _holdingColor;
 
-  /// 현재 편집 중인 범례 인덱스 (0=일반 보유, null=없음)
+  /// 현재 편집 중인 범례 인덱스 (0=사이클, 1=일반 보유, null=없음)
   int? _editingIndex;
 
   /// 선택 가능한 색상 팔레트
@@ -59,19 +60,24 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     super.initState();
     // 저장된 색상 로드 (0이면 기본색 사용)
     final settings = ref.read(settingsProvider);
+    if (settings.alphaCycleChartColor != 0) {
+      _cycleColor = Color(settings.alphaCycleChartColor);
+    }
     if (settings.holdingChartColor != 0) {
       _holdingColor = Color(settings.holdingChartColor);
     }
   }
 
-  Color _getHoldingColor(BuildContext context) =>
-      _holdingColor ?? AppColors.secondary;
+  Color _getCycleColor() => _cycleColor ?? AppColors.primary;
+
+  Color _getHoldingColor() => _holdingColor ?? AppColors.secondary;
 
   @override
   Widget build(BuildContext context) {
     final summary = widget.summary;
-    final hasData = summary.holdingCount > 0;
-    final holdingColor = _getHoldingColor(context);
+    final hasData = summary.cycleCount > 0 || summary.holdingCount > 0;
+    final cycleColor = _getCycleColor();
+    final holdingColor = _getHoldingColor();
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -113,17 +119,23 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                       separatorBuilder: (_, __) => const SizedBox(width: 6),
                       itemBuilder: (context, i) {
                         final color = _colorPalette[i];
-                        final isSelected = _editingIndex == 0 &&
-                                color.value == holdingColor.value;
+                        final isSelected = (_editingIndex == 0 &&
+                                color.value == cycleColor.value) ||
+                            (_editingIndex == 1 &&
+                                color.value == holdingColor.value);
                         return GestureDetector(
                           onTap: () {
                             setState(() {
-                              _holdingColor = color;
+                              if (_editingIndex == 0) {
+                                _cycleColor = color;
+                              } else if (_editingIndex == 1) {
+                                _holdingColor = color;
+                              }
                               _editingIndex = null;
                             });
                             // Hive에 색상 영속화
                             ref.read(settingsProvider.notifier).updateChartColors(
-                              alphaColor: 0,
+                              alphaColor: (_cycleColor?.value) ?? 0,
                               holdingColor: (_holdingColor?.value) ?? 0,
                             );
                           },
@@ -181,7 +193,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
               ),
             ),
 
-          // 차트 + 범례 + 시드 요약 (3열 반응형)
+          // 차트 + 범례 + 시드 요약 (반응형)
           LayoutBuilder(
             builder: (context, constraints) {
               final availableWidth = constraints.maxWidth;
@@ -190,22 +202,25 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   ? (widget.size * 1.1).clamp(120.0, 160.0)
                   : widget.size;
 
+              final legendItems = _buildLegendItems(
+                context: context,
+                summary: summary,
+                cycleColor: cycleColor,
+                holdingColor: holdingColor,
+              );
+
               // 모바일: 차트+범례 위, 총투자/총손익 아래
               if (!isWide) {
                 return Column(
                   children: [
                     Row(
                       children: [
-                        _buildDonutChart(context, summary, chartSize, holdingColor, hasData, false),
+                        _buildDonutChart(context, summary, chartSize, cycleColor, holdingColor, hasData, false),
                         const SizedBox(width: 14),
                         Expanded(
-                          child: _buildLegendItem(
-                            context: context,
-                            color: holdingColor,
-                            label: '일반 보유 (${summary.holdingCount}개)',
-                            value: formatKrw(summary.holdingValue),
-                            ratio: 100,
-                            index: 0,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: legendItems,
                           ),
                         ),
                       ],
@@ -232,16 +247,12 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                         constraints: BoxConstraints(maxWidth: chartSize + 16 + 220),
                         child: Row(
                           children: [
-                            _buildDonutChart(context, summary, chartSize, holdingColor, hasData, true),
+                            _buildDonutChart(context, summary, chartSize, cycleColor, holdingColor, hasData, true),
                             const SizedBox(width: 16),
                             Expanded(
-                              child: _buildLegendItem(
-                                context: context,
-                                color: holdingColor,
-                                label: '일반 보유 (${summary.holdingCount}개)',
-                                value: formatKrw(summary.holdingValue),
-                                ratio: 100,
-                                index: 0,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: legendItems,
                               ),
                             ),
                           ],
@@ -278,11 +289,49 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     );
   }
 
+  /// 범례 아이템 목록 생성 (사이클 + 일반 보유)
+  List<Widget> _buildLegendItems({
+    required BuildContext context,
+    required UnifiedPortfolioSummary summary,
+    required Color cycleColor,
+    required Color holdingColor,
+  }) {
+    final items = <Widget>[];
+
+    if (summary.cycleCount > 0) {
+      items.add(_buildLegendItem(
+        context: context,
+        color: cycleColor,
+        label: '사이클 (${summary.cycleCount}개)',
+        value: formatKrw(summary.cycleValue),
+        ratio: summary.alphaCycleRatio,
+        index: 0,
+      ));
+    }
+
+    if (summary.holdingCount > 0) {
+      if (items.isNotEmpty) {
+        items.add(const SizedBox(height: 8));
+      }
+      items.add(_buildLegendItem(
+        context: context,
+        color: holdingColor,
+        label: '일반 보유 (${summary.holdingCount}개)',
+        value: formatKrw(summary.holdingValue),
+        ratio: summary.holdingRatio,
+        index: 1,
+      ));
+    }
+
+    return items;
+  }
+
   /// 도넛 차트 위젯
   Widget _buildDonutChart(
     BuildContext context,
     UnifiedPortfolioSummary summary,
     double chartSize,
+    Color cycleColor,
     Color holdingColor,
     bool hasData,
     bool isWide,
@@ -298,7 +347,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   PieChartData(
                     sectionsSpace: 3,
                     centerSpaceRadius: chartSize * 0.38,
-                    sections: _buildSections(context, holdingColor),
+                    sections: _buildSections(context, summary, cycleColor, holdingColor),
                     pieTouchData: PieTouchData(enabled: false),
                   ),
                 ),
@@ -503,10 +552,15 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   }
 
   List<PieChartSectionData> _buildSections(
-      BuildContext context, Color holdingColor) {
-    final summary = widget.summary;
+    BuildContext context,
+    UnifiedPortfolioSummary summary,
+    Color cycleColor,
+    Color holdingColor,
+  ) {
+    final hasCycles = summary.cycleCount > 0;
+    final hasHoldings = summary.holdingCount > 0;
 
-    if (summary.holdingCount <= 0) {
+    if (!hasCycles && !hasHoldings) {
       return [
         PieChartSectionData(
           color: AppColors.gray200,
@@ -517,13 +571,26 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       ];
     }
 
-    return [
-      PieChartSectionData(
-        color: holdingColor,
-        value: 100,
+    final sections = <PieChartSectionData>[];
+
+    if (hasCycles) {
+      sections.add(PieChartSectionData(
+        color: cycleColor,
+        value: summary.cycleValue > 0 ? summary.cycleValue : 0.01,
         title: '',
         radius: 15,
-      ),
-    ];
+      ));
+    }
+
+    if (hasHoldings) {
+      sections.add(PieChartSectionData(
+        color: holdingColor,
+        value: summary.holdingValue > 0 ? summary.holdingValue : 0.01,
+        title: '',
+        radius: 15,
+      ));
+    }
+
+    return sections;
   }
 }

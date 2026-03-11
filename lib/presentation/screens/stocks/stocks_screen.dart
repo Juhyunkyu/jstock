@@ -43,6 +43,38 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
     super.dispose();
   }
 
+  Widget _buildFab(BuildContext context) {
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final isHoldingTab = _tabController.index == 2;
+
+    final onPressed = isHoldingTab
+        ? () => context.push('/stocks/search?forHolding=true')
+        : () => context.push(
+              _tabController.index == 1
+                  ? '/stocks/setup?strategy=infiniteBuy'
+                  : '/stocks/setup',
+            );
+
+    if (isMobile) {
+      return FloatingActionButton.small(
+        onPressed: onPressed,
+        backgroundColor: context.appAccent,
+        child: const Icon(Icons.add, color: Colors.white),
+      );
+    }
+
+    return FloatingActionButton.extended(
+      onPressed: onPressed,
+      backgroundColor: context.appAccent,
+      foregroundColor: Colors.white,
+      icon: const Icon(Icons.add),
+      label: Text(
+        isHoldingTab ? '종목 추가' : '새 사이클',
+        style: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // 여러 ticker 사용 — select 적용 불가 (unifiedPortfolioProvider + _HoldingListTab에 전체 Map 전달)
@@ -140,32 +172,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
           ),
         ),
       ),
-      floatingActionButton: _tabController.index == 2
-          ? FloatingActionButton.extended(
-              onPressed: () =>
-                  context.push('/stocks/search?forHolding=true'),
-              backgroundColor: context.appAccent,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text(
-                '종목 추가',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            )
-          : FloatingActionButton.extended(
-              onPressed: () => context.push(
-                _tabController.index == 1
-                    ? '/stocks/setup?strategy=infiniteBuy'
-                    : '/stocks/setup',
-              ),
-              backgroundColor: context.appAccent,
-              foregroundColor: Colors.white,
-              icon: const Icon(Icons.add),
-              label: const Text(
-                '새 사이클',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
+      floatingActionButton: _buildFab(context),
     );
   }
 }
@@ -414,7 +421,7 @@ class _ActiveCycleCard extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: _CycleInfoColumn(
-                      label: '시드',
+                      label: '설정시드',
                       value: '${formatKrwWithComma(cycle.seedAmount)}\u2009원',
                     ),
                   ),
