@@ -245,7 +245,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                       ],
                     ),
                     if (hasData) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 20),
                       Divider(color: context.appDivider, height: 1),
                       const SizedBox(height: 10),
                       _buildSeedRow(context, summary),
@@ -310,6 +310,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   }
 
   /// 범례 아이템 목록 생성 (Smart + Steady + 일반 보유)
+  /// 투자금 기준으로 표시, 투자금 0이면 "대기중"
   List<Widget> _buildLegendItems({
     required BuildContext context,
     required UnifiedPortfolioSummary summary,
@@ -320,13 +321,15 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     final items = <Widget>[];
 
     if (summary.smartCycleCount > 0) {
+      final isWaiting = summary.smartCycleActualInvested == 0;
       items.add(_buildLegendItem(
         context: context,
-        color: smartColor,
+        color: isWaiting ? context.appTextHint : smartColor,
         label: 'Smart (${summary.smartCycleCount}개)',
-        value: formatKrw(summary.smartCycleValue),
-        ratio: summary.smartCycleRatio,
+        value: isWaiting ? '대기중' : formatKrw(summary.smartCycleActualInvested),
+        ratio: isWaiting ? 0 : summary.smartCycleInvestedRatio,
         index: 0,
+        isWaiting: isWaiting,
       ));
     }
 
@@ -334,13 +337,15 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       if (items.isNotEmpty) {
         items.add(const SizedBox(height: 8));
       }
+      final isWaiting = summary.steadyCycleActualInvested == 0;
       items.add(_buildLegendItem(
         context: context,
-        color: steadyColor,
+        color: isWaiting ? context.appTextHint : steadyColor,
         label: 'Steady (${summary.steadyCycleCount}개)',
-        value: formatKrw(summary.steadyCycleValue),
-        ratio: summary.steadyCycleRatio,
+        value: isWaiting ? '대기중' : formatKrw(summary.steadyCycleActualInvested),
+        ratio: isWaiting ? 0 : summary.steadyCycleInvestedRatio,
         index: 1,
+        isWaiting: isWaiting,
       ));
     }
 
@@ -348,13 +353,15 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       if (items.isNotEmpty) {
         items.add(const SizedBox(height: 8));
       }
+      final isWaiting = summary.holdingInvested == 0;
       items.add(_buildLegendItem(
         context: context,
-        color: holdingColor,
+        color: isWaiting ? context.appTextHint : holdingColor,
         label: '일반 보유 (${summary.holdingCount}개)',
-        value: formatKrw(summary.holdingValue),
-        ratio: summary.holdingRatio,
+        value: isWaiting ? '대기중' : formatKrw(summary.holdingInvested),
+        ratio: isWaiting ? 0 : summary.holdingInvestedRatio,
         index: 2,
+        isWaiting: isWaiting,
       ));
     }
 
@@ -519,31 +526,42 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     required String value,
     required double ratio,
     required int index,
+    bool isWaiting = false,
   }) {
     final isEditing = _editingIndex == index;
 
     return Row(
       children: [
-        // 색상 네모 (탭하면 팔레트 열림)
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _editingIndex = isEditing ? null : index;
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
+        // 색상 네모 (대기중이면 회색, 탭 불가)
+        if (isWaiting)
+          Container(
             width: 14,
             height: 14,
             decoration: BoxDecoration(
-              color: color,
+              color: context.appTextHint,
               borderRadius: BorderRadius.circular(4),
-              border: isEditing
-                  ? Border.all(color: context.appTextPrimary, width: 2)
-                  : null,
+            ),
+          )
+        else
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _editingIndex = isEditing ? null : index;
+              });
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(4),
+                border: isEditing
+                    ? Border.all(color: context.appTextPrimary, width: 2)
+                    : null,
+              ),
             ),
           ),
-        ),
         const SizedBox(width: 8),
         // 라벨 + 금액 + 퍼센테이지 (컴팩트)
         Flexible(
@@ -558,29 +576,39 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                 ),
               ),
               const SizedBox(height: 2),
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: value,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextPrimary,
+              if (isWaiting)
+                Text(
+                  '대기중',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextHint,
+                  ),
+                )
+              else
+                Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: value,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: context.appTextPrimary,
+                        ),
                       ),
-                    ),
-                    TextSpan(
-                      text: '  ${ratio.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: context.appTextSecondary,
+                      TextSpan(
+                        text: '  ${ratio.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: context.appTextSecondary,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
             ],
           ),
         ),
@@ -613,29 +641,35 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     final sections = <PieChartSectionData>[];
 
     if (hasSmartCycles) {
+      final invested = summary.smartCycleActualInvested;
+      final isWaiting = invested == 0;
       sections.add(PieChartSectionData(
-        color: smartColor,
-        value: summary.smartCycleValue > 0 ? summary.smartCycleValue : 0.01,
+        color: isWaiting ? context.appTextHint : smartColor,
+        value: isWaiting ? 0.5 : invested,
         title: '',
-        radius: 15,
+        radius: isWaiting ? 3 : 15,
       ));
     }
 
     if (hasSteadyCycles) {
+      final invested = summary.steadyCycleActualInvested;
+      final isWaiting = invested == 0;
       sections.add(PieChartSectionData(
-        color: steadyColor,
-        value: summary.steadyCycleValue > 0 ? summary.steadyCycleValue : 0.01,
+        color: isWaiting ? context.appTextHint : steadyColor,
+        value: isWaiting ? 0.5 : invested,
         title: '',
-        radius: 15,
+        radius: isWaiting ? 3 : 15,
       ));
     }
 
     if (hasHoldings) {
+      final invested = summary.holdingInvested;
+      final isWaiting = invested == 0;
       sections.add(PieChartSectionData(
-        color: holdingColor,
-        value: summary.holdingValue > 0 ? summary.holdingValue : 0.01,
+        color: isWaiting ? context.appTextHint : holdingColor,
+        value: isWaiting ? 0.5 : invested,
         title: '',
-        radius: 15,
+        radius: isWaiting ? 3 : 15,
       ));
     }
 

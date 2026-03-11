@@ -46,6 +46,18 @@ class UnifiedPortfolioSummary {
   /// Steady Cycle 수
   final int steadyCycleCount;
 
+  /// Smart Cycle 실제 투입금 (seedAmount - remainingCash 합계)
+  final double smartCycleActualInvested;
+
+  /// Steady Cycle 실제 투입금
+  final double steadyCycleActualInvested;
+
+  /// Smart Cycle 주식 평가금 (shares × price × exchangeRate, 잔여현금 제외)
+  final double smartCycleEvalAmount;
+
+  /// Steady Cycle 주식 평가금
+  final double steadyCycleEvalAmount;
+
   const UnifiedPortfolioSummary({
     this.holdingValue = 0,
     this.holdingInvested = 0,
@@ -60,6 +72,10 @@ class UnifiedPortfolioSummary {
     this.steadyCycleInvested = 0,
     this.steadyCycleProfit = 0,
     this.steadyCycleCount = 0,
+    this.smartCycleActualInvested = 0,
+    this.steadyCycleActualInvested = 0,
+    this.smartCycleEvalAmount = 0,
+    this.steadyCycleEvalAmount = 0,
   });
 
   // === 합산 getters (backward compat) ===
@@ -116,6 +132,30 @@ class UnifiedPortfolioSummary {
     return (holdingValue / totalValue) * 100;
   }
 
+  // === 실제 투입금 기준 getters ===
+
+  /// 전체 실제 투입금 (사이클 + 보유)
+  double get totalActualInvested =>
+      smartCycleActualInvested + steadyCycleActualInvested + holdingInvested;
+
+  /// Smart 투입금 비율 (totalActualInvested 기준)
+  double get smartCycleInvestedRatio {
+    if (totalActualInvested == 0) return 0;
+    return (smartCycleActualInvested / totalActualInvested) * 100;
+  }
+
+  /// Steady 투입금 비율
+  double get steadyCycleInvestedRatio {
+    if (totalActualInvested == 0) return 0;
+    return (steadyCycleActualInvested / totalActualInvested) * 100;
+  }
+
+  /// 보유 투입금 비율
+  double get holdingInvestedRatio {
+    if (totalActualInvested == 0) return 0;
+    return (holdingInvested / totalActualInvested) * 100;
+  }
+
   /// 전체 종목 수
   int get totalPositionCount => holdingCount + cycleCount;
 
@@ -155,6 +195,8 @@ final unifiedPortfolioProvider =
 
   double smartValue = 0, smartInvested = 0;
   double steadyValue = 0, steadyInvested = 0;
+  double smartActualInvested = 0, steadyActualInvested = 0;
+  double smartEvalAmt = 0, steadyEvalAmt = 0;
   int smartCount = 0, steadyCount = 0;
 
   for (final cycle in activeCycles) {
@@ -165,14 +207,19 @@ final unifiedPortfolioProvider =
       liveExchangeRate,
     );
     final totalVal = evalAmt + cycle.remainingCash;
+    final actualInvested = cycle.seedAmount - cycle.remainingCash;
 
     if (cycle.strategyType == StrategyType.alphaCycleV3) {
       smartValue += totalVal;
       smartInvested += cycle.seedAmount;
+      smartActualInvested += actualInvested;
+      smartEvalAmt += evalAmt;
       smartCount++;
     } else {
       steadyValue += totalVal;
       steadyInvested += cycle.seedAmount;
+      steadyActualInvested += actualInvested;
+      steadyEvalAmt += evalAmt;
       steadyCount++;
     }
   }
@@ -191,6 +238,10 @@ final unifiedPortfolioProvider =
     steadyCycleInvested: steadyInvested,
     steadyCycleProfit: steadyValue - steadyInvested,
     steadyCycleCount: steadyCount,
+    smartCycleActualInvested: smartActualInvested,
+    steadyCycleActualInvested: steadyActualInvested,
+    smartCycleEvalAmount: smartEvalAmt,
+    steadyCycleEvalAmount: steadyEvalAmt,
   );
 });
 

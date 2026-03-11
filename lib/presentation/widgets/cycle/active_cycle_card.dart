@@ -119,7 +119,7 @@ class ActiveCycleCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '\uD3C9\uAC00\uAE08\uC561',
+                        '\uC2E4\uC81C \uD3C9\uAC00\uAE08',
                         style: TextStyle(
                           fontSize: 10,
                           color: context.appTextSecondary,

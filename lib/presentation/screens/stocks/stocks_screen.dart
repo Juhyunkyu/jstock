@@ -295,12 +295,13 @@ class _ActiveCycleCard extends ConsumerWidget {
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(cycle.id));
 
-    // 평가금액 계산 (라이브 환율 기준)
+    // 실제 평가금 계산 (라이브 환율 기준, 잔여현금 미포함)
     final evalAmount = cycle.totalShares * currentPrice * liveExchangeRate;
-    final totalValue = evalAmount + cycle.remainingCash;
-    final profit = totalValue - cycle.seedAmount;
+    final investedAmount = cycle.seedAmount - cycle.remainingCash; // 실제 투입금
+    final profit = evalAmount - investedAmount; // 실제 투입 대비 손익
     final returnRate =
-        cycle.seedAmount > 0 ? (profit / cycle.seedAmount) * 100 : 0.0;
+        investedAmount > 0 ? (profit / investedAmount) * 100 : 0.0;
+    final isWaiting = cycle.totalShares == 0; // 대기중 여부
     final isProfit = profit >= 0;
     final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
 
@@ -351,62 +352,91 @@ class _ActiveCycleCard extends ConsumerWidget {
               ],
             ),
 
-            const SizedBox(height: 12),
-
-            // 중단: 평가금 + 손익
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            // 중단: 실제 평가금 + 손익 (또는 대기중)
+            if (isWaiting) ...[
+              const SizedBox(height: 12),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: context.appBackground,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.hourglass_empty,
+                          size: 16, color: context.appTextHint),
+                      const SizedBox(width: 6),
+                      Text(
+                        '대기중',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: context.appTextHint,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '평가금',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: context.appTextSecondary,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '실제 평가금',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.appTextSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${formatKrwWithComma(evalAmount)}\u2009원',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: context.appTextPrimary,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${formatKrwWithComma(totalValue)}\u2009원',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: context.appTextPrimary,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '손익',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.appTextSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${isProfit ? '+' : ''}${formatKrwWithComma(profit)}\u2009원'
+                          ' (${isProfit ? '+' : ''}${returnRate.toStringAsFixed(1)}%)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: profit == 0
+                                ? context.appTextPrimary
+                                : profitColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '손익',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: context.appTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${isProfit ? '+' : ''}${formatKrwWithComma(profit)}\u2009원'
-                      ' (${isProfit ? '+' : ''}${returnRate.toStringAsFixed(1)}%)',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: profit == 0
-                            ? context.appTextPrimary
-                            : profitColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            ),
+              ),
+            ],
 
             const SizedBox(height: 10),
 
