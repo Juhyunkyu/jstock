@@ -227,15 +227,23 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                 holdingColor: holdingColor,
               );
 
-              // 모바일: 차트+범례 위, 총투자/총손익 아래
+              // 모바일: 2열 균등 수직 정렬 (좌: 도넛+총투자, 우: 범례+총손익)
               if (!isWide) {
+                final isProfit = summary.totalProfit >= 0;
+                final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
+                final sign = isProfit ? '+' : '';
+
                 return Column(
                   children: [
+                    // 상단: 도넛(좌) + 범례(우) 균등 2열
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildDonutChart(context, summary, chartSize,
-                            smartColor, steadyColor, holdingColor, hasData, false),
-                        const SizedBox(width: 14),
+                        Expanded(
+                          child: _buildDonutChart(context, summary, chartSize,
+                              smartColor, steadyColor, holdingColor, hasData, false),
+                        ),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -244,11 +252,32 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                         ),
                       ],
                     ),
+                    // 하단: 총 투자 · 총 손익 — 한 줄 수평, 좌우 여백 균등
                     if (hasData) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 14),
                       Divider(color: context.appDivider, height: 1),
                       const SizedBox(height: 10),
-                      _buildSeedRow(context, summary),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text('총 투자', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+                            const SizedBox(width: 6),
+                            Text(
+                              formatKrw(summary.totalInvested),
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextPrimary),
+                            ),
+                            const SizedBox(width: 20),
+                            Text('총 손익', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$sign${formatKrw(summary.totalProfit)}($sign${summary.totalReturnRate.toStringAsFixed(2)}%)',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ],
                 );
@@ -473,51 +502,6 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     );
   }
 
-  /// 총 투자 / 총 손익 — 한 줄 50:50 중앙정렬 (모바일용)
-  Widget _buildSeedRow(BuildContext context, UnifiedPortfolioSummary summary) {
-    final isProfit = summary.totalProfit >= 0;
-    final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
-    final sign = isProfit ? '+' : '';
-
-    return Row(
-      children: [
-        Expanded(
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('총 투자 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
-                  Text(
-                    formatKrw(summary.totalInvested),
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextPrimary),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('총 손익 ', style: TextStyle(fontSize: 11, color: context.appTextHint)),
-                  Text(
-                    '$sign${formatKrw(summary.totalProfit)}($sign${summary.totalReturnRate.toStringAsFixed(2)}%)',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: profitColor),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildLegendItem({
     required BuildContext context,
