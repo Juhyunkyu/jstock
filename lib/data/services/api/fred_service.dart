@@ -13,7 +13,7 @@ class FredService {
 
   FredService()
       : _dio = Dio(BaseOptions(
-          baseUrl: '/api/fred',
+          baseUrl: '${AppConfig.apiProxyBase}/api/fred',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
         ));

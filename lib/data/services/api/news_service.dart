@@ -239,7 +239,7 @@ class NewsService {
 
       // CORS 우회: 로컬 프록시 경유 (프로덕션에서도 동일 경로 사용)
       final response = await _dio.post(
-        '/api/deepl/translate',
+        '${AppConfig.apiProxyBase}/api/deepl/translate',
         options: Options(
           headers: {
             'Authorization': 'DeepL-Auth-Key ${AppConfig.deeplApiKey}',
