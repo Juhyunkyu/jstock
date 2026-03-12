@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/api_providers.dart';
-import '../../providers/korea_exim_providers.dart';
 
 /// 컴팩트 환율 표시 - 탭하면 상세 바텀시트 열림
 class ExchangeRateChip extends ConsumerWidget {
@@ -86,15 +85,14 @@ class ExchangeRateChip extends ConsumerWidget {
   }
 }
 
-/// 환율 상세 바텀시트 — 실시간 + 한국수출입은행 매매기준율
+/// 환율 상세 바텀시트 — 실시간 환율
 class ExchangeRateDetailSheet extends ConsumerWidget {
   const ExchangeRateDetailSheet({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rateState = ref.watch(exchangeRateProvider);
-    final eximState = ref.watch(koreaEximProvider);
-    final isRefreshing = rateState.isLoading || eximState.isLoading;
+    final isRefreshing = rateState.isLoading;
 
     return Container(
       decoration: BoxDecoration(
@@ -134,13 +132,6 @@ class ExchangeRateDetailSheet extends ConsumerWidget {
 
               // 실시간 환율 섹션
               _RealtimeSection(rateState: rateState),
-              const SizedBox(height: 12),
-
-              Divider(color: context.appDivider, height: 1),
-              const SizedBox(height: 12),
-
-              // 한국수출입은행 섹션
-              _KoreaEximSection(eximState: eximState),
               const SizedBox(height: 20),
 
               // 새로고침 버튼
@@ -153,7 +144,6 @@ class ExchangeRateDetailSheet extends ConsumerWidget {
                           ref
                               .read(exchangeRateProvider.notifier)
                               .refreshRate();
-                          ref.read(koreaEximProvider.notifier).refresh();
                         },
                   icon: isRefreshing
                       ? SizedBox(
@@ -262,127 +252,6 @@ class _RealtimeSection extends StatelessWidget {
               color: context.appTextHint,
             ),
           ),
-      ],
-    );
-  }
-}
-
-/// 한국수출입은행 섹션
-class _KoreaEximSection extends StatelessWidget {
-  final KoreaEximState eximState;
-
-  const _KoreaEximSection({required this.eximState});
-
-  @override
-  Widget build(BuildContext context) {
-    final hasData = eximState.hasData;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          hasData
-              ? '한국수출입은행 (${eximState.rate!.formattedDate} 기준)'
-              : '한국수출입은행',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: context.appTextSecondary,
-          ),
-        ),
-        const SizedBox(height: 8),
-        if (hasData) ...[
-          _RateRow(
-            label: '매매기준',
-            value: '₩${_formatRate(eximState.rate!.dealBaseRate)}',
-            context: context,
-          ),
-          const SizedBox(height: 6),
-          _RateRow(
-            label: '살때',
-            value: '₩${_formatRate(eximState.rate!.ttsBuyRate)}',
-            context: context,
-          ),
-          const SizedBox(height: 6),
-          _RateRow(
-            label: '팔때',
-            value: '₩${_formatRate(eximState.rate!.ttbSellRate)}',
-            context: context,
-          ),
-        ] else if (eximState.isLoading)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: SizedBox(
-              height: 16,
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 1.5,
-                      color: context.appTextHint,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '조회 중...',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: context.appTextHint,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )
-        else
-          Text(
-            eximState.error ?? '공휴일/주말에는 조회 불가',
-            style: TextStyle(
-              fontSize: 13,
-              color: context.appTextHint,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-/// 매매기준율 행
-class _RateRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final BuildContext context;
-
-  const _RateRow({
-    required this.label,
-    required this.value,
-    required this.context,
-  });
-
-  @override
-  Widget build(BuildContext _) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 60,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14,
-              color: context.appTextSecondary,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: context.appTextPrimary,
-          ),
-        ),
       ],
     );
   }

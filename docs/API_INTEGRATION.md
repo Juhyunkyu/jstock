@@ -126,19 +126,7 @@
 | Fallback 1 | open.er-api.com | 하루 1회 갱신 (UTC 자정) |
 | Fallback 2 | api.frankfurter.app | 하루 1회 갱신 |
 
-**한국수출입은행 매매기준율 (별도 트랙)**
-
-| 항목 | 내용 |
-|------|------|
-| 엔드포인트 | `oapi.koreaexim.go.kr/site/program/financial/exchangeJSON` |
-| CORS | ❌ (corsproxy.io 프록시 사용) |
-| 키 필요 | ✅ `KOREAEXIM_API_KEY` |
-| 제공 데이터 | 매매기준율(`deal_bas_r`), 살때(`tts`), 팔때(`ttb`) |
-| 캐시 | 12시간 TTL |
-| 주의 | 공휴일/주말 빈 배열 반환 → 직전 5영업일 자동 재조회 |
-| 숫자 형식 | 콤마 포함 문자열 ("1,474.50") → 파싱 필요 |
-
-**UI**: 홈 환율 칩 탭 → 바텀시트에서 실시간 + 매매기준율/살때/팔때 모두 표시
+**UI**: 홈 환율 칩 탭 → 바텀시트에서 실시간 환율 표시
 
 ### 4. MarketAux + MyMemory (뉴스)
 
@@ -206,7 +194,6 @@ lib/
 │       │   ├── api_client.dart            # HTTP 클라이언트
 │       │   ├── api_exception.dart         # API 예외 처리
 │       │   ├── exchange_rate_service.dart  # 환율 (Twelve Data → open.er-api.com → Frankfurter)
-│       │   ├── korea_exim_service.dart    # 한국수출입은행 매매기준율
 │       │   ├── fear_greed_service.dart     # CNN Fear & Greed Index
 │       │   ├── finnhub_service.dart        # Finnhub REST API
 │       │   ├── finnhub_websocket_service.dart  # Finnhub WebSocket
@@ -229,7 +216,6 @@ lib/
         ├── logo_provider.dart             # 종목 로고 Provider
         ├── market_data_providers.dart     # 시장 데이터 Provider
         ├── fear_greed_providers.dart      # 공포탐욕지수 Provider
-        ├── korea_exim_providers.dart     # 한국수출입은행 매매기준율 Provider
         ├── notification_history_provider.dart  # 알림 내역 Provider
         └── watchlist_alert_provider.dart  # 관심종목 알림 Provider + 내역 저장
 ```
