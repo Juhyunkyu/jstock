@@ -156,131 +156,86 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
   Widget _buildNewsItem(NewsItem news, {bool isLast = false}) {
     final timeAgo = _formatTimeAgo(news.publishedAt);
     final publisherColor = _getPublisherColor(news.publisher);
-    final cleanedDisplayTitle = _cleanTitle(news.displayTitle);
-    final cleanedOriginalTitle = _cleanTitle(news.title);
-    final hasTranslation = news.translatedTitle != null;
+    final cleanedTitle = _cleanTitle(news.displayTitle);
+    final isMobile = MediaQuery.sizeOf(context).width < 600;
+    final titleFontSize = isMobile ? 13.0 : 14.0;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: isLast
-          ? null
-          : BoxDecoration(
-              border: Border(bottom: BorderSide(color: context.appDivider)),
-            ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1행: 소스 뱃지 + 시간
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: publisherColor.withAlpha(30),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  news.publisher,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: publisherColor,
-                  ),
-                ),
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.parse(news.link);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: isLast
+            ? null
+            : BoxDecoration(
+                border: Border(bottom: BorderSide(color: context.appDivider)),
               ),
-              const SizedBox(width: 6),
-              Text(
-                timeAgo,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: context.appTextHint,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          // 2행: 한국어 제목 (최대 2줄)
-          Text(
-            cleanedDisplayTitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: context.appTextPrimary,
-              height: 1.4,
-            ),
-          ),
-          // 3행: 영문 원제 + 원문 보기 링크
-          if (hasTranslation) ...[
-            const SizedBox(height: 3),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1행: 소스 뱃지 + 시간
             Row(
               children: [
-                Expanded(
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: publisherColor.withAlpha(30),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                   child: Text(
-                    cleanedOriginalTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    news.publisher,
                     style: TextStyle(
-                      fontSize: 11,
-                      color: context.appTextHint,
-                      height: 1.3,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: publisherColor,
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () async {
-                    final uri = Uri.parse(news.link);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    }
-                  },
-                  child: Text(
-                    '원문 \u2192',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: context.appAccent,
-                    ),
+                const SizedBox(width: 6),
+                Text(
+                  timeAgo,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.appTextHint,
                   ),
                 ),
               ],
             ),
-          ],
-          // 번역이 없는 경우: 원문 보기만 오른쪽에
-          if (!hasTranslation) ...[
-            const SizedBox(height: 3),
-            Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: () async {
-                  final uri = Uri.parse(news.link);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(
-                      uri,
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }
-                },
-                child: Text(
-                  '원문 \u2192',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: context.appAccent,
+            const SizedBox(height: 5),
+            // 2행: 제목 + 원문→ 인라인
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: cleanedTitle,
+                    style: TextStyle(
+                      fontSize: titleFontSize,
+                      fontWeight: FontWeight.w500,
+                      color: context.appTextPrimary,
+                      height: 1.4,
+                    ),
                   ),
-                ),
+                  TextSpan(
+                    text: '  원문\u2192',
+                    style: TextStyle(
+                      fontSize: titleFontSize - 2,
+                      fontWeight: FontWeight.w500,
+                      color: context.appAccent,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-        ],
+        ),
       ),
     );
   }
