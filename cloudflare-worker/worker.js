@@ -1,12 +1,11 @@
 /**
  * Alpha Cycle API Proxy — Cloudflare Worker
  *
- * CORS 우회 프록시: CNN Fear&Greed + DeepL 번역 + FRED 경제 데이터
+ * CORS 우회 프록시: DeepL 번역 + FRED 경제 데이터
  *
  * 환경 변수 (Cloudflare Dashboard > Settings > Variables):
  *   DEEPL_API_KEY  — DeepL API 키
  *   FRED_API_KEY   — FRED API 키
- *   (CNN은 키 불필요)
  *
  * 배포:
  *   1. Cloudflare Dashboard > Workers & Pages > Create
@@ -94,32 +93,6 @@ async function handleFRED(request, env, path) {
   });
 }
 
-// ─── CNN Fear & Greed 프록시 ───
-async function handleFearGreed(request) {
-  if (request.method !== 'GET') {
-    return jsonError('GET only', 405, request);
-  }
-
-  const resp = await fetch(
-    'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
-      },
-    },
-  );
-
-  return new Response(resp.body, {
-    status: resp.status,
-    headers: {
-      'Content-Type': resp.headers.get('Content-Type') || 'application/json',
-      'Cache-Control': 'public, max-age=1800',
-      ...corsHeaders(request),
-    },
-  });
-}
-
 // ─── 라우터 ───
 export default {
   async fetch(request, env) {
@@ -130,11 +103,6 @@ export default {
 
     const url = new URL(request.url);
     const path = url.pathname + url.search;
-
-    // CNN Fear & Greed
-    if (url.pathname === '/api/feargreed') {
-      return handleFearGreed(request);
-    }
 
     // DeepL 번역
     if (url.pathname === '/api/deepl/translate') {
