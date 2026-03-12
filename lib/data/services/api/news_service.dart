@@ -9,17 +9,6 @@ import 'finnhub_service.dart';
 class NewsService {
   final Dio _dio;
 
-  /// 페이월 소스 필터 (유료 구독 필요한 소스 제외)
-  static const Set<String> _paywallSources = {
-    'Bloomberg',
-    'Wall Street Journal',
-    'WSJ',
-    'Financial Times',
-    'FT',
-    "Barron's",
-    'Barrons',
-  };
-
   NewsService()
       : _dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 15),
@@ -113,8 +102,6 @@ class NewsService {
       final newsList = <NewsItem>[];
       for (final item in items) {
         final source = item['source'] as String? ?? '';
-        // 페이월 소스 제외
-        if (_paywallSources.any((pw) => source.contains(pw))) continue;
 
         newsList.add(NewsItem(
           title: item['headline'] ?? '',

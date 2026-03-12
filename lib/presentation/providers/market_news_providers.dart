@@ -66,7 +66,7 @@ class MarketNewsNotifier extends StateNotifier<MarketNewsState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final news = await _newsService.getGeneralNews(limit: 10);
+      final news = await _newsService.getGeneralNews(limit: 20);
 
       // 캐시 저장 (30분)
       _cache.set(cacheKey, news, ttl: _cacheTtl);
