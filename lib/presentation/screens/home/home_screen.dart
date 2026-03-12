@@ -10,6 +10,8 @@ import '../../widgets/home/exchange_rate_card.dart';
 import '../../widgets/home/fear_greed_card.dart';
 import '../../widgets/common/app_title_logo.dart';
 import '../../widgets/common/notification_bell_button.dart';
+import '../../widgets/home/market_news_section.dart';
+import '../../providers/market_news_providers.dart';
 
 /// 홈 화면
 ///
@@ -36,6 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(sp500IndexProvider.notifier).loadSp500Data();
     ref.read(exchangeRateProvider.notifier).fetchUsdKrwRate();
     ref.read(fearGreedProvider.notifier).fetchIndex();
+    ref.read(marketNewsProvider.notifier).fetchNews();
   }
 
   @override
@@ -139,6 +142,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       );
                     },
                   ),
+                  const SizedBox(height: 10),
+                  const MarketNewsSection(),
                   const SizedBox(height: 16),
                 ],
               ),

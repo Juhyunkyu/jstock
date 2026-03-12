@@ -28,6 +28,7 @@ class NewsItem {
   final String link;
   final DateTime publishedAt;
   final String? thumbnail;
+  final String? summary;
 
   const NewsItem({
     required this.title,
@@ -36,12 +37,13 @@ class NewsItem {
     required this.link,
     required this.publishedAt,
     this.thumbnail,
+    this.summary,
   });
 
   /// 표시용 제목 (번역된 제목 우선)
   String get displayTitle => translatedTitle ?? title;
 
-  NewsItem copyWith({String? translatedTitle}) {
+  NewsItem copyWith({String? translatedTitle, String? summary}) {
     return NewsItem(
       title: title,
       translatedTitle: translatedTitle ?? this.translatedTitle,
@@ -49,6 +51,7 @@ class NewsItem {
       link: link,
       publishedAt: publishedAt,
       thumbnail: thumbnail,
+      summary: summary ?? this.summary,
     );
   }
 }

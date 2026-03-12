@@ -9,6 +9,17 @@ import 'finnhub_service.dart';
 class NewsService {
   final Dio _dio;
 
+  /// 페이월 소스 필터 (유료 구독 필요한 소스 제외)
+  static const Set<String> _paywallSources = {
+    'Bloomberg',
+    'Wall Street Journal',
+    'WSJ',
+    'Financial Times',
+    'FT',
+    "Barron's",
+    'Barrons',
+  };
+
   NewsService()
       : _dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 15),
@@ -84,6 +95,44 @@ class NewsService {
 
     // 전체 번역
     return await _translateTitles(allArticles);
+  }
+
+  /// 시장 종합 뉴스 (Finnhub general-news + 페이월 필터 + 한국어 번역)
+  Future<List<NewsItem>> getGeneralNews({int limit = 10}) async {
+    try {
+      final response = await _dio.get(
+        '${AppConfig.finnhubBaseUrl}/news',
+        queryParameters: {
+          'token': AppConfig.finnhubApiKey,
+          'category': 'general',
+        },
+      );
+      final items = response.data as List?;
+      if (items == null) return [];
+
+      final newsList = <NewsItem>[];
+      for (final item in items) {
+        final source = item['source'] as String? ?? '';
+        // 페이월 소스 제외
+        if (_paywallSources.any((pw) => source.contains(pw))) continue;
+
+        newsList.add(NewsItem(
+          title: item['headline'] ?? '',
+          publisher: source,
+          link: item['url'] ?? '',
+          publishedAt: DateTime.fromMillisecondsSinceEpoch(
+            ((item['datetime'] as int?) ?? 0) * 1000,
+          ),
+          thumbnail: item['image'],
+          summary: item['summary'] as String?,
+        ));
+
+        if (newsList.length >= limit) break;
+      }
+      return await _translateTitles(newsList);
+    } catch (_) {
+      return [];
+    }
   }
 
   /// MarketAux API에서 뉴스 가져오기 (키워드 검색으로 관련도 높은 기사)
