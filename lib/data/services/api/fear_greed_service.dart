@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../core/config/app_config.dart';
 import 'api_exception.dart';
 
 /// Fear & Greed 지수 구역
@@ -89,9 +90,11 @@ class FearGreedService {
   /// 현재 Fear & Greed Index 조회
   Future<FearGreedIndex> getCurrentIndex() async {
     try {
-      // CORS 프록시를 통해 CNN API 호출
-      final proxyUrl = '$_corsProxyUrl${Uri.encodeComponent(_cnnApiUrl)}';
-      final response = await _dio.get(proxyUrl);
+      // 프록시 사용 시 Worker 경유, 아니면 CORS 프록시
+      final url = AppConfig.useProxy
+          ? '${AppConfig.proxyBaseUrl}/api/feargreed'
+          : '$_corsProxyUrl${Uri.encodeComponent(_cnnApiUrl)}';
+      final response = await _dio.get(url);
       return _parseResponse(response.data);
     } on DioException catch (e) {
       throw NetworkException(
