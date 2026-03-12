@@ -230,7 +230,8 @@ class NewsService {
   /// 뉴스 제목들을 한국어로 일괄 번역 (DeepL API)
   Future<List<NewsItem>> _translateTitles(List<NewsItem> articles) async {
     if (articles.isEmpty) return articles;
-    if (AppConfig.deeplApiKey.isEmpty) return articles;
+    // 로컬: API 키 필요, 프록시: Worker가 서버사이드 주입
+    if (!AppConfig.useProxy && AppConfig.deeplApiKey.isEmpty) return articles;
 
     // DeepL은 한 번에 여러 텍스트를 번역할 수 있음 (일괄 요청)
     try {
@@ -239,10 +240,12 @@ class NewsService {
 
       // CORS 우회: 로컬 프록시 경유 (프로덕션에서도 동일 경로 사용)
       final response = await _dio.post(
-        '${AppConfig.apiProxyBase}/api/deepl/translate',
+        '${AppConfig.proxyBaseUrl}/api/deepl/translate',
         options: Options(
           headers: {
-            'Authorization': 'DeepL-Auth-Key ${AppConfig.deeplApiKey}',
+            // 프록시 사용 시 Worker가 인증 처리, 로컬은 직접 전달
+            if (!AppConfig.useProxy)
+              'Authorization': 'DeepL-Auth-Key ${AppConfig.deeplApiKey}',
             'Content-Type': 'application/json',
           },
         ),

@@ -15,9 +15,6 @@ class AppConfig {
   /// 프록시 사용 여부: PROXY_BASE_URL이 설정되어 있으면 프로덕션
   static bool get useProxy => proxyBaseUrl.isNotEmpty;
 
-  /// API 프록시 기본 경로 (로컬: 상대경로, 프로덕션: Worker URL)
-  static String get apiProxyBase => useProxy ? proxyBaseUrl : '';
-
   /// Finnhub API 키 (실시간 시세, WebSocket)
   /// 빌드 시 --dart-define=FINNHUB_API_KEY=xxx 로 주입하거나
   /// 아래 기본값을 수정하세요

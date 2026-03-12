@@ -22,9 +22,9 @@ const ALLOWED_ORIGINS = [
 
 function corsHeaders(request) {
   const origin = request.headers.get('Origin') || '';
-  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  if (!ALLOWED_ORIGINS.includes(origin)) return {};
   return {
-    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -47,22 +47,19 @@ async function handleDeepL(request, env) {
   const apiKey = env.DEEPL_API_KEY;
   if (!apiKey) return jsonError('DEEPL_API_KEY not configured', 500, request);
 
-  const body = await request.text();
-
   const resp = await fetch('https://api-free.deepl.com/v2/translate', {
     method: 'POST',
     headers: {
       'Authorization': `DeepL-Auth-Key ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body,
+    body: request.body,
   });
 
-  const data = await resp.text();
-  return new Response(data, {
+  return new Response(resp.body, {
     status: resp.status,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': resp.headers.get('Content-Type') || 'application/json',
       ...corsHeaders(request),
     },
   });
@@ -86,11 +83,10 @@ async function handleFRED(request, env, path) {
     headers: { 'Accept': 'application/json' },
   });
 
-  const data = await resp.text();
-  return new Response(data, {
+  return new Response(resp.body, {
     status: resp.status,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': resp.headers.get('Content-Type') || 'application/json',
       'Cache-Control': 'public, max-age=3600',
       ...corsHeaders(request),
     },

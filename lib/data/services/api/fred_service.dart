@@ -13,7 +13,7 @@ class FredService {
 
   FredService()
       : _dio = Dio(BaseOptions(
-          baseUrl: '${AppConfig.apiProxyBase}/api/fred',
+          baseUrl: '${AppConfig.proxyBaseUrl}/api/fred',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
         ));
@@ -26,15 +26,20 @@ class FredService {
     if (AppConfig.fredApiKey.isEmpty) return null;
 
     try {
+      final queryParams = <String, dynamic>{
+        'series_id': seriesId,
+        'file_type': 'json',
+        'sort_order': 'desc',
+        'limit': 5, // 최근 5개 (주말/공휴일 대비)
+      };
+      // 로컬: 클라이언트가 직접 키 전달, 프록시: Worker가 서버사이드 주입
+      if (!AppConfig.useProxy) {
+        queryParams['api_key'] = AppConfig.fredApiKey;
+      }
+
       final response = await _dio.get(
         '/series/observations',
-        queryParameters: {
-          'series_id': seriesId,
-          'api_key': AppConfig.fredApiKey,
-          'file_type': 'json',
-          'sort_order': 'desc',
-          'limit': 5, // 최근 5개 (주말/공휴일 대비)
-        },
+        queryParameters: queryParams,
       );
 
       final observations = response.data['observations'] as List?;
