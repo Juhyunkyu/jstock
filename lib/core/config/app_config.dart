@@ -36,4 +36,13 @@ class AppConfig {
     'MARKETAUX_API_KEY',
     defaultValue: '',
   );
+
+  /// DeepL API 키 (번역)
+  static const String deeplApiKey = String.fromEnvironment(
+    'DEEPL_API_KEY',
+    defaultValue: '',
+  );
+
+  /// DeepL API URL (Free 플랜)
+  static const String deeplBaseUrl = 'https://api-free.deepl.com/v2';
 }

@@ -3,9 +3,8 @@
 No-cache HTTP server for Flutter Web development.
 
 Serves static files from build/web/ with Cache-Control headers that
-prevent the browser from caching responses. This solves the problem
-where Playwright MCP's persistent browser profile caches old builds
-of main.dart.js and other assets.
+prevent the browser from caching responses. Also provides a reverse
+proxy for DeepL API to avoid CORS issues in the browser.
 
 Usage:
     python3 serve_nocache.py [port]
@@ -14,20 +13,80 @@ Usage:
     Serves from: build/web/ (relative to this script's location)
 """
 
+import json
 import os
 import sys
+import urllib.request
+import urllib.error
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from functools import partial
 
 
 class NoCacheHTTPRequestHandler(SimpleHTTPRequestHandler):
-    """HTTP request handler that disables all caching."""
+    """HTTP request handler that disables all caching and proxies DeepL API."""
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")
         super().end_headers()
+
+    def do_POST(self):
+        """Handle POST requests — proxy DeepL API calls."""
+        if self.path == "/api/deepl/translate":
+            self._proxy_deepl()
+        else:
+            self.send_error(404)
+
+    def _proxy_deepl(self):
+        """Forward translation request to DeepL API."""
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            body = self.rfile.read(content_length)
+            auth_header = self.headers.get("Authorization", "")
+
+            req = urllib.request.Request(
+                "https://api-free.deepl.com/v2/translate",
+                data=body,
+                headers={
+                    "Authorization": auth_header,
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = resp.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(result)
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            self.send_response(e.code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(error_body.encode())
+        except Exception as e:
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        if self.path.startswith("/api/"):
+            self.send_response(204)
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+            self.send_header("Access-Control-Max-Age", "86400")
+            self.end_headers()
+        else:
+            self.send_error(404)
 
 
 def main():
@@ -47,6 +106,7 @@ def main():
 
     print(f"Serving {serve_dir}")
     print(f"  http://localhost:{port}")
+    print(f"  DeepL proxy: /api/deepl/translate")
     print(f"  Cache-Control: no-cache, no-store, must-revalidate")
     print(f"  Press Ctrl+C to stop")
 

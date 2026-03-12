@@ -2,10 +2,10 @@ import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
 import 'finnhub_service.dart';
 
-/// MarketAux + Finnhub 뉴스 + MyMemory 번역 서비스
+/// MarketAux + Finnhub 뉴스 + DeepL 번역 서비스
 ///
 /// MarketAux API (키워드 검색, 3개) + Finnhub company-news (제목 필터링, 3개)
-/// MyMemory Translation API로 제목을 한국어로 번역합니다.
+/// DeepL API로 제목을 한국어로 번역합니다.
 class NewsService {
   final Dio _dio;
 
@@ -227,48 +227,55 @@ class NewsService {
     }
   }
 
-  /// 뉴스 제목들을 한국어로 일괄 번역
+  /// 뉴스 제목들을 한국어로 일괄 번역 (DeepL API)
   Future<List<NewsItem>> _translateTitles(List<NewsItem> articles) async {
     if (articles.isEmpty) return articles;
+    if (AppConfig.deeplApiKey.isEmpty) return articles;
 
-    // 병렬로 번역 요청
-    final futures = articles.map((article) async {
-      try {
-        final koreanTitle = await _translateToKorean(article.title);
-        return article.copyWith(translatedTitle: koreanTitle);
-      } catch (_) {
-        return article;
-      }
-    });
-
-    return await Future.wait(futures);
-  }
-
-  /// 영어 텍스트를 한국어로 번역 (MyMemory API)
-  Future<String?> _translateToKorean(String text) async {
-    if (text.isEmpty) return null;
-
+    // DeepL은 한 번에 여러 텍스트를 번역할 수 있음 (일괄 요청)
     try {
-      final response = await _dio.get(
-        'https://api.mymemory.translated.net/get',
-        queryParameters: {
-          'q': text,
-          'langpair': 'en|ko',
+      final texts = articles.map((a) => a.title).where((t) => t.isNotEmpty).toList();
+      if (texts.isEmpty) return articles;
+
+      // CORS 우회: 로컬 프록시 경유 (프로덕션에서도 동일 경로 사용)
+      final response = await _dio.post(
+        '/api/deepl/translate',
+        options: Options(
+          headers: {
+            'Authorization': 'DeepL-Auth-Key ${AppConfig.deeplApiKey}',
+            'Content-Type': 'application/json',
+          },
+        ),
+        data: {
+          'text': texts,
+          'source_lang': 'EN',
+          'target_lang': 'KO',
         },
       );
 
-      final translatedText =
-          response.data['responseData']?['translatedText'] as String?;
+      final translations = response.data['translations'] as List?;
+      if (translations == null) return articles;
 
-      if (translatedText == null ||
-          translatedText.isEmpty ||
-          translatedText == text) {
-        return null;
+      // 번역 결과를 기사에 매핑
+      final result = <NewsItem>[];
+      int translationIdx = 0;
+      for (final article in articles) {
+        if (article.title.isNotEmpty && translationIdx < translations.length) {
+          final translated = translations[translationIdx]['text'] as String?;
+          translationIdx++;
+          if (translated != null && translated.isNotEmpty && translated != article.title) {
+            result.add(article.copyWith(translatedTitle: translated));
+          } else {
+            result.add(article);
+          }
+        } else {
+          result.add(article);
+        }
       }
-
-      return translatedText;
+      return result;
     } catch (_) {
-      return null;
+      // DeepL 실패 시 원문 그대로 반환
+      return articles;
     }
   }
 }

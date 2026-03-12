@@ -25,6 +25,7 @@ echo "Building Alpha Cycle (release)..."
 /home/dandy02/flutter/bin/flutter build web --release --pwa-strategy=offline-first \
   --dart-define=FINNHUB_API_KEY=$FINNHUB_API_KEY \
   --dart-define=TWELVE_DATA_API_KEY=$TWELVE_DATA_API_KEY \
-  --dart-define=MARKETAUX_API_KEY=$MARKETAUX_API_KEY
+  --dart-define=MARKETAUX_API_KEY=$MARKETAUX_API_KEY \
+  --dart-define=DEEPL_API_KEY=$DEEPL_API_KEY
 
 echo "Build complete! Run with: python3 serve_nocache.py 8080"

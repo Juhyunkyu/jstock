@@ -215,7 +215,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                       height: 1.5,
                     ),
                   ),
-                  // 제목
+                  // 제목 + ↗ 아이콘
                   TextSpan(
                     text: cleanedTitle,
                     style: TextStyle(
@@ -225,18 +225,15 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                       height: 1.5,
                     ),
                   ),
+                  TextSpan(
+                    text: ' \u2197',
+                    style: TextStyle(
+                      fontSize: titleFontSize - 2,
+                      color: context.appTextHint,
+                      height: 1.5,
+                    ),
+                  ),
                 ],
-              ),
-            ),
-            // 원문 링크 (제목과 분리, 약간의 여백)
-            Padding(
-              padding: const EdgeInsets.only(top: 3),
-              child: Text(
-                '원문 보기 \u2192',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: context.appAccent,
-                ),
               ),
             ),
           ],
