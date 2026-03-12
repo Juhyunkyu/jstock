@@ -158,7 +158,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     final publisherColor = _getPublisherColor(news.publisher);
     final cleanedTitle = _cleanTitle(news.displayTitle);
     final isMobile = MediaQuery.sizeOf(context).width < 600;
-    final titleFontSize = isMobile ? 13.0 : 14.0;
+    final titleFontSize = isMobile ? 13.0 : 13.5;
 
     return GestureDetector(
       onTap: () async {
@@ -169,7 +169,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: isLast
             ? null
             : BoxDecoration(
@@ -178,60 +178,65 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1행: 소스 뱃지 + 시간
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: publisherColor.withAlpha(30),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    news.publisher,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: publisherColor,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  timeAgo,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.appTextHint,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 5),
-            // 2행: 제목 + 원문→ 인라인
+            // 뱃지 + 시간 + 제목 한 줄 흐름
             Text.rich(
               TextSpan(
                 children: [
+                  // 소스 뱃지
+                  WidgetSpan(
+                    alignment: PlaceholderAlignment.middle,
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: publisherColor.withAlpha(30),
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        news.publisher,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: publisherColor,
+                          height: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 시간
+                  TextSpan(
+                    text: '$timeAgo  ',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: context.appTextHint,
+                      height: 1.5,
+                    ),
+                  ),
+                  // 제목
                   TextSpan(
                     text: cleanedTitle,
                     style: TextStyle(
                       fontSize: titleFontSize,
                       fontWeight: FontWeight.w500,
                       color: context.appTextPrimary,
-                      height: 1.4,
-                    ),
-                  ),
-                  TextSpan(
-                    text: '  원문\u2192',
-                    style: TextStyle(
-                      fontSize: titleFontSize - 2,
-                      fontWeight: FontWeight.w500,
-                      color: context.appAccent,
+                      height: 1.5,
                     ),
                   ),
                 ],
+              ),
+            ),
+            // 원문 링크 (제목과 분리, 약간의 여백)
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: Text(
+                '원문 보기 \u2192',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.appAccent,
+                ),
               ),
             ),
           ],
