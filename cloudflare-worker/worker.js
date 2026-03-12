@@ -102,7 +102,12 @@ async function handleFearGreed(request) {
 
   const resp = await fetch(
     'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/',
-    { headers: { 'Accept': 'application/json' } },
+    {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+      },
+    },
   );
 
   return new Response(resp.body, {
