@@ -34,8 +34,14 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     final displayNews = _showAllNews ? allNews : allNews.take(5).toList();
 
     return Container(
-      color: context.appSurface,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        color: context.appCardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appBorder),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
