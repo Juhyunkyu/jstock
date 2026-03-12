@@ -20,3 +20,4 @@ export 'notification_history_provider.dart';
 export 'data_management_providers.dart';
 export 'watchlist_group_providers.dart';
 export 'market_news_providers.dart';
+export 'global_indicators_provider.dart';

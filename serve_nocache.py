@@ -31,6 +31,13 @@ class NoCacheHTTPRequestHandler(SimpleHTTPRequestHandler):
         self.send_header("Expires", "0")
         super().end_headers()
 
+    def do_GET(self):
+        """Handle GET requests — proxy FRED API or serve static files."""
+        if self.path.startswith("/api/fred/"):
+            self._proxy_fred()
+        else:
+            super().do_GET()
+
     def do_POST(self):
         """Handle POST requests — proxy DeepL API calls."""
         if self.path == "/api/deepl/translate":
@@ -55,6 +62,35 @@ class NoCacheHTTPRequestHandler(SimpleHTTPRequestHandler):
                 method="POST",
             )
 
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = resp.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(result)
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", errors="replace")
+            self.send_response(e.code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(error_body.encode())
+        except Exception as e:
+            self.send_response(502)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"error": str(e)}).encode())
+
+    def _proxy_fred(self):
+        """Forward GET request to FRED API."""
+        try:
+            # /api/fred/series/observations?... → https://api.stlouisfed.org/fred/series/observations?...
+            fred_path = self.path[len("/api/fred"):]  # e.g. /series/observations?...
+            url = f"https://api.stlouisfed.org/fred{fred_path}"
+
+            req = urllib.request.Request(url, method="GET")
             with urllib.request.urlopen(req, timeout=30) as resp:
                 result = resp.read()
                 self.send_response(200)
@@ -107,6 +143,7 @@ def main():
     print(f"Serving {serve_dir}")
     print(f"  http://localhost:{port}")
     print(f"  DeepL proxy: /api/deepl/translate")
+    print(f"  FRED proxy:  /api/fred/*")
     print(f"  Cache-Control: no-cache, no-store, must-revalidate")
     print(f"  Press Ctrl+C to stop")
 

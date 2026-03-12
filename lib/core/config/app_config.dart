@@ -45,4 +45,13 @@ class AppConfig {
 
   /// DeepL API URL (Free 플랜)
   static const String deeplBaseUrl = 'https://api-free.deepl.com/v2';
+
+  /// FRED API 키 (미국 연준 경제 데이터)
+  static const String fredApiKey = String.fromEnvironment(
+    'FRED_API_KEY',
+    defaultValue: '',
+  );
+
+  /// FRED API URL
+  static const String fredBaseUrl = 'https://api.stlouisfed.org/fred';
 }

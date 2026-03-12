@@ -13,6 +13,7 @@ class FearGreedCard extends ConsumerWidget {
   final bool isLoading;
   final String? error;
   final VoidCallback? onRefresh;
+  final bool useOuterMargin;
 
   const FearGreedCard({
     super.key,
@@ -20,6 +21,7 @@ class FearGreedCard extends ConsumerWidget {
     this.isLoading = false,
     this.error,
     this.onRefresh,
+    this.useOuterMargin = true,
   });
 
   @override
@@ -30,7 +32,7 @@ class FearGreedCard extends ConsumerWidget {
     final fs = 0.92 + ((screenWidth - 320) / 1080).clamp(0.0, 1.0) * 0.43;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
+      margin: useOuterMargin ? const EdgeInsets.symmetric(horizontal: 16) : EdgeInsets.zero,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: context.appCardBackground,
@@ -42,7 +44,7 @@ class FearGreedCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Title row
+            // Title row: Fear & Greed Index [CNN] [알림칩] ... 🔔 ↻
             Row(
               children: [
                 Text(
@@ -71,6 +73,56 @@ class FearGreedCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+                // 알림 칩 (CNN 뱃지 옆, 인라인)
+                if (ref.watch(settingsProvider).fearGreedAlertEnabled) ...[
+                  SizedBox(width: 8 * fs),
+                  Builder(builder: (context) {
+                    final accentColor = context.appAccent;
+                    return GestureDetector(
+                      onTap: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: context.appCardBackground,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                          ),
+                          builder: (_) => FearGreedAlertSheet(currentValue: clampedValue),
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 3 * fs),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.notifications_active_rounded,
+                              size: 11 * fs,
+                              color: accentColor,
+                            ),
+                            SizedBox(width: 4 * fs),
+                            Text(
+                              '${ref.watch(settingsProvider).fearGreedAlertValue} '
+                              '${AlertDirection.fromFearGreedInt(ref.watch(settingsProvider).fearGreedAlertDirection).label} 알림',
+                              style: TextStyle(
+                                fontSize: 10 * fs,
+                                fontWeight: FontWeight.w500,
+                                color: accentColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
                 const Spacer(),
                 // Alert bell icon
                 GestureDetector(
@@ -118,51 +170,13 @@ class FearGreedCard extends ConsumerWidget {
                   ),
               ],
             ),
-            SizedBox(height: 12 * fs),
+            SizedBox(height: useOuterMargin ? 4 * fs : 2 * fs),
 
-            // Inline alert status chip
-            if (ref.watch(settingsProvider).fearGreedAlertEnabled) ...[
-              Builder(builder: (context) {
-                final accentColor = context.appAccent;
-                return Container(
-                  margin: EdgeInsets.only(bottom: 8 * fs),
-                  padding: EdgeInsets.symmetric(horizontal: 10 * fs, vertical: 5 * fs),
-                  decoration: BoxDecoration(
-                    color: accentColor.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: accentColor.withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.notifications_active_rounded,
-                        size: 13 * fs,
-                        color: accentColor,
-                      ),
-                      SizedBox(width: 6 * fs),
-                      Text(
-                        '${ref.watch(settingsProvider).fearGreedAlertValue} '
-                        '${AlertDirection.fromFearGreedInt(ref.watch(settingsProvider).fearGreedAlertDirection).label} 알림',
-                        style: TextStyle(
-                          fontSize: 12 * fs,
-                          fontWeight: FontWeight.w500,
-                          color: accentColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ],
-
-            // Gauge + Zone descriptions (responsive layout)
+            // Gauge + Active zone (responsive layout)
             if (error != null)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40),
+              _wrapContent(
+                useExpanded: !useOuterMargin,
+                child: Center(
                   child: Text(
                     error!,
                     style: TextStyle(
@@ -173,43 +187,193 @@ class FearGreedCard extends ConsumerWidget {
                 ),
               )
             else
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final useRowLayout = constraints.maxWidth >= 600;
-                  final gauge = FearGreedGauge(
-                    value: clampedValue,
-                    isLoading: isLoading,
-                    cardBackgroundColor: context.appCardBackground,
-                    textColor: context.appTextPrimary,
-                    isDarkMode: context.isDarkMode,
-                  );
-                  final descriptions = ZoneDescriptionPanel(
-                    value: clampedValue,
-                  );
-
-                  if (useRowLayout) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+              _wrapContent(
+                useExpanded: !useOuterMargin,
+                child: Center(
+                  child: Builder(builder: (context) {
+                    final activeZoneIdx = getActiveZoneIndex(clampedValue);
+                    final activeZone = fearGreedZones[activeZoneIdx];
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(flex: 5, child: gauge),
-                        const SizedBox(width: 16),
-                        Expanded(flex: 5, child: descriptions),
+                        FearGreedGauge(
+                          value: clampedValue,
+                          isLoading: isLoading,
+                          cardBackgroundColor: context.appCardBackground,
+                          textColor: context.appTextPrimary,
+                          isDarkMode: context.isDarkMode,
+                        ),
+                        SizedBox(height: 8 * fs),
+                        _ActiveZoneLabel(
+                          zone: activeZone,
+                          fs: fs,
+                        ),
                       ],
                     );
-                  }
-
-                  return Column(
-                    children: [
-                      gauge,
-                      const SizedBox(height: 16),
-                      descriptions,
-                    ],
-                  );
-                },
+                  }),
+                ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  /// 데스크톱(고정높이)에서는 Expanded, 모바일에서는 그대로
+  static Widget _wrapContent({required bool useExpanded, required Widget child}) {
+    return useExpanded ? Expanded(child: child) : child;
+  }
+}
+
+/// 현재 활성 단계 라벨 + ⓘ 툴팁
+class _ActiveZoneLabel extends StatelessWidget {
+  final ZoneData zone;
+  final double fs;
+
+  const _ActiveZoneLabel({required this.zone, required this.fs});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = context.isDarkMode;
+
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 4 * fs),
+      decoration: BoxDecoration(
+        color: zone.accentColor.withValues(alpha: isDark ? 0.15 : 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6 * fs,
+            height: 6 * fs,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: zone.accentColor,
+            ),
+          ),
+          SizedBox(width: 6 * fs),
+          Text(
+            zone.koreanName,
+            style: TextStyle(
+              fontSize: 11 * fs,
+              fontWeight: FontWeight.w600,
+              color: context.appTextPrimary,
+            ),
+          ),
+          SizedBox(width: 6 * fs),
+          GestureDetector(
+            onTap: () => _showAllZones(context),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 12 * fs,
+              color: context.appTextHint,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAllZones(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Fear & Greed 단계 설명',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: context.appTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'S&P 500 옵션 시장 기반 시장 심리 종합 지표. '
+              'VIX, 모멘텀, 풋/콜 비율 등 7개 지표를 종합하여 '
+              '투자자들의 공포·탐욕 수준을 0~100으로 나타냅니다.',
+              style: TextStyle(
+                fontSize: 13,
+                color: context.appTextSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final z in fearGreedZones) ...[
+              _ZoneInfoRow(zone: z),
+              const SizedBox(height: 6),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ⓘ 바텀시트 내 단계별 설명 행
+class _ZoneInfoRow extends StatelessWidget {
+  final ZoneData zone;
+
+  const _ZoneInfoRow({required this.zone});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: zone.accentColor,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          zone.koreanName,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: context.appTextPrimary,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+          decoration: BoxDecoration(
+            color: context.appIconBg,
+            borderRadius: BorderRadius.circular(3),
+          ),
+          child: Text(
+            '${zone.rangeStart}-${zone.rangeEnd}',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w500,
+              color: context.appTextHint,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            zone.description,
+            style: TextStyle(
+              fontSize: 12,
+              color: context.appTextSecondary,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

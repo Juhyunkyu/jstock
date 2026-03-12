@@ -158,7 +158,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     final publisherColor = _getPublisherColor(news.publisher);
     final cleanedTitle = _cleanTitle(news.displayTitle);
     final isMobile = MediaQuery.sizeOf(context).width < 600;
-    final titleFontSize = isMobile ? 13.0 : 13.5;
+    final titleFontSize = isMobile ? 13.0 : 14.5;
 
     return GestureDetector(
       onTap: () async {

@@ -11,7 +11,9 @@ import '../../widgets/home/fear_greed_card.dart';
 import '../../widgets/common/app_title_logo.dart';
 import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/home/market_news_section.dart';
+import '../../widgets/home/global_indicators_panel.dart';
 import '../../providers/market_news_providers.dart';
+import '../../providers/global_indicators_provider.dart';
 
 /// 홈 화면
 ///
@@ -39,6 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(exchangeRateProvider.notifier).fetchUsdKrwRate();
     ref.read(fearGreedProvider.notifier).fetchIndex();
     ref.read(marketNewsProvider.notifier).fetchNews();
+    ref.read(globalIndicatorsProvider.notifier).loadIndicators();
   }
 
   @override
@@ -129,19 +132,64 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   const SizedBox(height: 8),
                   const MarketIndexCard(),
                   const SizedBox(height: 10),
-                  Consumer(
-                    builder: (context, ref, child) {
-                      final fearGreedState = ref.watch(fearGreedProvider);
-                      return FearGreedCard(
-                        value: fearGreedState.value,
-                        isLoading: fearGreedState.isLoading,
-                        error: fearGreedState.error,
-                        onRefresh: () {
-                          ref.read(fearGreedProvider.notifier).refresh();
-                        },
+                  // Fear & Greed + 글로벌 지표 (반응형)
+                  Builder(builder: (context) {
+                    final screenW = MediaQuery.sizeOf(context).width;
+                    final isDesktop = screenW >= 600;
+                    final fearGreedState = ref.watch(fearGreedProvider);
+
+                    final fearGreedCard = FearGreedCard(
+                      value: fearGreedState.value,
+                      isLoading: fearGreedState.isLoading,
+                      error: fearGreedState.error,
+                      onRefresh: () {
+                        ref.read(fearGreedProvider.notifier).refresh();
+                      },
+                    );
+
+                    if (isDesktop) {
+                      // 데스크톱: 두 카드 나란히 (2:1), 고정 높이로 동일
+                      final fs = 0.92 + ((screenW - 320) / 1080).clamp(0.0, 1.0) * 0.43;
+                      final cardHeight = 260.0 * fs;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(
+                          height: cardHeight,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: FearGreedCard(
+                                  value: fearGreedState.value,
+                                  isLoading: fearGreedState.isLoading,
+                                  error: fearGreedState.error,
+                                  onRefresh: () {
+                                    ref.read(fearGreedProvider.notifier).refresh();
+                                  },
+                                  useOuterMargin: false,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                flex: 1,
+                                child: GlobalIndicatorsCard(),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
-                    },
-                  ),
+                    }
+
+                    // 모바일: 세로 배치
+                    return Column(
+                      children: [
+                        fearGreedCard,
+                        const SizedBox(height: 8),
+                        const GlobalIndicatorsGrid(),
+                      ],
+                    );
+                  }),
                   const SizedBox(height: 10),
                   const MarketNewsSection(),
                   const SizedBox(height: 16),

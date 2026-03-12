@@ -35,7 +35,8 @@ jobs:
             --dart-define=FINNHUB_API_KEY=${{ secrets.FINNHUB_API_KEY }} \
             --dart-define=TWELVE_DATA_API_KEY=${{ secrets.TWELVE_DATA_API_KEY }} \
             --dart-define=MARKETAUX_API_KEY=${{ secrets.MARKETAUX_API_KEY }} \
-            --dart-define=DEEPL_API_KEY=${{ secrets.DEEPL_API_KEY }}
+            --dart-define=DEEPL_API_KEY=${{ secrets.DEEPL_API_KEY }} \
+            --dart-define=FRED_API_KEY=${{ secrets.FRED_API_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -26,6 +26,7 @@ echo "Building Alpha Cycle (release)..."
   --dart-define=FINNHUB_API_KEY=$FINNHUB_API_KEY \
   --dart-define=TWELVE_DATA_API_KEY=$TWELVE_DATA_API_KEY \
   --dart-define=MARKETAUX_API_KEY=$MARKETAUX_API_KEY \
-  --dart-define=DEEPL_API_KEY=$DEEPL_API_KEY
+  --dart-define=DEEPL_API_KEY=$DEEPL_API_KEY \
+  --dart-define=FRED_API_KEY=$FRED_API_KEY
 
 echo "Build complete! Run with: python3 serve_nocache.py 8080"

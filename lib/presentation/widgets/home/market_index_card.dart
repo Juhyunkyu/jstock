@@ -205,7 +205,7 @@ class _CompactIndexSectionState extends ConsumerState<_CompactIndexSection> {
           // 캔들스틱 차트
           const SizedBox(height: 6),
           SizedBox(
-            height: isDesktop ? 280.0 : 140.0,
+            height: isDesktop ? 200.0 : 110.0,
             child: state.hasChart
                 ? CompactCandlestickChart(
                     data: state.chartData,
