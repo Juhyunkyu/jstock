@@ -496,11 +496,6 @@ class _IndicatorRow extends StatelessWidget {
               ),
             ),
             SizedBox(width: 4 * fs),
-            Icon(
-              Icons.info_outline_rounded,
-              size: 11 * fs,
-              color: context.appTextHint,
-            ),
             const Spacer(),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -544,7 +539,10 @@ class _CompactIndicatorTile extends StatelessWidget {
         ? AppColors.red500
         : AppColors.blue500;
 
-    return Column(
+    return GestureDetector(
+      onTap: () => _showIndicatorDetail(context, indicator),
+      behavior: HitTestBehavior.opaque,
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Row(
@@ -586,6 +584,7 @@ class _CompactIndicatorTile extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }
