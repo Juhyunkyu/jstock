@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/korean_number_formatter.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../../providers/providers.dart';
@@ -73,7 +74,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
       if (text.isNotEmpty) {
         final trimmed = text.replaceFirst(RegExp(r'^0+'), '');
         final effective = trimmed.isEmpty ? '0' : trimmed;
-        _seedController.text = _addCommas(effective);
+        _seedController.text = addCommas(effective);
       }
     } else {
       // 포커스 인 시 콤마 제거 → 순수 숫자만
@@ -86,15 +87,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     setState(() {});
   }
 
-  static String _addCommas(String digits) {
-    final buffer = StringBuffer();
-    final length = digits.length;
-    for (int i = 0; i < length; i++) {
-      if (i > 0 && (length - i) % 3 == 0) buffer.write(',');
-      buffer.write(digits[i]);
-    }
-    return buffer.toString();
-  }
+  // _addCommas → korean_number_formatter.dart의 addCommas() 사용
 
   double get _seedAmount {
     final text = _seedController.text.replaceAll(',', '');
@@ -758,7 +751,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           Padding(
             padding: const EdgeInsets.only(left: 14, top: 4),
             child: Text(
-              _formatKoreanAmount(_seedAmount),
+              formatKoreanAmountFull(_seedAmount),
               style: TextStyle(
                 fontSize: 13,
                 color: context.appTextSecondary,
@@ -769,62 +762,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     );
   }
 
-  static String _formatKoreanAmount(double amount) {
-    final value = amount.toInt();
-    if (value <= 0) return '';
-
-    final buffer = StringBuffer();
-
-    final eok = value ~/ 100000000;
-    final man = (value % 100000000) ~/ 10000;
-    final rest = value % 10000;
-
-    if (eok > 0) {
-      final eokStr = _toKoreanUnit(eok);
-      buffer.write('${eokStr.isEmpty ? '일' : eokStr}억');
-      if (man > 0 || rest > 0) buffer.write(' ');
-    }
-    if (man > 0) {
-      buffer.write('${_toKoreanUnit(man)}만');
-      if (rest > 0) buffer.write(' ');
-    }
-    if (rest > 0) {
-      buffer.write(_toKoreanUnit(rest));
-    }
-
-    if (buffer.isEmpty) return '0원';
-    return '${buffer}원';
-  }
-
-  static const _koreanDigits = ['', '일', '이', '삼', '사', '오', '육', '칠', '팔', '구'];
-
-  /// 1~9999를 순수 한글로 변환
-  /// 1000 → 천, 5000 → 오천, 100 → 백, 1500 → 천오백
-  static String _toKoreanUnit(int n) {
-    if (n <= 0) return '';
-    final buffer = StringBuffer();
-    final cheon = n ~/ 1000;
-    final baek = (n % 1000) ~/ 100;
-    final sip = (n % 100) ~/ 10;
-    final il = n % 10;
-
-    if (cheon > 0) {
-      if (cheon > 1) buffer.write(_koreanDigits[cheon]);
-      buffer.write('천');
-    }
-    if (baek > 0) {
-      if (baek > 1) buffer.write(_koreanDigits[baek]);
-      buffer.write('백');
-    }
-    if (sip > 0) {
-      if (sip > 1) buffer.write(_koreanDigits[sip]);
-      buffer.write('십');
-    }
-    if (il > 0) {
-      buffer.write(_koreanDigits[il]);
-    }
-    return buffer.toString();
-  }
+  // _formatKoreanAmount, _toKoreanUnit → korean_number_formatter.dart로 이동
 
   Widget _buildCalculationPreview() {
     final seed = _seedAmount;

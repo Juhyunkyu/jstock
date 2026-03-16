@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/korean_number_formatter.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import '../../../../core/utils/number_formatter.dart';
 import '../../../../data/models/cycle.dart';
@@ -263,7 +264,7 @@ class _CycleTradeRecordSheetState
         final lossStr = loss.abs().toStringAsFixed(1);
         return (
           amount: amount,
-          label: '손실률 $lossStr% × ${_formatGuideAmount(perPercent)}/1%',
+          label: '손실률 $lossStr% × ${formatKoreanAmountShort(perPercent)}/1%',
           title: '가중 매수 추천',
         );
 
@@ -344,7 +345,7 @@ class _CycleTradeRecordSheetState
             const SizedBox(height: 8),
             // 매수금액 (중앙)
             Text(
-              '매수금액: ${_formatGuideAmount(recommendedKrw)}',
+              '매수금액: ${formatKoreanAmountShort(recommendedKrw)}',
               style: TextStyle(
                 fontSize: 13,
                 color: context.appTextPrimary,
@@ -371,7 +372,7 @@ class _CycleTradeRecordSheetState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '추천 수량: ${recommendedShares}주',
+                          '추천 수량: $recommendedShares주',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
@@ -380,7 +381,7 @@ class _CycleTradeRecordSheetState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '≈ ${_formatGuideAmount(actualKrw)}',
+                          '≈ ${formatKoreanAmountShort(actualKrw)}',
                           style: TextStyle(
                             fontSize: 12,
                             color: context.appTextSecondary,
@@ -421,19 +422,7 @@ class _CycleTradeRecordSheetState
     );
   }
 
-  String _formatGuideAmount(double amount) {
-    if (amount >= 100000000) {
-      final eok = amount / 100000000;
-      final remainder = (amount % 100000000) / 10000;
-      if (remainder > 0) {
-        return '${eok.toStringAsFixed(0)}억 ${remainder.toStringAsFixed(0)}만원';
-      }
-      return '${eok.toStringAsFixed(0)}억원';
-    } else if (amount >= 10000) {
-      return '${(amount / 10000).toStringAsFixed(0)}만원';
-    }
-    return '${amount.toStringAsFixed(0)}원';
-  }
+  // _formatGuideAmount → korean_number_formatter.dart의 formatKoreanAmountShort() 사용
 
   // ═══════════════════════════════════════════════════════════════
   // 헤더
