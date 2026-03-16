@@ -254,6 +254,10 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
         return const Color(0xFF6001D2);
       case 'MarketWatch':
         return const Color(0xFF00AC4E);
+      case 'Investing.com':
+        return const Color(0xFFDA7D02);
+      case 'BBC Business':
+        return const Color(0xFFBB1919);
       default:
         return AppColors.gray500;
     }

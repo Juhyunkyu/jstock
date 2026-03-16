@@ -132,8 +132,12 @@ const RSS_FEEDS = [
     publisher: 'Yahoo Finance',
   },
   {
-    url: 'https://feeds.marketwatch.com/marketwatch/topstories/',
-    publisher: 'MarketWatch',
+    url: 'https://www.investing.com/rss/news.rss',
+    publisher: 'Investing.com',
+  },
+  {
+    url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
+    publisher: 'BBC Business',
   },
 ];
 
@@ -143,6 +147,7 @@ const PAYWALL_DOMAINS = [
   'wsj.com',
   'ft.com',
   'barrons.com',
+  'marketwatch.com',
 ];
 
 function parseRSS(xmlText, publisherName) {
