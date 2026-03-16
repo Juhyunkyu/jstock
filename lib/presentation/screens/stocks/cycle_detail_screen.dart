@@ -595,7 +595,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     // 운용 기간 포맷
     final startStr = '${cycle.startDate.year}.${cycle.startDate.month.toString().padLeft(2, '0')}.${cycle.startDate.day.toString().padLeft(2, '0')}';
     final endStr = '${cycle.updatedAt.year}.${cycle.updatedAt.month.toString().padLeft(2, '0')}.${cycle.updatedAt.day.toString().padLeft(2, '0')}';
-    final periodStr = startStr == endStr ? startStr : '$startStr ~ $endStr';
+    final rawDays = cycle.updatedAt.difference(cycle.startDate).inDays;
+    final durationDays = rawDays < 1 ? 1 : rawDays; // 당일 거래 = 최소 1일
+    final periodStr = '$startStr ~ $endStr ($durationDays일)';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),

@@ -168,9 +168,10 @@ class ArchivedHoldingDetailScreen extends ConsumerWidget {
     final returnPercent = totalBuyKrw > 0 ? (realizedPnl / totalBuyKrw) * 100 : 0.0;
     final avgBuyPrice = totalBuyShares > 0 ? totalBuyUsd / totalBuyShares : 0.0;
     final avgSellPrice = totalSellShares > 0 ? totalSellUsd / totalSellShares : 0.0;
-    final durationDays = (firstDate != null && lastDate != null)
+    final rawDays = (firstDate != null && lastDate != null)
         ? lastDate.difference(firstDate).inDays
         : 0;
+    final durationDays = rawDays < 1 ? 1 : rawDays; // 당일 거래 = 최소 1일
 
     if (totalBuyUsd > 0) {
       avgExchangeRate = totalExchangeWeighted / totalBuyUsd;
@@ -226,7 +227,7 @@ class _ArchivedStats {
   });
 }
 
-/// 성과 요약 카드 (그라데이션)
+/// 성과 요약 카드 (다크 컴팩트 — 사이클 완료 카드와 통일)
 class _PerformanceSummaryCard extends StatelessWidget {
   final _ArchivedStats stats;
 
@@ -235,118 +236,112 @@ class _PerformanceSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isProfit = stats.realizedPnl >= 0;
-    final pnlColor = isProfit ? AppColors.stockUp : AppColors.stockDown;
+    final gradientColors = isProfit
+        ? [const Color(0xFF2D1B1B), const Color(0xFF3D1F1F)]
+        : [const Color(0xFF1B2230), const Color(0xFF1A2740)];
+    final accentColor = isProfit ? AppColors.red500 : AppColors.blue500;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [context.appGradientCardStart, context.appGradientCardEnd],
+          colors: gradientColors,
         ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: context.isDarkMode
-            ? []
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         children: [
-          // 실현손익 (큰 글씨)
-          Text(
-            '실현손익',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.7),
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${isProfit ? '+' : ''}${formatKrw(stats.realizedPnl)}',
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w700,
-              color: pnlColor,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: pnlColor.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '${isProfit ? '+' : ''}${stats.returnPercent.toStringAsFixed(2)}%',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: pnlColor,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Divider(color: Colors.white.withValues(alpha: 0.15)),
-          const SizedBox(height: 12),
-          // 총 투자금 / 총 회수금
+          // 헤더 + 금액 한 줄
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: _SummaryItem(
-                  label: '총 투자금',
-                  value: formatKrw(stats.totalBuyKrw),
+              Text(
+                '실현손익',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.5),
                 ),
               ),
-              Container(
-                width: 1,
-                height: 36,
-                color: Colors.white.withValues(alpha: 0.15),
+              const Spacer(),
+              Text(
+                '${isProfit ? '+' : ''}${formatKrwWithComma(stats.realizedPnl.round().toDouble())}원',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
-              Expanded(
-                child: _SummaryItem(
-                  label: '총 회수금',
-                  value: formatKrw(stats.totalSellKrw),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${isProfit ? '+' : ''}${stats.returnPercent.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: accentColor,
+                  ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+
+          // 구분선
+          Container(
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+          const SizedBox(height: 10),
+
+          // 총 매수 / 총 매도 / 순 수익
+          _buildResultRow('총 매수', formatKrwWithComma(stats.totalBuyKrw.round().toDouble())),
+          const SizedBox(height: 4),
+          _buildResultRow('총 매도', formatKrwWithComma(stats.totalSellKrw.round().toDouble())),
+          const SizedBox(height: 4),
+          _buildResultRow(
+            '순 수익',
+            '${isProfit ? '+' : ''}${formatKrwWithComma(stats.realizedPnl.round().toDouble())}원',
+            accentColor: accentColor,
           ),
         ],
       ),
     );
   }
-}
 
-class _SummaryItem extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _SummaryItem({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
+  Widget _buildResultRow(String label, String value, {Color? accentColor}) {
+    final isHighlight = accentColor != null;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            color: Colors.white.withValues(alpha: 0.6),
+            color: isHighlight
+                ? Colors.white.withValues(alpha: 0.7)
+                : Colors.white.withValues(alpha: 0.4),
+            fontWeight: isHighlight ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
-        const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+          style: TextStyle(
+            fontSize: 12,
+            color: isHighlight ? accentColor : Colors.white.withValues(alpha: 0.6),
+            fontWeight: isHighlight ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
       ],
@@ -384,11 +379,6 @@ class _InvestmentInfoCard extends StatelessWidget {
       child: Column(
         children: [
           InfoRow(
-            label: '보유기간',
-            value: '${stats.durationDays}일',
-          ),
-          const Divider(height: 16),
-          InfoRow(
             label: '평균매수가',
             value: '\$${stats.avgBuyPrice.toStringAsFixed(2)}',
           ),
@@ -411,7 +401,7 @@ class _InvestmentInfoCard extends StatelessWidget {
           InfoRow(
             label: '투자 기간',
             value: stats.firstDate != null && stats.lastDate != null
-                ? '${dateFormat.format(stats.firstDate!)} → ${dateFormat.format(stats.lastDate!)}'
+                ? '${dateFormat.format(stats.firstDate!)} ~ ${dateFormat.format(stats.lastDate!)} (${stats.durationDays}일)'
                 : '-',
           ),
         ],
