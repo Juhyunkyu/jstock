@@ -362,13 +362,14 @@ class CycleTradeCard extends ConsumerWidget {
   // ═══════════════════════════════════════════════════════════════
 
   void _showTradeOptions(BuildContext context, WidgetRef ref) {
+    final parentContext = context; // 부모 context 캡처 (bottom sheet pop 후에도 유효)
     showModalBottomSheet(
       context: context,
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
+      builder: (sheetContext) => Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -377,7 +378,7 @@ class CycleTradeCard extends ConsumerWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: context.appDivider,
+                color: sheetContext.appDivider,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -395,8 +396,8 @@ class CycleTradeCard extends ConsumerWidget {
               title: const Text('수정'),
               subtitle: const Text('거래 정보를 수정합니다'),
               onTap: () {
-                Navigator.pop(context);
-                _showEditTradeSheet(context, ref);
+                Navigator.pop(sheetContext);
+                _showEditTradeSheet(parentContext, ref);
               },
             ),
             const SizedBox(height: 8),
@@ -413,11 +414,11 @@ class CycleTradeCard extends ConsumerWidget {
               title: const Text('삭제', style: TextStyle(color: AppColors.red500)),
               subtitle: const Text('거래 내역을 삭제합니다'),
               onTap: () async {
-                Navigator.pop(context);
-                await _handleDeleteTrade(context, ref);
+                Navigator.pop(sheetContext);
+                await _handleDeleteTrade(parentContext, ref);
               },
             ),
-            SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+            SizedBox(height: MediaQuery.of(sheetContext).padding.bottom + 8),
           ],
         ),
       ),

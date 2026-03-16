@@ -32,7 +32,7 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       totalRounds: fields[17] == null ? 40 : fields[17] as int,
       initialEntryRatio: fields[18] == null ? 0.2 : fields[18] as double,
       weightedBuyThreshold: fields[19] == null ? -20.0 : fields[19] as double,
-      weightedBuyDivisor: fields[20] == null ? 1000.0 : fields[20] as double,
+      weightedBuyPerPercent: fields[20] == null ? 0.0 : fields[20] as double,
       panicBuyThreshold: fields[21] == null ? -50.0 : fields[21] as double,
       panicBuyMultiplier: fields[22] == null ? 0.5 : fields[22] as double,
       firstProfitTarget: fields[23] == null ? 30.0 : fields[23] as double,
@@ -40,6 +40,7 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       minProfitTarget: fields[25] == null ? 10.0 : fields[25] as double,
       cashSecureRatio: fields[26] == null ? 0.3333 : fields[26] as double,
       takeProfitPercent: fields[27] == null ? 10.0 : fields[27] as double,
+      nickname: fields[28] == null ? '' : fields[28] as String,
       completedReturnRate: fields[10] as double?,
       startDate: fields[8] as DateTime?,
     )
@@ -54,7 +55,7 @@ class CycleAdapter extends TypeAdapter<Cycle> {
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(28)
+      ..writeByte(29)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -96,7 +97,7 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(19)
       ..write(obj.weightedBuyThreshold)
       ..writeByte(20)
-      ..write(obj.weightedBuyDivisor)
+      ..write(obj.weightedBuyPerPercent)
       ..writeByte(21)
       ..write(obj.panicBuyThreshold)
       ..writeByte(22)
@@ -110,7 +111,9 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(26)
       ..write(obj.cashSecureRatio)
       ..writeByte(27)
-      ..write(obj.takeProfitPercent);
+      ..write(obj.takeProfitPercent)
+      ..writeByte(28)
+      ..write(obj.nickname);
   }
 
   @override

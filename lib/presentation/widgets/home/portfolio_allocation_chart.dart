@@ -607,53 +607,43 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     Color steadyColor,
     Color holdingColor,
   ) {
-    final hasSmartCycles = summary.smartCycleCount > 0;
-    final hasSteadyCycles = summary.steadyCycleCount > 0;
-    final hasHoldings = summary.holdingCount > 0;
-
-    if (!hasSmartCycles && !hasSteadyCycles && !hasHoldings) {
-      return [
-        PieChartSectionData(
-          color: AppColors.gray200,
-          value: 100,
-          title: '',
-          radius: 15,
-        ),
-      ];
-    }
-
     final sections = <PieChartSectionData>[];
 
-    if (hasSmartCycles) {
-      final invested = summary.smartCycleActualInvested;
-      final isWaiting = invested == 0;
+    // 실제 투자금이 있는 세그먼트만 도넛에 포함 (대기중은 범례에서만 표시)
+    if (summary.smartCycleCount > 0 && summary.smartCycleActualInvested > 0) {
       sections.add(PieChartSectionData(
-        color: isWaiting ? context.appTextHint : smartColor,
-        value: isWaiting ? 0.5 : invested,
+        color: smartColor,
+        value: summary.smartCycleActualInvested,
         title: '',
-        radius: isWaiting ? 3 : 15,
+        radius: 15,
       ));
     }
 
-    if (hasSteadyCycles) {
-      final invested = summary.steadyCycleActualInvested;
-      final isWaiting = invested == 0;
+    if (summary.steadyCycleCount > 0 && summary.steadyCycleActualInvested > 0) {
       sections.add(PieChartSectionData(
-        color: isWaiting ? context.appTextHint : steadyColor,
-        value: isWaiting ? 0.5 : invested,
+        color: steadyColor,
+        value: summary.steadyCycleActualInvested,
         title: '',
-        radius: isWaiting ? 3 : 15,
+        radius: 15,
       ));
     }
 
-    if (hasHoldings) {
-      final invested = summary.holdingInvested;
-      final isWaiting = invested == 0;
+    if (summary.holdingCount > 0 && summary.holdingInvested > 0) {
       sections.add(PieChartSectionData(
-        color: isWaiting ? context.appTextHint : holdingColor,
-        value: isWaiting ? 0.5 : invested,
+        color: holdingColor,
+        value: summary.holdingInvested,
         title: '',
-        radius: isWaiting ? 3 : 15,
+        radius: 15,
+      ));
+    }
+
+    // 모든 세그먼트가 대기중이면 회색 플레이스홀더
+    if (sections.isEmpty) {
+      sections.add(PieChartSectionData(
+        color: context.appDivider,
+        value: 100,
+        title: '',
+        radius: 15,
       ));
     }
 

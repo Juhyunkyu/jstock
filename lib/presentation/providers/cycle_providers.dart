@@ -33,8 +33,25 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
 
   void _loadCycles() {
     state = _repository.getAll();
+    _migrateWeightedBuyParam();
     // 기존 사이클의 잘못된 entryPrice 교정 (비동기 → 완료 후 state 갱신)
     _fixEntryPrices();
+  }
+
+  /// v7.0 마이그레이션: 기존 weightedBuyDivisor 값(500~2000) → 0.0 리셋
+  void _migrateWeightedBuyParam() {
+    // 구 슬라이더: min=500, max=2000, divisions=6 → 가능값
+    const legacyValues = {500.0, 750.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0};
+    bool changed = false;
+    for (final cycle in state) {
+      if (cycle.strategyType != StrategyType.alphaCycleV3) continue;
+      if (legacyValues.contains(cycle.weightedBuyPerPercent)) {
+        cycle.weightedBuyPerPercent = 0.0; // auto-calc 트리거
+        _repository.save(cycle);
+        changed = true;
+      }
+    }
+    if (changed) state = _repository.getAll();
   }
 
   /// 기존 Smart 사이클의 entryPrice를 시간순 첫 매수 가격으로 교정
@@ -85,10 +102,11 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
     required double seedAmount,
     required double exchangeRate,
     required StrategyType strategyType,
+    String nickname = '',
     // Strategy A 커스텀 파라미터
     double initialEntryRatio = 0.20,
     double weightedBuyThreshold = -20.0,
-    double weightedBuyDivisor = 1000.0,
+    double weightedBuyPerPercent = 0.0,
     double panicBuyThreshold = -50.0,
     double panicBuyMultiplier = 0.50,
     double firstProfitTarget = 30.0,
@@ -106,9 +124,10 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
       seedAmount: seedAmount,
       exchangeRateAtEntry: exchangeRate,
       strategyType: strategyType,
+      nickname: nickname,
       initialEntryRatio: initialEntryRatio,
       weightedBuyThreshold: weightedBuyThreshold,
-      weightedBuyDivisor: weightedBuyDivisor,
+      weightedBuyPerPercent: weightedBuyPerPercent,
       panicBuyThreshold: panicBuyThreshold,
       panicBuyMultiplier: panicBuyMultiplier,
       firstProfitTarget: firstProfitTarget,
@@ -186,10 +205,11 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
       seedAmount: newSeed,
       exchangeRateAtEntry: exchangeRate,
       strategyType: cycle.strategyType,
+      nickname: cycle.nickname,
       consecutiveProfitCount: carryOverCount,
       initialEntryRatio: cycle.initialEntryRatio,
       weightedBuyThreshold: cycle.weightedBuyThreshold,
-      weightedBuyDivisor: cycle.weightedBuyDivisor,
+      weightedBuyPerPercent: cycle.weightedBuyPerPercent,
       panicBuyThreshold: cycle.panicBuyThreshold,
       panicBuyMultiplier: cycle.panicBuyMultiplier,
       firstProfitTarget: cycle.firstProfitTarget,

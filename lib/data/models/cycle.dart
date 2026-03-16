@@ -90,8 +90,8 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(19, defaultValue: -20.0)
   double weightedBuyThreshold;
 
-  @HiveField(20, defaultValue: 1000.0)
-  double weightedBuyDivisor;
+  @HiveField(20, defaultValue: 0.0)
+  double weightedBuyPerPercent;   // 0 = auto-calc (seedAmount × 0.00007)
 
   @HiveField(21, defaultValue: -50.0)
   double panicBuyThreshold;
@@ -115,6 +115,10 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(27, defaultValue: 10.0)
   double takeProfitPercent;
 
+  // === 별명 ===
+  @HiveField(28, defaultValue: '')
+  String nickname;
+
   // === 생성자 ===
 
   Cycle({
@@ -131,7 +135,7 @@ class Cycle extends HiveObject implements TradingPosition {
     this.totalRounds = 40,
     this.initialEntryRatio = 0.20,
     this.weightedBuyThreshold = -20.0,
-    this.weightedBuyDivisor = 1000.0,
+    this.weightedBuyPerPercent = 0.0,
     this.panicBuyThreshold = -50.0,
     this.panicBuyMultiplier = 0.50,
     this.firstProfitTarget = 30.0,
@@ -139,6 +143,7 @@ class Cycle extends HiveObject implements TradingPosition {
     this.minProfitTarget = 10.0,
     this.cashSecureRatio = 0.3333,
     this.takeProfitPercent = 10.0,
+    this.nickname = '',
     this.completedReturnRate,
     DateTime? startDate,
   })  : averagePrice = 0,
@@ -152,6 +157,10 @@ class Cycle extends HiveObject implements TradingPosition {
 
   /// 초기 진입금 (Strategy A)
   double get initialEntryAmount => seedAmount * initialEntryRatio;
+
+  /// 가중매수 1%당 금액. 0이면 seedAmount 기반 자동 계산
+  double get effectiveWeightedBuyPerPercent =>
+      weightedBuyPerPercent > 0 ? weightedBuyPerPercent : seedAmount * 0.00007;
 
   /// 분할 단위 금액 (Strategy B)
   double get unitAmount => totalRounds > 0 ? seedAmount / totalRounds : 0;
@@ -218,7 +227,7 @@ class Cycle extends HiveObject implements TradingPosition {
     'totalRounds': totalRounds,
     'initialEntryRatio': initialEntryRatio,
     'weightedBuyThreshold': weightedBuyThreshold,
-    'weightedBuyDivisor': weightedBuyDivisor,
+    'weightedBuyPerPercent': weightedBuyPerPercent,
     'panicBuyThreshold': panicBuyThreshold,
     'panicBuyMultiplier': panicBuyMultiplier,
     'firstProfitTarget': firstProfitTarget,
@@ -226,6 +235,7 @@ class Cycle extends HiveObject implements TradingPosition {
     'minProfitTarget': minProfitTarget,
     'cashSecureRatio': cashSecureRatio,
     'takeProfitPercent': takeProfitPercent,
+    'nickname': nickname,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -243,7 +253,7 @@ class Cycle extends HiveObject implements TradingPosition {
       totalRounds: json['totalRounds'] as int? ?? 40,
       initialEntryRatio: (json['initialEntryRatio'] as num?)?.toDouble() ?? 0.20,
       weightedBuyThreshold: (json['weightedBuyThreshold'] as num?)?.toDouble() ?? -20.0,
-      weightedBuyDivisor: (json['weightedBuyDivisor'] as num?)?.toDouble() ?? 1000.0,
+      weightedBuyPerPercent: (json['weightedBuyPerPercent'] as num?)?.toDouble() ?? 0.0,
       panicBuyThreshold: (json['panicBuyThreshold'] as num?)?.toDouble() ?? -50.0,
       panicBuyMultiplier: (json['panicBuyMultiplier'] as num?)?.toDouble() ?? 0.50,
       firstProfitTarget: (json['firstProfitTarget'] as num?)?.toDouble() ?? 30.0,
@@ -251,6 +261,7 @@ class Cycle extends HiveObject implements TradingPosition {
       minProfitTarget: (json['minProfitTarget'] as num?)?.toDouble() ?? 10.0,
       cashSecureRatio: (json['cashSecureRatio'] as num?)?.toDouble() ?? 0.3333,
       takeProfitPercent: (json['takeProfitPercent'] as num?)?.toDouble() ?? 10.0,
+      nickname: json['nickname'] as String? ?? '',
     );
     // 저장된 상태 복원 (생성자 기본값 덮어쓰기)
     cycle.averagePrice = (json['averagePrice'] as num?)?.toDouble() ?? 0;
@@ -285,7 +296,7 @@ class Cycle extends HiveObject implements TradingPosition {
     int? totalRounds,
     double? initialEntryRatio,
     double? weightedBuyThreshold,
-    double? weightedBuyDivisor,
+    double? weightedBuyPerPercent,
     double? panicBuyThreshold,
     double? panicBuyMultiplier,
     double? firstProfitTarget,
@@ -293,6 +304,7 @@ class Cycle extends HiveObject implements TradingPosition {
     double? minProfitTarget,
     double? cashSecureRatio,
     double? takeProfitPercent,
+    String? nickname,
   }) {
     final cycle = Cycle(
       id: id ?? this.id,
@@ -308,7 +320,7 @@ class Cycle extends HiveObject implements TradingPosition {
       totalRounds: totalRounds ?? this.totalRounds,
       initialEntryRatio: initialEntryRatio ?? this.initialEntryRatio,
       weightedBuyThreshold: weightedBuyThreshold ?? this.weightedBuyThreshold,
-      weightedBuyDivisor: weightedBuyDivisor ?? this.weightedBuyDivisor,
+      weightedBuyPerPercent: weightedBuyPerPercent ?? this.weightedBuyPerPercent,
       panicBuyThreshold: panicBuyThreshold ?? this.panicBuyThreshold,
       panicBuyMultiplier: panicBuyMultiplier ?? this.panicBuyMultiplier,
       firstProfitTarget: firstProfitTarget ?? this.firstProfitTarget,
@@ -316,6 +328,7 @@ class Cycle extends HiveObject implements TradingPosition {
       minProfitTarget: minProfitTarget ?? this.minProfitTarget,
       cashSecureRatio: cashSecureRatio ?? this.cashSecureRatio,
       takeProfitPercent: takeProfitPercent ?? this.takeProfitPercent,
+      nickname: nickname ?? this.nickname,
       completedReturnRate: completedReturnRate ?? this.completedReturnRate,
       startDate: startDate ?? this.startDate,
     );
@@ -335,4 +348,23 @@ class Cycle extends HiveObject implements TradingPosition {
         'avg: \$${averagePrice.toStringAsFixed(2)}, '
         'cash: ${remainingCash.toStringAsFixed(0)}KRW)';
   }
+}
+
+/// 사이클 표시명 계산
+/// - nickname이 있으면 → nickname 반환
+/// - 같은 티커가 2개 이상이면 → '#N' 반환 (생성순서 기준)
+/// - 같은 티커가 1개면 → null 반환 (추가 라벨 불필요)
+String? cycleDisplayLabel(Cycle cycle, List<Cycle> allActiveCycles) {
+  if (cycle.nickname.isNotEmpty) return cycle.nickname;
+
+  final sameTicker = allActiveCycles
+      .where((c) => c.ticker == cycle.ticker)
+      .toList()
+    ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+  if (sameTicker.length < 2) return null;
+
+  final index = sameTicker.indexWhere((c) => c.id == cycle.id);
+  if (index < 0) return null;
+  return '#${index + 1}';
 }

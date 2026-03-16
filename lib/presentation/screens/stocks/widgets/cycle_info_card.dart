@@ -17,6 +17,7 @@ class CycleInfoCard extends StatefulWidget {
   final double evaluatedAmountKrw;
   final double weightedAvgExchangeRate;
   final ValueChanged<double>? onExchangeRateChanged;
+  final VoidCallback? onEditSettings;
 
   const CycleInfoCard({
     super.key,
@@ -26,6 +27,7 @@ class CycleInfoCard extends StatefulWidget {
     required this.evaluatedAmountKrw,
     required this.weightedAvgExchangeRate,
     this.onExchangeRateChanged,
+    this.onEditSettings,
   });
 
   @override
@@ -248,6 +250,29 @@ class _CycleInfoCardState extends State<CycleInfoCard> {
                 ? _buildAlphaCycleSection(context, cycle)
                 : _buildSteadyCycleSection(context, cycle),
           ),
+
+          // === 설정 변경 버튼 (대기중일 때만) ===
+          if (widget.onEditSettings != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: widget.onEditSettings,
+                icon: Icon(Icons.tune, size: 16, color: context.appAccent),
+                label: Text(
+                  '설정 변경',
+                  style: TextStyle(fontSize: 13, color: context.appAccent),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: context.appAccent.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

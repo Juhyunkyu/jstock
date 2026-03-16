@@ -14,7 +14,7 @@ class AppConstants {
   static const double defaultPanicBuyRatio = 0.50; // 승부수 비율 (초기진입금의 50%)
 
   // 가중 매수 공식 상수
-  static const double weightedBuyDivisor = 1000.0; // 가중 매수 나눗수
+  static const double defaultWeightedBuyRatio = 0.00007; // 1%당 금액 비율 (시드 × 이 값)
 
   // 기본 환율
   static const double defaultExchangeRate = 1350.0;

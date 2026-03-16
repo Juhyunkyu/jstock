@@ -17,11 +17,13 @@ import 'signal_display.dart';
 /// 실시간 가격/환율을 ref.watch로 구독하여 평가금액, 수익률, 신호를 자동 갱신합니다.
 class ActiveCycleCard extends ConsumerWidget {
   final Cycle cycle;
+  final List<Cycle> allActiveCycles;
   final VoidCallback? onTap;
 
   const ActiveCycleCard({
     super.key,
     required this.cycle,
+    required this.allActiveCycles,
     this.onTap,
   });
 
@@ -77,6 +79,19 @@ class ActiveCycleCard extends ConsumerWidget {
                     color: context.appTickerColor,
                   ),
                 ),
+                if (cycleDisplayLabel(cycle, allActiveCycles) != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    cycleDisplayLabel(cycle, allActiveCycles)!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cycle.nickname.isNotEmpty
+                          ? context.appAccent
+                          : context.appTextHint,
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

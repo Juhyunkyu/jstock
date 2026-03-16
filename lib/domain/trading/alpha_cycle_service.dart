@@ -14,13 +14,12 @@ class AlphaCycleService implements StrategyEngine {
     return (currentPrice - entryPrice) / entryPrice * 100;
   }
 
-  /// 가중 매수 금액 (KRW)
+  /// 가중 매수 금액 (KRW) — v7.0: |손실률| × 1%당 금액
   static double weightedBuyAmount({
-    required double initialEntryAmount,
     required double lossRate,
-    required double weightedBuyDivisor,
+    required double weightedBuyPerPercent,
   }) =>
-      initialEntryAmount * lossRate.abs() / weightedBuyDivisor;
+      lossRate.abs() * weightedBuyPerPercent;
 
   /// 승부수 금액 (KRW) -- V3: 평가금액 기준
   static double panicBuyAmount({
@@ -101,9 +100,8 @@ class AlphaCycleService implements StrategyEngine {
         );
         final loss = lossRate(currentPrice, cycle.entryPrice);
         final weighted = weightedBuyAmount(
-          initialEntryAmount: cycle.initialEntryAmount,
           lossRate: loss,
-          weightedBuyDivisor: cycle.weightedBuyDivisor,
+          weightedBuyPerPercent: cycle.effectiveWeightedBuyPerPercent,
         );
         final total = panic + weighted;
         return total > 0 ? total.clamp(0.0, cycle.remainingCash) : null;
@@ -111,9 +109,8 @@ class AlphaCycleService implements StrategyEngine {
       case TradeSignal.weightedBuy:
         final loss = lossRate(currentPrice, cycle.entryPrice);
         final amount = weightedBuyAmount(
-          initialEntryAmount: cycle.initialEntryAmount,
           lossRate: loss,
-          weightedBuyDivisor: cycle.weightedBuyDivisor,
+          weightedBuyPerPercent: cycle.effectiveWeightedBuyPerPercent,
         );
         return amount > 0 ? amount.clamp(0.0, cycle.remainingCash) : null;
 

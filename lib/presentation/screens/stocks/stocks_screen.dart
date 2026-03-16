@@ -399,6 +399,8 @@ class _CycleListTab extends ConsumerWidget {
       );
     }
 
+    final allActive = ref.watch(activeCyclesProvider);
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: cycles.length,
@@ -406,6 +408,7 @@ class _CycleListTab extends ConsumerWidget {
         final cycle = cycles[index];
         return _ActiveCycleCard(
           cycle: cycle,
+          allActiveCycles: allActive,
           onTap: () => context.push('/stocks/detail/${cycle.id}'),
         );
       },
@@ -419,10 +422,12 @@ class _CycleListTab extends ConsumerWidget {
 
 class _ActiveCycleCard extends ConsumerWidget {
   final Cycle cycle;
+  final List<Cycle> allActiveCycles;
   final VoidCallback? onTap;
 
   const _ActiveCycleCard({
     required this.cycle,
+    required this.allActiveCycles,
     this.onTap,
   });
 
@@ -473,6 +478,19 @@ class _ActiveCycleCard extends ConsumerWidget {
                     color: context.appTickerColor,
                   ),
                 ),
+                if (cycleDisplayLabel(cycle, allActiveCycles) != null) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    cycleDisplayLabel(cycle, allActiveCycles)!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: cycle.nickname.isNotEmpty
+                          ? context.appAccent
+                          : context.appTextHint,
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(

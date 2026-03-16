@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import '../../../../core/utils/number_formatter.dart';
 import '../../../../data/models/cycle.dart';
 import '../../../../data/models/trade.dart';
-import '../../../widgets/common/date_picker_field.dart';
-import '../../../widgets/cycle/signal_display.dart';
+import '../../../../domain/trading/alpha_cycle_service.dart';
+import '../../../../domain/trading/trading_math.dart';
 import '../../../widgets/shared/return_badge.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
 import 'cycle_trade_card.dart';
@@ -66,6 +67,10 @@ class _CycleTradeRecordSheetState
   bool _isBuy = true;
   late DateTime _selectedDate;
   late TradeSignal _selectedSignal;
+
+  /// 매수/매도 탭 전환 시 이전 신호를 기억
+  TradeSignal? _lastBuySignal;
+  TradeSignal? _lastSellSignal;
 
   final _priceController = TextEditingController();
   final _sharesController = TextEditingController();
@@ -152,72 +157,46 @@ class _CycleTradeRecordSheetState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ═══ 헤더: 티커 + 닫기 ═══
+            // ═══ 1. 헤더: 티커 + 닫기 ═══
             _buildHeader(context),
             const SizedBox(height: 4),
 
-            // ═══ 현재가 + 등락률 (수정 모드에서는 숨김) ═══
+            // ═══ 2. 현재가 + 등락률 (수정 모드에서는 숨김) ═══
             if (!_isEditing && widget.currentPrice != null) ...[
               _buildCurrentPrice(context),
-              const SizedBox(height: 16),
-            ] else if (!_isEditing)
               const SizedBox(height: 12),
+            ] else if (!_isEditing)
+              const SizedBox(height: 8),
 
-            // ═══ 신호 가이드 카드 (수정 모드에서는 숨김, hold이 아닐 때만) ═══
-            if (!_isEditing && widget.currentSignal != TradeSignal.hold) ...[
-              SignalDisplay(
-                signal: widget.currentSignal,
-                size: SignalDisplaySize.large,
-                amount: widget.signalAmount,
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // ═══ 매수/매도 토글 (수정 모드에서는 비활성) ═══
-            _buildToggle(context),
-            const SizedBox(height: 20),
-
-            // ═══ 거래일 ═══
-            DatePickerField(
-              label: '거래일',
-              selectedDate: _selectedDate,
-              onDateChanged: (date) => setState(() => _selectedDate = date),
-            ),
-            const SizedBox(height: 16),
-
-            // ═══ 단가 입력 ═══
-            _buildLabeledInput(
-              context,
-              label: '단가 (USD)',
-              controller: _priceController,
-              prefix: '\$',
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // ═══ 수량 스텝퍼 ═══
-            _buildSharesStepper(context),
-            const SizedBox(height: 16),
-
-            // ═══ 신호 선택 (접이식) ═══
-            _buildSignalSection(context),
-            const SizedBox(height: 16),
-
-            // ═══ 거래 금액 표시 ═══
-            _buildAmountDisplay(context, amountKrw, exchangeRate),
+            // ═══ 3. 거래일 (한 줄 Row) ═══
+            _buildInlineDatePicker(context),
             const SizedBox(height: 12),
 
-            // ═══ 매수: 잔여현금 + 추가자금 / 매도: 보유수량 ═══
-            if (_isBuy) ...[
-              _buildBuyHelpers(context, amountKrw, exceedsRemaining),
-            ],
+            // ═══ 4. 매수/매도 토글 (수정 모드에서는 비활성) ═══
+            _buildToggle(context),
+            const SizedBox(height: 12),
 
-            // ═══ 메모 ═══
-            const SizedBox(height: 4),
+            // ═══ 5. 신호 선택 (토글 바로 아래) ═══
+            _buildSignalSection(context),
+            const SizedBox(height: 12),
+
+            // ═══ 6. 매수 추천 가이드 (Smart Cycle only) ═══
+            if (_showBuyGuide)
+              _buildBuyGuide(context, exchangeRate),
+
+            // ═══ 7. 단가 입력 (한 줄 Row) ═══
+            _buildInlinePriceInput(context),
+            const SizedBox(height: 12),
+
+            // ═══ 8. 수량 스텝퍼 (한 줄 Row) ═══
+            _buildInlineSharesStepper(context),
+            const SizedBox(height: 12),
+
+            // ═══ 9. 거래 금액 + 잔여현금/추가자금 통합 ═══
+            _buildAmountSection(context, amountKrw, exchangeRate, exceedsRemaining),
+            const SizedBox(height: 12),
+
+            // ═══ 10. 메모 ═══
             _buildLabeledInput(
               context,
               label: '메모 (선택)',
@@ -227,12 +206,233 @@ class _CycleTradeRecordSheetState
             ),
             const SizedBox(height: 24),
 
-            // ═══ 저장 버튼 ═══
+            // ═══ 11. 저장 버튼 ═══
             _buildSaveButton(context, exceedsRemaining),
           ],
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 매수 신호별 추천 가이드 (Smart Cycle)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Smart Cycle + 매수탭 + 신규모드 + 가이드 대상 신호일 때 표시
+  bool get _showBuyGuide {
+    if (_isEditing || !_isBuy) return false;
+    if (widget.cycle.strategyType != StrategyType.alphaCycleV3) return false;
+
+    switch (_selectedSignal) {
+      case TradeSignal.initial:
+        return true;
+      case TradeSignal.weightedBuy:
+      case TradeSignal.panicBuy:
+        // entryPrice가 없으면 가중매수/승부수 가이드 불가
+        final ep = widget.cycle.entryPrice;
+        return ep != null && ep > 0;
+      default:
+        return false;
+    }
+  }
+
+  /// 신호별 추천 금액(KRW)과 설명 라벨 계산
+  ({double amount, String label, String title}) _buyGuideInfo() {
+    final cycle = widget.cycle;
+    final currentPrice = widget.currentPrice ?? 0;
+    final exchangeRate = widget.currentExchangeRate;
+
+    switch (_selectedSignal) {
+      case TradeSignal.initial:
+        final amount = cycle.seedAmount * cycle.initialEntryRatio;
+        final ratioPercent =
+            (cycle.initialEntryRatio * 100).toStringAsFixed(0);
+        return (
+          amount: amount,
+          label: '시드의 $ratioPercent%',
+          title: '초기 진입 추천',
+        );
+
+      case TradeSignal.weightedBuy:
+        final loss = AlphaCycleService.lossRate(currentPrice, cycle.entryPrice);
+        final perPercent = cycle.effectiveWeightedBuyPerPercent;
+        final amount = AlphaCycleService.weightedBuyAmount(
+          lossRate: loss,
+          weightedBuyPerPercent: perPercent,
+        );
+        final lossStr = loss.abs().toStringAsFixed(1);
+        return (
+          amount: amount,
+          label: '손실률 $lossStr% × ${_formatGuideAmount(perPercent)}/1%',
+          title: '가중 매수 추천',
+        );
+
+      case TradeSignal.panicBuy:
+        final evalAmount = TradingMath.evaluatedAmount(
+          cycle.totalShares,
+          currentPrice,
+          exchangeRate,
+        );
+        final panicAmount = AlphaCycleService.panicBuyAmount(
+          evaluatedAmount: evalAmount,
+          panicBuyMultiplier: cycle.panicBuyMultiplier,
+        );
+        // 가중매수 금액도 합산
+        final loss = AlphaCycleService.lossRate(currentPrice, cycle.entryPrice);
+        final wbAmount = AlphaCycleService.weightedBuyAmount(
+          lossRate: loss,
+          weightedBuyPerPercent: cycle.effectiveWeightedBuyPerPercent,
+        );
+        final totalAmount = panicAmount + wbAmount;
+        final multPercent =
+            (cycle.panicBuyMultiplier * 100).toStringAsFixed(0);
+        return (
+          amount: totalAmount,
+          label: '평가금의 $multPercent% + 가중매수',
+          title: '승부수 추천',
+        );
+
+      default:
+        return (amount: 0.0, label: '', title: '');
+    }
+  }
+
+  Widget _buildBuyGuide(BuildContext context, double exchangeRate) {
+    final info = _buyGuideInfo();
+    final recommendedKrw = info.amount;
+
+    // 단가 입력 시 추천 수량 계산
+    final priceUsd = _price;
+    final canCalcShares = priceUsd > 0 && exchangeRate > 0;
+    final recommendedShares = canCalcShares
+        ? (recommendedKrw / (priceUsd * exchangeRate)).floor()
+        : 0;
+    final actualKrw = recommendedShares * priceUsd * exchangeRate;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: context.appAccent.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: context.appAccent.withValues(alpha: 0.2),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // 제목 (중앙정렬)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lightbulb_outline,
+                    size: 16, color: context.appAccent),
+                const SizedBox(width: 6),
+                Text(
+                  info.title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.appAccent,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            // 매수금액 (중앙)
+            Text(
+              '매수금액: ${_formatGuideAmount(recommendedKrw)}',
+              style: TextStyle(
+                fontSize: 13,
+                color: context.appTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 2),
+            // 설명 라벨 (중앙)
+            Text(
+              '(${info.label})',
+              style: TextStyle(
+                fontSize: 12,
+                color: context.appTextSecondary,
+              ),
+            ),
+            // 단가 입력 시 추천 수량
+            if (canCalcShares && recommendedShares > 0) ...[
+              const SizedBox(height: 6),
+              Divider(height: 1, color: context.appAccent.withValues(alpha: 0.15)),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '추천 수량: ${recommendedShares}주',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: context.appTextPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '≈ ${_formatGuideAmount(actualKrw)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.appTextSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // [적용] 버튼 (우측)
+                  GestureDetector(
+                    onTap: () {
+                      _sharesController.text = recommendedShares.toString();
+                      setState(() {});
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: context.appAccent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        '적용',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatGuideAmount(double amount) {
+    if (amount >= 100000000) {
+      final eok = amount / 100000000;
+      final remainder = (amount % 100000000) / 10000;
+      if (remainder > 0) {
+        return '${eok.toStringAsFixed(0)}억 ${remainder.toStringAsFixed(0)}만원';
+      }
+      return '${eok.toStringAsFixed(0)}억원';
+    } else if (amount >= 10000) {
+      return '${(amount / 10000).toStringAsFixed(0)}만원';
+    }
+    return '${amount.toStringAsFixed(0)}원';
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -288,6 +488,111 @@ class _CycleTradeRecordSheetState
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // 거래일 (한 줄 인라인)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildInlineDatePicker(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          '거래일',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: context.appTextSecondary,
+          ),
+        ),
+        const Spacer(),
+        InkWell(
+          onTap: () => _showDatePicker(context),
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: context.appSurface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: context.appDivider, width: 1),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.calendar_today_rounded,
+                  size: 16,
+                  color: context.appAccent,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _formatDate(_selectedDate),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 20,
+                  color: context.appTextHint,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final dateFormat = DateFormat('yyyy.MM.dd');
+    final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    final weekday = weekdays[date.weekday - 1];
+    return '${dateFormat.format(date)} ($weekday)';
+  }
+
+  Future<void> _showDatePicker(BuildContext context) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000, 1, 1),
+      lastDate: today,
+      locale: const Locale('ko', 'KR'),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: context.appTextPrimary,
+              surface: context.appSurface,
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primary,
+                textStyle: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            datePickerTheme: DatePickerThemeData(
+              backgroundColor: context.appSurface,
+              headerBackgroundColor: AppColors.primary,
+              headerForegroundColor: Colors.white,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() => _selectedDate = pickedDate);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // 매수/매도 토글 (보유 상세 패턴)
   // ═══════════════════════════════════════════════════════════════
 
@@ -307,13 +612,13 @@ class _CycleTradeRecordSheetState
               onTap: _isEditing ? null : () {
                 if (!_isBuy) {
                   setState(() {
+                    _lastSellSignal = _selectedSignal;
                     _isBuy = true;
-                    // 매수 신호 리스트의 첫 번째로 리셋
                     final buySignals = CycleTradeCard.buySignalsFor(
                         widget.cycle.strategyType);
-                    if (!buySignals.contains(_selectedSignal)) {
-                      _selectedSignal = buySignals.first;
-                    }
+                    _selectedSignal = (_lastBuySignal != null && buySignals.contains(_lastBuySignal!))
+                        ? _lastBuySignal!
+                        : buySignals.first;
                   });
                 }
               },
@@ -340,13 +645,13 @@ class _CycleTradeRecordSheetState
               onTap: _isEditing ? null : () {
                 if (_isBuy) {
                   setState(() {
+                    _lastBuySignal = _selectedSignal;
                     _isBuy = false;
-                    // 매도 신호 리스트의 첫 번째로 리셋
                     final sellSignals = CycleTradeCard.sellSignalsFor(
                         widget.cycle.strategyType);
-                    if (!sellSignals.contains(_selectedSignal)) {
-                      _selectedSignal = sellSignals.first;
-                    }
+                    _selectedSignal = (_lastSellSignal != null && sellSignals.contains(_lastSellSignal!))
+                        ? _lastSellSignal!
+                        : sellSignals.first;
                     // 매도 시 보유 수량 초과 방지
                     final entered =
                         double.tryParse(_sharesController.text) ?? 0;
@@ -384,115 +689,152 @@ class _CycleTradeRecordSheetState
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 수량 스텝퍼
+  // 단가 입력 (한 줄 인라인)
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildSharesStepper(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildInlinePriceInput(BuildContext context) {
+    return Row(
       children: [
-        Row(
-          children: [
-            Text(
-              '수량 (주)',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: context.appTextSecondary,
-              ),
-            ),
-            if (!_isBuy && widget.cycle.totalShares > 0) ...[
-              const SizedBox(width: 8),
-              Text(
-                '보유: ${formatShares(widget.cycle.totalShares)}주',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.appAccent,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ],
+        Text(
+          '단가 (USD)',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: context.appTextSecondary,
+          ),
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _StepperButton(
-              icon: Icons.remove,
-              onTap: () {
-                final current =
-                    double.tryParse(_sharesController.text) ?? 0;
-                if (current > 0) {
-                  final newVal = (current - 1).clamp(0.0, double.infinity);
-                  _sharesController.text = newVal == newVal.roundToDouble()
-                      ? newVal.toInt().toString()
-                      : newVal.toStringAsFixed(2);
-                  setState(() {});
-                }
-              },
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _sharesController,
-                keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true),
-                textAlign: TextAlign.center,
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(
-                      RegExp(r'^\d*\.?\d*')),
-                ],
-                onChanged: (_) {
-                  // 매도 시 보유 수량 초과 방지
-                  if (!_isBuy) {
-                    final entered =
-                        double.tryParse(_sharesController.text) ?? 0;
-                    if (entered > widget.cycle.totalShares) {
-                      final max = widget.cycle.totalShares;
-                      _sharesController.text =
-                          max == max.roundToDouble()
-                              ? max.toInt().toString()
-                              : max.toStringAsFixed(2);
-                      _sharesController.selection =
-                          TextSelection.fromPosition(
-                        TextPosition(
-                            offset: _sharesController.text.length),
-                      );
-                    }
-                  }
-                  setState(() {});
-                },
-                style: TextStyle(color: context.appTextPrimary),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: context.appSurface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
-                ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextField(
+            controller: _priceController,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
+            onChanged: (_) => setState(() {}),
+            style: TextStyle(color: context.appTextPrimary),
+            textAlign: TextAlign.right,
+            decoration: InputDecoration(
+              prefixText: '\$',
+              filled: true,
+              fillColor: context.appSurface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
               ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
-            const SizedBox(width: 8),
-            _StepperButton(
-              icon: Icons.add,
-              onTap: () {
-                final current =
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 수량 스텝퍼 (한 줄 인라인)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildInlineSharesStepper(BuildContext context) {
+    return Row(
+      children: [
+        Text(
+          '수량 (주)',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: context.appTextSecondary,
+          ),
+        ),
+        if (!_isBuy && widget.cycle.totalShares > 0) ...[
+          const SizedBox(width: 8),
+          Text(
+            '보유: ${formatShares(widget.cycle.totalShares)}주',
+            style: TextStyle(
+              fontSize: 12,
+              color: context.appAccent,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        const Spacer(),
+        // 스텝퍼 ([-] [input] [+])
+        _StepperButton(
+          icon: Icons.remove,
+          onTap: () {
+            final current =
+                double.tryParse(_sharesController.text) ?? 0;
+            if (current > 0) {
+              final newVal = (current - 1).clamp(0.0, double.infinity);
+              _sharesController.text = newVal == newVal.roundToDouble()
+                  ? newVal.toInt().toString()
+                  : newVal.toStringAsFixed(2);
+              setState(() {});
+            }
+          },
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: 80,
+          child: TextField(
+            controller: _sharesController,
+            keyboardType: const TextInputType.numberWithOptions(
+                decimal: true),
+            textAlign: TextAlign.center,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                  RegExp(r'^\d*\.?\d*')),
+            ],
+            onChanged: (_) {
+              // 매도 시 보유 수량 초과 방지
+              if (!_isBuy) {
+                final entered =
                     double.tryParse(_sharesController.text) ?? 0;
-                var newVal = current + 1;
-                // 매도 시 보유 수량 초과 방지
-                if (!_isBuy && newVal > widget.cycle.totalShares) {
-                  newVal = widget.cycle.totalShares;
+                if (entered > widget.cycle.totalShares) {
+                  final max = widget.cycle.totalShares;
+                  _sharesController.text =
+                      max == max.roundToDouble()
+                          ? max.toInt().toString()
+                          : max.toStringAsFixed(2);
+                  _sharesController.selection =
+                      TextSelection.fromPosition(
+                    TextPosition(
+                        offset: _sharesController.text.length),
+                  );
                 }
-                _sharesController.text = newVal == newVal.roundToDouble()
-                    ? newVal.toInt().toString()
-                    : newVal.toStringAsFixed(2);
-                setState(() {});
-              },
+              }
+              setState(() {});
+            },
+            style: TextStyle(color: context.appTextPrimary),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: context.appSurface,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8, vertical: 12),
             ),
-          ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        _StepperButton(
+          icon: Icons.add,
+          onTap: () {
+            final current =
+                double.tryParse(_sharesController.text) ?? 0;
+            var newVal = current + 1;
+            // 매도 시 보유 수량 초과 방지
+            if (!_isBuy && newVal > widget.cycle.totalShares) {
+              newVal = widget.cycle.totalShares;
+            }
+            _sharesController.text = newVal == newVal.roundToDouble()
+                ? newVal.toInt().toString()
+                : newVal.toStringAsFixed(2);
+            setState(() {});
+          },
         ),
       ],
     );
@@ -645,11 +987,11 @@ class _CycleTradeRecordSheetState
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 거래 금액 표시
+  // 거래 금액 + 잔여현금/추가자금 통합 섹션
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildAmountDisplay(
-      BuildContext context, double amountKrw, double exchangeRate) {
+  Widget _buildAmountSection(BuildContext context, double amountKrw,
+      double exchangeRate, bool exceedsRemaining) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -659,6 +1001,7 @@ class _CycleTradeRecordSheetState
       ),
       child: Column(
         children: [
+          // 거래 금액
           Text(
             '거래 금액',
             style: TextStyle(fontSize: 12, color: context.appTextSecondary),
@@ -677,81 +1020,69 @@ class _CycleTradeRecordSheetState
             '(환율: ₩${exchangeRate.toStringAsFixed(0)}/\$)',
             style: TextStyle(fontSize: 11, color: context.appTextHint),
           ),
+
+          // 매수일 때만: 잔여현금 + 추가자금 토글
+          if (_isBuy) ...[
+            const SizedBox(height: 8),
+            Divider(height: 1, color: context.appDivider),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _extraFunding
+                        ? '시드가 자동으로 증가합니다'
+                        : exceedsRemaining
+                            ? '잔여현금 초과!'
+                            : '잔여현금: ${formatKrwWithComma(widget.cycle.remainingCash)}원',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: _extraFunding
+                          ? AppColors.amber500
+                          : exceedsRemaining
+                              ? AppColors.red500
+                              : context.appTextHint,
+                    ),
+                  ),
+                ),
+                // 추가자금 토글 (컴팩트)
+                Text(
+                  '추가자금',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: _extraFunding
+                        ? context.appTextPrimary
+                        : context.appTextSecondary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                SizedBox(
+                  width: 36,
+                  height: 22,
+                  child: FittedBox(
+                    child: Switch(
+                      value: _extraFunding,
+                      onChanged: (val) =>
+                          setState(() => _extraFunding = val),
+                      activeColor: AppColors.amber500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (exceedsRemaining) ...[
+              const SizedBox(height: 4),
+              Text(
+                '잔여현금(${formatKrwWithComma(widget.cycle.remainingCash)}원)을 초과합니다',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.red500,
+                ),
+              ),
+            ],
+          ],
         ],
       ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // 매수 헬퍼 (잔여현금 + 추가자금 토글)
-  // ═══════════════════════════════════════════════════════════════
-
-  Widget _buildBuyHelpers(BuildContext context, double amountKrw,
-      bool exceedsRemaining) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 잔여현금 표시
-        Padding(
-          padding: const EdgeInsets.only(left: 4),
-          child: Text(
-            _extraFunding
-                ? '시드가 자동으로 증가합니다'
-                : '잔여현금: ${formatKrwWithComma(widget.cycle.remainingCash)}원',
-            style: TextStyle(
-              fontSize: 12,
-              color: _extraFunding
-                  ? AppColors.amber500
-                  : (exceedsRemaining
-                      ? AppColors.red500
-                      : context.appTextHint),
-            ),
-          ),
-        ),
-        if (exceedsRemaining) ...[
-          const SizedBox(height: 2),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(
-              '잔여현금(${formatKrwWithComma(widget.cycle.remainingCash)}원)을 초과합니다',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.red500,
-              ),
-            ),
-          ),
-        ],
-        const SizedBox(height: 8),
-        // 추가 자금 투입 토글
-        Row(
-          children: [
-            SizedBox(
-              width: 42,
-              height: 28,
-              child: FittedBox(
-                child: Switch(
-                  value: _extraFunding,
-                  onChanged: (val) => setState(() => _extraFunding = val),
-                  activeColor: AppColors.amber500,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '추가 자금 투입',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: _extraFunding
-                      ? context.appTextPrimary
-                      : context.appTextSecondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 
@@ -792,7 +1123,7 @@ class _CycleTradeRecordSheetState
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 입력 필드 빌더
+  // 입력 필드 빌더 (메모 등에 사용)
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildLabeledInput(
@@ -926,11 +1257,11 @@ class _StepperButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
           color: context.appSurface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, size: 20, color: context.appTextPrimary),
       ),

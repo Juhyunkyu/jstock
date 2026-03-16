@@ -15,6 +15,7 @@ import '../holdings/widgets/profit_loss_section.dart';
 import 'widgets/cycle_info_card.dart';
 import 'widgets/cycle_trade_card.dart';
 import 'widgets/cycle_trade_record_sheet.dart';
+import 'widgets/cycle_settings_sheet.dart';
 
 /// 사이클 상세 화면
 ///
@@ -36,6 +37,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     // .select()나 Provider.family 사용 시 변경 감지 불가. 리스트 직접 감시로 해결.
     final cycles = ref.watch(cycleListProvider);
     final cycle = cycles.where((c) => c.id == widget.cycleId).firstOrNull;
+    final allActive = ref.watch(activeCyclesProvider);
 
     if (cycle == null) {
       return Scaffold(
@@ -106,7 +108,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
 
     return Scaffold(
       backgroundColor: context.appBackground,
-      appBar: _buildAppBar(context, cycle),
+      appBar: _buildAppBar(context, cycle, allActive),
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
@@ -131,7 +133,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     SizedBox(height: isMobile ? 10 : 16),
                   ],
 
-                  // === 그라데이션 PnL 카드 (보유 상세와 동일) ===
+                  // === 그라데이션 PnL 카드 / 초기 매수 가이드 ===
                   if (hasPosition)
                     ProfitLossSummaryCard(
                       currentPrice: currentPrice,
@@ -143,7 +145,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                       quantity: cycle.totalShares.round(),
                     )
                   else
-                    _buildEmptyPnLCard(context),
+                    _buildInitialBuyGuide(context, cycle, currentPrice, liveExchangeRate),
                   SizedBox(height: isMobile ? 10 : 16),
 
                   // === 정보 카드 (보유 상세 스타일 + 사이클 전용) ===
@@ -157,6 +159,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                       cycle.exchangeRateAtEntry = newRate;
                       await ref.read(cycleListProvider.notifier).saveCycle(cycle);
                     },
+                    onEditSettings: cycle.isEmpty && cycle.status == CycleStatus.active
+                        ? () => _showSettingsSheet(cycle)
+                        : null,
                   ),
                   SizedBox(height: isMobile ? 14 : 20),
 
@@ -196,7 +201,10 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
     Cycle cycle,
+    List<Cycle> allActive,
   ) {
+    final displayLabel = cycleDisplayLabel(cycle, allActive);
+
     return AppBar(
       backgroundColor: context.appSurface,
       foregroundColor: context.appTextPrimary,
@@ -211,13 +219,30 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            cycle.ticker,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: context.appTextPrimary,
-            ),
+          Row(
+            children: [
+              Text(
+                cycle.ticker,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: context.appTextPrimary,
+                ),
+              ),
+              if (displayLabel != null) ...[
+                const SizedBox(width: 6),
+                Text(
+                  displayLabel,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: cycle.nickname.isNotEmpty
+                        ? context.appAccent
+                        : context.appTextHint,
+                  ),
+                ),
+              ],
+            ],
           ),
           Text(
             cycle.name,
@@ -290,13 +315,32 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 포지션 없을 때 PnL 카드
+  // 초기 매수 가이드 카드 (대기중)
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildEmptyPnLCard(BuildContext context) {
+  Widget _buildInitialBuyGuide(
+    BuildContext context,
+    Cycle cycle,
+    double currentPrice,
+    double liveExchangeRate,
+  ) {
+    final isAlpha = cycle.strategyType == StrategyType.alphaCycleV3;
+    final buyAmountKrw = isAlpha
+        ? cycle.initialEntryAmount
+        : cycle.unitAmount;
+    final label = isAlpha ? '초기 진입금' : '1회차 매수금';
+    final ratio = isAlpha
+        ? '시드의 ${(cycle.initialEntryRatio * 100).toStringAsFixed(0)}%'
+        : '${cycle.totalRounds}회 분할';
+
+    // 주수 계산
+    final priceKrw = currentPrice * liveExchangeRate;
+    final shares = priceKrw > 0 ? (buyAmountKrw / priceKrw).floor() : 0;
+    final actualAmount = shares * priceKrw;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -312,11 +356,56 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
           ),
         ],
       ),
-      child: const Center(
-        child: Text(
-          '첫 매수 후 손익이 표시됩니다',
-          style: TextStyle(fontSize: 14, color: Colors.white70),
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.lightbulb_outline, size: 16, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text(
+                '$label 추천',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white70,
+                ),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  ratio,
+                  style: const TextStyle(fontSize: 11, color: Colors.white60),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            formatKrwWithComma(buyAmountKrw.round().toDouble()),
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          if (currentPrice > 0 && shares > 0)
+            Text(
+              '\$${currentPrice.toStringAsFixed(2)} × $shares주 = ${formatKrwWithComma(actualAmount.round().toDouble())}원',
+              style: const TextStyle(fontSize: 12, color: Colors.white60),
+            )
+          else
+            const Text(
+              '현재가 로딩 후 주수가 표시됩니다',
+              style: TextStyle(fontSize: 12, color: Colors.white54),
+            ),
+        ],
       ),
     );
   }
@@ -724,6 +813,24 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       await ref.read(cycleListProvider.notifier).deleteCycle(widget.cycleId);
       if (mounted) context.pop();
     }
+  }
+
+  void _showSettingsSheet(Cycle cycle) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => CycleSettingsSheet(
+        cycle: cycle,
+        onSave: (updatedCycle) async {
+          await ref.read(cycleListProvider.notifier).saveCycle(updatedCycle);
+        },
+      ),
+    );
   }
 
 }

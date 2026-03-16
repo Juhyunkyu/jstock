@@ -28,12 +28,13 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   String? _selectedTicker;
   String? _selectedName;
   final _seedController = TextEditingController();
+  final _nicknameController = TextEditingController();
   bool _isCreating = false;
 
   // === Strategy A: Alpha Cycle V3 파라미터 ===
   double _initialEntryRatio = 0.20;
   double _weightedBuyThreshold = -20.0;
-  double _weightedBuyDivisor = 1000.0;
+  double _weightedBuyPerPercent = 0.0;
   double _panicBuyThreshold = -50.0;
   double _panicBuyMultiplier = 0.50;
   double _firstProfitTarget = 30.0;
@@ -61,6 +62,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     _seedFocusNode.removeListener(_onSeedFocusChanged);
     _seedFocusNode.dispose();
     _seedController.dispose();
+    _nicknameController.dispose();
     super.dispose();
   }
 
@@ -98,6 +100,9 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     final text = _seedController.text.replaceAll(',', '');
     return double.tryParse(text) ?? 0;
   }
+
+  double get _effectivePerPercent =>
+      _weightedBuyPerPercent > 0 ? _weightedBuyPerPercent : _seedAmount * 0.00007;
 
   bool get _canCreate =>
       _selectedTicker != null && _seedAmount >= 10000 && !_isCreating;
@@ -143,6 +148,13 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             _buildSectionLabel('종목 선택'),
             const SizedBox(height: 8),
             _buildTickerSelector(),
+
+            const SizedBox(height: 24),
+
+            // 2.5. 별명 (선택)
+            _buildSectionLabel('별명 (선택)'),
+            const SizedBox(height: 8),
+            _buildNicknameInput(),
 
             const SizedBox(height: 24),
 
@@ -573,10 +585,6 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   }
 
   void _showTickerPicker() {
-    // 이미 활성 사이클이 있는 티커 목록
-    final activeCycles = ref.read(activeCyclesProvider);
-    final activeTickers = activeCycles.map((c) => c.ticker).toSet();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -648,7 +656,6 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                         });
                         ref.read(stockQuoteProvider.notifier).fetchQuote(etf.ticker);
                       },
-                      disabledTickers: activeTickers,
                     ),
                   ),
                 ),
@@ -657,6 +664,38 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           },
         );
       },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 2.5. 별명 입력 (선택)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildNicknameInput() {
+    return TextField(
+      controller: _nicknameController,
+      maxLength: 20,
+      style: TextStyle(
+        fontSize: 15,
+        color: context.appTextPrimary,
+      ),
+      decoration: InputDecoration(
+        hintText: '예: 공격형, 장기투자...',
+        hintStyle: TextStyle(color: context.appTextHint),
+        counterStyle: TextStyle(color: context.appTextHint),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: context.appBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: context.appAccent),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
+      ),
     );
   }
 
@@ -698,7 +737,9 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                     ),
                     border: InputBorder.none,
                   ),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => setState(() {
+                    _weightedBuyPerPercent = 0.0; // 시드 변경 시 자동 계산 모드로 리셋
+                  }),
                 ),
               ),
               Text(
@@ -933,7 +974,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildParamSlider(
-          label: '초기 진입 비율',
+          label: '초기 진입 비율 (시드의)',
           value: _initialEntryRatio,
           min: 0.05,
           max: 0.50,
@@ -942,7 +983,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           onChanged: (v) => setState(() => _initialEntryRatio = v),
         ),
         _buildParamSlider(
-          label: '가중매수 발동 기준',
+          label: '가중매수 발동 기준 (손실률)',
           value: _weightedBuyThreshold,
           min: -50.0,
           max: -5.0,
@@ -951,16 +992,16 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           onChanged: (v) => setState(() => _weightedBuyThreshold = v),
         ),
         _buildParamSlider(
-          label: '가중매수 금액 제수',
-          value: _weightedBuyDivisor,
-          min: 500.0,
-          max: 2000.0,
-          divisions: 6,
-          format: (v) => v.toStringAsFixed(0),
-          onChanged: (v) => setState(() => _weightedBuyDivisor = v),
+          label: '가중매수 1%당 금액',
+          value: _effectivePerPercent,
+          min: _seedAmount * 0.00003,
+          max: _seedAmount * 0.00015,
+          divisions: 12,
+          format: (v) => '${(v / 10000).toStringAsFixed(1)}만원',
+          onChanged: (v) => setState(() => _weightedBuyPerPercent = v),
         ),
         _buildParamSlider(
-          label: '승부수 발동 기준',
+          label: '승부수 발동 기준 (손실률)',
           value: _panicBuyThreshold,
           min: -80.0,
           max: -30.0,
@@ -969,7 +1010,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           onChanged: (v) => setState(() => _panicBuyThreshold = v),
         ),
         _buildParamSlider(
-          label: '승부수 투입 배율',
+          label: '승부수 투입 배율 (평가금의)',
           value: _panicBuyMultiplier,
           min: 0.20,
           max: 1.00,
@@ -978,7 +1019,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           onChanged: (v) => setState(() => _panicBuyMultiplier = v),
         ),
         _buildParamSlider(
-          label: '첫 익절 목표',
+          label: '첫 익절 목표 (수익률)',
           value: _firstProfitTarget,
           min: 10.0,
           max: 50.0,
@@ -996,7 +1037,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           onChanged: (v) => setState(() => _profitTargetStep = v),
         ),
         _buildParamSlider(
-          label: '최소 익절 목표',
+          label: '최소 익절 목표 (수익률)',
           value: _minProfitTarget,
           min: 5.0,
           max: 20.0,
@@ -1005,7 +1046,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           onChanged: (v) => setState(() => _minProfitTarget = v),
         ),
         _buildParamSlider(
-          label: '현금 확보 비율',
+          label: '현금 확보 비율 (총자산의)',
           value: _cashSecureRatio,
           min: 0.10,
           max: 0.50,
@@ -1153,10 +1194,11 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             seedAmount: _seedAmount,
             exchangeRate: exchangeRate,
             strategyType: _selectedStrategy,
+            nickname: _nicknameController.text.trim(),
             // Strategy A
             initialEntryRatio: _initialEntryRatio,
             weightedBuyThreshold: _weightedBuyThreshold,
-            weightedBuyDivisor: _weightedBuyDivisor,
+            weightedBuyPerPercent: _weightedBuyPerPercent,
             panicBuyThreshold: _panicBuyThreshold,
             panicBuyMultiplier: _panicBuyMultiplier,
             firstProfitTarget: _firstProfitTarget,
