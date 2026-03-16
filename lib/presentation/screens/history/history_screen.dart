@@ -207,10 +207,13 @@ class HistoryScreen extends ConsumerWidget {
     double totalInvested = 0;
     double totalRecovered = 0;
 
-    // 완료된 사이클: seedAmount=투자, remainingCash=회수 (완료 시 주식=0)
+    // 완료된 사이클: 실제 거래 기록 기반 (매수합계=투자, 매도합계=회수)
     for (final cycle in completedCycles) {
-      totalInvested += cycle.seedAmount;
-      totalRecovered += cycle.remainingCash;
+      final result = ref.watch(cycleRealizedPnlProvider(cycle.id));
+      if (result != null) {
+        totalInvested += result.totalBuyKrw;
+        totalRecovered += result.totalSellKrw;
+      }
     }
 
     // 완료된 일반 보유: totalBuyKrw=투자, totalSellKrw=회수
@@ -351,7 +354,7 @@ class HistoryScreen extends ConsumerWidget {
   }
 }
 
-class _CompletedCycleCard extends StatelessWidget {
+class _CompletedCycleCard extends ConsumerWidget {
   final Cycle cycle;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
@@ -365,11 +368,11 @@ class _CompletedCycleCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final pnl = cycle.remainingCash - cycle.seedAmount;
-    final returnRate = cycle.seedAmount > 0
-        ? (pnl / cycle.seedAmount) * 100
-        : 0.0;
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 실제 거래 기록 기반 실현 손익 (매도합계 - 매수합계)
+    final realizedResult = ref.watch(cycleRealizedPnlProvider(cycle.id));
+    final pnl = realizedResult?.pnlKrw ?? 0.0;
+    final returnRate = realizedResult?.returnPercent ?? 0.0;
     final isProfit = pnl >= 0;
     final fgColor = isProfit
         ? context.appStockChangePlusFg
@@ -470,10 +473,10 @@ class _CompletedCycleCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
-                // 시드 금액
+                // 실제 투자금 (시드는 참고용)
                 Center(
                   child: Text(
-                    '시드 ${formatKrw(cycle.seedAmount)}',
+                    '투자 ${formatKrw(realizedResult?.totalBuyKrw ?? 0)} (시드 ${formatKrw(cycle.seedAmount)})',
                     style: TextStyle(
                       fontSize: 12,
                       color: context.appTextHint,

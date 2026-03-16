@@ -11,6 +11,7 @@ import '../../providers/providers.dart';
 import '../../widgets/cycle/strategy_badge.dart';
 import '../../widgets/cycle/signal_display.dart';
 import '../../widgets/shared/confirm_dialog.dart';
+import '../../widgets/shared/info_row.dart';
 import '../holdings/widgets/profit_loss_section.dart';
 import 'widgets/cycle_info_card.dart';
 import 'widgets/cycle_trade_card.dart';
@@ -105,6 +106,15 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
         : 0.0;
 
     final isMobile = MediaQuery.sizeOf(context).width < 600;
+
+    // === 완료 사이클은 결과 중심 레이아웃 ===
+    if (cycle.status == CycleStatus.completed) {
+      return Scaffold(
+        backgroundColor: context.appBackground,
+        appBar: _buildAppBar(context, cycle, allActive),
+        body: _buildCompletedBody(context, cycle, trades, isMobile),
+      );
+    }
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -405,6 +415,244 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               '현재가 로딩 후 주수가 표시됩니다',
               style: TextStyle(fontSize: 12, color: Colors.white54),
             ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 완료 사이클 전용 레이아웃
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildCompletedBody(
+    BuildContext context,
+    Cycle cycle,
+    List<Trade> trades,
+    bool isMobile,
+  ) {
+    final realizedResult = ref.watch(cycleRealizedPnlProvider(cycle.id));
+    final pnl = realizedResult?.pnlKrw ?? 0.0;
+    final returnPercent = realizedResult?.returnPercent ?? 0.0;
+    final totalBuyKrw = realizedResult?.totalBuyKrw ?? 0.0;
+    final totalSellKrw = realizedResult?.totalSellKrw ?? 0.0;
+
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: isMobile ? 8 : 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // === 사이클 결과 카드 (그라데이션) ===
+                _buildCompletedResultCard(
+                  context, pnl, returnPercent, totalBuyKrw, totalSellKrw, isMobile,
+                ),
+                SizedBox(height: isMobile ? 10 : 16),
+
+                // === 사이클 정보 ===
+                _buildCompletedInfoCard(context, cycle, isMobile),
+                SizedBox(height: isMobile ? 14 : 20),
+
+                // === 거래 내역 ===
+                _buildTradeHistorySection(context, trades, cycle, isMobile),
+                const SizedBox(height: 80),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompletedResultCard(
+    BuildContext context,
+    double pnl,
+    double returnPercent,
+    double totalBuyKrw,
+    double totalSellKrw,
+    bool isMobile,
+  ) {
+    final isProfit = pnl >= 0;
+    // 다크 톤 그라데이션 — 고급스럽게
+    final gradientColors = isProfit
+        ? [const Color(0xFF2D1B1B), const Color(0xFF3D1F1F)]
+        : [const Color(0xFF1B2230), const Color(0xFF1A2740)];
+    final accentColor = isProfit ? AppColors.red500 : AppColors.blue500;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradientColors,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          // 헤더 + 금액 한 줄
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                '사이클 결과',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${isProfit ? '+' : ''}${formatKrwWithComma(pnl.round().toDouble())}원',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: accentColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${isProfit ? '+' : ''}${returnPercent.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: accentColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // 구분선
+          Container(
+            height: 1,
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+          const SizedBox(height: 10),
+
+          // 총 매수 / 총 매도 / 순 수익
+          _buildResultRow('총 매수', formatKrwWithComma(totalBuyKrw.round().toDouble())),
+          const SizedBox(height: 4),
+          _buildResultRow('총 매도', formatKrwWithComma(totalSellKrw.round().toDouble())),
+          const SizedBox(height: 4),
+          _buildResultRow(
+            '순 수익',
+            '${isProfit ? '+' : ''}${formatKrwWithComma(pnl.round().toDouble())}원',
+            accentColor: accentColor,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultRow(String label, String value, {Color? accentColor}) {
+    final isHighlight = accentColor != null;
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isHighlight
+                ? Colors.white.withValues(alpha: 0.7)
+                : Colors.white.withValues(alpha: 0.4),
+            fontWeight: isHighlight ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 12,
+            color: isHighlight ? accentColor : Colors.white.withValues(alpha: 0.6),
+            fontWeight: isHighlight ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompletedInfoCard(
+    BuildContext context, Cycle cycle, bool isMobile,
+  ) {
+    final isAlpha = cycle.strategyType == StrategyType.alphaCycleV3;
+
+    // 운용 기간 포맷
+    final startStr = '${cycle.startDate.year}.${cycle.startDate.month.toString().padLeft(2, '0')}.${cycle.startDate.day.toString().padLeft(2, '0')}';
+    final endStr = '${cycle.updatedAt.year}.${cycle.updatedAt.month.toString().padLeft(2, '0')}.${cycle.updatedAt.day.toString().padLeft(2, '0')}';
+    final periodStr = startStr == endStr ? startStr : '$startStr ~ $endStr';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: context.isDarkMode
+                ? Colors.white.withValues(alpha: 0.03)
+                : Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          InfoRow(label: '설정 시드', value: formatCashShort(cycle.seedAmount)),
+          const Divider(height: 16),
+          InfoRow(label: '평균 매입환율', value: '₩${cycle.exchangeRateAtEntry.toStringAsFixed(2)} / \$1'),
+          const Divider(height: 16),
+          InfoRow(label: '운용 기간', value: periodStr),
+          const Divider(height: 16),
+
+          // 전략별 섹션
+          if (isAlpha) ...[
+            InfoRow(
+              label: '익절목표',
+              value: '+${cycle.currentSellTarget.toStringAsFixed(0)}%',
+              valueColor: AppColors.green600,
+            ),
+            const Divider(height: 16),
+            InfoRow(
+              label: '연속익절',
+              value: '${cycle.consecutiveProfitCount}회',
+              valueColor: cycle.consecutiveProfitCount > 0 ? AppColors.green600 : null,
+            ),
+            const Divider(height: 16),
+            InfoRow(
+              label: '승부수',
+              value: cycle.panicBuyUsed ? '사용' : '미사용',
+              valueColor: cycle.panicBuyUsed ? AppColors.red500 : null,
+            ),
+          ] else ...[
+            InfoRow(
+              label: '회차',
+              value: '${cycle.roundsUsed}/${cycle.totalRounds}',
+            ),
+            const Divider(height: 16),
+            InfoRow(
+              label: '익절목표',
+              value: '+${cycle.takeProfitPercent.toStringAsFixed(0)}%',
+              valueColor: AppColors.green600,
+            ),
+          ],
         ],
       ),
     );
@@ -784,10 +1032,31 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     double currentPrice,
     double returnRate,
   ) async {
+    // 보유 주식이 남아있으면 완료 차단
+    if (cycle.totalShares > 0) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('사이클 완료 불가'),
+          content: const Text(
+            '보유 주식을 먼저 전량 매도해주세요.\n\n매도 완료 후 사이클을 종료할 수 있습니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: '사이클 완료',
-      message: '사이클을 수동으로 완료하시겠습니까?\n연속 익절 횟수가 리셋됩니다.',
+      message: '사이클을 완료하시겠습니까?\n거래내역에 기록됩니다.',
       confirmText: '완료',
     );
 

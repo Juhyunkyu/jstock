@@ -212,3 +212,30 @@ final allTradesProvider = Provider<List<Trade>>((ref) {
   final repo = ref.watch(tradeRepositoryProvider);
   return repo.getAll()..sort((a, b) => b.tradedAt.compareTo(a.tradedAt));
 });
+
+/// 사이클별 실현 손익 계산 (실제 매도 합계 - 실제 매수 합계)
+final cycleRealizedPnlProvider = Provider.family<
+    ({double totalBuyKrw, double totalSellKrw, double pnlKrw, double returnPercent})?,
+    String>((ref, cycleId) {
+  final allTrades = ref.watch(allTradesProvider);
+  final cycleTrades = allTrades.where((t) => t.cycleId == cycleId).toList();
+  if (cycleTrades.isEmpty) return null;
+
+  double totalBuyKrw = 0;
+  double totalSellKrw = 0;
+  for (final trade in cycleTrades) {
+    if (trade.action == TradeAction.buy) {
+      totalBuyKrw += trade.amountKrw;
+    } else {
+      totalSellKrw += trade.amountKrw;
+    }
+  }
+  final pnl = totalSellKrw - totalBuyKrw;
+  final percent = totalBuyKrw > 0 ? (pnl / totalBuyKrw) * 100 : 0.0;
+  return (
+    totalBuyKrw: totalBuyKrw,
+    totalSellKrw: totalSellKrw,
+    pnlKrw: pnl,
+    returnPercent: percent,
+  );
+});
