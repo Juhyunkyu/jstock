@@ -250,6 +250,10 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
         return const Color(0xFF2980B9);
       case 'Bloomberg':
         return const Color(0xFF7B2D8E);
+      case 'Yahoo Finance':
+        return const Color(0xFF6001D2);
+      case 'MarketWatch':
+        return const Color(0xFF00AC4E);
       default:
         return AppColors.gray500;
     }

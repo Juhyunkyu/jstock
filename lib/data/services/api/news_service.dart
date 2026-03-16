@@ -86,8 +86,37 @@ class NewsService {
     return await _translateTitles(allArticles);
   }
 
-  /// 시장 종합 뉴스 (Finnhub general-news + 페이월 필터 + 한국어 번역)
-  Future<List<NewsItem>> getGeneralNews({int limit = 10}) async {
+  /// 시장 종합 뉴스 (Worker RSS 프록시 우선, Finnhub 폴백 + 한국어 번역)
+  Future<List<NewsItem>> getGeneralNews({int limit = 20}) async {
+    try {
+      final baseUrl = AppConfig.proxyBaseUrl;
+      if (baseUrl.isEmpty) {
+        // 프록시 미설정 (로컬 개발) → Finnhub 폴백
+        return _getGeneralNewsFromFinnhub(limit: limit);
+      }
+
+      final response = await _dio.get('$baseUrl/api/news/market');
+      final data = response.data;
+      final articles = data['articles'] as List? ?? [];
+
+      final newsList = articles.take(limit).map<NewsItem>((item) => NewsItem(
+        title: item['title'] ?? '',
+        publisher: item['publisher'] ?? '',
+        link: item['link'] ?? '',
+        publishedAt: DateTime.tryParse(item['publishedAt'] ?? '') ?? DateTime.now(),
+        thumbnail: item['thumbnail'] as String?,
+        summary: item['summary'] as String?,
+      )).toList();
+
+      return await _translateTitles(newsList);
+    } catch (_) {
+      // Worker 실패 시 Finnhub 폴백
+      return _getGeneralNewsFromFinnhub(limit: limit);
+    }
+  }
+
+  /// Finnhub general-news 폴백 (Worker 미사용 또는 장애 시)
+  Future<List<NewsItem>> _getGeneralNewsFromFinnhub({int limit = 20}) async {
     try {
       final response = await _dio.get(
         '${AppConfig.finnhubBaseUrl}/news',
