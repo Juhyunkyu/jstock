@@ -18,6 +18,7 @@ class CycleInfoCard extends StatefulWidget {
   final double weightedAvgExchangeRate;
   final ValueChanged<double>? onExchangeRateChanged;
   final VoidCallback? onEditSettings;
+  final double? steadyTValue;
 
   const CycleInfoCard({
     super.key,
@@ -28,6 +29,7 @@ class CycleInfoCard extends StatefulWidget {
     required this.weightedAvgExchangeRate,
     this.onExchangeRateChanged,
     this.onEditSettings,
+    this.steadyTValue,
   });
 
   @override
@@ -315,23 +317,67 @@ class _CycleInfoCardState extends State<CycleInfoCard> {
 
   /// Steady Cycle 전용 섹션
   Widget _buildSteadyCycleSection(BuildContext context, Cycle cycle) {
+    final isV1 = cycle.steadyVersion == SteadyVersion.v1;
+
     return Column(
       children: [
-        InfoRow(fontSize: 12,label: '설정 시드', value: formatCashShort(cycle.seedAmount)),
+        InfoRow(fontSize: 12, label: '설정 시드', value: formatCashShort(cycle.seedAmount)),
         const SizedBox(height: 6),
-        InfoRow(fontSize: 12,label: '잔여현금', value: formatCashShort(cycle.remainingCash)),
+        InfoRow(fontSize: 12, label: '잔여현금', value: formatCashShort(cycle.remainingCash)),
         const SizedBox(height: 6),
-        InfoRow(fontSize: 12,label: '회차', value: '${cycle.roundsUsed}/${cycle.totalRounds}'),
+        if (isV1)
+          InfoRow(fontSize: 12, label: '회차', value: '${cycle.roundsUsed}/${cycle.totalRounds}')
+        else ...[
+          // V2.2/V3.0: T값 (Provider에서 정확한 값 전달)
+          Builder(builder: (context) {
+            final tValue = widget.steadyTValue ?? _calcSimpleTValue(cycle);
+            return Column(
+              children: [
+                InfoRow(fontSize: 12, label: 'T값', value: '${tValue.toStringAsFixed(1)} / ${cycle.totalRounds}'),
+                const SizedBox(height: 6),
+                InfoRow(
+                  fontSize: 12,
+                  label: '구간',
+                  value: cycle.isFirstHalfWith(tValue) ? '전반전' : '후반전',
+                  valueColor: cycle.isFirstHalfWith(tValue) ? AppColors.blue500 : AppColors.amber500,
+                ),
+                const SizedBox(height: 6),
+                InfoRow(
+                  fontSize: 12,
+                  label: '오프셋',
+                  value: '${cycle.locOffsetPercentWith(tValue) >= 0 ? '+' : ''}${cycle.locOffsetPercentWith(tValue).toStringAsFixed(1)}%',
+                ),
+              ],
+            );
+          }),
+        ],
         const SizedBox(height: 6),
-        InfoRow(fontSize: 12,label: '단위금액', value: formatCashShort(cycle.unitAmount)),
+        InfoRow(fontSize: 12, label: '단위금액', value: formatCashShort(cycle.unitAmount)),
         const SizedBox(height: 6),
         InfoRow(fontSize: 12,
           label: '익절목표',
           value: '+${cycle.takeProfitPercent.toStringAsFixed(0)}%',
           valueColor: AppColors.green600,
         ),
+        if (!isV1) ...[
+          const SizedBox(height: 6),
+          InfoRow(fontSize: 12,
+            label: '매도비율',
+            value: '${(cycle.sellQuarterPercent * 100).toStringAsFixed(0)}% / ${((1 - cycle.sellQuarterPercent) * 100).toStringAsFixed(0)}%',
+          ),
+        ],
+        if (cycle.steadyVersion == SteadyVersion.v3_0 && cycle.compoundEnabled) ...[
+          const SizedBox(height: 6),
+          InfoRow(fontSize: 12, label: '반복리', value: '활성', valueColor: AppColors.green500),
+        ],
       ],
     );
   }
 
+  double _calcSimpleTValue(Cycle cycle) {
+    if (cycle.unitAmount <= 0) return 0;
+    final invested = cycle.seedAmount - cycle.remainingCash;
+    final raw = invested / cycle.unitAmount;
+    return ((raw * 10).ceilToDouble() / 10).clamp(0, cycle.totalRounds.toDouble());
+  }
 }

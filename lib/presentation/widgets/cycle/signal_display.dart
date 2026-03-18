@@ -156,9 +156,14 @@ class SignalDisplay extends StatelessWidget {
     switch (signal) {
       case TradeSignal.takeProfit:
       case TradeSignal.cashSecure:
-        return '\uB9E4\uB3C4 \uAD8C\uC7A5';
+      case TradeSignal.sellLocQuarter:
+      case TradeSignal.sellLimitThreeQ:
+      case TradeSignal.takeProfitFull:
+        return '매도 권장';
+      case TradeSignal.noFill:
+        return '미체결';
       default:
-        return '\uB9E4\uC218 \uAD8C\uC7A5';
+        return '매수 권장';
     }
   }
 
@@ -220,9 +225,39 @@ class SignalDisplay extends StatelessWidget {
         );
       case TradeSignal.manual:
         return _SignalConfig(
-          label: '\uC218\uB3D9',
+          label: '수동',
           icon: Icons.edit,
           color: context.appTextSecondary,
+        );
+      case TradeSignal.sellLocQuarter:
+        return _SignalConfig(
+          label: 'LOC 매도 ¼',
+          icon: Icons.sell,
+          color: AppColors.green500,
+        );
+      case TradeSignal.sellLimitThreeQ:
+        return _SignalConfig(
+          label: '지정가 매도 ¾',
+          icon: Icons.sell,
+          color: AppColors.green600,
+        );
+      case TradeSignal.takeProfitFull:
+        return _SignalConfig(
+          label: '전량 익절!',
+          icon: Icons.celebration,
+          color: AppColors.green500,
+        );
+      case TradeSignal.buySingle:
+        return _SignalConfig(
+          label: '단일 매수',
+          icon: Icons.arrow_forward,
+          color: AppColors.blue500,
+        );
+      case TradeSignal.noFill:
+        return _SignalConfig(
+          label: '미체결',
+          icon: Icons.block,
+          color: context.appTextHint,
         );
     }
   }

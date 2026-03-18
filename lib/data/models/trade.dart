@@ -29,6 +29,18 @@ enum TradeSignal {
   manual,
   @HiveField(9)
   hold,
+
+  // Strategy B: Steady V2.2/V3.0 (신규)
+  @HiveField(10)
+  sellLocQuarter,
+  @HiveField(11)
+  sellLimitThreeQ,
+  @HiveField(12)
+  takeProfitFull,
+  @HiveField(13)
+  buySingle,
+  @HiveField(14)
+  noFill,
 }
 
 @HiveType(typeId: 11)
@@ -97,11 +109,19 @@ class Trade extends HiveObject {
     'memo': memo,
   };
 
+  static TradeSignal _parseTradeSignal(String value) {
+    try {
+      return TradeSignal.values.byName(value);
+    } catch (_) {
+      return TradeSignal.manual;
+    }
+  }
+
   factory Trade.fromJson(Map<String, dynamic> json) => Trade(
     id: json['id'] as String,
     cycleId: json['cycleId'] as String,
     action: TradeAction.values.byName(json['action'] as String),
-    signal: TradeSignal.values.byName(json['signal'] as String),
+    signal: _parseTradeSignal(json['signal'] as String),
     price: (json['price'] as num).toDouble(),
     shares: (json['shares'] as num).toDouble(),
     amountKrw: (json['amountKrw'] as num).toDouble(),

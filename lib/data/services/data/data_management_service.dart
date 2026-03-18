@@ -41,7 +41,7 @@ class DataManagementService {
   /// 전체 데이터를 JSON Map으로 백업
   Map<String, dynamic> createBackup() {
     return {
-      'version': 3,
+      'version': 4,
       'createdAt': DateTime.now().toIso8601String(),
       'data': {
         'settings': settingsRepository.settings.toJson(),
@@ -60,7 +60,7 @@ class DataManagementService {
   /// JSON Map에서 데이터 복원 (기존 데이터 전체 삭제 후 삽입)
   Future<void> restoreFromBackup(Map<String, dynamic> backup) async {
     final version = backup['version'] as int? ?? 1;
-    if (version > 3) {
+    if (version > 4) {
       throw FormatException('지원하지 않는 백업 버전: $version');
     }
 

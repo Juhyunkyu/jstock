@@ -35,6 +35,16 @@ class SignalBadgeConfig {
         return SignalBadgeConfig(label: '수동', color: AppColors.gray500);
       case TradeSignal.hold:
         return SignalBadgeConfig(label: '대기', color: AppColors.gray400);
+      case TradeSignal.sellLocQuarter:
+        return SignalBadgeConfig(label: 'LOC매도¼', color: AppColors.green500);
+      case TradeSignal.sellLimitThreeQ:
+        return SignalBadgeConfig(label: '지정가¾', color: AppColors.green600);
+      case TradeSignal.takeProfitFull:
+        return SignalBadgeConfig(label: '전량익절', color: AppColors.green500);
+      case TradeSignal.buySingle:
+        return SignalBadgeConfig(label: '단일매수', color: AppColors.blue500);
+      case TradeSignal.noFill:
+        return SignalBadgeConfig(label: '미체결', color: AppColors.gray400);
     }
   }
 }

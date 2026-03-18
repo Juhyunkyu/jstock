@@ -35,6 +35,7 @@ void main() async {
   Hive.registerAdapter(TradeSignalAdapter());
   Hive.registerAdapter(CycleStatusAdapter());
   Hive.registerAdapter(TradeActionAdapter());
+  Hive.registerAdapter(SteadyVersionAdapter());
 
   // 로고 캐시 초기화
   final logoCache = LogoCacheService();

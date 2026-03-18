@@ -10,7 +10,9 @@ import '../../../../core/utils/number_formatter.dart';
 import '../../../../data/models/cycle.dart';
 import '../../../../data/models/trade.dart';
 import '../../../../domain/trading/alpha_cycle_service.dart';
+import '../../../../domain/trading/steady_order_guide.dart';
 import '../../../../domain/trading/trading_math.dart';
+import '../../../providers/providers.dart';
 import '../../../widgets/shared/return_badge.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
 import 'cycle_trade_card.dart';
@@ -77,6 +79,12 @@ class _CycleTradeRecordSheetState
   final _sharesController = TextEditingController();
   final _memoController = TextEditingController();
 
+  // V2.2/V3.0 전반전 A/B 분리 입력
+  final _priceAController = TextEditingController();
+  final _sharesAController = TextEditingController();
+  final _priceBController = TextEditingController();
+  final _sharesBController = TextEditingController();
+
   bool _extraFunding = false;
   bool _isSubmitting = false;
   bool _signalExpanded = false;
@@ -84,9 +92,21 @@ class _CycleTradeRecordSheetState
   double get _price => double.tryParse(_priceController.text) ?? 0;
   double get _shares => double.tryParse(_sharesController.text) ?? 0;
 
+  double get _priceA => double.tryParse(_priceAController.text) ?? 0;
+  double get _sharesA => double.tryParse(_sharesAController.text) ?? 0;
+  double get _priceB => double.tryParse(_priceBController.text) ?? 0;
+  double get _sharesB => double.tryParse(_sharesBController.text) ?? 0;
+
+  /// V2.2/V3.0 전반전 LOC A+B → 분리 입력 모드 여부
+  bool get _isSplitMode =>
+      _isBuy &&
+      _selectedSignal == TradeSignal.locAB &&
+      widget.cycle.strategyType == StrategyType.infiniteBuy &&
+      widget.cycle.steadyVersion != SteadyVersion.v1;
+
   List<TradeSignal> get _currentSignals => _isBuy
-      ? CycleTradeCard.buySignalsFor(widget.cycle.strategyType)
-      : CycleTradeCard.sellSignalsFor(widget.cycle.strategyType);
+      ? CycleTradeCard.buySignalsFor(widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion)
+      : CycleTradeCard.sellSignalsFor(widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion);
 
   bool get _isEditing => widget.editingTrade != null;
 
@@ -120,29 +140,39 @@ class _CycleTradeRecordSheetState
         _selectedSignal = sig;
       } else {
         _selectedSignal =
-            CycleTradeCard.buySignalsFor(widget.cycle.strategyType).first;
+            CycleTradeCard.buySignalsFor(widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion).first;
       }
     }
   }
 
   bool _isBuySignal(TradeSignal s) =>
-      CycleTradeCard.buySignalsFor(widget.cycle.strategyType).contains(s);
+      CycleTradeCard.buySignalsFor(widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion).contains(s);
 
   bool _isSellSignal(TradeSignal s) =>
-      CycleTradeCard.sellSignalsFor(widget.cycle.strategyType).contains(s);
+      CycleTradeCard.sellSignalsFor(widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion).contains(s);
 
   @override
   void dispose() {
     _priceController.dispose();
     _sharesController.dispose();
     _memoController.dispose();
+    _priceAController.dispose();
+    _sharesAController.dispose();
+    _priceBController.dispose();
+    _sharesBController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final exchangeRate = widget.currentExchangeRate;
-    final amountKrw = _price * _shares * exchangeRate;
+    // Combined amount calculation
+    final double amountKrw;
+    if (_isSplitMode) {
+      amountKrw = (_priceA * _sharesA + _priceB * _sharesB) * exchangeRate;
+    } else {
+      amountKrw = _price * _shares * exchangeRate;
+    }
 
     final exceedsRemaining =
         _isBuy && amountKrw > 0 && amountKrw > widget.cycle.remainingCash && !_extraFunding;
@@ -169,6 +199,13 @@ class _CycleTradeRecordSheetState
             ] else if (!_isEditing)
               const SizedBox(height: 8),
 
+            // ═══ 2.5. 주문 가이드 요약 (V2.2/V3.0 Steady만) ═══
+            if (widget.cycle.strategyType == StrategyType.infiniteBuy &&
+                widget.cycle.steadyVersion != SteadyVersion.v1) ...[
+              _buildGuideSummary(context, ref),
+              const SizedBox(height: 12),
+            ],
+
             // ═══ 3. 거래일 (한 줄 Row) ═══
             _buildInlineDatePicker(context),
             const SizedBox(height: 12),
@@ -185,12 +222,14 @@ class _CycleTradeRecordSheetState
             if (_showBuyGuide)
               _buildBuyGuide(context, exchangeRate),
 
-            // ═══ 7. 단가 입력 (한 줄 Row) ═══
-            _buildInlinePriceInput(context),
-            const SizedBox(height: 12),
-
-            // ═══ 8. 수량 스텝퍼 (한 줄 Row) ═══
-            _buildInlineSharesStepper(context),
+            // ═══ 7-8. 단가/수량 입력 (V2.2/V3.0 A/B 분리 또는 기존 단일) ═══
+            if (_isSplitMode)
+              _buildSplitInputs(context)
+            else ...[
+              _buildInlinePriceInput(context),
+              const SizedBox(height: 12),
+              _buildInlineSharesStepper(context),
+            ],
             const SizedBox(height: 12),
 
             // ═══ 9. 거래 금액 + 잔여현금/추가자금 통합 ═══
@@ -477,6 +516,83 @@ class _CycleTradeRecordSheetState
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // 주문 가이드 요약 (V2.2/V3.0 Steady)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildGuideSummary(BuildContext context, WidgetRef ref) {
+    final guide = ref.watch(steadyOrderGuideProvider(widget.cycle.id));
+    if (guide == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: context.appBackground,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.lightbulb_outline, size: 16, color: context.appAccent),
+              const SizedBox(width: 6),
+              Text(
+                'T: ${guide.tValue.toStringAsFixed(1)}  ${guide.isFirstHalf ? "전반전" : "후반전"}  오프셋 ${guide.locOffsetPercent >= 0 ? "+" : ""}${guide.locOffsetPercent.toStringAsFixed(1)}%',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.appAccent),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // 2-column layout
+          Row(
+            children: [
+              // Left column: 매수
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (guide.buyOrderA != null)
+                      _guideItem(context, '매수A', guide.buyOrderA!),
+                    if (guide.buyOrderB != null)
+                      _guideItem(context, '매수B', guide.buyOrderB!),
+                    if (guide.buySingleOrder != null)
+                      _guideItem(context, '매수', guide.buySingleOrder!),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Right column: 매도
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (guide.sellLocOrder != null)
+                      _guideItem(context, '매도¼', guide.sellLocOrder!),
+                    if (guide.sellLimitOrder != null)
+                      _guideItem(context, '매도¾', guide.sellLimitOrder!),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _guideItem(BuildContext context, String label, OrderItem order) {
+    final intShares = order.shares.floor();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        '$label \$${order.price.toStringAsFixed(2)} × ${intShares}주 (${order.shares.toStringAsFixed(1)})',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: context.appTextPrimary),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // 거래일 (한 줄 인라인)
   // ═══════════════════════════════════════════════════════════════
 
@@ -604,7 +720,7 @@ class _CycleTradeRecordSheetState
                     _lastSellSignal = _selectedSignal;
                     _isBuy = true;
                     final buySignals = CycleTradeCard.buySignalsFor(
-                        widget.cycle.strategyType);
+                        widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion);
                     _selectedSignal = (_lastBuySignal != null && buySignals.contains(_lastBuySignal!))
                         ? _lastBuySignal!
                         : buySignals.first;
@@ -637,7 +753,7 @@ class _CycleTradeRecordSheetState
                     _lastBuySignal = _selectedSignal;
                     _isBuy = false;
                     final sellSignals = CycleTradeCard.sellSignalsFor(
-                        widget.cycle.strategyType);
+                        widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion);
                     _selectedSignal = (_lastSellSignal != null && sellSignals.contains(_lastSellSignal!))
                         ? _lastSellSignal!
                         : sellSignals.first;
@@ -976,6 +1092,204 @@ class _CycleTradeRecordSheetState
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // V2.2/V3.0 전반전 A/B 분리 입력
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildSplitInputs(BuildContext context) {
+    final guide = ref.watch(steadyOrderGuideProvider(widget.cycle.id));
+    final exchangeRate = widget.currentExchangeRate;
+    final isV3 = widget.cycle.steadyVersion == SteadyVersion.v3_0;
+
+    // Labels
+    final labelA = isV3 ? 'LOC A (오프셋)' : 'LOC A (평단)';
+    final labelB = isV3 ? 'LOC B (평단)' : 'LOC B (오프셋)';
+
+    final amountA = _priceA * _sharesA * exchangeRate;
+    final amountB = _priceB * _sharesB * exchangeRate;
+    final totalShares = _sharesA + _sharesB;
+    final totalAmount = amountA + amountB;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // LOC A
+        _buildSplitRow(
+          context,
+          label: labelA,
+          priceController: _priceAController,
+          sharesController: _sharesAController,
+          recommendedPrice: guide?.buyOrderA?.price,
+          recommendedShares: guide?.buyOrderA?.shares,
+        ),
+        const SizedBox(height: 10),
+        // LOC B
+        _buildSplitRow(
+          context,
+          label: labelB,
+          priceController: _priceBController,
+          sharesController: _sharesBController,
+          recommendedPrice: guide?.buyOrderB?.price,
+          recommendedShares: guide?.buyOrderB?.shares,
+        ),
+        const SizedBox(height: 10),
+        // Combined total
+        if (totalShares > 0 || totalAmount > 0)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: context.appAccent.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '합계: ${totalShares.toStringAsFixed(totalShares == totalShares.roundToDouble() ? 0 : 2)}주',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                Text(
+                  '${formatKrwWithComma(totalAmount)}원',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSplitRow(
+    BuildContext context, {
+    required String label,
+    required TextEditingController priceController,
+    required TextEditingController sharesController,
+    double? recommendedPrice,
+    double? recommendedShares,
+  }) {
+    final intShares = recommendedShares?.floor();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: context.appAccent,
+              ),
+            ),
+            if (recommendedPrice != null && recommendedShares != null) ...[
+              const Spacer(),
+              GestureDetector(
+                onTap: () {
+                  priceController.text = recommendedPrice.toStringAsFixed(2);
+                  sharesController.text = intShares.toString();
+                  setState(() {});
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: context.appAccent.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '추천 적용 $intShares주 (${recommendedShares.toStringAsFixed(1)})',
+                    style: TextStyle(fontSize: 10, color: context.appAccent),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            // Price input
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: priceController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: context.appTextPrimary,
+                ),
+                decoration: InputDecoration(
+                  prefixText: '\$ ',
+                  prefixStyle: TextStyle(
+                    fontSize: 14,
+                    color: context.appTextHint,
+                  ),
+                  hintText: '단가',
+                  hintStyle: TextStyle(color: context.appTextHint, fontSize: 13),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  isDense: true,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: context.appBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: context.appAccent),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Shares input
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: sharesController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: context.appTextPrimary,
+                ),
+                decoration: InputDecoration(
+                  suffixText: '주',
+                  suffixStyle: TextStyle(
+                    fontSize: 14,
+                    color: context.appTextHint,
+                  ),
+                  hintText: '수량',
+                  hintStyle: TextStyle(color: context.appTextHint, fontSize: 13),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  isDense: true,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: context.appBorder),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: context.appAccent),
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // 거래 금액 + 잔여현금/추가자금 통합 섹션
   // ═══════════════════════════════════════════════════════════════
 
@@ -1080,8 +1394,13 @@ class _CycleTradeRecordSheetState
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildSaveButton(BuildContext context, bool exceedsRemaining) {
-    final canSave = _price > 0 && _shares > 0 &&
-        !_isSubmitting && !exceedsRemaining;
+    final bool canSave;
+    if (_isSplitMode) {
+      canSave = !_isSubmitting && !exceedsRemaining &&
+          ((_priceA > 0 && _sharesA > 0) || (_priceB > 0 && _sharesB > 0));
+    } else {
+      canSave = _price > 0 && _shares > 0 && !_isSubmitting && !exceedsRemaining;
+    }
 
     return SizedBox(
       width: double.infinity,
@@ -1164,6 +1483,61 @@ class _CycleTradeRecordSheetState
   // ═══════════════════════════════════════════════════════════════
 
   void _onSubmit() {
+    final exchangeRate = widget.currentExchangeRate;
+
+    // V2.2/V3.0 전반전 A/B 분리 모드
+    if (_isSplitMode) {
+      final hasA = _priceA > 0 && _sharesA > 0;
+      final hasB = _priceB > 0 && _sharesB > 0;
+
+      if (!hasA && !hasB) {
+        _showError('LOC A 또는 LOC B 중 하나 이상 입력하세요');
+        return;
+      }
+
+      // VWAP 계산: (priceA*sharesA + priceB*sharesB) / (sharesA + sharesB)
+      final totalShares = _sharesA + _sharesB;
+      final weightedPrice = totalShares > 0
+          ? (_priceA * _sharesA + _priceB * _sharesB) / totalShares
+          : 0.0;
+      final totalAmountKrw = (_priceA * _sharesA + _priceB * _sharesB) * exchangeRate;
+
+      if (!_extraFunding && totalAmountKrw > widget.cycle.remainingCash) {
+        _showError('잔여현금(${formatKrwWithComma(widget.cycle.remainingCash)}원)을 초과합니다');
+        return;
+      }
+
+      double extraAmount = 0;
+      if (_extraFunding && totalAmountKrw > widget.cycle.remainingCash) {
+        extraAmount = totalAmountKrw - widget.cycle.remainingCash;
+      }
+
+      // Determine signal: both filled → locAB, only one → locA or locB
+      TradeSignal signal;
+      if (hasA && hasB) {
+        signal = TradeSignal.locAB;
+      } else if (hasA) {
+        signal = TradeSignal.locA;
+      } else {
+        signal = TradeSignal.locB;
+      }
+
+      setState(() => _isSubmitting = true);
+      widget.onSubmit(
+        isBuy: true,
+        signal: signal,
+        price: weightedPrice,
+        shares: totalShares,
+        exchangeRate: exchangeRate,
+        date: _selectedDate,
+        memo: _memoController.text.isEmpty ? null : _memoController.text,
+        extraFundingAmount: extraAmount,
+      );
+      Navigator.of(context).pop();
+      return;
+    }
+
+    // === Existing single-input logic below ===
     if (_price <= 0) {
       _showError('단가를 올바르게 입력하세요');
       return;
@@ -1172,8 +1546,6 @@ class _CycleTradeRecordSheetState
       _showError('수량을 올바르게 입력하세요');
       return;
     }
-
-    final exchangeRate = widget.currentExchangeRate;
 
     if (_isBuy) {
       final amountKrw = _price * _shares * exchangeRate;

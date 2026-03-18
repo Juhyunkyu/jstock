@@ -177,11 +177,12 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
           panicBuyUsed = true;
         }
 
-        // Strategy B: 라운드 카운트
+        // Strategy B: 라운드 카운트 (LOC 신호 매수에서만 증가, 수동 매수 제외)
         if (cycle.strategyType == StrategyType.infiniteBuy &&
             (trade.signal == TradeSignal.locAB ||
+             trade.signal == TradeSignal.locA ||
              trade.signal == TradeSignal.locB ||
-             trade.signal == TradeSignal.manual)) {
+             trade.signal == TradeSignal.buySingle)) {
           roundsUsed += 1;
         }
       } else {

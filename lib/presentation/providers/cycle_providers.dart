@@ -6,6 +6,8 @@ import '../../data/repositories/cycle_repository.dart';
 import '../../data/repositories/trade_repository.dart';
 import '../../domain/trading/alpha_cycle_service.dart';
 import '../../domain/trading/infinite_buy_service.dart';
+import '../../domain/trading/steady_service.dart';
+import '../../domain/trading/strategy_engine.dart';
 import '../../domain/trading/trading_math.dart';
 import 'core/repository_providers.dart';
 import 'stock_providers.dart';
@@ -41,7 +43,7 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
   /// v7.0 마이그레이션: 기존 weightedBuyDivisor 값(500~2000) → 0.0 리셋
   void _migrateWeightedBuyParam() {
     // 구 슬라이더: min=500, max=2000, divisions=6 → 가능값
-    const legacyValues = {500.0, 750.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0};
+    final legacyValues = {500.0, 750.0, 1000.0, 1250.0, 1500.0, 1750.0, 2000.0};
     bool changed = false;
     for (final cycle in state) {
       if (cycle.strategyType != StrategyType.alphaCycleV3) continue;
@@ -116,6 +118,13 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
     // Strategy B 커스텀 파라미터
     double takeProfitPercent = 10.0,
     int totalRounds = 40,
+    // Strategy B V2.2/V3.0 커스텀 파라미터
+    SteadyVersion steadyVersion = SteadyVersion.v1,
+    double sellQuarterPercent = 0.25,
+    bool compoundEnabled = false,
+    double offsetA = 15.0,
+    double offsetB = 1.5,
+    double quarterModeOffset = -15.0,
   }) async {
     final cycle = Cycle(
       id: const Uuid().v4(),
@@ -136,6 +145,12 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
       cashSecureRatio: cashSecureRatio,
       takeProfitPercent: takeProfitPercent,
       totalRounds: totalRounds,
+      steadyVersion: steadyVersion,
+      sellQuarterPercent: sellQuarterPercent,
+      compoundEnabled: compoundEnabled,
+      offsetA: offsetA,
+      offsetB: offsetB,
+      quarterModeOffset: quarterModeOffset,
     );
 
     await _repository.save(cycle);
@@ -218,6 +233,14 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
       cashSecureRatio: cycle.cashSecureRatio,
       takeProfitPercent: cycle.takeProfitPercent,
       totalRounds: cycle.totalRounds,
+      // Steady V2.2/V3.0 필드 이월
+      steadyVersion: cycle.steadyVersion,
+      sellQuarterPercent: cycle.sellQuarterPercent,
+      compoundEnabled: cycle.compoundEnabled,
+      offsetA: cycle.offsetA,
+      offsetB: cycle.offsetB,
+      quarterModeOffset: cycle.quarterModeOffset,
+      // isQuarterStopLossMode/quarterStopLossRoundsUsed → 새 사이클에서 리셋 (기본값 0/false)
     );
 
     await _repository.save(newCycle);
@@ -283,9 +306,14 @@ final cycleSignalProvider =
 
   if (currentPrice == 0) return TradeSignal.hold;
 
-  final service = cycle.strategyType == StrategyType.alphaCycleV3
-      ? const AlphaCycleService()
-      : const InfiniteBuyService();
+  final StrategyEngine service;
+  if (cycle.strategyType == StrategyType.alphaCycleV3) {
+    service = const AlphaCycleService();
+  } else if (cycle.steadyVersion != SteadyVersion.v1) {
+    service = const SteadyService();
+  } else {
+    service = const InfiniteBuyService();
+  }
 
   return service.detectSignal(
     cycle: cycle,
@@ -310,9 +338,14 @@ final cycleSignalAmountProvider =
 
   if (currentPrice == 0) return null;
 
-  final service = cycle.strategyType == StrategyType.alphaCycleV3
-      ? const AlphaCycleService()
-      : const InfiniteBuyService();
+  final StrategyEngine service;
+  if (cycle.strategyType == StrategyType.alphaCycleV3) {
+    service = const AlphaCycleService();
+  } else if (cycle.steadyVersion != SteadyVersion.v1) {
+    service = const SteadyService();
+  } else {
+    service = const InfiniteBuyService();
+  }
 
   return service.calculateAmount(
     cycle: cycle,

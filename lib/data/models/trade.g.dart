@@ -94,6 +94,16 @@ class TradeSignalAdapter extends TypeAdapter<TradeSignal> {
         return TradeSignal.manual;
       case 9:
         return TradeSignal.hold;
+      case 10:
+        return TradeSignal.sellLocQuarter;
+      case 11:
+        return TradeSignal.sellLimitThreeQ;
+      case 12:
+        return TradeSignal.takeProfitFull;
+      case 13:
+        return TradeSignal.buySingle;
+      case 14:
+        return TradeSignal.noFill;
       default:
         return TradeSignal.initial;
     }
@@ -131,6 +141,21 @@ class TradeSignalAdapter extends TypeAdapter<TradeSignal> {
         break;
       case TradeSignal.hold:
         writer.writeByte(9);
+        break;
+      case TradeSignal.sellLocQuarter:
+        writer.writeByte(10);
+        break;
+      case TradeSignal.sellLimitThreeQ:
+        writer.writeByte(11);
+        break;
+      case TradeSignal.takeProfitFull:
+        writer.writeByte(12);
+        break;
+      case TradeSignal.buySingle:
+        writer.writeByte(13);
+        break;
+      case TradeSignal.noFill:
+        writer.writeByte(14);
         break;
     }
   }

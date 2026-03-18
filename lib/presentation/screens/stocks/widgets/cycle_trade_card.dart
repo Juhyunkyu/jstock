@@ -509,14 +509,25 @@ class CycleTradeCard extends ConsumerWidget {
   // 전략별 신호 리스트
   // ═══════════════════════════════════════════════════════════════
 
-  static List<TradeSignal> buySignalsFor(StrategyType type) =>
-      type == StrategyType.alphaCycleV3
-          ? [TradeSignal.initial, TradeSignal.weightedBuy, TradeSignal.panicBuy, TradeSignal.manual]
-          : [TradeSignal.locAB, TradeSignal.locB, TradeSignal.manual];
+  static List<TradeSignal> buySignalsFor(StrategyType type, {SteadyVersion? steadyVersion}) {
+    if (type == StrategyType.alphaCycleV3) {
+      return [TradeSignal.initial, TradeSignal.weightedBuy, TradeSignal.panicBuy, TradeSignal.manual];
+    }
+    // Steady Cycle
+    if (steadyVersion == SteadyVersion.v2_2 || steadyVersion == SteadyVersion.v3_0) {
+      return [TradeSignal.locAB, TradeSignal.locA, TradeSignal.locB, TradeSignal.buySingle, TradeSignal.manual];
+    }
+    return [TradeSignal.locAB, TradeSignal.locB, TradeSignal.manual]; // V1
+  }
 
-  static List<TradeSignal> sellSignalsFor(StrategyType type) =>
-      type == StrategyType.alphaCycleV3
-          ? [TradeSignal.cashSecure, TradeSignal.takeProfit, TradeSignal.manual]
-          : [TradeSignal.takeProfit, TradeSignal.manual];
+  static List<TradeSignal> sellSignalsFor(StrategyType type, {SteadyVersion? steadyVersion}) {
+    if (type == StrategyType.alphaCycleV3) {
+      return [TradeSignal.cashSecure, TradeSignal.takeProfit, TradeSignal.manual];
+    }
+    if (steadyVersion == SteadyVersion.v2_2 || steadyVersion == SteadyVersion.v3_0) {
+      return [TradeSignal.sellLocQuarter, TradeSignal.sellLimitThreeQ, TradeSignal.takeProfitFull, TradeSignal.takeProfit, TradeSignal.manual];
+    }
+    return [TradeSignal.takeProfit, TradeSignal.manual]; // V1
+  }
 }
 

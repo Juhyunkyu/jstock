@@ -19,6 +19,16 @@ enum CycleStatus {
   completed,
 }
 
+@HiveType(typeId: 24)
+enum SteadyVersion {
+  @HiveField(0)
+  v1,
+  @HiveField(1)
+  v2_2,
+  @HiveField(2)
+  v3_0,
+}
+
 @HiveType(typeId: 1)
 class Cycle extends HiveObject implements TradingPosition {
   // === 공통 필드 ===
@@ -119,6 +129,33 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(28, defaultValue: '')
   String nickname;
 
+  // === Strategy B: Steady V2.2/V3.0 추가 필드 ===
+  @HiveField(29, defaultValue: SteadyVersion.v1)
+  SteadyVersion steadyVersion;
+
+  @HiveField(30, defaultValue: 0.25)
+  double sellQuarterPercent;
+
+  @HiveField(31, defaultValue: false)
+  bool compoundEnabled;
+
+  // === V3.0 오프셋 프리셋 (a - b × T) ===
+  @HiveField(32, defaultValue: 15.0)
+  double offsetA;
+
+  @HiveField(33, defaultValue: 1.5)
+  double offsetB;
+
+  @HiveField(34, defaultValue: -15.0)
+  double quarterModeOffset;
+
+  // === 쿼터 손절모드 상태 ===
+  @HiveField(35, defaultValue: false)
+  bool isQuarterStopLossMode;
+
+  @HiveField(36, defaultValue: 0)
+  int quarterStopLossRoundsUsed;
+
   // === 생성자 ===
 
   Cycle({
@@ -144,6 +181,14 @@ class Cycle extends HiveObject implements TradingPosition {
     this.cashSecureRatio = 0.3333,
     this.takeProfitPercent = 10.0,
     this.nickname = '',
+    this.steadyVersion = SteadyVersion.v1,
+    this.sellQuarterPercent = 0.25,
+    this.compoundEnabled = false,
+    this.offsetA = 15.0,
+    this.offsetB = 1.5,
+    this.quarterModeOffset = -15.0,
+    this.isQuarterStopLossMode = false,
+    this.quarterStopLossRoundsUsed = 0,
     this.completedReturnRate,
     DateTime? startDate,
   })  : averagePrice = 0,
@@ -164,6 +209,40 @@ class Cycle extends HiveObject implements TradingPosition {
 
   /// 분할 단위 금액 (Strategy B)
   double get unitAmount => totalRounds > 0 ? seedAmount / totalRounds : 0;
+
+  /// 전반전 여부 (V2.2: T<20, V3.0: T<10)
+  bool isFirstHalfWith(double tValue) {
+    switch (steadyVersion) {
+      case SteadyVersion.v1: return true;
+      case SteadyVersion.v2_2: return tValue < 20;
+      case SteadyVersion.v3_0: return tValue < 10;
+    }
+  }
+
+  /// 쿼터모드 여부
+  bool isQuarterModeWith(double tValue) {
+    switch (steadyVersion) {
+      case SteadyVersion.v1: return false;
+      case SteadyVersion.v2_2: return tValue >= 39.1;
+      case SteadyVersion.v3_0: return tValue > 19 && tValue < 20;
+    }
+  }
+
+  /// LOC 가격 오프셋(%) — V2.2/V3.0 통일: offsetA - offsetB × T
+  double locOffsetPercentWith(double tValue) {
+    if (steadyVersion == SteadyVersion.v1) return 0;
+    return offsetA - offsetB * tValue;
+  }
+
+  /// LOC 매수/매도 가격 (USD)
+  double locPriceWith(double tValue) =>
+      averagePrice * (1 + locOffsetPercentWith(tValue) / 100);
+
+  /// LOC 매수 가격 (-$0.01 조정, 매도와 겹침 방지)
+  double locBuyPriceWith(double tValue) => locPriceWith(tValue) - 0.01;
+
+  /// 지정가 매도 가격 (USD)
+  double get limitSellPrice => averagePrice * (1 + takeProfitPercent / 100);
 
   /// 현재 익절 목표 (Strategy A)
   double get currentSellTarget {
@@ -236,6 +315,14 @@ class Cycle extends HiveObject implements TradingPosition {
     'cashSecureRatio': cashSecureRatio,
     'takeProfitPercent': takeProfitPercent,
     'nickname': nickname,
+    'steadyVersion': steadyVersion.name,
+    'sellQuarterPercent': sellQuarterPercent,
+    'compoundEnabled': compoundEnabled,
+    'offsetA': offsetA,
+    'offsetB': offsetB,
+    'quarterModeOffset': quarterModeOffset,
+    'isQuarterStopLossMode': isQuarterStopLossMode,
+    'quarterStopLossRoundsUsed': quarterStopLossRoundsUsed,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -262,6 +349,14 @@ class Cycle extends HiveObject implements TradingPosition {
       cashSecureRatio: (json['cashSecureRatio'] as num?)?.toDouble() ?? 0.3333,
       takeProfitPercent: (json['takeProfitPercent'] as num?)?.toDouble() ?? 10.0,
       nickname: json['nickname'] as String? ?? '',
+      steadyVersion: _parseSteadyVersion(json['steadyVersion'] as String?),
+      sellQuarterPercent: (json['sellQuarterPercent'] as num?)?.toDouble() ?? 0.25,
+      compoundEnabled: json['compoundEnabled'] as bool? ?? false,
+      offsetA: (json['offsetA'] as num?)?.toDouble() ?? 15.0,
+      offsetB: (json['offsetB'] as num?)?.toDouble() ?? 1.5,
+      quarterModeOffset: (json['quarterModeOffset'] as num?)?.toDouble() ?? -15.0,
+      isQuarterStopLossMode: json['isQuarterStopLossMode'] as bool? ?? false,
+      quarterStopLossRoundsUsed: json['quarterStopLossRoundsUsed'] as int? ?? 0,
     );
     // 저장된 상태 복원 (생성자 기본값 덮어쓰기)
     cycle.averagePrice = (json['averagePrice'] as num?)?.toDouble() ?? 0;
@@ -273,6 +368,15 @@ class Cycle extends HiveObject implements TradingPosition {
         : DateTime.now();
     cycle.completedReturnRate = (json['completedReturnRate'] as num?)?.toDouble();
     return cycle;
+  }
+
+  static SteadyVersion _parseSteadyVersion(String? value) {
+    if (value == null) return SteadyVersion.v1;
+    try {
+      return SteadyVersion.values.byName(value);
+    } catch (_) {
+      return SteadyVersion.v1;
+    }
   }
 
   Cycle copyWith({
@@ -305,6 +409,14 @@ class Cycle extends HiveObject implements TradingPosition {
     double? cashSecureRatio,
     double? takeProfitPercent,
     String? nickname,
+    SteadyVersion? steadyVersion,
+    double? sellQuarterPercent,
+    bool? compoundEnabled,
+    double? offsetA,
+    double? offsetB,
+    double? quarterModeOffset,
+    bool? isQuarterStopLossMode,
+    int? quarterStopLossRoundsUsed,
   }) {
     final cycle = Cycle(
       id: id ?? this.id,
@@ -329,6 +441,14 @@ class Cycle extends HiveObject implements TradingPosition {
       cashSecureRatio: cashSecureRatio ?? this.cashSecureRatio,
       takeProfitPercent: takeProfitPercent ?? this.takeProfitPercent,
       nickname: nickname ?? this.nickname,
+      steadyVersion: steadyVersion ?? this.steadyVersion,
+      sellQuarterPercent: sellQuarterPercent ?? this.sellQuarterPercent,
+      compoundEnabled: compoundEnabled ?? this.compoundEnabled,
+      offsetA: offsetA ?? this.offsetA,
+      offsetB: offsetB ?? this.offsetB,
+      quarterModeOffset: quarterModeOffset ?? this.quarterModeOffset,
+      isQuarterStopLossMode: isQuarterStopLossMode ?? this.isQuarterStopLossMode,
+      quarterStopLossRoundsUsed: quarterStopLossRoundsUsed ?? this.quarterStopLossRoundsUsed,
       completedReturnRate: completedReturnRate ?? this.completedReturnRate,
       startDate: startDate ?? this.startDate,
     );

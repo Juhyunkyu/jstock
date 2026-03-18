@@ -13,6 +13,7 @@ import '../holdings/widgets/profit_loss_section.dart';
 import 'widgets/cycle_completed_view.dart';
 import 'widgets/cycle_info_card.dart';
 import 'widgets/cycle_initial_buy_guide.dart';
+import 'widgets/steady_order_guide_card.dart';
 import 'widgets/cycle_seed_edit_dialog.dart';
 import 'widgets/cycle_trade_card.dart';
 import 'widgets/cycle_trade_record_sheet.dart';
@@ -82,6 +83,12 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     final signalAmount = ref.watch(cycleSignalAmountProvider(widget.cycleId));
     final trades = ref.watch(tradeListProvider(widget.cycleId));
 
+    // V2.2/V3.0: 정확한 T값을 위해 가이드 Provider watch
+    final steadyGuide = (cycle.strategyType == StrategyType.infiniteBuy &&
+            cycle.steadyVersion != SteadyVersion.v1)
+        ? ref.watch(steadyOrderGuideProvider(widget.cycleId))
+        : null;
+
     // === PnL 계산 (보유 상세와 동일한 분리 방식) ===
     final hasPosition = cycle.totalShares > 0 && cycle.averagePrice > 0;
     final evaluatedAmountKrw = TradingMath.evaluatedAmount(
@@ -143,6 +150,16 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     SizedBox(height: isMobile ? 10 : 16),
                   ],
 
+                  // === V2.2/V3.0 주문 가이드 카드 ===
+                  if (cycle.strategyType == StrategyType.infiniteBuy &&
+                      cycle.steadyVersion != SteadyVersion.v1) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: SteadyOrderGuideCard(cycleId: widget.cycleId),
+                    ),
+                    SizedBox(height: isMobile ? 10 : 16),
+                  ],
+
                   // === 그라데이션 PnL 카드 / 초기 매수 가이드 ===
                   if (hasPosition)
                     ProfitLossSummaryCard(
@@ -165,6 +182,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     liveExchangeRate: liveExchangeRate,
                     evaluatedAmountKrw: evaluatedAmountKrw,
                     weightedAvgExchangeRate: weightedAvgExchangeRate,
+                    steadyTValue: steadyGuide?.tValue,
                     onExchangeRateChanged: (newRate) async {
                       cycle.exchangeRateAtEntry = newRate;
                       await ref.read(cycleListProvider.notifier).saveCycle(cycle);
@@ -266,7 +284,12 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 4),
-          child: StrategyBadge(strategyType: cycle.strategyType),
+          child: StrategyBadge(
+            strategyType: cycle.strategyType,
+            steadyVersion: cycle.strategyType == StrategyType.infiniteBuy
+                ? cycle.steadyVersion
+                : null,
+          ),
         ),
         if (cycle.status == CycleStatus.active)
           PopupMenuButton<String>(

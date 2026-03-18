@@ -47,6 +47,14 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   double _takeProfitPercent = 10.0;
   int _totalRounds = 40;
 
+  // === Strategy B V2.2/V3.0 파라미터 ===
+  SteadyVersion _steadyVersion = SteadyVersion.v1;
+  double _sellQuarterPercent = 0.25;
+  bool _compoundEnabled = false;
+  double _offsetA = 15.0;
+  double _offsetB = 1.5;
+  double _quarterModeOffset = -15.0;
+
   // === 고급 설정 ===
   bool _showAdvanced = false;
 
@@ -134,6 +142,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             _buildStrategySelector(),
             const SizedBox(height: 12),
             _buildStrategyDescription(),
+
+            // Steady 버전 선택 (Steady 선택 시에만)
+            if (_selectedStrategy == StrategyType.infiniteBuy) ...[
+              const SizedBox(height: 16),
+              _buildSteadyVersionSelector(),
+            ],
 
             const SizedBox(height: 24),
 
@@ -309,7 +323,10 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isAlpha ? '스마트 방어형' : '꾸준한 분할매수형',
+                  isAlpha ? '스마트 방어형'
+                      : _steadyVersion == SteadyVersion.v1 ? '꾸준한 분할매수형'
+                      : _steadyVersion == SteadyVersion.v2_2 ? '라오어 정통 LOC형'
+                      : '공격적 복리형',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -320,7 +337,11 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 Text(
                   isAlpha
                       ? '하락장에서도 현금을 보존하며\n가중매수와 승부수로 저점 매수 기회를 포착합니다.\n연속 익절 시 목표가 자동 조절됩니다.'
-                      : '40회 분할 매수로\n기계적으로 평균단가를 낮추며\n+10% 익절 시 복리 효과를 극대화합니다.',
+                      : _steadyVersion == SteadyVersion.v1
+                          ? '40회 분할 매수로\n기계적으로 평균단가를 낮추며\n+10% 익절 시 복리 효과를 극대화합니다.'
+                          : _steadyVersion == SteadyVersion.v2_2
+                              ? 'T값 기반 LOC 주문으로\n매일 매수+매도를 동시에 걸며\n하락장에서 현금을 보존합니다.'
+                              : '20분할 공격적 LOC와\n사이클 내 반복리로\n고변동성 종목에서 빠른 사이클 회전.',
                   style: TextStyle(
                     fontSize: 12,
                     color: context.appTextSecondary,
@@ -339,6 +360,186 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 size: 18,
                 color: context.appTextHint,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSteadyVersionSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('버전 선택'),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<SteadyVersion>(
+            segments: [
+              ButtonSegment<SteadyVersion>(
+                value: SteadyVersion.v1,
+                label: Text(
+                  'V1 Simple',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _steadyVersion == SteadyVersion.v1
+                        ? Colors.white
+                        : context.appTextSecondary,
+                  ),
+                ),
+              ),
+              ButtonSegment<SteadyVersion>(
+                value: SteadyVersion.v2_2,
+                label: Text(
+                  'V2.2 Original',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _steadyVersion == SteadyVersion.v2_2
+                        ? Colors.white
+                        : context.appTextSecondary,
+                  ),
+                ),
+              ),
+              ButtonSegment<SteadyVersion>(
+                value: SteadyVersion.v3_0,
+                label: Text(
+                  'V3.0 Aggr',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _steadyVersion == SteadyVersion.v3_0
+                        ? Colors.white
+                        : context.appTextSecondary,
+                  ),
+                ),
+              ),
+            ],
+            selected: {_steadyVersion},
+            onSelectionChanged: (selected) {
+              setState(() {
+                _steadyVersion = selected.first;
+                _applyVersionDefaults();
+              });
+            },
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.green600;
+                }
+                return context.appSurface;
+              }),
+              side: WidgetStateProperty.all(
+                BorderSide(color: context.appBorder, width: 0.5),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        _buildVersionCard(),
+      ],
+    );
+  }
+
+  void _applyVersionDefaults() {
+    switch (_steadyVersion) {
+      case SteadyVersion.v1:
+        _totalRounds = 40;
+        _takeProfitPercent = 10.0;
+        _sellQuarterPercent = 0.25;
+        _compoundEnabled = false;
+        _offsetA = 10.0;
+        _offsetB = 0.5;
+        _quarterModeOffset = -10.0;
+        break;
+      case SteadyVersion.v2_2:
+        _totalRounds = 40;
+        _takeProfitPercent = 10.0;
+        _sellQuarterPercent = 0.25;
+        _compoundEnabled = false;
+        _offsetA = 10.0;
+        _offsetB = 0.5 * (40 / _totalRounds);
+        _quarterModeOffset = -10.0;
+        break;
+      case SteadyVersion.v3_0:
+        _totalRounds = 20;
+        _takeProfitPercent = 15.0;
+        _sellQuarterPercent = 0.25;
+        _compoundEnabled = true;
+        _offsetA = 15.0;
+        _offsetB = 1.5;
+        _quarterModeOffset = -15.0;
+        break;
+    }
+  }
+
+  Widget _buildVersionCard() {
+    final (title, desc, icon) = switch (_steadyVersion) {
+      SteadyVersion.v1 => (
+        'V1 Simple',
+        '40분할 · 단순 매수 · 전량 익절\n입문자 추천 · 상승장 최고 효율',
+        Icons.sentiment_satisfied_alt,
+      ),
+      SteadyVersion.v2_2 => (
+        'V2.2 Original',
+        '40분할 · T값 LOC · 매일 매수+매도\n하락장 방어 우수 (MDD -40%)',
+        Icons.shield_outlined,
+      ),
+      SteadyVersion.v3_0 => (
+        'V3.0 Aggressive',
+        '20분할 · 공격적 LOC · 사이클 내 복리\n고변동성(SOXL) 시너지',
+        Icons.bolt,
+      ),
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.green500.withValues(
+          alpha: context.isDarkMode ? 0.08 : 0.04,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.green500.withValues(
+            alpha: context.isDarkMode ? 0.15 : 0.10,
+          ),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: AppColors.green500),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.green500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  desc,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.appTextSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1016,9 +1217,52 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           max: 80.0,
           divisions: 12,
           format: (v) => '${v.toInt()}회',
-          onChanged: (v) => setState(() => _totalRounds = v.toInt()),
+          onChanged: (v) => setState(() {
+            _totalRounds = v.toInt();
+            // V2.2: offsetB 자동 재계산
+            if (_steadyVersion == SteadyVersion.v2_2) {
+              _offsetB = 0.5 * (40 / _totalRounds);
+            }
+          }),
         ),
+        // V2.2/V3.0: 매도 LOC 비율
+        if (_steadyVersion != SteadyVersion.v1)
+          _buildParamSlider(
+            label: '매도 LOC 비율 (보유량의)',
+            value: _sellQuarterPercent,
+            min: 0.10,
+            max: 0.50,
+            divisions: 8,
+            format: (v) => '${(v * 100).toStringAsFixed(0)}%',
+            onChanged: (v) => setState(() => _sellQuarterPercent = v),
+          ),
+        // V3.0: 복리 토글
+        if (_steadyVersion == SteadyVersion.v3_0)
+          _buildCompoundToggle(),
       ],
+    );
+  }
+
+  Widget _buildCompoundToggle() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            '반복리 활성화',
+            style: TextStyle(
+              fontSize: 12,
+              color: context.appTextSecondary,
+            ),
+          ),
+          Switch(
+            value: _compoundEnabled,
+            onChanged: (v) => setState(() => _compoundEnabled = v),
+            activeColor: context.appAccent,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1146,6 +1390,13 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             // Strategy B
             takeProfitPercent: _takeProfitPercent,
             totalRounds: _totalRounds,
+            // Strategy B V2.2/V3.0
+            steadyVersion: _steadyVersion,
+            sellQuarterPercent: _sellQuarterPercent,
+            compoundEnabled: _compoundEnabled,
+            offsetA: _offsetA,
+            offsetB: _offsetB,
+            quarterModeOffset: _quarterModeOffset,
           );
 
       if (mounted) {

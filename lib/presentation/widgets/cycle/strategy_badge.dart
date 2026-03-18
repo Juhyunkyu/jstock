@@ -8,10 +8,12 @@ import '../../../data/models/cycle.dart';
 /// Steady Cycle → 에메랄드/그린 배지 + ∞ 아이콘
 class StrategyBadge extends StatelessWidget {
   final StrategyType strategyType;
+  final SteadyVersion? steadyVersion;
 
   const StrategyBadge({
     super.key,
     required this.strategyType,
+    this.steadyVersion,
   });
 
   @override
@@ -61,8 +63,13 @@ class StrategyBadge extends StatelessWidget {
           color: isDark ? AppColors.blue400 : AppColors.blue600,
         );
       case StrategyType.infiniteBuy:
+        final versionLabel = switch (steadyVersion) {
+          SteadyVersion.v2_2 => 'Steady V2.2',
+          SteadyVersion.v3_0 => 'Steady V3.0',
+          _ => 'Steady',
+        };
         return _StrategyConfig(
-          label: 'Steady',
+          label: versionLabel,
           icon: Icons.all_inclusive,
           color: isDark ? AppColors.green400 : AppColors.green600,
         );

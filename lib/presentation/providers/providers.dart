@@ -13,6 +13,7 @@ export 'stock_providers.dart';
 export 'holding_providers.dart';
 export 'cycle_providers.dart';
 export 'trade_providers.dart';
+export 'steady_providers.dart';
 export 'portfolio_providers.dart';
 export 'market_data_providers.dart';
 export 'fear_greed_providers.dart';

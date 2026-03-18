@@ -41,6 +41,15 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       cashSecureRatio: fields[26] == null ? 0.3333 : fields[26] as double,
       takeProfitPercent: fields[27] == null ? 10.0 : fields[27] as double,
       nickname: fields[28] == null ? '' : fields[28] as String,
+      steadyVersion:
+          fields[29] == null ? SteadyVersion.v1 : fields[29] as SteadyVersion,
+      sellQuarterPercent: fields[30] == null ? 0.25 : fields[30] as double,
+      compoundEnabled: fields[31] == null ? false : fields[31] as bool,
+      offsetA: fields[32] == null ? 15.0 : fields[32] as double,
+      offsetB: fields[33] == null ? 1.5 : fields[33] as double,
+      quarterModeOffset: fields[34] == null ? -15.0 : fields[34] as double,
+      isQuarterStopLossMode: fields[35] == null ? false : fields[35] as bool,
+      quarterStopLossRoundsUsed: fields[36] == null ? 0 : fields[36] as int,
       completedReturnRate: fields[10] as double?,
       startDate: fields[8] as DateTime?,
     )
@@ -55,7 +64,7 @@ class CycleAdapter extends TypeAdapter<Cycle> {
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(29)
+      ..writeByte(37)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -113,7 +122,23 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(27)
       ..write(obj.takeProfitPercent)
       ..writeByte(28)
-      ..write(obj.nickname);
+      ..write(obj.nickname)
+      ..writeByte(29)
+      ..write(obj.steadyVersion)
+      ..writeByte(30)
+      ..write(obj.sellQuarterPercent)
+      ..writeByte(31)
+      ..write(obj.compoundEnabled)
+      ..writeByte(32)
+      ..write(obj.offsetA)
+      ..writeByte(33)
+      ..write(obj.offsetB)
+      ..writeByte(34)
+      ..write(obj.quarterModeOffset)
+      ..writeByte(35)
+      ..write(obj.isQuarterStopLossMode)
+      ..writeByte(36)
+      ..write(obj.quarterStopLossRoundsUsed);
   }
 
   @override
@@ -201,6 +226,50 @@ class CycleStatusAdapter extends TypeAdapter<CycleStatus> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is CycleStatusAdapter &&
+          runtimeType == other.runtimeType &&
+          typeId == other.typeId;
+}
+
+class SteadyVersionAdapter extends TypeAdapter<SteadyVersion> {
+  @override
+  final int typeId = 24;
+
+  @override
+  SteadyVersion read(BinaryReader reader) {
+    switch (reader.readByte()) {
+      case 0:
+        return SteadyVersion.v1;
+      case 1:
+        return SteadyVersion.v2_2;
+      case 2:
+        return SteadyVersion.v3_0;
+      default:
+        return SteadyVersion.v1;
+    }
+  }
+
+  @override
+  void write(BinaryWriter writer, SteadyVersion obj) {
+    switch (obj) {
+      case SteadyVersion.v1:
+        writer.writeByte(0);
+        break;
+      case SteadyVersion.v2_2:
+        writer.writeByte(1);
+        break;
+      case SteadyVersion.v3_0:
+        writer.writeByte(2);
+        break;
+    }
+  }
+
+  @override
+  int get hashCode => typeId.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SteadyVersionAdapter &&
           runtimeType == other.runtimeType &&
           typeId == other.typeId;
 }
