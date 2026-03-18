@@ -366,14 +366,24 @@ const _smartCycleHelp = '스마트 방어형 매매법\n\n'
     '• 현금 보존: 익절 시 원금 회수로 현금 확보\n\n'
     '추천 대상: 안전지향형 투자자, 규칙기반 매매, 단일 종목 집중';
 
-const _steadyCycleHelp = '꾸준한 분할매수형\n\n'
-    '핵심 메커니즘:\n'
-    '• 40분할: 시드머니를 40등분하여 기계적 매수\n'
-    '• 조건부 매수: 평단 이하면 1회분, 이상이면 0.5회분\n'
-    '• +10% 익절: 전량 매도 후 새 사이클 시작\n'
-    '• 복리 효과: 사이클 반복으로 수익 극대화\n'
-    '• 40회 소진: 추가 매수 없이 익절 대기\n\n'
-    '추천 대상: 기계적 매매 선호, 레버리지 ETF 투자자, 복리 성장 추구';
+const _steadyCycleHelp = '라오어의 무한매수법 기반 분할매수 전략\n\n'
+    '3가지 버전을 지원하며, 사이클 생성 시 선택합니다.\n\n'
+    '── V1 Simple (입문) ──\n'
+    '• 40분할 기계적 매수\n'
+    '• 평단 이하 1회분, 이상 0.5회분\n'
+    '• +10% 도달 시 전량 익절\n'
+    '• 가장 단순, 상승장에서 최고 효율\n\n'
+    '── V2.2 Original (정통) ──\n'
+    '• 40분할 + T값 기반 LOC 주문\n'
+    '• 매일 매수+매도 주문을 동시에 설정\n'
+    '• 하락장에서 미체결로 현금 보존 (MDD -40%)\n'
+    '• 원금 소진 시 쿼터 손절모드로 안전장치\n\n'
+    '── V3.0 Aggressive (공격) ──\n'
+    '• 20분할 + 공격적 LOC 오프셋\n'
+    '• 반복리: 매도 수익의 1/40을 매수금에 추가\n'
+    '• TQQQ +15%, SOXL +20% 종목별 익절 목표\n'
+    '• 고변동성 종목에서 빠른 사이클 회전\n\n'
+    '원본: 라오어 「무한매수법」 V2.2(2022) / V3.0(2024)';
 
 // ═══════════════════════════════════════════════════════════════
 // 사이클 목록 탭
@@ -493,13 +503,38 @@ class _ActiveCycleCard extends ConsumerWidget {
                 ],
                 const SizedBox(width: 6),
                 Expanded(
-                  child: Text(
-                    cycle.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextSecondary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          cycle.name,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.appTextSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (cycle.strategyType == StrategyType.infiniteBuy &&
+                          cycle.steadyVersion != SteadyVersion.v1) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.green500.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            cycle.steadyVersion == SteadyVersion.v2_2 ? 'V2.2' : 'V3.0',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: context.isDarkMode ? AppColors.green400 : AppColors.green600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 if (signal != TradeSignal.hold) ...[
