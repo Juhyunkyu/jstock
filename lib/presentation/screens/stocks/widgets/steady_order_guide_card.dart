@@ -308,7 +308,10 @@ class SteadyOrderGuideCard extends ConsumerWidget {
             '쿼터모드\n'
             '원금 소진 시 발동하는 안전장치.\n'
             'V2.2: 1/4 MOC 손절 → 10회 재진입\n'
-            'V3.0: 1/4 MOC 매도 + 지정가 매도',
+            'V3.0: 1/4 MOC 매도 + 지정가 매도\n\n'
+            'MOC (Market On Close)\n'
+            '종가에 무조건 체결되는 시장가 주문.\n'
+            'LOC와 달리 가격 조건 없이 확실하게 체결됩니다.',
             style: TextStyle(fontSize: 13, color: ctx.appTextSecondary, height: 1.6),
           ),
         ),
