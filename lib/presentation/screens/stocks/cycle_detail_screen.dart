@@ -153,8 +153,10 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
                   SizedBox(height: isMobile ? 10 : 16),
 
-                  // === 신호 카드 (active 사이클만) ===
-                  if (cycle.status == CycleStatus.active) ...[
+                  // === 신호 카드 (active 사이클만, V2.2/V3.0은 숨김 — 주문 가이드가 대체) ===
+                  if (cycle.status == CycleStatus.active &&
+                      !(cycle.strategyType == StrategyType.infiniteBuy &&
+                        cycle.steadyVersion != SteadyVersion.v1)) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SignalDisplay(
