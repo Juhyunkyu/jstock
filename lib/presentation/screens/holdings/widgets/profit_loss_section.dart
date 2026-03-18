@@ -37,7 +37,7 @@ class ProfitLossSummaryCard extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -47,7 +47,7 @@ class ProfitLossSummaryCard extends StatelessWidget {
             AppColors.secondaryDark,
           ],
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: AppColors.secondary.withValues(alpha: 0.3),
@@ -65,7 +65,7 @@ class ProfitLossSummaryCard extends StatelessWidget {
             children: [
               const Text(
                 '현재 시세',
-                style: TextStyle(fontSize: 14, color: Colors.white70),
+                style: TextStyle(fontSize: 12, color: Colors.white70),
               ),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
@@ -73,22 +73,22 @@ class ProfitLossSummaryCard extends StatelessWidget {
                   Text(
                     '\$${currentPrice.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
                   Text(
                     '환율: \u20a9${currentExchangeRate.toStringAsFixed(0)}',
-                    style: const TextStyle(fontSize: 11, color: Colors.white60),
+                    style: const TextStyle(fontSize: 10, color: Colors.white60),
                   ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           const Divider(color: Colors.white24, height: 1),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
 
           // 1. 외화손익: 순수 주가 변동 (USD)
           SimpleProfitRow(
@@ -97,7 +97,7 @@ class ProfitLossSummaryCard extends StatelessWidget {
             percentage: usdReturnRate,
             isUsd: true,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
 
           // 2. 원화손익: 순수 주가 변동 (KRW, 환차 미포함)
           SimpleProfitRow(
@@ -106,7 +106,7 @@ class ProfitLossSummaryCard extends StatelessWidget {
             percentage: pureKrwReturnRate,
             isUsd: false,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
 
           // 3. 환차손익: (원화손익+환차손익)(환차손익) 형식
           CurrencyProfitRow(
@@ -146,21 +146,21 @@ class SimpleProfitRow extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(fontSize: 13, color: Colors.white70),
+          style: const TextStyle(fontSize: 11, color: Colors.white70),
         ),
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: (isPositive ? AppColors.red500 : AppColors.blue500)
                     .withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 _formatValue(),
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -170,7 +170,7 @@ class SimpleProfitRow extends StatelessWidget {
             Text(
               '${percentage >= 0 ? '+' : ''}${percentage.toStringAsFixed(1)}%',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: percentColor,
               ),
@@ -217,24 +217,23 @@ class CurrencyProfitRow extends StatelessWidget {
         Text(
           label,
           style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontSize: 11,
             color: Colors.white70,
           ),
         ),
         Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: (isPositive ? AppColors.red500 : AppColors.blue500)
                     .withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 _formatValue(),
                 style: const TextStyle(
-                  fontSize: 14,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
                 ),
@@ -244,7 +243,7 @@ class CurrencyProfitRow extends StatelessWidget {
             Text(
               '${percentage >= 0 ? '+' : ''}${percentage.toStringAsFixed(1)}%',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: percentColor,
               ),

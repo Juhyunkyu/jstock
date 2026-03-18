@@ -138,6 +138,21 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // === 현재 시세 카드 (맨 위) ===
+                  if (hasPosition)
+                    ProfitLossSummaryCard(
+                      currentPrice: currentPrice,
+                      currentExchangeRate: liveExchangeRate,
+                      usdPL: usdPL,
+                      usdReturnRate: usdReturnRate,
+                      investedAmount: investedAmount,
+                      currencyPL: currencyPL,
+                      quantity: cycle.totalShares.round(),
+                    )
+                  else
+                    CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
+                  SizedBox(height: isMobile ? 10 : 16),
+
                   // === 신호 카드 (active 사이클만) ===
                   if (cycle.status == CycleStatus.active) ...[
                     Padding(
@@ -172,21 +187,6 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     ),
                     SizedBox(height: isMobile ? 10 : 16),
                   ],
-
-                  // === 그라데이션 PnL 카드 / 초기 매수 가이드 ===
-                  if (hasPosition)
-                    ProfitLossSummaryCard(
-                      currentPrice: currentPrice,
-                      currentExchangeRate: liveExchangeRate,
-                      usdPL: usdPL,
-                      usdReturnRate: usdReturnRate,
-                      investedAmount: investedAmount,
-                      currencyPL: currencyPL,
-                      quantity: cycle.totalShares.round(),
-                    )
-                  else
-                    CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
-                  SizedBox(height: isMobile ? 10 : 16),
 
                   // === 정보 카드 (보유 상세 스타일 + 사이클 전용) ===
                   CycleInfoCard(
