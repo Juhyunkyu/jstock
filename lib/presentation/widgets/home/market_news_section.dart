@@ -19,7 +19,6 @@ class MarketNewsSection extends ConsumerStatefulWidget {
 
 class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
   bool _showAllNews = false;
-  final Set<int> _expandedItems = {};
 
   /// 제목 끝의 "- Reuters", "- CNBC" 등 소스명 제거
   static final RegExp _trailingSourcePattern =
@@ -161,17 +160,13 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     final cleanedTitle = _cleanTitle(news.displayTitle);
     final isMobile = MediaQuery.sizeOf(context).width < 600;
     final titleFontSize = isMobile ? 13.0 : 14.5;
-    final isExpanded = _expandedItems.contains(index);
 
     return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (isExpanded) {
-            _expandedItems.remove(index);
-          } else {
-            _expandedItems.add(index);
-          }
-        });
+      onTap: () async {
+        final uri = Uri.parse(news.link);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -184,7 +179,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 뱃지 + 시간 + 제목 한 줄 흐름
+            // 뱃지 + 시간 + 제목 + 원문 링크
             Text.rich(
               TextSpan(
                 children: [
@@ -221,7 +216,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                       height: 1.5,
                     ),
                   ),
-                  // 제목 + 펼침 표시
+                  // 제목 + ↗ 원문 링크
                   TextSpan(
                     text: cleanedTitle,
                     style: TextStyle(
@@ -232,9 +227,9 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                     ),
                   ),
                   TextSpan(
-                    text: isExpanded ? ' \u25B2' : ' \u25BC',
+                    text: ' \u2197',
                     style: TextStyle(
-                      fontSize: titleFontSize - 3,
+                      fontSize: titleFontSize - 2,
                       color: context.appTextHint,
                       height: 1.5,
                     ),
@@ -242,45 +237,6 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                 ],
               ),
             ),
-            // 펼쳐진 요약 + 원문 링크
-            if (isExpanded) ...[
-              const SizedBox(height: 6),
-              if (news.summary != null && news.summary!.isNotEmpty)
-                Text(
-                  news.summary!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: context.appTextSecondary,
-                    height: 1.5,
-                  ),
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () async {
-                  final uri = Uri.parse(news.link);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '원문 보기',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: context.appAccent,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(Icons.open_in_new, size: 12, color: context.appAccent),
-                  ],
-                ),
-              ),
-            ],
           ],
         ),
       ),
