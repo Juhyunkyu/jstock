@@ -91,22 +91,24 @@ class TwelveDataService {
       return cached.data;
     }
 
-    // 2. Rate limit 체크 (분당 호출 수 초과 시 캐시 반환 또는 대기)
-    _cleanOldTimestamps();
-    if (_callTimestamps.length >= _maxCallsPerMinute) {
-      // Rate limit 근접 — 캐시가 있으면 캐시 반환 (만료여도)
-      if (cached != null && cached.data.isNotEmpty) {
-        return cached.data;
-      }
-      // 캐시 없으면 가장 오래된 호출 후 1분까지 대기
-      final waitUntil = _callTimestamps.first.add(const Duration(minutes: 1));
-      final waitDuration = waitUntil.difference(DateTime.now());
-      if (waitDuration.inSeconds > 0 && waitDuration.inSeconds <= 5) {
-        await Future.delayed(waitDuration + const Duration(milliseconds: 500));
-        _cleanOldTimestamps();
-      } else {
-        // 5초 이상 대기해야 하면 캐시 반환 또는 빈 리스트
-        return cached?.data ?? [];
+    // 2. Rate limit 체크 (직접 호출 시에만 적용, 프록시 경유 시 서버가 관리)
+    if (!AppConfig.useProxy) {
+      _cleanOldTimestamps();
+      if (_callTimestamps.length >= _maxCallsPerMinute) {
+        // Rate limit 근접 — 캐시가 있으면 캐시 반환 (만료여도)
+        if (cached != null && cached.data.isNotEmpty) {
+          return cached.data;
+        }
+        // 캐시 없으면 가장 오래된 호출 후 1분까지 대기
+        final waitUntil = _callTimestamps.first.add(const Duration(minutes: 1));
+        final waitDuration = waitUntil.difference(DateTime.now());
+        if (waitDuration.inSeconds > 0 && waitDuration.inSeconds <= 5) {
+          await Future.delayed(waitDuration + const Duration(milliseconds: 500));
+          _cleanOldTimestamps();
+        } else {
+          // 5초 이상 대기해야 하면 캐시 반환 또는 빈 리스트
+          return cached?.data ?? [];
+        }
       }
     }
 
