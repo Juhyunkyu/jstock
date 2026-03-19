@@ -45,6 +45,9 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
 
   final _indicatorService = TechnicalIndicatorService();
 
+  int _chartRetryCount = 0;
+  static const _maxChartRetry = 3;
+
   String get _chartSymbol {
     switch (widget.symbol) {
       case '^NDX':
@@ -76,30 +79,59 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
       _error = null;
     });
 
+    final twelveDataService = ref.read(twelveDataServiceProvider);
+
+    // Price and chart are independent — one failure doesn't block the other
     try {
-      final twelveDataService = ref.read(twelveDataServiceProvider);
-      final quoteFuture = ref.read(stockQuoteProvider.notifier).fetchQuote(_chartSymbol);
-      final chartFuture = twelveDataService.getChartData(_chartSymbol, interval: '1day', outputsize: 365);
-      final results = await Future.wait([quoteFuture, chartFuture]);
+      await ref.read(stockQuoteProvider.notifier).fetchQuote(_chartSymbol);
+    } catch (_) {}
 
-      final chartData = results[1] as List<OHLCData>;
-      final periodReturns = _calculatePeriodReturns(chartData);
-
+    try {
+      final chartData = await twelveDataService.getChartData(
+        _chartSymbol, interval: '1day', outputsize: 365,
+      );
       if (!mounted) return;
-      setState(() {
-        _chartData = chartData;
-        _periodReturns = periodReturns;
-        _isLoading = false;
-      });
+      if (chartData.isNotEmpty) {
+        setState(() {
+          _chartData = chartData;
+          _periodReturns = _calculatePeriodReturns(chartData);
+        });
+      }
+    } catch (_) {}
 
-      _loadNews();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
+    if (!mounted) return;
+    setState(() { _isLoading = false; });
+
+    // Auto-retry if chart is still empty (rate limit or network error)
+    _scheduleChartRetry();
+
+    _loadNews();
+  }
+
+  void _scheduleChartRetry() {
+    if (_chartData.isNotEmpty || _chartRetryCount >= _maxChartRetry || !mounted) return;
+    _chartRetryCount++;
+    Future.delayed(Duration(seconds: 10 * _chartRetryCount), () async {
+      if (!mounted || _chartData.isNotEmpty) return;
+      try {
+        final service = ref.read(twelveDataServiceProvider);
+        final chartData = await service.getChartData(
+          _chartSymbol, interval: '1day', outputsize: 365,
+        );
+        if (!mounted) return;
+        if (chartData.isNotEmpty) {
+          setState(() {
+            _chartData = chartData;
+            _periodReturns = _calculatePeriodReturns(chartData);
+            _chartRetryCount = 0;
+          });
+        } else {
+          _scheduleChartRetry();
+        }
+      } catch (_) {
+        if (mounted) _scheduleChartRetry();
+      }
+    });
   }
 
   Map<String, double> _calculatePeriodReturns(List<OHLCData> chartData) {
@@ -195,9 +227,13 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
     final service = ref.read(twelveDataServiceProvider);
     final chartData = await service.getChartData(_chartSymbol, interval: interval, outputsize: outputsize);
     if (!mounted) return;
-    setState(() {
-      _chartData = chartData;
-    });
+    if (chartData.isNotEmpty) {
+      setState(() {
+        _chartData = chartData;
+        _chartRetryCount = 0;
+      });
+    }
+    // If empty, keep existing chart data (don't clear it)
   }
 
   Map<String, double>? _calculatePivotLevels() {
