@@ -23,12 +23,11 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
-  int _selectedTabIndex = 0;
-
   @override
   Widget build(BuildContext context) {
     final watchlistState = ref.watch(watchlistProvider);
     final groupState = ref.watch(watchlistGroupProvider);
+    final selectedTabIndex = ref.watch(selectedWatchlistTabProvider);
 
     // 탭 라벨 구성: 보유 | 최근 | [사용자 그룹들...]
     final tabLabels = <String>[
@@ -38,9 +37,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     ];
 
     // 탭 인덱스 범위 보정
-    if (_selectedTabIndex >= tabLabels.length) {
-      _selectedTabIndex = 0;
-    }
+    final tabIndex = selectedTabIndex >= tabLabels.length ? 0 : selectedTabIndex;
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -67,14 +64,14 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                     // 탭 바
                     WatchlistTabBar(
                       tabLabels: tabLabels,
-                      selectedIndex: _selectedTabIndex,
+                      selectedIndex: tabIndex,
                       onTap: (index) =>
-                          setState(() => _selectedTabIndex = index),
+                          ref.read(selectedWatchlistTabProvider.notifier).state = index,
                       onSettingsTap: () => _showSettingsSheet(context),
                     ),
                     // 탭 콘텐츠
                     Expanded(
-                      child: _buildTabContent(watchlistState, groupState),
+                      child: _buildTabContent(tabIndex, watchlistState, groupState),
                     ),
                   ],
                 ),
@@ -82,11 +79,12 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   }
 
   Widget _buildTabContent(
+    int tabIndex,
     WatchlistState watchlistState,
     WatchlistGroupState groupState,
   ) {
     // 0 = 보유, 1 = 최근, 2+ = 사용자 그룹
-    if (_selectedTabIndex == 0) {
+    if (tabIndex == 0) {
       return WatchlistGroupContent(
         tabType: WatchlistTabType.owned,
         onTickerTap: (ticker) => _onTickerTap(ticker),
@@ -97,7 +95,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       );
     }
 
-    if (_selectedTabIndex == 1) {
+    if (tabIndex == 1) {
       return WatchlistGroupContent(
         tabType: WatchlistTabType.recent,
         onTickerTap: (ticker) => _onTickerTap(ticker),
@@ -110,7 +108,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     }
 
     // 사용자 그룹
-    final groupIndex = _selectedTabIndex - 2;
+    final groupIndex = tabIndex - 2;
     if (groupIndex >= 0 && groupIndex < groupState.groups.length) {
       final group = groupState.groups[groupIndex];
       return WatchlistGroupContent(
