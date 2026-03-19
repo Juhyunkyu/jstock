@@ -101,11 +101,11 @@ class TwelveDataService {
       // 캐시 없으면 가장 오래된 호출 후 1분까지 대기
       final waitUntil = _callTimestamps.first.add(const Duration(minutes: 1));
       final waitDuration = waitUntil.difference(DateTime.now());
-      if (waitDuration.inSeconds > 0 && waitDuration.inSeconds <= 30) {
+      if (waitDuration.inSeconds > 0 && waitDuration.inSeconds <= 5) {
         await Future.delayed(waitDuration + const Duration(milliseconds: 500));
         _cleanOldTimestamps();
       } else {
-        // 30초 이상 대기해야 하면 캐시 반환 또는 빈 리스트
+        // 5초 이상 대기해야 하면 캐시 반환 또는 빈 리스트
         return cached?.data ?? [];
       }
     }

@@ -47,6 +47,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
 
   int _chartRetryCount = 0;
   static const _maxChartRetry = 3;
+  bool _isChartRetrying = false;
 
   String get _chartSymbol {
     switch (widget.symbol) {
@@ -111,6 +112,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
   void _scheduleChartRetry() {
     if (_chartData.isNotEmpty || _chartRetryCount >= _maxChartRetry || !mounted) return;
     _chartRetryCount++;
+    setState(() => _isChartRetrying = true);
     Future.delayed(Duration(seconds: 10 * _chartRetryCount), () async {
       if (!mounted || _chartData.isNotEmpty) return;
       try {
@@ -124,6 +126,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
             _chartData = chartData;
             _periodReturns = _calculatePeriodReturns(chartData);
             _chartRetryCount = 0;
+            _isChartRetrying = false;
           });
         } else {
           _scheduleChartRetry();
@@ -320,25 +323,28 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                         _buildMetaInfo(quote),
                         PeriodReturnsSection(periodReturns: _periodReturns),
                         const SizedBox(height: 10),
-                        DetailChartSection(
-                          symbol: _chartSymbol,
-                          chartData: _chartData,
-                          selectedPeriod: _selectedPeriod,
-                          onPeriodChanged: (period) {
-                            setState(() => _selectedPeriod = period);
-                            _loadChartData();
-                          },
-                          showPivotLines: _showPivotLines,
-                          pivotLevels: _calculatePivotLevels(),
-                          indicatorService: _indicatorService,
-                          currentPrice: quote?.currentPrice,
-                          previousClose: quote?.previousClose,
-                          onDrawingActiveChanged: (active) {
-                            if (_isDrawingActive != active) {
-                              setState(() => _isDrawingActive = active);
-                            }
-                          },
-                        ),
+                        if (_chartData.isEmpty)
+                          _buildChartPlaceholder()
+                        else
+                          DetailChartSection(
+                            symbol: _chartSymbol,
+                            chartData: _chartData,
+                            selectedPeriod: _selectedPeriod,
+                            onPeriodChanged: (period) {
+                              setState(() => _selectedPeriod = period);
+                              _loadChartData();
+                            },
+                            showPivotLines: _showPivotLines,
+                            pivotLevels: _calculatePivotLevels(),
+                            indicatorService: _indicatorService,
+                            currentPrice: quote?.currentPrice,
+                            previousClose: quote?.previousClose,
+                            onDrawingActiveChanged: (active) {
+                              if (_isDrawingActive != active) {
+                                setState(() => _isDrawingActive = active);
+                              }
+                            },
+                          ),
                         const SizedBox(height: 10),
                         PivotPointSection(
                           pivotLevels: _calculatePivotLevels(),
@@ -395,6 +401,84 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
       child: Text(
         '$_chartSymbol · $timeStr',
         style: TextStyle(fontSize: 12, color: context.appTextHint),
+      ),
+    );
+  }
+
+  Widget _buildChartPlaceholder() {
+    final isRetrying = _isChartRetrying && _chartRetryCount <= _maxChartRetry;
+    final hasFailed = _chartRetryCount >= _maxChartRetry && _chartData.isEmpty;
+
+    return Container(
+      height: 220,
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: context.appCardBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appBorder),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isRetrying) ...[
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.appTextHint,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '차트 불러오는 중...',
+                style: TextStyle(fontSize: 13, color: context.appTextHint),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '자동 재시도 $_chartRetryCount/$_maxChartRetry',
+                style: TextStyle(fontSize: 11, color: context.appTextHint),
+              ),
+            ] else if (hasFailed) ...[
+              Icon(Icons.show_chart, size: 28, color: context.appTextHint),
+              const SizedBox(height: 8),
+              Text(
+                '차트를 불러오지 못했습니다',
+                style: TextStyle(fontSize: 13, color: context.appTextHint),
+              ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: () {
+                  _chartRetryCount = 0;
+                  _scheduleChartRetry();
+                },
+                child: Text(
+                  '다시 시도',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: context.appAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ] else ...[
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: context.appTextHint,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                '차트 불러오는 중...',
+                style: TextStyle(fontSize: 13, color: context.appTextHint),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
