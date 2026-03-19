@@ -132,6 +132,10 @@ class NewsService {
       for (final item in items) {
         final source = item['source'] as String? ?? '';
 
+        // 페이월 도메인 필터링
+        final url = item['url'] as String? ?? '';
+        if (_isPaywallUrl(url)) continue;
+
         newsList.add(NewsItem(
           title: item['headline'] ?? '',
           publisher: source,
@@ -242,6 +246,21 @@ class NewsService {
     } catch (_) {
       return [];
     }
+  }
+
+  /// 페이월 도메인 필터링
+  static const _paywallDomains = [
+    'reuters.com',
+    'bloomberg.com',
+    'wsj.com',
+    'ft.com',
+    'barrons.com',
+    'marketwatch.com',
+  ];
+
+  static bool _isPaywallUrl(String url) {
+    final lower = url.toLowerCase();
+    return _paywallDomains.any((d) => lower.contains(d));
   }
 
   /// 지수 심볼 변환
