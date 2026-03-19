@@ -43,7 +43,7 @@ class _TickerLogoState extends ConsumerState<TickerLogo> {
     final logoUrl = logos[widget.ticker.toUpperCase()];
 
     final bgColor = widget.backgroundColor ??
-        context.appTextSecondary.withValues(alpha: 0.1);
+        context.appTextSecondary.withValues(alpha: context.isDarkMode ? 0.2 : 0.1);
     final txtColor = widget.textColor ?? context.appTextSecondary;
 
     // CORS 우회: wsrv.nl 프록시를 통해 이미지 로드

@@ -152,7 +152,7 @@ class PopularEtfTile extends StatelessWidget {
         borderRadius: 12,
         backgroundColor: isDisabled
             ? context.appDivider
-            : _getCategoryColor().withValues(alpha: 0.1),
+            : _getCategoryColor().withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
         textColor: isDisabled ? AppColors.gray400 : _getCategoryColor(),
       ),
       title: Row(
@@ -177,7 +177,7 @@ class PopularEtfTile extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isDisabled
                             ? context.appDivider
-                            : _getCategoryColor().withValues(alpha: 0.1),
+                            : _getCategoryColor().withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(

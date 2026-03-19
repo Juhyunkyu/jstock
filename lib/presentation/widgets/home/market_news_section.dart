@@ -251,7 +251,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                         vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
-                        color: publisherColor.withAlpha(30),
+                        color: publisherColor.withAlpha(context.isDarkMode ? 50 : 30),
                         borderRadius: BorderRadius.circular(3),
                       ),
                       child: Text(

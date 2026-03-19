@@ -134,7 +134,7 @@ class _NotificationToggle extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.1),
+          color: iconColor.withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(

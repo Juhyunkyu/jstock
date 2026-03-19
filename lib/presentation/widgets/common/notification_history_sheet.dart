@@ -163,16 +163,17 @@ class _NotificationTile extends StatelessWidget {
     final Color iconBgColor;
     final Color iconColor;
     final IconData iconData;
+    final darkAlpha = context.isDarkMode ? 0.2 : 0.1;
     if (isFearGreed) {
-      iconBgColor = AppColors.primary.withValues(alpha: 0.1);
+      iconBgColor = AppColors.primary.withValues(alpha: darkAlpha);
       iconColor = AppColors.primary;
       iconData = Icons.speed_rounded;
     } else if (isTarget) {
-      iconBgColor = AppColors.stockUp.withValues(alpha: 0.1);
+      iconBgColor = AppColors.stockUp.withValues(alpha: darkAlpha);
       iconColor = AppColors.stockUp;
       iconData = Icons.gps_fixed_rounded;
     } else {
-      iconBgColor = AppColors.amber600.withValues(alpha: 0.1);
+      iconBgColor = AppColors.amber600.withValues(alpha: darkAlpha);
       iconColor = AppColors.amber600;
       iconData = Icons.trending_up_rounded;
     }
