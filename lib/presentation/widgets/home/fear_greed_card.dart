@@ -82,6 +82,7 @@ class FearGreedCard extends ConsumerWidget {
                       onTap: () {
                         showModalBottomSheet(
                           context: context,
+                          useRootNavigator: true,
                           isScrollControlled: true,
                           backgroundColor: context.appCardBackground,
                           shape: const RoundedRectangleBorder(
@@ -129,6 +130,7 @@ class FearGreedCard extends ConsumerWidget {
                   onTap: () {
                     showModalBottomSheet(
                       context: context,
+                      useRootNavigator: true,
                       isScrollControlled: true,
                       backgroundColor: context.appCardBackground,
                       shape: const RoundedRectangleBorder(
@@ -279,6 +281,7 @@ class _ActiveZoneLabel extends StatelessWidget {
   void _showAllZones(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: context.appCardBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

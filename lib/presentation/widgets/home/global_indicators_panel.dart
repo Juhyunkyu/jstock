@@ -163,6 +163,7 @@ final _indicatorDetails = {
 void _showIndicatorInfo(BuildContext context) {
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     backgroundColor: context.appCardBackground,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -229,6 +230,7 @@ void _showIndicatorDetail(BuildContext context, GlobalIndicator indicator) {
 
   showModalBottomSheet(
     context: context,
+    useRootNavigator: true,
     backgroundColor: context.appCardBackground,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

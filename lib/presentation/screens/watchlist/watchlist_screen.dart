@@ -163,6 +163,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   void _showSettingsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: context.appSurface,
       builder: (context) => const WatchlistSettingsSheet(),
@@ -240,6 +241,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   void _onStarTap(String ticker) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: context.appSurface,
       builder: (context) => GroupSelectionSheet(ticker: ticker),
     );
@@ -259,6 +261,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: context.appSurface,
       builder: (context) => AlertSettingsSheet(

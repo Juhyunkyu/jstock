@@ -18,6 +18,28 @@ import '../presentation/widgets/common/main_shell.dart';
 import '../presentation/widgets/stocks/popular_etf_list.dart';
 import '../core/utils/symbol_name_resolver.dart';
 
+/// 모달(BottomSheet, Dialog) 열림 상태를 추적하는 NavigatorObserver
+///
+/// 브라우저 뒤로가기 시 모달이 열려있으면 모달만 닫고 페이지 이동을 방지하기 위해 사용.
+class _ModalObserver extends NavigatorObserver {
+  int openCount = 0;
+
+  @override
+  void didPush(Route route, Route? previousRoute) {
+    if (route is PopupRoute) openCount++;
+  }
+
+  @override
+  void didPop(Route route, Route? previousRoute) {
+    if (route is PopupRoute && openCount > 0) openCount--;
+  }
+
+  @override
+  void didRemove(Route route, Route? previousRoute) {
+    if (route is PopupRoute && openCount > 0) openCount--;
+  }
+}
+
 /// 앱 라우터 설정
 class AppRouter {
   AppRouter._();
@@ -30,6 +52,12 @@ class AppRouter {
 
   /// Shell navigator key (모달 닫기용)
   static GlobalKey<NavigatorState> get shellNavigatorKey => _shellNavigatorKey;
+
+  /// 모달 추적 옵저버
+  static final _modalObserver = _ModalObserver();
+
+  /// 현재 라우트 경로 (모달 닫기 시 복귀용)
+  static String _currentLocation = '/';
 
   /// 라우트 경로 상수
   static const String home = '/';
@@ -48,7 +76,23 @@ class AppRouter {
   /// GoRouter 인스턴스
   static final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
+    observers: [_modalObserver],
     initialLocation: home,
+    redirect: (context, state) {
+      final newPath = state.matchedLocation;
+
+      // 모달이 열려있는 상태에서 뒤로가기 → 모달만 닫고 현재 페이지 유지
+      if (_modalObserver.openCount > 0 && newPath != _currentLocation) {
+        final rootNav = _rootNavigatorKey.currentState;
+        if (rootNav != null && rootNav.canPop()) {
+          rootNav.pop();
+        }
+        return _currentLocation;
+      }
+
+      _currentLocation = newPath;
+      return null;
+    },
     routes: [
       // 하단 네비게이션을 포함하는 쉘 라우트
       ShellRoute(

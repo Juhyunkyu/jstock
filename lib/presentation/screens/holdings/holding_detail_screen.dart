@@ -243,6 +243,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
   void _showEditDialog(Holding holding) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: context.appSurface,
@@ -277,6 +278,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: context.appSurface,

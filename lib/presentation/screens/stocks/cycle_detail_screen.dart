@@ -450,6 +450,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
         cycle.steadyVersion != SteadyVersion.v1) {
       showModalBottomSheet(
         context: context,
+        useRootNavigator: true,
         isScrollControlled: true,
         useSafeArea: true,
         backgroundColor: context.appSurface,
@@ -505,6 +506,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     // V1 + Smart Cycle: 기존 시트
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: context.appSurface,
@@ -871,6 +873,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   void _showSettingsSheet(Cycle cycle) {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: context.appSurface,

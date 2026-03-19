@@ -781,6 +781,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   void _showTickerPicker() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(

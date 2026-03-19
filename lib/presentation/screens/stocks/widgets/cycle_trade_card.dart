@@ -236,6 +236,7 @@ class CycleTradeCard extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -365,6 +366,7 @@ class CycleTradeCard extends ConsumerWidget {
     final parentContext = context; // 부모 context 캡처 (bottom sheet pop 후에도 유효)
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: context.appSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -434,6 +436,7 @@ class CycleTradeCard extends ConsumerWidget {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       useSafeArea: true,
       backgroundColor: context.appSurface,

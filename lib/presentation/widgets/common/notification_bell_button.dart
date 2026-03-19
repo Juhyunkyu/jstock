@@ -33,6 +33,7 @@ class NotificationBellButton extends ConsumerWidget {
       onPressed: () {
         showModalBottomSheet(
           context: context,
+          useRootNavigator: true,
           isScrollControlled: true,
           backgroundColor: context.appSurface,
           shape: const RoundedRectangleBorder(

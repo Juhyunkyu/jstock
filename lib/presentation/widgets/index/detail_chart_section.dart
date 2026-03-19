@@ -1304,6 +1304,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => DrawingSettingsSheet(
