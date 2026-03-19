@@ -133,12 +133,12 @@ const RSS_FEEDS = [
     publisher: 'Yahoo Finance',
   },
   {
-    url: 'https://www.investing.com/rss/news.rss',
-    publisher: 'Investing.com',
-  },
-  {
     url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
     publisher: 'BBC Business',
+  },
+  {
+    url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtdHZHZ0pMVWlnQVAB?hl=ko&gl=KR&ceid=KR:ko',
+    publisher: 'Google News',
   },
 ];
 
@@ -149,6 +149,7 @@ const PAYWALL_DOMAINS = [
   'ft.com',
   'barrons.com',
   'marketwatch.com',
+  'investing.com',
 ];
 
 function parseRSS(xmlText, publisherName) {

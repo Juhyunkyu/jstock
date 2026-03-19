@@ -264,6 +264,7 @@ class NewsService {
     'ft.com',
     'barrons.com',
     'marketwatch.com',
+    'investing.com',
   ];
 
   static bool _isPaywallUrl(String url) {
@@ -274,6 +275,7 @@ class NewsService {
   /// 페이월 퍼블리셔 이름 필터링
   static const _paywallPublishers = [
     'Reuters', 'Bloomberg', 'WSJ', 'Financial Times', 'Barrons', 'MarketWatch',
+    'Investing.com',
   ];
 
   static bool _isPaywallPublisher(String publisher) {
