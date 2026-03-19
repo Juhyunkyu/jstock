@@ -10,6 +10,9 @@ import '../../models/ohlc_data.dart';
 class TwelveDataService {
   final Dio _dio;
 
+  /// 프록시용 Dio 인스턴스 (Cloudflare Worker 경유)
+  final Dio _proxyDio;
+
   /// 메모리 캐시: key = "symbol:interval:outputsize", value = (data, timestamp)
   final Map<String, ({List<OHLCData> data, DateTime cachedAt})> _cache = {};
 
@@ -38,6 +41,11 @@ class TwelveDataService {
   TwelveDataService()
       : _dio = Dio(BaseOptions(
           baseUrl: AppConfig.twelveDataBaseUrl,
+          connectTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 20),
+        )),
+        _proxyDio = Dio(BaseOptions(
+          baseUrl: AppConfig.useProxy ? AppConfig.proxyBaseUrl : '',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
         ));
@@ -87,12 +95,24 @@ class TwelveDataService {
       try {
         _callTimestamps.add(DateTime.now());
 
-        final response = await _dio.get('/time_series', queryParameters: {
-          'symbol': symbol.toUpperCase(),
-          'interval': interval,
-          'outputsize': outputsize,
-          'apikey': AppConfig.twelveDataApiKey,
-        });
+        // API 호출 — 프록시 사용 시 Worker 경유, 아니면 직접 호출
+        final Response response;
+        if (AppConfig.useProxy) {
+          // Cloudflare Worker 프록시 경유 (서버 캐시 + API 키 보호)
+          response = await _proxyDio.get('/api/twelvedata/chart', queryParameters: {
+            'symbol': symbol.toUpperCase(),
+            'interval': interval,
+            'outputsize': outputsize,
+          });
+        } else {
+          // 직접 호출 (개발 환경)
+          response = await _dio.get('/time_series', queryParameters: {
+            'symbol': symbol.toUpperCase(),
+            'interval': interval,
+            'outputsize': outputsize,
+            'apikey': AppConfig.twelveDataApiKey,
+          });
+        }
 
         final result = _parseTimeSeriesResponse(symbol, response.data);
 
