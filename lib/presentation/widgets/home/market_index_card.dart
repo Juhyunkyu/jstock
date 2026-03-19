@@ -211,21 +211,88 @@ class _CompactIndexSectionState extends ConsumerState<_CompactIndexSection> {
                     data: state.chartData,
                     selectedPeriod: _selectedPeriod,
                   )
-                : Center(
-                    child: state.isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(
-                            '차트 없음',
-                            style: TextStyle(
-                              color: context.appTextHint,
-                              fontSize: 10,
-                            ),
-                          ),
+                : _buildChartPlaceholder(context, state),
+          ),
+          // 차트 로드 중 + 캐시 표시 시 하단 안내
+          if (state.hasChart && state.isLoading)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 8, height: 8,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 1, color: context.appTextHint,
+                    ),
                   ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '업데이트 중...',
+                    style: TextStyle(fontSize: 9, color: context.appTextHint),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 차트 로드 실패 시 표시할 플레이스홀더
+  Widget _buildChartPlaceholder(BuildContext context, MarketIndexState state) {
+    // 로딩 중 (첫 시도)
+    if (state.isLoading) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20, height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2, color: context.appTextHint,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '차트 불러오는 중...',
+              style: TextStyle(fontSize: 10, color: context.appTextHint),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 실패 + 캐시 없음
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.candlestick_chart_outlined, size: 24, color: context.appTextHint),
+          const SizedBox(height: 6),
+          Text(
+            '차트를 불러올 수 없습니다',
+            style: TextStyle(fontSize: 10, color: context.appTextHint),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '자동으로 재시도 중...',
+            style: TextStyle(fontSize: 9, color: context.appTextHint),
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: widget.onRefresh,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: context.appAccent.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '지금 다시 시도',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: context.appAccent),
+              ),
+            ),
           ),
         ],
       ),
