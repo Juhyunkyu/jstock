@@ -99,14 +99,22 @@ class NewsService {
       final data = response.data;
       final articles = data['articles'] as List? ?? [];
 
-      final newsList = articles.take(limit).map<NewsItem>((item) => NewsItem(
-        title: item['title'] ?? '',
-        publisher: item['publisher'] ?? '',
-        link: item['link'] ?? '',
-        publishedAt: DateTime.tryParse(item['publishedAt'] ?? '') ?? DateTime.now(),
-        thumbnail: item['thumbnail'] as String?,
-        summary: item['summary'] as String?,
-      )).toList();
+      final newsList = <NewsItem>[];
+      for (final item in articles) {
+        final link = item['link'] as String? ?? '';
+        final publisher = item['publisher'] as String? ?? '';
+        // 페이월 도메인 + 페이월 퍼블리셔 필터링
+        if (_isPaywallUrl(link) || _isPaywallPublisher(publisher)) continue;
+        newsList.add(NewsItem(
+          title: item['title'] ?? '',
+          publisher: publisher,
+          link: link,
+          publishedAt: DateTime.tryParse(item['publishedAt'] ?? '') ?? DateTime.now(),
+          thumbnail: item['thumbnail'] as String?,
+          summary: item['summary'] as String?,
+        ));
+        if (newsList.length >= limit) break;
+      }
 
       return await _translateTitles(newsList);
     } catch (_) {
@@ -261,6 +269,16 @@ class NewsService {
   static bool _isPaywallUrl(String url) {
     final lower = url.toLowerCase();
     return _paywallDomains.any((d) => lower.contains(d));
+  }
+
+  /// 페이월 퍼블리셔 이름 필터링
+  static const _paywallPublishers = [
+    'Reuters', 'Bloomberg', 'WSJ', 'Financial Times', 'Barrons', 'MarketWatch',
+  ];
+
+  static bool _isPaywallPublisher(String publisher) {
+    final lower = publisher.toLowerCase();
+    return _paywallPublishers.any((p) => lower.contains(p.toLowerCase()));
   }
 
   /// 지수 심볼 변환
