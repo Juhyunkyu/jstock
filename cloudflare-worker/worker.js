@@ -324,6 +324,16 @@ async function handleTwelveData(request, env, url) {
     });
   }
 
+  // interval별 캐시 TTL (초)
+  const cacheTTLMap = {
+    '1min': 300, '5min': 300, '15min': 300, '30min': 300,  // 분봉: 5분
+    '1h': 900, '4h': 900,                                    // 시봉: 15분
+    '1day': 1800,                                             // 일봉: 30분
+    '1week': 7200,                                            // 주봉: 2시간
+    '1month': 21600,                                          // 월봉: 6시간
+  };
+  const cacheTTL = cacheTTLMap[interval] || 300;
+
   // 캐시 미스 — Twelve Data API 호출
   try {
     const apiUrl = `https://api.twelvedata.com/time_series?symbol=${encodeURIComponent(symbol.toUpperCase())}&interval=${interval}&outputsize=${outputsize}&apikey=${apiKey}`;
@@ -344,12 +354,12 @@ async function handleTwelveData(request, env, url) {
 
     const data = await resp.text();
 
-    // 성공 응답을 캐시에 저장 (5분 TTL)
+    // 성공 응답을 캐시에 저장 (interval별 TTL)
     const responseToCache = new Response(data, {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=300', // 5분
+        'Cache-Control': `public, max-age=${cacheTTL}`,
       },
     });
     await cache.put(cacheKey, responseToCache.clone());
@@ -359,7 +369,7 @@ async function handleTwelveData(request, env, url) {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=300',
+        'Cache-Control': `public, max-age=${cacheTTL}`,
         'X-Cache': 'MISS',
         ...corsHeaders(request),
       },

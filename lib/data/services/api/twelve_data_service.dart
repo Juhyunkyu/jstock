@@ -16,8 +16,27 @@ class TwelveDataService {
   /// 메모리 캐시: key = "symbol:interval:outputsize", value = (data, timestamp)
   final Map<String, ({List<OHLCData> data, DateTime cachedAt})> _cache = {};
 
-  /// 캐시 유효 시간 (5분)
-  static const _cacheTTL = Duration(minutes: 5);
+  /// interval별 캐시 유효 시간 (일봉은 자주 안 바뀌므로 길게)
+  static Duration _cacheTTLFor(String interval) {
+    switch (interval) {
+      case '1min':
+      case '5min':
+      case '15min':
+      case '30min':
+        return const Duration(minutes: 5);
+      case '1h':
+      case '4h':
+        return const Duration(minutes: 15);
+      case '1day':
+        return const Duration(minutes: 30);
+      case '1week':
+        return const Duration(hours: 2);
+      case '1month':
+        return const Duration(hours: 6);
+      default:
+        return const Duration(minutes: 5);
+    }
+  }
 
   /// Rate limit 추적: 최근 1분 내 호출 시각 리스트
   final List<DateTime> _callTimestamps = [];
@@ -65,9 +84,10 @@ class TwelveDataService {
   }) async {
     final cacheKey = '${symbol.toUpperCase()}:$interval:$outputsize';
 
-    // 1. 캐시 확인 (TTL 내이면 캐시 반환)
+    // 1. 캐시 확인 (interval별 TTL)
     final cached = _cache[cacheKey];
-    if (cached != null && DateTime.now().difference(cached.cachedAt) < _cacheTTL) {
+    final ttl = _cacheTTLFor(interval);
+    if (cached != null && DateTime.now().difference(cached.cachedAt) < ttl) {
       return cached.data;
     }
 
