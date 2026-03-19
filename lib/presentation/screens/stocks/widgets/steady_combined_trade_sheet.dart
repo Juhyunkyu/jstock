@@ -863,7 +863,7 @@ class _SteadyCombinedTradeSheetState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('거래 기록 실패: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.red500,
             behavior: SnackBarBehavior.floating,
           ),
         );
