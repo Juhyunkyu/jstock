@@ -53,8 +53,6 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
 
     final globalSection = _buildNewsCard(
       title: '글로벌 시장',
-      icon: Icons.language,
-      iconColor: AppColors.blue500,
       newsState: globalState,
       showAll: _showAllGlobal,
       onToggle: () => setState(() => _showAllGlobal = !_showAllGlobal),
@@ -63,8 +61,6 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
 
     final koreaSection = _buildNewsCard(
       title: '국내 경제',
-      icon: Icons.flag_circle_outlined,
-      iconColor: AppColors.red500,
       newsState: koreaState,
       showAll: _showAllKorea,
       onToggle: () => setState(() => _showAllKorea = !_showAllKorea),
@@ -101,8 +97,6 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
 
   Widget _buildNewsCard({
     required String title,
-    required IconData icon,
-    required Color iconColor,
     required MarketNewsState newsState,
     required bool showAll,
     required VoidCallback onToggle,
@@ -126,8 +120,6 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: Row(
               children: [
-                Icon(icon, size: 18, color: iconColor),
-                const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     title,
