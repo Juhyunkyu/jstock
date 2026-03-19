@@ -339,7 +339,7 @@ class SteadyOrderGuideCard extends ConsumerWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              guide.tValue >= (guide.isFirstHalf ? 20 : 10)
+              !guide.canBuy
                   ? '매수 완료 — 매도 주문만 대기'
                   : '잔여 현금 부족',
               style: TextStyle(

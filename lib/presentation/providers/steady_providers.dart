@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/cycle.dart';
+import '../../data/models/trade.dart';
 import '../../domain/trading/steady_order_guide.dart';
 import '../../domain/trading/steady_service.dart';
 import 'cycle_providers.dart';
@@ -24,13 +25,15 @@ final steadyOrderGuideProvider =
   final liveExchangeRate = ref.watch(currentExchangeRateProvider);
   if (liveExchangeRate == 0) return null;
 
-  // T값 보정용: 매도 총액
-  final pnl = ref.watch(cycleRealizedPnlProvider(cycleId));
-  final totalSellKrw = pnl?.totalSellKrw ?? 0.0;
-
-  // 반복리용: 매도 순수익
+  // 거래 이력에서 totalSellKrw + sellProfit을 한 번에 계산 (중복 반복 제거)
   final trades = ref.watch(tradeListProvider(cycleId));
-  final sellProfit = SteadyService.calcSellProfit(trades, cycle.averagePrice);
+  double totalSellKrw = 0;
+  double sellProfit = 0;
+  for (final t in trades) {
+    if (t.action != TradeAction.sell) continue;
+    totalSellKrw += t.amountKrw;
+    sellProfit += t.amountKrw - (t.shares * cycle.averagePrice * t.exchangeRate);
+  }
 
   return SteadyService.generateGuide(
     cycle: cycle,

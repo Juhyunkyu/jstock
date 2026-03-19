@@ -59,7 +59,7 @@ class GuideSheet extends StatelessWidget {
                 ),
 
                 // ═══ Smart Cycle ═══
-                _GuideDivider(context: context, label: 'Smart Cycle', color: AppColors.blue500),
+                _GuideDivider(label: 'Smart Cycle', color: AppColors.blue500),
                 const _GuideSection(
                   title: '🛡️ Smart Cycle이란',
                   content:
@@ -79,7 +79,7 @@ class GuideSheet extends StatelessWidget {
                 ),
 
                 // ═══ Steady Cycle ═══
-                _GuideDivider(context: context, label: 'Steady Cycle (무한매수법)', color: AppColors.green500),
+                _GuideDivider(label: 'Steady Cycle (무한매수법)', color: AppColors.green500),
                 const _GuideSection(
                   title: '∞ Steady Cycle이란',
                   content:
@@ -128,8 +128,8 @@ class GuideSheet extends StatelessWidget {
                 ),
 
                 // ═══ 버전 선택 가이드 ═══
-                _GuideDivider(context: context, label: '버전 선택 가이드', color: context.appAccent),
-                _GuideTable(context: context),
+                _GuideDivider(label: '버전 선택 가이드', color: context.appAccent),
+                const _GuideTable(),
 
                 // 전환 타이밍
                 const _GuideSection(
@@ -146,7 +146,7 @@ class GuideSheet extends StatelessWidget {
                 ),
 
                 // ═══ 공통 주의사항 ═══
-                _GuideDivider(context: context, label: '주의사항', color: AppColors.red500),
+                _GuideDivider(label: '주의사항', color: AppColors.red500),
                 const _GuideSection(
                   title: '⚠️ 투자 주의사항',
                   content:
@@ -214,18 +214,16 @@ class _GuideSection extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════
 
 class _GuideDivider extends StatelessWidget {
-  final BuildContext context;
   final String label;
   final Color color;
 
   const _GuideDivider({
-    required this.context,
     required this.label,
     required this.color,
   });
 
   @override
-  Widget build(BuildContext outerContext) {
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 16),
       child: Row(
@@ -262,12 +260,10 @@ class _GuideDivider extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════
 
 class _GuideTable extends StatelessWidget {
-  final BuildContext context;
-
-  const _GuideTable({required this.context});
+  const _GuideTable();
 
   @override
-  Widget build(BuildContext outerContext) {
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24),
       child: Column(
