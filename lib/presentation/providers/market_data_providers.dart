@@ -105,6 +105,8 @@ class MarketIndexState {
 class MarketIndexNotifier extends StateNotifier<MarketIndexState> {
   final FinnhubService _finnhubService;
   final TwelveDataService _twelveDataService;
+  int _retryCount = 0;
+  static const _maxAutoRetry = 3;
 
   MarketIndexNotifier(this._finnhubService, this._twelveDataService)
       : super(const MarketIndexState(
@@ -144,6 +146,16 @@ class MarketIndexNotifier extends StateNotifier<MarketIndexState> {
           ? '데이터 로드 실패'
           : null,
     );
+
+    // 차트가 비어있으면 자동 재시도 (10초 후, 최대 3번)
+    if (!state.hasChart && _retryCount < _maxAutoRetry && mounted) {
+      _retryCount++;
+      Future.delayed(Duration(seconds: 10 * _retryCount), () {
+        if (mounted && !state.hasChart) loadNasdaqData();
+      });
+    } else if (state.hasChart) {
+      _retryCount = 0; // 성공 시 리셋
+    }
   }
 
   /// 차트 데이터만 로드 (기간 지정)
@@ -193,6 +205,8 @@ final marketIndexProvider =
 class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
   final FinnhubService _finnhubService;
   final TwelveDataService _twelveDataService;
+  int _retryCount = 0;
+  static const _maxAutoRetry = 3;
 
   SP500IndexNotifier(this._finnhubService, this._twelveDataService)
       : super(const MarketIndexState(
@@ -232,6 +246,16 @@ class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
           ? '데이터 로드 실패'
           : null,
     );
+
+    // 차트가 비어있으면 자동 재시도 (10초 후, 최대 3번)
+    if (!state.hasChart && _retryCount < _maxAutoRetry && mounted) {
+      _retryCount++;
+      Future.delayed(Duration(seconds: 10 * _retryCount), () {
+        if (mounted && !state.hasChart) loadSp500Data();
+      });
+    } else if (state.hasChart) {
+      _retryCount = 0;
+    }
   }
 
   /// 차트 데이터만 로드 (기간 지정)
