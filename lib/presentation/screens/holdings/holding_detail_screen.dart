@@ -63,12 +63,14 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
     return Scaffold(
       backgroundColor: context.appBackground,
       appBar: AppBar(
-        backgroundColor: context.appBackground,
+        backgroundColor: context.appSurface,
+        foregroundColor: context.appTextPrimary,
         elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        toolbarHeight: 56,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          color: context.appTextPrimary,
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => context.pop(),
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,7 +94,11 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
         ),
         actions: [
           PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: context.appTextPrimary),
+            icon: Icon(Icons.more_vert, color: context.appTextSecondary),
+            color: context.appCardBackground,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             onSelected: (value) => _handleMenuAction(value, holding),
             itemBuilder: (context) => [
               const PopupMenuItem(

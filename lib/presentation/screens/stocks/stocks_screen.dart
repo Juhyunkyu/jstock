@@ -47,7 +47,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
     final settings = ref.watch(settingsProvider);
     final smartColor = settings.alphaCycleChartColor != 0
         ? Color(settings.alphaCycleChartColor)
-        : const Color(0xFF58A6FF);
+        : AppColors.darkAccent;
     final steadyColor = settings.steadyCycleChartColor != 0
         ? Color(settings.steadyCycleChartColor)
         : const Color(0xFF4ADE80);
