@@ -47,7 +47,7 @@ class BackupRestoreSection extends StatelessWidget {
               // 백업
               _DataActionTile(
                 icon: Icons.backup_outlined,
-                iconColor: AppColors.primary,
+                iconColor: context.appAccent,
                 title: '데이터 백업',
                 subtitle: lastBackupDate != null
                     ? '마지막 백업: ${formatDateDot(lastBackupDate!)}'
@@ -99,7 +99,7 @@ class BackupRestoreSection extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.backup_outlined, color: AppColors.primary),
+            Icon(Icons.backup_outlined, color: context.appAccent),
             const SizedBox(width: 12),
             const Text('데이터 백업'),
           ],
@@ -118,7 +118,7 @@ class BackupRestoreSection extends StatelessWidget {
               onBackup();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
+              backgroundColor: context.appAccent,
               foregroundColor: Colors.white,
             ),
             child: const Text('백업하기'),

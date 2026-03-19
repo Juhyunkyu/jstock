@@ -152,8 +152,8 @@ class PopularEtfTile extends StatelessWidget {
         borderRadius: 12,
         backgroundColor: isDisabled
             ? context.appDivider
-            : _getCategoryColor().withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
-        textColor: isDisabled ? AppColors.gray400 : _getCategoryColor(),
+            : _getCategoryColor(context).withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
+        textColor: isDisabled ? AppColors.gray400 : _getCategoryColor(context),
       ),
       title: Row(
         children: [
@@ -177,14 +177,14 @@ class PopularEtfTile extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isDisabled
                             ? context.appDivider
-                            : _getCategoryColor().withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
+                            : _getCategoryColor(context).withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         etf.category,
                         style: TextStyle(
                           fontSize: 10,
-                          color: isDisabled ? AppColors.gray400 : _getCategoryColor(),
+                          color: isDisabled ? AppColors.gray400 : _getCategoryColor(context),
                         ),
                       ),
                     ),
@@ -251,12 +251,13 @@ class PopularEtfTile extends StatelessWidget {
     );
   }
 
-  Color _getCategoryColor() {
+  Color _getCategoryColor(BuildContext context) {
+    final isDark = context.isDarkMode;
     switch (etf.category) {
       case '나스닥':
-        return AppColors.nasdaq;
+        return isDark ? const Color(0xFF5B8DEF) : AppColors.nasdaq;
       case 'S&P500':
-        return AppColors.sp500;
+        return isDark ? const Color(0xFF5B8DEF) : AppColors.sp500;
       case '반도체':
         return AppColors.etfCategorySemiconductor;
       case '기술':
@@ -266,11 +267,11 @@ class PopularEtfTile extends StatelessWidget {
       case '바이오':
         return AppColors.etfCategoryBio;
       case '소형주':
-        return AppColors.etfCategorySmallCap;
+        return isDark ? const Color(0xFFA1887F) : AppColors.etfCategorySmallCap;
       case '헬스케어':
         return AppColors.etfCategoryHealthcare;
       default:
-        return AppColors.primary;
+        return context.appAccent;
     }
   }
 }
