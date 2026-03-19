@@ -6,7 +6,6 @@ import '../../providers/providers.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
-import '../../widgets/settings/notification_settings.dart';
 import '../../widgets/settings/backup_restore.dart';
 import '../../widgets/settings/guide_sheet.dart';
 import '../../widgets/common/app_title_logo.dart';
@@ -46,17 +45,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
 
           // 알림 설정
-          SettingsSection(
-            title: '알림',
-            items: [
-              SettingsItem(
-                icon: Icons.notifications_outlined,
-                title: '알림 설정',
-                subtitle: _getNotificationSubtitle(settings),
-                onTap: () => _showNotificationSettings(context),
-              ),
-            ],
-          ),
+          _buildNotificationSection(context, ref, settings),
 
           // 데이터 관리
           BackupRestoreSection(
@@ -123,26 +112,57 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  String _getNotificationSubtitle(dynamic settings) {
-    final List<String> enabled = [];
-    if (settings.notifyBuySignal) enabled.add('매수 신호');
-    if (settings.notifySellSignal) enabled.add('익절 신호');
-    if (settings.notifyPanicSignal) enabled.add('승부수');
-    if (settings.notifyDailySummary) enabled.add('일일 요약');
-
-    if (enabled.isEmpty) return '알림 없음';
-    return enabled.take(2).join(', ') + (enabled.length > 2 ? ' 외' : '');
-  }
-
-  void _showNotificationSettings(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useRootNavigator: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => const NotificationSettingsSheet(),
+  Widget _buildNotificationSection(BuildContext context, WidgetRef ref, dynamic settings) {
+    final muted = settings.notificationMuted as bool;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          child: Text(
+            '알림',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: context.appTextSecondary,
+            ),
+          ),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: context.appSurface,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: SwitchListTile(
+            secondary: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: context.appIconBg,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                muted ? Icons.notifications_off_outlined : Icons.notifications_outlined,
+                color: context.appTextSecondary,
+                size: 22,
+              ),
+            ),
+            title: Text(
+              '알림',
+              style: TextStyle(fontSize: 15, color: context.appTextPrimary),
+            ),
+            subtitle: Text(
+              muted ? '꺼짐' : '켜짐',
+              style: TextStyle(fontSize: 13, color: context.appTextHint),
+            ),
+            value: !muted,
+            onChanged: (value) {
+              ref.read(settingsProvider.notifier).toggleNotificationMuted(!value);
+            },
+          ),
+        ),
+      ],
     );
   }
 

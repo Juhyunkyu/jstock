@@ -37,13 +37,14 @@ class SettingsAdapter extends TypeAdapter<Settings> {
       alphaCycleChartColor: fields[17] == null ? 0 : fields[17] as int,
       holdingChartColor: fields[18] == null ? 0 : fields[18] as int,
       steadyCycleChartColor: fields[19] == null ? 0 : fields[19] as int,
+      notificationMuted: fields[20] == null ? false : fields[20] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, Settings obj) {
     writer
-      ..writeByte(20)
+      ..writeByte(21)
       ..writeByte(0)
       ..write(obj.exchangeRate)
       ..writeByte(1)
@@ -83,7 +84,9 @@ class SettingsAdapter extends TypeAdapter<Settings> {
       ..writeByte(18)
       ..write(obj.holdingChartColor)
       ..writeByte(19)
-      ..write(obj.steadyCycleChartColor);
+      ..write(obj.steadyCycleChartColor)
+      ..writeByte(20)
+      ..write(obj.notificationMuted);
   }
 
   @override

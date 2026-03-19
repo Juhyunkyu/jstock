@@ -42,6 +42,13 @@ class SettingsNotifier extends StateNotifier<Settings> {
     state = repo.settings;
   }
 
+  /// 알림 전체 ON/OFF 토글
+  Future<void> toggleNotificationMuted(bool muted) async {
+    final repo = _ref.read(settingsRepositoryProvider);
+    await repo.save(state.copyWith(notificationMuted: muted));
+    state = repo.settings;
+  }
+
   /// 알림 설정 업데이트
   Future<void> updateNotificationSettings({
     bool? notifyBuySignal,

@@ -115,6 +115,10 @@ class Settings extends HiveObject {
   @HiveField(19, defaultValue: 0)
   int steadyCycleChartColor;
 
+  /// 알림 전체 끄기 (마스터 스위치)
+  @HiveField(20, defaultValue: false)
+  bool notificationMuted;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -136,6 +140,7 @@ class Settings extends HiveObject {
     this.alphaCycleChartColor = 0,
     this.holdingChartColor = 0,
     this.steadyCycleChartColor = 0,
+    this.notificationMuted = false,
   });
 
   /// 기본 설정 생성
@@ -163,6 +168,7 @@ class Settings extends HiveObject {
     int? alphaCycleChartColor,
     int? holdingChartColor,
     int? steadyCycleChartColor,
+    bool? notificationMuted,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -185,6 +191,7 @@ class Settings extends HiveObject {
       alphaCycleChartColor: alphaCycleChartColor ?? this.alphaCycleChartColor,
       holdingChartColor: holdingChartColor ?? this.holdingChartColor,
       steadyCycleChartColor: steadyCycleChartColor ?? this.steadyCycleChartColor,
+      notificationMuted: notificationMuted ?? this.notificationMuted,
     );
   }
 
@@ -209,6 +216,7 @@ class Settings extends HiveObject {
         'alphaCycleChartColor': alphaCycleChartColor,
         'holdingChartColor': holdingChartColor,
         'steadyCycleChartColor': steadyCycleChartColor,
+        'notificationMuted': notificationMuted,
       };
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
@@ -232,6 +240,7 @@ class Settings extends HiveObject {
         alphaCycleChartColor: json['alphaCycleChartColor'] as int? ?? 0,
         holdingChartColor: json['holdingChartColor'] as int? ?? 0,
         steadyCycleChartColor: json['steadyCycleChartColor'] as int? ?? 0,
+        notificationMuted: json['notificationMuted'] as bool? ?? false,
       );
 
   @override

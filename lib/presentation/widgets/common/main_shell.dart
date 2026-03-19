@@ -7,6 +7,7 @@ import '../../../data/models/notification_record.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../../data/services/pwa/pwa_update_service.dart';
 import '../../../routes/app_router.dart';
+import '../../providers/providers.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
 import '../../providers/watchlist_alert_provider.dart';
@@ -88,14 +89,17 @@ class _MainShellState extends ConsumerState<MainShell> {
   /// 관심종목 알림 처리 (빌드 밖에서 안전하게 실행)
   void _handleWatchlistAlerts(List<AlertNotification> alerts) {
     try {
+      final muted = ref.read(settingsProvider).notificationMuted;
       final notifier = ref.read(notificationHistoryProvider.notifier);
       for (final alert in alerts) {
         // 벨 배지 먼저 저장 (절대 실패하면 안 됨)
         notifier.addFromAlert(alert);
-        // 브라우저 알림은 별도 try/catch (실패해도 배지에 영향 없음)
-        try {
-          WebNotificationService.show(title: alert.title, body: alert.body);
-        } catch (_) {}
+        // 브라우저 알림은 마스터 스위치가 켜져있을 때만
+        if (!muted) {
+          try {
+            WebNotificationService.show(title: alert.title, body: alert.body);
+          } catch (_) {}
+        }
       }
     } catch (e) {
       debugPrint('[AlertError] Watchlist alert failed: $e');
@@ -115,10 +119,13 @@ class _MainShellState extends ConsumerState<MainShell> {
         triggeredAt: DateTime.now(),
       );
       ref.read(notificationHistoryProvider.notifier).addRecord(record);
-      // 브라우저 알림은 별도 try/catch
-      try {
-        WebNotificationService.show(title: alert.title, body: alert.body);
-      } catch (_) {}
+      // 브라우저 알림은 마스터 스위치가 켜져있을 때만
+      final muted = ref.read(settingsProvider).notificationMuted;
+      if (!muted) {
+        try {
+          WebNotificationService.show(title: alert.title, body: alert.body);
+        } catch (_) {}
+      }
     } catch (e) {
       debugPrint('[AlertError] Fear & Greed alert failed: $e');
     }
