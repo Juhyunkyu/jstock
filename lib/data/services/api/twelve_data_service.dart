@@ -10,6 +10,18 @@ import '../../models/ohlc_data.dart';
 class TwelveDataService {
   final Dio _dio;
 
+  /// 메모리 캐시: key = "symbol:interval:outputsize", value = (data, timestamp)
+  final Map<String, ({List<OHLCData> data, DateTime cachedAt})> _cache = {};
+
+  /// 캐시 유효 시간 (5분)
+  static const _cacheTTL = Duration(minutes: 5);
+
+  /// Rate limit 추적: 최근 1분 내 호출 시각 리스트
+  final List<DateTime> _callTimestamps = [];
+
+  /// 분당 최대 호출 수 (Twelve Data 무료 티어)
+  static const _maxCallsPerMinute = 7; // 8이 한도지만 여유분 1 확보
+
   /// 지원되는 interval 목록
   static const List<String> supportedIntervals = [
     '1min',
@@ -36,34 +48,96 @@ class TwelveDataService {
   /// [interval] 데이터 간격 (1min, 5min, 15min, 30min, 1h, 4h, 1day, 1week, 1month)
   /// [outputsize] 반환할 데이터 개수 (기본값: 30, 최대: 5000)
   ///
+  /// 캐시(5분 TTL) + Rate limit(7/min) + 자동 재시도(3회) 적용
   /// Returns 빈 리스트 on errors (graceful degradation)
   Future<List<OHLCData>> getChartData(
     String symbol, {
     String interval = '1day',
     int outputsize = 30,
   }) async {
-    try {
-      final response = await _dio.get('/time_series', queryParameters: {
-        'symbol': symbol.toUpperCase(),
-        'interval': interval,
-        'outputsize': outputsize,
-        'apikey': AppConfig.twelveDataApiKey,
-      });
+    final cacheKey = '${symbol.toUpperCase()}:$interval:$outputsize';
 
-      return _parseTimeSeriesResponse(symbol, response.data);
-    } on DioException catch (e) {
-      // Rate limit 에러 처리 (429)
-      if (e.response?.statusCode == 429) {
-        // 빈 리스트 반환 (graceful degradation)
-        return [];
-      }
-      // 다른 네트워크 에러도 빈 리스트 반환
-      return [];
-    } catch (e) {
-      // 파싱 에러 등 모든 예외에서 빈 리스트 반환
-      return [];
+    // 1. 캐시 확인 (TTL 내이면 캐시 반환)
+    final cached = _cache[cacheKey];
+    if (cached != null && DateTime.now().difference(cached.cachedAt) < _cacheTTL) {
+      return cached.data;
     }
+
+    // 2. Rate limit 체크 (분당 호출 수 초과 시 캐시 반환 또는 대기)
+    _cleanOldTimestamps();
+    if (_callTimestamps.length >= _maxCallsPerMinute) {
+      // Rate limit 근접 — 캐시가 있으면 캐시 반환 (만료여도)
+      if (cached != null && cached.data.isNotEmpty) {
+        return cached.data;
+      }
+      // 캐시 없으면 가장 오래된 호출 후 1분까지 대기
+      final waitUntil = _callTimestamps.first.add(const Duration(minutes: 1));
+      final waitDuration = waitUntil.difference(DateTime.now());
+      if (waitDuration.inSeconds > 0 && waitDuration.inSeconds <= 30) {
+        await Future.delayed(waitDuration + const Duration(milliseconds: 500));
+        _cleanOldTimestamps();
+      } else {
+        // 30초 이상 대기해야 하면 캐시 반환 또는 빈 리스트
+        return cached?.data ?? [];
+      }
+    }
+
+    // 3. API 호출 (자동 재시도 3회)
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        _callTimestamps.add(DateTime.now());
+
+        final response = await _dio.get('/time_series', queryParameters: {
+          'symbol': symbol.toUpperCase(),
+          'interval': interval,
+          'outputsize': outputsize,
+          'apikey': AppConfig.twelveDataApiKey,
+        });
+
+        final result = _parseTimeSeriesResponse(symbol, response.data);
+
+        // 성공 시 캐시 저장
+        if (result.isNotEmpty) {
+          _cache[cacheKey] = (data: result, cachedAt: DateTime.now());
+        }
+
+        return result;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 429) {
+          // Rate limit — 캐시 반환 또는 대기 후 재시도
+          if (cached != null && cached.data.isNotEmpty) {
+            return cached.data;
+          }
+          if (attempt < 3) {
+            await Future.delayed(Duration(seconds: attempt * 3));
+            continue;
+          }
+        }
+        // 다른 에러 — 재시도
+        if (attempt < 3) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+          continue;
+        }
+      } catch (e) {
+        if (attempt < 3) {
+          await Future.delayed(Duration(seconds: attempt * 2));
+          continue;
+        }
+      }
+    }
+
+    // 3번 실패 — 만료 캐시라도 반환
+    return cached?.data ?? [];
   }
+
+  /// 1분 이전의 호출 기록 정리
+  void _cleanOldTimestamps() {
+    final cutoff = DateTime.now().subtract(const Duration(minutes: 1));
+    _callTimestamps.removeWhere((t) => t.isBefore(cutoff));
+  }
+
+  /// 캐시 초기화 (디버그/설정용)
+  void clearCache() => _cache.clear();
 
   /// Time Series 응답 파싱
   List<OHLCData> _parseTimeSeriesResponse(String symbol, dynamic data) {

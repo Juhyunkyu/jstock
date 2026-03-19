@@ -116,34 +116,34 @@ class MarketIndexNotifier extends StateNotifier<MarketIndexState> {
   Future<void> loadNasdaqData() async {
     state = state.copyWith(isLoading: true, error: null);
 
+    // 가격과 차트를 독립 호출 (하나 실패해도 다른 건 성공)
+    StockQuote? quote;
+    List<OHLCData>? chartData;
+
     try {
-      // 현재가(Finnhub)와 차트 데이터(Twelve Data)를 병렬로 조회 (속도 개선)
-      final results = await Future.wait([
-        _finnhubService.getQuote(FinnhubService.nasdaqSymbol),
-        _twelveDataService.getChartData(
-          FinnhubService.nasdaqSymbol,
-          interval: '1day',
-          outputsize: 180, // 약 6개월치
-        ),
-      ]);
+      quote = await _finnhubService.getQuote(FinnhubService.nasdaqSymbol);
+    } catch (_) {}
 
-      final quote = results[0] as StockQuote;
-      final chartData = results[1] as List<OHLCData>;
+    try {
+      chartData = await _twelveDataService.getChartData(
+        FinnhubService.nasdaqSymbol,
+        interval: '1day',
+        outputsize: 180, // 약 6개월치
+      );
+    } catch (_) {}
 
-      state = state.copyWith(
-        price: quote.currentPrice,
-        changePercent: quote.changePercent,
-        chartData: chartData,
-        isLoading: false,
-        lastUpdated: DateTime.now(),
-        marketState: quote.marketState,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: '나스닥 100 데이터 로드 실패: ${e.toString()}',
-      );
-    }
+    // 기존 데이터 유지하면서 성공한 것만 업데이트
+    state = state.copyWith(
+      price: quote?.currentPrice ?? state.price,
+      changePercent: quote?.changePercent ?? state.changePercent,
+      chartData: (chartData != null && chartData.isNotEmpty) ? chartData : state.chartData,
+      isLoading: false,
+      lastUpdated: (quote != null || chartData != null) ? DateTime.now() : state.lastUpdated,
+      marketState: quote?.marketState ?? state.marketState,
+      error: (quote == null && chartData == null && !state.hasData && !state.hasChart)
+          ? '데이터 로드 실패'
+          : null,
+    );
   }
 
   /// 차트 데이터만 로드 (기간 지정)
@@ -156,11 +156,12 @@ class MarketIndexNotifier extends StateNotifier<MarketIndexState> {
         outputsize: outputsize,
       );
 
-      state = state.copyWith(chartData: chartData);
+      // 새 데이터가 있으면 업데이트, 없으면 기존 유지
+      if (chartData.isNotEmpty) {
+        state = state.copyWith(chartData: chartData);
+      }
     } catch (e) {
-      state = state.copyWith(
-        error: '차트 데이터 로드 실패: ${e.toString()}',
-      );
+      // 차트 로드 실패 시 기존 차트 유지 (에러 표시하지 않음)
     }
   }
 
@@ -203,34 +204,34 @@ class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
   Future<void> loadSp500Data() async {
     state = state.copyWith(isLoading: true, error: null);
 
+    // 가격과 차트를 독립 호출 (하나 실패해도 다른 건 성공)
+    StockQuote? quote;
+    List<OHLCData>? chartData;
+
     try {
-      // 현재가(Finnhub)와 차트 데이터(Twelve Data)를 병렬로 조회 (속도 개선)
-      final results = await Future.wait([
-        _finnhubService.getQuote(FinnhubService.sp500Symbol),
-        _twelveDataService.getChartData(
-          FinnhubService.sp500Symbol,
-          interval: '1day',
-          outputsize: 180, // 약 6개월치
-        ),
-      ]);
+      quote = await _finnhubService.getQuote(FinnhubService.sp500Symbol);
+    } catch (_) {}
 
-      final quote = results[0] as StockQuote;
-      final chartData = results[1] as List<OHLCData>;
+    try {
+      chartData = await _twelveDataService.getChartData(
+        FinnhubService.sp500Symbol,
+        interval: '1day',
+        outputsize: 180, // 약 6개월치
+      );
+    } catch (_) {}
 
-      state = state.copyWith(
-        price: quote.currentPrice,
-        changePercent: quote.changePercent,
-        chartData: chartData,
-        isLoading: false,
-        lastUpdated: DateTime.now(),
-        marketState: quote.marketState,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: 'S&P 500 데이터 로드 실패: ${e.toString()}',
-      );
-    }
+    // 기존 데이터 유지하면서 성공한 것만 업데이트
+    state = state.copyWith(
+      price: quote?.currentPrice ?? state.price,
+      changePercent: quote?.changePercent ?? state.changePercent,
+      chartData: (chartData != null && chartData.isNotEmpty) ? chartData : state.chartData,
+      isLoading: false,
+      lastUpdated: (quote != null || chartData != null) ? DateTime.now() : state.lastUpdated,
+      marketState: quote?.marketState ?? state.marketState,
+      error: (quote == null && chartData == null && !state.hasData && !state.hasChart)
+          ? '데이터 로드 실패'
+          : null,
+    );
   }
 
   /// 차트 데이터만 로드 (기간 지정)
@@ -243,11 +244,12 @@ class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
         outputsize: outputsize,
       );
 
-      state = state.copyWith(chartData: chartData);
+      // 새 데이터가 있으면 업데이트, 없으면 기존 유지
+      if (chartData.isNotEmpty) {
+        state = state.copyWith(chartData: chartData);
+      }
     } catch (e) {
-      state = state.copyWith(
-        error: '차트 데이터 로드 실패: ${e.toString()}',
-      );
+      // 차트 로드 실패 시 기존 차트 유지 (에러 표시하지 않음)
     }
   }
 }
