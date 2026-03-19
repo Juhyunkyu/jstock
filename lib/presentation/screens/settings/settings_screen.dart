@@ -6,7 +6,6 @@ import '../../providers/providers.dart';
 import '../../providers/watchlist_providers.dart';
 import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
-import '../../widgets/settings/exchange_rate_dialog.dart';
 import '../../widgets/settings/notification_settings.dart';
 import '../../widgets/settings/backup_restore.dart';
 import '../../widgets/settings/guide_sheet.dart';
@@ -42,26 +41,6 @@ class SettingsScreen extends ConsumerWidget {
                 title: '언어',
                 subtitle: '한국어',
                 onTap: () => showLanguageDialog(context),
-              ),
-            ],
-          ),
-
-          // 매매 설정
-          SettingsSection(
-            title: '매매 설정',
-            items: [
-              SettingsItem(
-                icon: Icons.currency_exchange_outlined,
-                title: '환율',
-                subtitle: '${settings.exchangeRate.toStringAsFixed(0)}원/\$',
-                onTap: () => _showExchangeRateDialog(context, ref),
-              ),
-              SettingsItem(
-                icon: Icons.tune_outlined,
-                title: '기본 매매 조건',
-                subtitle:
-                    '매수 ${settings.defaultBuyTrigger.toInt()}%, 익절 +${settings.defaultSellTrigger.toInt()}%',
-                onTap: () => _showTradingConditionsDialog(context, ref),
               ),
             ],
           ),
@@ -153,56 +132,6 @@ class SettingsScreen extends ConsumerWidget {
 
     if (enabled.isEmpty) return '알림 없음';
     return enabled.take(2).join(', ') + (enabled.length > 2 ? ' 외' : '');
-  }
-
-  void _showExchangeRateDialog(BuildContext context, WidgetRef ref) {
-    final settings = ref.read(settingsProvider);
-
-    showDialog(
-      context: context,
-      builder: (context) => ExchangeRateDialog(
-        currentRate: settings.exchangeRate,
-        onSave: (rate) async {
-          await ref.read(settingsProvider.notifier).updateExchangeRate(rate);
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('환율이 ${rate.toStringAsFixed(0)}원으로 설정되었습니다'),
-                backgroundColor: AppColors.green500,
-              ),
-            );
-          }
-        },
-      ),
-    );
-  }
-
-  void _showTradingConditionsDialog(BuildContext context, WidgetRef ref) {
-    final settings = ref.read(settingsProvider);
-
-    showDialog(
-      context: context,
-      builder: (context) => TradingConditionsDialog(
-        buyTrigger: settings.defaultBuyTrigger,
-        sellTrigger: settings.defaultSellTrigger,
-        panicTrigger: settings.defaultPanicTrigger,
-        onSave: (buy, sell, panic) async {
-          await ref.read(settingsProvider.notifier).updateTradingConditions(
-                buyTrigger: buy,
-                sellTrigger: sell,
-                panicTrigger: panic,
-              );
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('매매 조건이 저장되었습니다'),
-                backgroundColor: AppColors.green500,
-              ),
-            );
-          }
-        },
-      ),
-    );
   }
 
   void _showNotificationSettings(BuildContext context) {
