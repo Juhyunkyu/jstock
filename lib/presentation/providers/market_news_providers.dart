@@ -98,3 +98,52 @@ final marketNewsProvider =
   final cache = ref.watch(cacheManagerProvider);
   return MarketNewsNotifier(newsService, cache);
 });
+
+/// 국내 경제 뉴스 캐시 키
+String koreaCacheKey() => 'market_news:korea';
+
+/// 국내 경제 뉴스 Notifier
+class KoreaNewsNotifier extends StateNotifier<MarketNewsState> {
+  final NewsService _newsService;
+  final CacheManager _cache;
+
+  static const Duration _cacheTtl = Duration(minutes: 30);
+
+  KoreaNewsNotifier(this._newsService, this._cache)
+      : super(const MarketNewsState());
+
+  Future<void> fetchNews() async {
+    final cacheKey = koreaCacheKey();
+    final cached = _cache.get<List<NewsItem>>(cacheKey);
+    if (cached != null) {
+      state = state.copyWith(news: cached, lastUpdated: DateTime.now());
+      return;
+    }
+
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final news = await _newsService.getKoreaNews(limit: 10);
+      _cache.set(cacheKey, news, ttl: _cacheTtl);
+      state = state.copyWith(
+        news: news,
+        isLoading: false,
+        lastUpdated: DateTime.now(),
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: '국내 뉴스 조회 실패');
+    }
+  }
+
+  Future<void> refresh() async {
+    _cache.remove(koreaCacheKey());
+    await fetchNews();
+  }
+}
+
+/// 국내 경제 뉴스 Provider
+final koreaNewsProvider =
+    StateNotifierProvider<KoreaNewsNotifier, MarketNewsState>((ref) {
+  final newsService = ref.watch(newsServiceProvider);
+  final cache = ref.watch(cacheManagerProvider);
+  return KoreaNewsNotifier(newsService, cache);
+});

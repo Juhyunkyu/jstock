@@ -8,8 +8,8 @@ import '../../providers/market_news_providers.dart';
 
 /// 홈 화면 시장 뉴스 섹션
 ///
-/// Finnhub general-news를 카드 형태로 표시.
-/// 초기 5건 + "더보기"로 전체 20건까지 확장.
+/// 글로벌 시장 뉴스 + 국내 경제 뉴스 2섹션 레이아웃.
+/// 데스크톱: 나란히 배치, 모바일: 세로 배치.
 class MarketNewsSection extends ConsumerStatefulWidget {
   const MarketNewsSection({super.key});
 
@@ -18,7 +18,8 @@ class MarketNewsSection extends ConsumerStatefulWidget {
 }
 
 class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
-  bool _showAllNews = false;
+  bool _showAllGlobal = false;
+  bool _showAllKorea = false;
 
   /// 제목 끝의 "- Reuters", "- CNBC" 등 소스명 제거
   static final RegExp _trailingSourcePattern =
@@ -37,17 +38,77 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
 
   @override
   Widget build(BuildContext context) {
-    final newsState = ref.watch(marketNewsProvider);
+    final globalState = ref.watch(marketNewsProvider);
+    final koreaState = ref.watch(koreaNewsProvider);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth >= 768;
 
-    if (!newsState.isLoading && newsState.news.isEmpty) {
+    // Both empty → hide
+    if (!globalState.isLoading &&
+        globalState.news.isEmpty &&
+        !koreaState.isLoading &&
+        koreaState.news.isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final globalSection = _buildNewsCard(
+      title: '글로벌 시장 뉴스',
+      icon: '🌍',
+      newsState: globalState,
+      showAll: _showAllGlobal,
+      onToggle: () => setState(() => _showAllGlobal = !_showAllGlobal),
+      onRefresh: () => ref.read(marketNewsProvider.notifier).refresh(),
+    );
+
+    final koreaSection = _buildNewsCard(
+      title: '국내 경제 뉴스',
+      icon: '🇰🇷',
+      newsState: koreaState,
+      showAll: _showAllKorea,
+      onToggle: () => setState(() => _showAllKorea = !_showAllKorea),
+      onRefresh: () => ref.read(koreaNewsProvider.notifier).refresh(),
+    );
+
+    if (isDesktop) {
+      // Desktop: side by side
+      return Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: globalSection),
+            const SizedBox(width: 12),
+            Expanded(child: koreaSection),
+          ],
+        ),
+      );
+    }
+
+    // Mobile: stacked vertically
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        children: [
+          globalSection,
+          const SizedBox(height: 8),
+          koreaSection,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNewsCard({
+    required String title,
+    required String icon,
+    required MarketNewsState newsState,
+    required bool showAll,
+    required VoidCallback onToggle,
+    required VoidCallback onRefresh,
+  }) {
     final allNews = newsState.news;
-    final displayNews = _showAllNews ? allNews : allNews.take(5).toList();
+    final displayNews = showAll ? allNews : allNews.take(5).toList();
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         color: context.appCardBackground,
@@ -57,17 +118,21 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더
+          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: Row(
               children: [
-                Text(
-                  '시장 뉴스',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: context.appTextPrimary,
+                Text('$icon ', style: const TextStyle(fontSize: 14)),
+                Flexible(
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: context.appTextPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (newsState.isLoading) ...[
@@ -79,9 +144,9 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                   ),
                 ],
                 const Spacer(),
-                if (!newsState.isLoading && allNews.length > 5 && !_showAllNews)
+                if (!newsState.isLoading && allNews.length > 5 && !showAll)
                   GestureDetector(
-                    onTap: () => setState(() => _showAllNews = true),
+                    onTap: onToggle,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text(
@@ -93,9 +158,9 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                       ),
                     ),
                   ),
-                if (!newsState.isLoading && _showAllNews)
+                if (!newsState.isLoading && showAll)
                   GestureDetector(
-                    onTap: () => setState(() => _showAllNews = false),
+                    onTap: onToggle,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text(
@@ -109,9 +174,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                   ),
                 if (!newsState.isLoading)
                   GestureDetector(
-                    onTap: () {
-                      ref.read(marketNewsProvider.notifier).refresh();
-                    },
+                    onTap: onRefresh,
                     child: Padding(
                       padding: const EdgeInsets.only(left: 10),
                       child: Icon(
@@ -125,7 +188,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
             ),
           ),
           const SizedBox(height: 6),
-          // 로딩 상태
+          // Loading state
           if (newsState.isLoading && allNews.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -144,7 +207,6 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
               displayNews.length,
               (i) => _buildNewsItem(
                 displayNews[i],
-                i,
                 isLast: i == displayNews.length - 1,
               ),
             ),
@@ -154,7 +216,7 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     );
   }
 
-  Widget _buildNewsItem(NewsItem news, int index, {bool isLast = false}) {
+  Widget _buildNewsItem(NewsItem news, {bool isLast = false}) {
     final timeAgo = _formatTimeAgo(news.publishedAt);
     final publisherColor = _getPublisherColor(news.publisher);
     final cleanedTitle = _cleanTitle(news.displayTitle);
@@ -259,6 +321,8 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
         return const Color(0xFFDA7D02);
       case 'BBC Business':
         return const Color(0xFFBB1919);
+      case 'Google News':
+        return const Color(0xFF4285F4);
       default:
         return AppColors.gray500;
     }

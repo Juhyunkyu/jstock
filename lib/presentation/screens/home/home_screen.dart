@@ -41,6 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(exchangeRateProvider.notifier).fetchUsdKrwRate();
     ref.read(fearGreedProvider.notifier).fetchIndex();
     ref.read(marketNewsProvider.notifier).fetchNews();
+    ref.read(koreaNewsProvider.notifier).fetchNews();
     ref.read(globalIndicatorsProvider.notifier).loadIndicators();
   }
 

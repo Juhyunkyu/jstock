@@ -123,7 +123,7 @@ async function handleFearGreed(request) {
 }
 
 // ─── RSS 시장 뉴스 ───
-const RSS_FEEDS = [
+const GLOBAL_RSS_FEEDS = [
   {
     url: 'https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114',
     publisher: 'CNBC',
@@ -136,6 +136,9 @@ const RSS_FEEDS = [
     url: 'https://feeds.bbci.co.uk/news/business/rss.xml',
     publisher: 'BBC Business',
   },
+];
+
+const KOREA_RSS_FEEDS = [
   {
     url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtdHZHZ0pMVWlnQVAB?hl=ko&gl=KR&ceid=KR:ko',
     publisher: 'Google News',
@@ -235,14 +238,14 @@ function stripHtml(text) {
     .trim();
 }
 
-async function handleMarketNews(request) {
+async function handleMarketNews(request, feeds, limit = 20) {
   if (request.method !== 'GET') {
     return jsonError('GET only', 405, request);
   }
 
   // Fetch all RSS feeds in parallel — individual failures don't break others
   const results = await Promise.allSettled(
-    RSS_FEEDS.map(async (feed) => {
+    feeds.map(async (feed) => {
       const resp = await fetch(feed.url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -271,8 +274,8 @@ async function handleMarketNews(request) {
     return new Date(b.publishedAt) - new Date(a.publishedAt);
   });
 
-  // Limit to 20 articles
-  articles = articles.slice(0, 20);
+  // Limit articles
+  articles = articles.slice(0, limit);
 
   return new Response(
     JSON.stringify({
@@ -406,9 +409,14 @@ export default {
       return handleFRED(request, env, path);
     }
 
-    // RSS 시장 뉴스
+    // 글로벌 시장 뉴스
     if (url.pathname === '/api/news/market') {
-      return handleMarketNews(request);
+      return handleMarketNews(request, GLOBAL_RSS_FEEDS, 20);
+    }
+
+    // 국내 경제 뉴스
+    if (url.pathname === '/api/news/korea') {
+      return handleMarketNews(request, KOREA_RSS_FEEDS, 10);
     }
 
     // Twelve Data 차트 데이터 (캐시 프록시)

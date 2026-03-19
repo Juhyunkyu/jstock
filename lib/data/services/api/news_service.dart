@@ -123,6 +123,30 @@ class NewsService {
     }
   }
 
+  /// 국내 경제 뉴스 (Worker Korea RSS, 번역 불필요)
+  Future<List<NewsItem>> getKoreaNews({int limit = 10}) async {
+    try {
+      final baseUrl = AppConfig.proxyBaseUrl;
+      if (baseUrl.isEmpty) return []; // 프록시 필수
+
+      final response = await _dio.get('$baseUrl/api/news/korea');
+      final data = response.data;
+      final articles = data['articles'] as List? ?? [];
+
+      // 국내 뉴스는 페이월 필터 + 번역 불필요
+      return articles.take(limit).map<NewsItem>((item) => NewsItem(
+        title: item['title'] ?? '',
+        publisher: item['publisher'] ?? '',
+        link: item['link'] ?? '',
+        publishedAt: DateTime.tryParse(item['publishedAt'] ?? '') ?? DateTime.now(),
+        thumbnail: item['thumbnail'] as String?,
+        summary: item['summary'] as String?,
+      )).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Finnhub general-news 폴백 (Worker 미사용 또는 장애 시)
   Future<List<NewsItem>> _getGeneralNewsFromFinnhub({int limit = 20}) async {
     try {
