@@ -1,12 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/memo.dart';
 import '../../data/repositories/memo_repository.dart';
-
-/// Memo Repository Provider (싱글턴)
-final _memoRepo = MemoRepository();
-final memoRepositoryProvider = Provider<MemoRepository>((ref) {
-  return _memoRepo;
-});
+import 'core/repository_providers.dart';
 
 /// 정렬 방식
 enum MemoSortOrder { newest, oldest }
@@ -51,10 +46,9 @@ class MemoListNotifier extends StateNotifier<MemoListState> {
 
   MemoListNotifier(this._repository) : super(const MemoListState());
 
-  /// 초기 로드 — repository.init() + 데이터 로드
+  /// 초기 로드 (Repository는 appInitializationProvider에서 이미 init됨)
   Future<void> load() async {
     state = state.copyWith(isLoading: true);
-    await _repository.init();
     _applyFilters();
     state = state.copyWith(isLoading: false);
   }

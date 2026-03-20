@@ -30,15 +30,15 @@ class ImageCompressService {
       }).toJS,
     );
 
-    // 취소 감지 (focus 복귀 시 파일 미선택)
-    web.window.addEventListener(
-      'focus',
-      ((web.Event e) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (!completer.isCompleted) completer.complete(null);
-        });
-      }).toJS,
-    );
+    // 취소 감지 (focus 복귀 시 파일 미선택) — one-shot 리스너
+    late final JSFunction focusHandler;
+    focusHandler = ((web.Event e) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!completer.isCompleted) completer.complete(null);
+      });
+      web.window.removeEventListener('focus', focusHandler);
+    }).toJS;
+    web.window.addEventListener('focus', focusHandler);
 
     input.click();
     return completer.future;

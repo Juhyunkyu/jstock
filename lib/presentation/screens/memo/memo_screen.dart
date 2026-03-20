@@ -301,24 +301,6 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
     );
   }
 
-  Future<void> _deleteMemo(Memo memo) async {
-    final confirmed = await ConfirmDialog.show(
-      context: context,
-      title: '메모 삭제',
-      message: '"${memo.title}" 메모를 삭제하시겠습니까?',
-      confirmText: '삭제',
-      isDanger: true,
-    );
-    if (confirmed && mounted) {
-      ref.read(memoListProvider.notifier).delete(memo.id);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('"${memo.title}" 삭제됨'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
 }
 
 /// 스와이프 삭제를 지원하는 메모 카드 래퍼

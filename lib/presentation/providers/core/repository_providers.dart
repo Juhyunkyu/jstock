@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/repositories/repositories.dart';
+import '../../../data/repositories/memo_repository.dart';
 import '../api_providers.dart';
 import '../stock_providers.dart';
 import '../notification_providers.dart';
@@ -16,6 +17,7 @@ final _holdingRepo = HoldingRepository();
 final _chartDrawingRepo = ChartDrawingRepository();
 final _cycleRepo = CycleRepository();
 final _tradeRepo = TradeRepository();
+final _memoRepo = MemoRepository();
 
 /// Settings Repository Provider
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
@@ -42,6 +44,11 @@ final tradeRepositoryProvider = Provider<TradeRepository>((ref) {
   return _tradeRepo;
 });
 
+/// Memo Repository Provider
+final memoRepositoryProvider = Provider<MemoRepository>((ref) {
+  return _memoRepo;
+});
+
 // ═══════════════════════════════════════════════════════════════
 // 앱 초기화 Provider
 // ═══════════════════════════════════════════════════════════════
@@ -55,6 +62,7 @@ final appInitializationProvider = FutureProvider<bool>((ref) async {
     _chartDrawingRepo.init(),
     _cycleRepo.init(),
     _tradeRepo.init(),
+    _memoRepo.init(),
   ]);
 
   // 2. API 초기화 (실패해도 앱 시작은 허용)
