@@ -391,11 +391,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   }
 
   void _goBack() {
-    if (_isEditMode) {
-      context.go('/memo/detail/${widget.memoId}');
-    } else {
-      context.go('/memo');
-    }
+    context.go('/memo');
   }
 
   Future<bool> _onWillPop() async {
