@@ -392,8 +392,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
 
   void _goBack() {
     if (_isEditMode) {
-      // edit는 detail 위에 push 되었으므로 pop하면 detail로 복귀
-      context.pop();
+      context.go('/memo/detail/${widget.memoId}');
     } else {
       context.go('/memo');
     }
@@ -469,14 +468,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _hasUnsavedChanges = false;
 
     if (mounted) {
-      if (_isEditMode) {
-        // edit는 detail 위에 push 되었으므로 pop하면 detail로 복귀
-        // detail은 ref.watch(memoListProvider)로 자동 갱신됨
-        context.pop();
-      } else {
-        // 새 메모: go로 detail 이동 (memo 목록 히스토리 위에)
-        context.go('/memo/detail/${memo.id}');
-      }
+      context.go('/memo/detail/${memo.id}');
     }
   }
 
