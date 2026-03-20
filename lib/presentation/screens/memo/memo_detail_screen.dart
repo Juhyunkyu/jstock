@@ -108,7 +108,7 @@ class MemoDetailScreen extends ConsumerWidget {
               size: 22,
             ),
             tooltip: '편집',
-            onPressed: () => context.go('/memo/edit/$memoId'),
+            onPressed: () => context.push('/memo/edit/$memoId'),
           ),
           // 더보기 메뉴
           PopupMenuButton<String>(
