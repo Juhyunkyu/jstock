@@ -312,8 +312,19 @@ void _navigateTo(int index, BuildContext context) {
 class _BottomNavBar extends StatelessWidget {
   const _BottomNavBar();
 
+  static const _items = [
+    (icon: Icons.home_outlined, selectedIcon: Icons.home_rounded, label: '홈'),
+    (icon: Icons.bookmark_border_outlined, selectedIcon: Icons.bookmark_rounded, label: '관심'),
+    (icon: Icons.trending_up_outlined, selectedIcon: Icons.trending_up_rounded, label: 'My'),
+    (icon: Icons.history_outlined, selectedIcon: Icons.history_rounded, label: '거래내역'),
+    (icon: Icons.edit_note_outlined, selectedIcon: Icons.edit_note_rounded, label: '메모'),
+    (icon: Icons.settings_outlined, selectedIcon: Icons.settings_rounded, label: '설정'),
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = _getSelectedIndex(context);
+
     return Container(
       decoration: BoxDecoration(
         color: context.appSurface,
@@ -326,47 +337,45 @@ class _BottomNavBar extends StatelessWidget {
         ],
       ),
       child: SafeArea(
-        child: NavigationBar(
-          height: 65,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          indicatorColor:
-              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-          selectedIndex: _getSelectedIndex(context),
-          onDestinationSelected: (index) => _navigateTo(index, context),
-          labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: '홈',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.bookmark_border_outlined),
-              selectedIcon: Icon(Icons.bookmark_rounded),
-              label: '관심',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.trending_up_outlined),
-              selectedIcon: Icon(Icons.trending_up_rounded),
-              label: 'My',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.history_outlined),
-              selectedIcon: Icon(Icons.history_rounded),
-              label: '거래내역',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.edit_note_outlined),
-              selectedIcon: Icon(Icons.edit_note_rounded),
-              label: '메모',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings_rounded),
-              label: '설정',
-            ),
-          ],
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: List.generate(_items.length, (index) {
+              final item = _items[index];
+              final isSelected = index == selectedIndex;
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _navigateTo(index, context),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isSelected ? item.selectedIcon : item.icon,
+                        size: 22,
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : context.appTextHint,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.label,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          color: isSelected
+                              ? Theme.of(context).colorScheme.primary
+                              : context.appTextHint,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ),
         ),
       ),
     );
