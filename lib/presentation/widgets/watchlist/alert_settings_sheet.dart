@@ -4,8 +4,8 @@ import '../../../core/constants/alert_direction.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
-import '../../providers/watchlist_providers.dart';
 import 'alert_form_widgets.dart';
+import '../../providers/providers.dart';
 
 /// 알림 설정 Bottom Sheet
 class AlertSettingsSheet extends ConsumerStatefulWidget {

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../providers/watchlist_group_providers.dart';
+import '../../providers/providers.dart';
 
 /// 별표 아이콘 클릭 시 그룹 선택 바텀시트
 ///

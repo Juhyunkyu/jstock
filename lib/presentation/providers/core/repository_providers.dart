@@ -4,120 +4,49 @@ import '../api_providers.dart';
 import '../stock_providers.dart';
 import '../notification_providers.dart';
 
-/// Repository 인스턴스 저장을 위한 컨테이너
-class RepositoryContainer {
-  final SettingsRepository settingsRepository;
-  final HoldingRepository holdingRepository;
-  final ChartDrawingRepository chartDrawingRepository;
-  final CycleRepository cycleRepository;
-  final TradeRepository tradeRepository;
-
-  const RepositoryContainer({
-    required this.settingsRepository,
-    required this.holdingRepository,
-    required this.chartDrawingRepository,
-    required this.cycleRepository,
-    required this.tradeRepository,
-  });
-
-  /// 모든 Repository 초기화
-  static Future<RepositoryContainer> initialize() async {
-    final settingsRepo = SettingsRepository();
-    final holdingRepo = HoldingRepository();
-    final chartDrawingRepo = ChartDrawingRepository();
-    final cycleRepo = CycleRepository();
-    final tradeRepo = TradeRepository();
-
-    await Future.wait([
-      settingsRepo.init(),
-      holdingRepo.init(),
-      chartDrawingRepo.init(),
-      cycleRepo.init(),
-      tradeRepo.init(),
-    ]);
-
-    return RepositoryContainer(
-      settingsRepository: settingsRepo,
-      holdingRepository: holdingRepo,
-      chartDrawingRepository: chartDrawingRepo,
-      cycleRepository: cycleRepo,
-      tradeRepository: tradeRepo,
-    );
-  }
-
-  /// 모든 Repository 닫기
-  Future<void> close() async {
-    await Future.wait([
-      settingsRepository.close(),
-      holdingRepository.close(),
-      chartDrawingRepository.close(),
-      cycleRepository.close(),
-      tradeRepository.close(),
-    ]);
-  }
-}
-
-/// Repository 컨테이너 Provider (비동기 초기화)
-final repositoryContainerProvider = FutureProvider<RepositoryContainer>((ref) async {
-  final container = await RepositoryContainer.initialize();
-
-  // Provider가 dispose될 때 Repository 닫기
-  ref.onDispose(() {
-    container.close();
-  });
-
-  return container;
-});
+// ═══════════════════════════════════════════════════════════════
+// Repository Providers (단순 인스턴스 — init()은 앱 초기화 시 호출)
+// ═══════════════════════════════════════════════════════════════
 
 /// Settings Repository Provider
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.settingsRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
+  return SettingsRepository();
 });
 
 /// Holding Repository Provider
 final holdingRepositoryProvider = Provider<HoldingRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.holdingRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
+  return HoldingRepository();
 });
 
 /// ChartDrawing Repository Provider
 final chartDrawingRepositoryProvider = Provider<ChartDrawingRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.chartDrawingRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
+  return ChartDrawingRepository();
 });
 
 /// Cycle Repository Provider
 final cycleRepositoryProvider = Provider<CycleRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.cycleRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
+  return CycleRepository();
 });
 
 /// Trade Repository Provider
 final tradeRepositoryProvider = Provider<TradeRepository>((ref) {
-  final container = ref.watch(repositoryContainerProvider);
-  return container.maybeWhen(
-    data: (c) => c.tradeRepository,
-    orElse: () => throw StateError('Repository not initialized'),
-  );
+  return TradeRepository();
 });
 
-/// 앱 초기화 상태 Provider
+// ═══════════════════════════════════════════════════════════════
+// 앱 초기화 Provider
+// ═══════════════════════════════════════════════════════════════
+
+/// 앱 초기화 — Repository init() + API 로드
 final appInitializationProvider = FutureProvider<bool>((ref) async {
-  // 1. Repository 초기화
-  await ref.watch(repositoryContainerProvider.future);
+  // 1. Repository 초기화 (병렬)
+  await Future.wait([
+    ref.read(settingsRepositoryProvider).init(),
+    ref.read(holdingRepositoryProvider).init(),
+    ref.read(chartDrawingRepositoryProvider).init(),
+    ref.read(cycleRepositoryProvider).init(),
+    ref.read(tradeRepositoryProvider).init(),
+  ]);
 
   // 2. API 초기화 (실패해도 앱 시작은 허용)
   try {
@@ -132,7 +61,7 @@ final appInitializationProvider = FutureProvider<bool>((ref) async {
       await stockPriceNotifier.loadSymbols(userTickers);
     }
   } catch (e) {
-    // API 실패 시 빈 상태 유지 (Mock 데이터 제거)
+    // API 실패 시 빈 상태 유지
   }
 
   // 3. 알림 서비스 초기화 (실패해도 앱 시작은 허용)

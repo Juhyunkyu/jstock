@@ -3,14 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../providers/api_providers.dart';
-import '../../providers/watchlist_providers.dart';
-import '../../providers/watchlist_group_providers.dart';
 import '../../providers/stock_providers.dart';
 import '../common/responsive_grid.dart';
 import '../shared/return_badge.dart';
 import '../shared/ticker_logo.dart';
 import 'watchlist_helpers.dart';
 import 'watchlist_tile.dart';
+import '../../providers/providers.dart';
 
 /// 관심종목 그룹 탭 콘텐츠
 ///

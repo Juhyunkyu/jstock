@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/data/web_file_service.dart';
 import '../../providers/providers.dart';
-import '../../providers/watchlist_providers.dart';
 import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
 import '../../widgets/settings/backup_restore.dart';

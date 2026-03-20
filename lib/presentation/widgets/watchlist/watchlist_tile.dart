@@ -5,10 +5,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
 import '../../providers/api_providers.dart';
 import '../../providers/stock_providers.dart';
-import '../../providers/watchlist_group_providers.dart';
 import '../shared/return_badge.dart';
 import '../shared/ticker_logo.dart';
 import 'watchlist_helpers.dart';
+import '../../providers/providers.dart';
 
 /// 관심종목 타일 (실시간 업데이트를 위해 ConsumerWidget 사용)
 class WatchlistTile extends ConsumerWidget {

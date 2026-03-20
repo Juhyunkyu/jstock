@@ -7,10 +7,10 @@ import '../../../data/services/api/finnhub_service.dart';
 import '../../providers/api_providers.dart';
 import '../../providers/holding_providers.dart';
 import '../../providers/stock_providers.dart';
-import '../../providers/watchlist_providers.dart';
 import '../../widgets/stocks/popular_etf_list.dart';
 import '../../widgets/stocks/search_result_tile.dart';
 import '../../widgets/stocks/watchlist_suggestion_tile.dart';
+import '../../providers/providers.dart';
 
 /// 종목 검색 화면
 class SearchScreen extends ConsumerStatefulWidget {

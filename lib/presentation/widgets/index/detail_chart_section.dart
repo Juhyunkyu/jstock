@@ -7,7 +7,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/chart_drawing.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
-import '../../providers/drawing_providers.dart';
 import '../../providers/settings_providers.dart';
 import '../../utils/chart_coordinate_utils.dart';
 import '../../utils/chart_utils.dart';
@@ -22,6 +21,7 @@ import 'drawing_settings_sheet.dart';
 import 'drawing_toolbar.dart';
 import 'indicator_help_dialog.dart';
 import 'sub_chart_painters.dart';
+import '../../providers/providers.dart';
 
 /// 상세 차트 섹션 (줌/스크롤, 지표 토글, 기간 선택 포함)
 class DetailChartSection extends ConsumerStatefulWidget {

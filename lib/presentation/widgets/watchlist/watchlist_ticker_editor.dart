@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_group.dart';
-import '../../providers/watchlist_group_providers.dart';
-import '../../providers/watchlist_providers.dart';
 import '../shared/ticker_logo.dart';
 import 'watchlist_helpers.dart';
+import '../../providers/providers.dart';
 
 /// 그룹 내 종목 편집 (추가/삭제/순서변경)
 class WatchlistTickerEditor extends ConsumerStatefulWidget {

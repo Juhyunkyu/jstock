@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/notification/web_notification_service.dart';
-import '../../providers/watchlist_providers.dart';
-import '../../providers/watchlist_group_providers.dart';
 import '../../providers/stock_providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/watchlist/watchlist_tab_bar.dart';
@@ -13,6 +11,7 @@ import '../../widgets/watchlist/alert_settings_sheet.dart';
 import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
+import '../../providers/providers.dart';
 
 /// 관심종목 화면 (탭 기반 그룹 지원 + 스와이프 전환)
 class WatchlistScreen extends ConsumerStatefulWidget {

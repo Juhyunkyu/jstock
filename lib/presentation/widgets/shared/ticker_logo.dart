@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../providers/logo_provider.dart';
+import '../../providers/providers.dart';
 
 /// 티커 로고 위젯
 ///

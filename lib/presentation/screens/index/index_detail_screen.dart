@@ -7,13 +7,13 @@ import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/api/finnhub_service.dart';
 import '../../../data/services/technical_indicator_service.dart';
 import '../../providers/api_providers.dart';
-import '../../providers/watchlist_group_providers.dart';
 import '../../widgets/index/detail_chart_section.dart';
 import '../../widgets/index/period_returns_section.dart';
 import '../../widgets/index/pivot_point_section.dart';
 import '../../widgets/index/description_section.dart';
 import '../../widgets/index/news_section.dart';
 import '../../widgets/shared/return_badge.dart';
+import '../../providers/providers.dart';
 
 /// 지수 상세 페이지
 class IndexDetailScreen extends ConsumerStatefulWidget {

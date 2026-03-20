@@ -10,9 +10,6 @@ import '../../../routes/app_router.dart';
 import '../../providers/providers.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
-import '../../providers/watchlist_alert_provider.dart';
-import '../../providers/watchlist_providers.dart';
-import '../../providers/watchlist_group_providers.dart';
 import 'app_title_logo.dart';
 import 'update_banner.dart';
 

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../providers/watchlist_group_providers.dart';
 import '../shared/confirm_dialog.dart';
+import '../../providers/providers.dart';
 
 /// 그룹 CRUD + 순서 변경 편집기
 class WatchlistGroupEditor extends ConsumerWidget {
