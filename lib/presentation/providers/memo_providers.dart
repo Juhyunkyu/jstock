@@ -2,9 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/memo.dart';
 import '../../data/repositories/memo_repository.dart';
 
-/// Memo Repository Provider
+/// Memo Repository Provider (싱글턴)
+final _memoRepo = MemoRepository();
 final memoRepositoryProvider = Provider<MemoRepository>((ref) {
-  return MemoRepository();
+  return _memoRepo;
 });
 
 /// 정렬 방식

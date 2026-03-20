@@ -5,32 +5,41 @@ import '../stock_providers.dart';
 import '../notification_providers.dart';
 
 // ═══════════════════════════════════════════════════════════════
-// Repository Providers (단순 인스턴스 — init()은 앱 초기화 시 호출)
+// Repository Providers (싱글턴 인스턴스)
+//
+// 각 Provider는 앱 수명 동안 동일한 Repository 인스턴스를 반환.
+// init()은 appInitializationProvider에서 호출.
 // ═══════════════════════════════════════════════════════════════
+
+final _settingsRepo = SettingsRepository();
+final _holdingRepo = HoldingRepository();
+final _chartDrawingRepo = ChartDrawingRepository();
+final _cycleRepo = CycleRepository();
+final _tradeRepo = TradeRepository();
 
 /// Settings Repository Provider
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
-  return SettingsRepository();
+  return _settingsRepo;
 });
 
 /// Holding Repository Provider
 final holdingRepositoryProvider = Provider<HoldingRepository>((ref) {
-  return HoldingRepository();
+  return _holdingRepo;
 });
 
 /// ChartDrawing Repository Provider
 final chartDrawingRepositoryProvider = Provider<ChartDrawingRepository>((ref) {
-  return ChartDrawingRepository();
+  return _chartDrawingRepo;
 });
 
 /// Cycle Repository Provider
 final cycleRepositoryProvider = Provider<CycleRepository>((ref) {
-  return CycleRepository();
+  return _cycleRepo;
 });
 
 /// Trade Repository Provider
 final tradeRepositoryProvider = Provider<TradeRepository>((ref) {
-  return TradeRepository();
+  return _tradeRepo;
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -41,11 +50,11 @@ final tradeRepositoryProvider = Provider<TradeRepository>((ref) {
 final appInitializationProvider = FutureProvider<bool>((ref) async {
   // 1. Repository 초기화 (병렬)
   await Future.wait([
-    ref.read(settingsRepositoryProvider).init(),
-    ref.read(holdingRepositoryProvider).init(),
-    ref.read(chartDrawingRepositoryProvider).init(),
-    ref.read(cycleRepositoryProvider).init(),
-    ref.read(tradeRepositoryProvider).init(),
+    _settingsRepo.init(),
+    _holdingRepo.init(),
+    _chartDrawingRepo.init(),
+    _cycleRepo.init(),
+    _tradeRepo.init(),
   ]);
 
   // 2. API 초기화 (실패해도 앱 시작은 허용)
