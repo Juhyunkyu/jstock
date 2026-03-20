@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/notification/web_notification_service.dart';
-import '../../providers/stock_providers.dart';
+import '../../providers/providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/watchlist/watchlist_tab_bar.dart';
 import '../../widgets/watchlist/watchlist_group_content.dart';
@@ -11,7 +11,6 @@ import '../../widgets/watchlist/alert_settings_sheet.dart';
 import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
-import '../../providers/providers.dart';
 
 /// 관심종목 화면 (탭 기반 그룹 지원 + 스와이프 전환)
 class WatchlistScreen extends ConsumerStatefulWidget {
@@ -23,19 +22,31 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   late PageController _pageController;
-  int _lastTabCount = 0;
+  int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
-    final initialPage = ref.read(selectedWatchlistTabProvider);
-    _pageController = PageController(initialPage: initialPage);
+    _currentPage = ref.read(selectedWatchlistTabProvider);
+    _pageController = PageController(initialPage: _currentPage);
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _onTabTap(int index) {
+    ref.read(selectedWatchlistTabProvider.notifier).state = index;
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(index);
+    }
+  }
+
+  void _onPageChanged(int index) {
+    ref.read(selectedWatchlistTabProvider.notifier).state = index;
+    setState(() => _currentPage = index);
   }
 
   @override
@@ -51,26 +62,18 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       ...groupState.groups.map((g) => g.name),
     ];
 
-    // 탭 수가 바뀌었으면 PageController 재생성 (그룹 추가/삭제 시)
-    if (_lastTabCount != tabLabels.length) {
-      _lastTabCount = tabLabels.length;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_pageController.hasClients) {
-          final safeIndex = selectedTabIndex.clamp(0, tabLabels.length - 1);
-          _pageController.jumpToPage(safeIndex);
-        }
-      });
-    }
-
     // 탭 인덱스 범위 보정
     final tabIndex = selectedTabIndex >= tabLabels.length ? 0 : selectedTabIndex;
 
-    // 탭 변경 시 PageView도 동기화
-    ref.listen<int>(selectedWatchlistTabProvider, (prev, next) {
-      if (_pageController.hasClients && next < tabLabels.length) {
-        _pageController.jumpToPage(next);
-      }
-    });
+    // 외부에서 탭 변경 시 (뒤로가기 복귀 등) PageView 동기화
+    if (_pageController.hasClients && tabIndex != _currentPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients && tabIndex < tabLabels.length) {
+          _pageController.jumpToPage(tabIndex);
+          _currentPage = tabIndex;
+        }
+      });
+    }
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -98,8 +101,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                     WatchlistTabBar(
                       tabLabels: tabLabels,
                       selectedIndex: tabIndex,
-                      onTap: (index) =>
-                          ref.read(selectedWatchlistTabProvider.notifier).state = index,
+                      onTap: _onTabTap,
                       onSettingsTap: () => _showSettingsSheet(context),
                     ),
                     // 탭 콘텐츠 (스와이프 가능)
@@ -107,9 +109,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                       child: PageView.builder(
                         controller: _pageController,
                         itemCount: tabLabels.length,
-                        onPageChanged: (index) {
-                          ref.read(selectedWatchlistTabProvider.notifier).state = index;
-                        },
+                        onPageChanged: _onPageChanged,
                         itemBuilder: (context, index) {
                           return _buildPageContent(index, watchlistState, groupState);
                         },
@@ -225,14 +225,12 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     // 알림이 있는 종목: 삭제 후에도 알림 대상인지 확인
     String message = '$ticker을(를) 삭제하시겠습니까?';
     if (item != null && item.hasAlert) {
-      // 삭제 후에도 보유 또는 다른 그룹에 있으면 알림 유지
       final ownedTickers = ref.read(userTickersProvider);
       final groupState = ref.read(watchlistGroupProvider);
       final inOwned = ownedTickers.contains(ticker);
       final groupCount = groupState.groups
           .where((g) => g.containsTicker(ticker))
           .length;
-      // 현재 삭제 대상이 그룹 소속이면 1개 빼야 함
       final remainsEligible = inOwned || groupCount > 1;
 
       if (!remainsEligible) {
@@ -249,7 +247,6 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       isDanger: true,
     );
     if (confirmed && mounted) {
-      // 알림 대상에서 빠지는 경우 알림 해제
       if (item != null && item.hasAlert) {
         final ownedTickers = ref.read(userTickersProvider);
         final groupState = ref.read(watchlistGroupProvider);
