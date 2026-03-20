@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
 import '../../../domain/trading/trading_math.dart';
@@ -85,9 +84,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     final signalAmount = ref.watch(cycleSignalAmountProvider(widget.cycleId));
     final trades = ref.watch(tradeListProvider(widget.cycleId));
 
-    // V2.2/V3.0: 정확한 T값을 위해 가이드 Provider watch
-    final steadyGuide = (cycle.strategyType == StrategyType.infiniteBuy &&
-            cycle.steadyVersion != SteadyVersion.v1)
+    // Steady Cycle: 주문 가이드 Provider watch (V1/V2.2/V3.0 통합)
+    final steadyGuide = cycle.strategyType == StrategyType.infiniteBuy
         ? ref.watch(steadyOrderGuideProvider(widget.cycleId))
         : null;
 
@@ -153,10 +151,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
                   SizedBox(height: isMobile ? 10 : 16),
 
-                  // === 신호 카드 (active 사이클만, V2.2/V3.0은 숨김 — 주문 가이드가 대체) ===
+                  // === 신호 카드 (Smart Cycle만 — Steady는 주문 가이드가 대체) ===
                   if (cycle.status == CycleStatus.active &&
-                      !(cycle.strategyType == StrategyType.infiniteBuy &&
-                        cycle.steadyVersion != SteadyVersion.v1)) ...[
+                      cycle.strategyType != StrategyType.infiniteBuy) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SignalDisplay(
@@ -169,20 +166,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     SizedBox(height: isMobile ? 10 : 16),
                   ],
 
-                  // === V1 Steady: 진행률 가이드 ===
+                  // === Steady Cycle 주문 가이드 카드 (V1/V2.2/V3.0 통합) ===
                   if (cycle.strategyType == StrategyType.infiniteBuy &&
-                      cycle.steadyVersion == SteadyVersion.v1 &&
                       cycle.status == CycleStatus.active) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _buildV1ProgressCard(context, cycle, currentPrice),
-                    ),
-                    SizedBox(height: isMobile ? 10 : 16),
-                  ],
-
-                  // === V2.2/V3.0 주문 가이드 카드 ===
-                  if (cycle.strategyType == StrategyType.infiniteBuy &&
-                      cycle.steadyVersion != SteadyVersion.v1) ...[
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SteadyOrderGuideCard(cycleId: widget.cycleId),
@@ -558,139 +544,6 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // V1 Steady: 진행률 가이드 카드
-  // ═══════════════════════════════════════════════════════════════
-
-  Widget _buildV1ProgressCard(BuildContext context, Cycle cycle, double currentPrice) {
-    final progress = cycle.totalRounds > 0
-        ? (cycle.roundsUsed / cycle.totalRounds).clamp(0.0, 1.0)
-        : 0.0;
-    final progressPercent = (progress * 100).toStringAsFixed(1);
-    final isAboveAvg = currentPrice > cycle.averagePrice && cycle.averagePrice > 0;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.appBorder, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '회차: ${cycle.roundsUsed} / ${cycle.totalRounds}',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: context.appTextPrimary,
-                ),
-              ),
-              Text(
-                '$progressPercent%',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.green500,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          // Progress bar
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 6,
-              backgroundColor: context.appDivider,
-              valueColor: const AlwaysStoppedAnimation(AppColors.green500),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Info rows
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('1회 매수금', style: TextStyle(fontSize: 10, color: context.appTextHint)),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${formatKrwWithComma(cycle.unitAmount)}원',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('잔여현금', style: TextStyle(fontSize: 10, color: context.appTextHint)),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${formatKrwWithComma(cycle.remainingCash)}원',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Next buy guide
-          if (cycle.roundsUsed < cycle.totalRounds && cycle.remainingCash > 0)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.appBackground,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '다음 매수 가이드',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    cycle.averagePrice > 0
-                        ? (isAboveAvg
-                            ? '현재가 > 평단 \u2192 ${formatKrwWithComma(cycle.unitAmount * 0.5)}원 (B만)'
-                            : '현재가 \u2264 평단 \u2192 ${formatKrwWithComma(cycle.unitAmount)}원 (A+B)')
-                        : '첫 매수 \u2192 ${formatKrwWithComma(cycle.unitAmount)}원',
-                    style: TextStyle(fontSize: 11, color: context.appTextSecondary),
-                  ),
-                ],
-              ),
-            )
-          else if (cycle.roundsUsed >= cycle.totalRounds)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.appBackground,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                '${cycle.totalRounds}회 소진 \u2014 익절 대기 중',
-                style: TextStyle(fontSize: 11, color: context.appTextHint),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
   // ═══════════════════════════════════════════════════════════════
   // 거래 내역
   // ═══════════════════════════════════════════════════════════════

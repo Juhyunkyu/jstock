@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../data/models/cycle.dart';
 import '../../../../domain/trading/steady_order_guide.dart';
 import '../../../providers/providers.dart';
 
@@ -78,7 +79,13 @@ class SteadyOrderGuideCard extends ConsumerWidget {
 
             // 매도 주문
             if (guide.sellLocOrder != null || guide.sellLimitOrder != null) ...[
-              _buildSectionTitle(context, '매도 주문 (동시)', AppColors.green500),
+              _buildSectionTitle(
+                context,
+                guide.sellLocOrder != null && guide.sellLimitOrder != null
+                    ? '매도 주문 (동시)'
+                    : '매도 주문',
+                AppColors.green500,
+              ),
               const SizedBox(height: 6),
               if (guide.sellLocOrder != null)
                 _buildOrderRow(context, guide.sellLocOrder!, AppColors.green500, hint: '종가 ≥ 이 가격일 때 체결'),
@@ -107,6 +114,7 @@ class SteadyOrderGuideCard extends ConsumerWidget {
     final cycles = ref.watch(cycleListProvider);
     final cycle = cycles.where((c) => c.id == cycleId).firstOrNull;
     final totalRounds = cycle?.totalRounds ?? 40;
+    final isV1 = cycle?.steadyVersion == SteadyVersion.v1;
     final progress = (guide.tValue / totalRounds).clamp(0.0, 1.0);
 
     return Column(
@@ -116,21 +124,24 @@ class SteadyOrderGuideCard extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'T: ${guide.tValue.toStringAsFixed(1)} / $totalRounds',
+              isV1
+                  ? '회차: ${guide.tValue.toInt()} / $totalRounds'
+                  : 'T: ${guide.tValue.toStringAsFixed(1)} / $totalRounds',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
                 color: context.appTextPrimary,
               ),
             ),
-            Text(
-              guide.isFirstHalf ? '전반전' : '후반전',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: guide.isFirstHalf ? AppColors.blue500 : AppColors.amber500,
+            if (!isV1)
+              Text(
+                guide.isFirstHalf ? '전반전' : '후반전',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: guide.isFirstHalf ? AppColors.blue500 : AppColors.amber500,
+                ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -141,18 +152,20 @@ class SteadyOrderGuideCard extends ConsumerWidget {
             minHeight: 6,
             backgroundColor: context.appDivider,
             valueColor: AlwaysStoppedAnimation(
-              guide.isFirstHalf ? AppColors.blue500 : AppColors.amber500,
+              isV1 ? AppColors.green500 : (guide.isFirstHalf ? AppColors.blue500 : AppColors.amber500),
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          '오프셋: ${guide.locOffsetPercent >= 0 ? '+' : ''}${guide.locOffsetPercent.toStringAsFixed(1)}%',
-          style: TextStyle(
-            fontSize: 11,
-            color: context.appTextHint,
+        if (!isV1) ...[
+          const SizedBox(height: 4),
+          Text(
+            '오프셋: ${guide.locOffsetPercent >= 0 ? '+' : ''}${guide.locOffsetPercent.toStringAsFixed(1)}%',
+            style: TextStyle(
+              fontSize: 11,
+              color: context.appTextHint,
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -311,7 +324,16 @@ class SteadyOrderGuideCard extends ConsumerWidget {
             'V3.0: 1/4 MOC 매도 + 지정가 매도\n\n'
             'MOC (Market On Close)\n'
             '종가에 무조건 체결되는 시장가 주문.\n'
-            'LOC와 달리 가격 조건 없이 확실하게 체결됩니다.',
+            'LOC와 달리 가격 조건 없이 확실하게 체결됩니다.\n\n'
+            '── V1 Simple ──\n\n'
+            '40분할 매수\n'
+            '시드를 40등분하여 매일 1회분씩 매수.\n'
+            'A: 평단가 LOC (0.5unit) — 종가 ≤ 평단이면 체결\n'
+            'B: +10% LOC (0.5unit) — 종가 ≤ 평단×1.1이면 체결\n'
+            '현재가 > 평단이면 B만 주문합니다.\n\n'
+            '매도: 평단+10% 지정가 매도 (전량)\n'
+            '매일 전체 수량을 평단+10%에 매도 주문 설정.\n'
+            '도달하면 전량 매도 → 사이클 완료.',
             style: TextStyle(fontSize: 13, color: ctx.appTextSecondary, height: 1.6),
           ),
         ),
