@@ -14,7 +14,7 @@ import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
 
-/// 관심종목 화면 (탭 기반 그룹 지원)
+/// 관심종목 화면 (탭 기반 그룹 지원 + 스와이프 전환)
 class WatchlistScreen extends ConsumerStatefulWidget {
   const WatchlistScreen({super.key});
 
@@ -23,6 +23,22 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 }
 
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
+  late PageController _pageController;
+  int _lastTabCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final initialPage = ref.read(selectedWatchlistTabProvider);
+    _pageController = PageController(initialPage: initialPage);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final watchlistState = ref.watch(watchlistProvider);
@@ -36,8 +52,30 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       ...groupState.groups.map((g) => g.name),
     ];
 
+    // 탭 수가 바뀌었으면 PageController 재생성 (그룹 추가/삭제 시)
+    if (_lastTabCount != tabLabels.length) {
+      _lastTabCount = tabLabels.length;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageController.hasClients) {
+          final safeIndex = selectedTabIndex.clamp(0, tabLabels.length - 1);
+          _pageController.jumpToPage(safeIndex);
+        }
+      });
+    }
+
     // 탭 인덱스 범위 보정
     final tabIndex = selectedTabIndex >= tabLabels.length ? 0 : selectedTabIndex;
+
+    // 탭 변경 시 PageView도 동기화
+    ref.listen<int>(selectedWatchlistTabProvider, (prev, next) {
+      if (_pageController.hasClients && next < tabLabels.length) {
+        _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -69,16 +107,25 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                           ref.read(selectedWatchlistTabProvider.notifier).state = index,
                       onSettingsTap: () => _showSettingsSheet(context),
                     ),
-                    // 탭 콘텐츠
+                    // 탭 콘텐츠 (스와이프 가능)
                     Expanded(
-                      child: _buildTabContent(tabIndex, watchlistState, groupState),
+                      child: PageView.builder(
+                        controller: _pageController,
+                        itemCount: tabLabels.length,
+                        onPageChanged: (index) {
+                          ref.read(selectedWatchlistTabProvider.notifier).state = index;
+                        },
+                        itemBuilder: (context, index) {
+                          return _buildPageContent(index, watchlistState, groupState);
+                        },
+                      ),
                     ),
                   ],
                 ),
     );
   }
 
-  Widget _buildTabContent(
+  Widget _buildPageContent(
     int tabIndex,
     WatchlistState watchlistState,
     WatchlistGroupState groupState,
