@@ -119,9 +119,10 @@ class _FearGreedAlertSheetState extends ConsumerState<FearGreedAlertSheet> {
     final zoneName = _getZoneName(widget.currentValue);
     final accent = context.appAccent;
 
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return SingleChildScrollView(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
