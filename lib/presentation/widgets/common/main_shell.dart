@@ -249,6 +249,11 @@ class _MainShellState extends ConsumerState<MainShell> {
             label: Text('거래내역'),
           ),
           NavigationRailDestination(
+            icon: Icon(Icons.edit_note_outlined),
+            selectedIcon: Icon(Icons.edit_note_rounded),
+            label: Text('메모'),
+          ),
+          NavigationRailDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded),
             label: Text('설정'),
@@ -265,7 +270,8 @@ int _getSelectedIndex(BuildContext context) {
   if (location.startsWith('/stocks')) return 2;
   if (location.startsWith('/holdings')) return 2;
   if (location.startsWith(AppRouter.history)) return 3;
-  if (location.startsWith(AppRouter.settings)) return 4;
+  if (location.startsWith(AppRouter.memo)) return 4;
+  if (location.startsWith(AppRouter.settings)) return 5;
   // /index/* detail pages highlight Home tab
   return 0;
 }
@@ -295,6 +301,9 @@ void _navigateTo(int index, BuildContext context) {
       context.go(AppRouter.history);
       break;
     case 4:
+      context.go(AppRouter.memo);
+      break;
+    case 5:
       context.go(AppRouter.settings);
       break;
   }
@@ -345,7 +354,12 @@ class _BottomNavBar extends StatelessWidget {
             NavigationDestination(
               icon: Icon(Icons.history_outlined),
               selectedIcon: Icon(Icons.history_rounded),
-              label: '거래내역',
+              label: '거래',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.edit_note_outlined),
+              selectedIcon: Icon(Icons.edit_note_rounded),
+              label: '메모',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),

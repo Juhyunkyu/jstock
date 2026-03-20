@@ -11,6 +11,7 @@ import '../presentation/screens/holdings/archived_holding_detail_screen.dart';
 import '../presentation/screens/holdings/holding_detail_screen.dart';
 import '../presentation/screens/holdings/holding_setup_screen.dart';
 import '../presentation/screens/history/history_screen.dart';
+import '../presentation/screens/memo/memo_screen.dart';
 import '../presentation/screens/settings/settings_screen.dart';
 import '../presentation/screens/index/index_detail_screen.dart';
 import '../presentation/screens/watchlist/watchlist_screen.dart';
@@ -71,6 +72,7 @@ class AppRouter {
   static const String holdingsArchived = '/holdings/:holdingId/archived';
   static const String indexDetail = '/index/:symbol';
   static const String history = '/history';
+  static const String memo = '/memo';
   static const String settings = '/settings';
 
   /// GoRouter 인스턴스
@@ -122,6 +124,12 @@ class AppRouter {
             path: history,
             pageBuilder: (context, state) => const NoTransitionPage(
               child: HistoryScreen(),
+            ),
+          ),
+          GoRoute(
+            path: memo,
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MemoScreen(),
             ),
           ),
           GoRoute(
