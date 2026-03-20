@@ -392,7 +392,8 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
 
   void _goBack() {
     if (_isEditMode) {
-      context.go('/memo/detail/${widget.memoId}');
+      // edit 히스토리를 detail로 교체 — 뒤로가기 시 목록으로 감
+      context.pushReplacement('/memo/detail/${widget.memoId}');
     } else {
       context.go('/memo');
     }
@@ -468,7 +469,9 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _hasUnsavedChanges = false;
 
     if (mounted) {
-      context.go('/memo/detail/${memo.id}');
+      // pushReplacement: 현재 edit 히스토리를 detail로 교체
+      // 브라우저 뒤로가기 시 edit가 아닌 이전 페이지(memo 목록)로 감
+      context.pushReplacement('/memo/detail/${memo.id}');
     }
   }
 
