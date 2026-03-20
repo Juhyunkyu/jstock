@@ -391,7 +391,11 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   }
 
   void _goBack() {
-    context.go('/memo');
+    if (_isEditMode) {
+      context.go('/memo/detail/${widget.memoId}');
+    } else {
+      context.go('/memo');
+    }
   }
 
   Future<bool> _onWillPop() async {
@@ -464,7 +468,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _hasUnsavedChanges = false;
 
     if (mounted) {
-      context.go('/memo');
+      context.go('/memo/detail/${memo.id}');
     }
   }
 
