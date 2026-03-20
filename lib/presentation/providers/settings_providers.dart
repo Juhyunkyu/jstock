@@ -8,13 +8,18 @@ class SettingsNotifier extends StateNotifier<Settings> {
   final Ref _ref;
 
   SettingsNotifier(this._ref) : super(Settings.defaults()) {
-    _loadSettings();
+    // appInitializationProvider 완료 시 설정 로드
+    _ref.listen(appInitializationProvider, (prev, next) {
+      next.whenData((_) => _loadSettings());
+    }, fireImmediately: true);
   }
 
   void _loadSettings() {
     try {
       final repo = _ref.read(settingsRepositoryProvider);
-      state = repo.settings;
+      if (repo.box.isOpen) {
+        state = repo.settings;
+      }
     } catch (e) {
       // Repository 초기화 전에는 기본값 사용
     }
