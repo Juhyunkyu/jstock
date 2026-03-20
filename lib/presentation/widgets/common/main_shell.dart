@@ -344,7 +344,7 @@ class _BottomNavBar extends StatelessWidget {
             NavigationDestination(
               icon: Icon(Icons.bookmark_border_outlined),
               selectedIcon: Icon(Icons.bookmark_rounded),
-              label: '관심종목',
+              label: '관심',
             ),
             NavigationDestination(
               icon: Icon(Icons.trending_up_outlined),
@@ -354,7 +354,7 @@ class _BottomNavBar extends StatelessWidget {
             NavigationDestination(
               icon: Icon(Icons.history_outlined),
               selectedIcon: Icon(Icons.history_rounded),
-              label: '거래',
+              label: '거래내역',
             ),
             NavigationDestination(
               icon: Icon(Icons.edit_note_outlined),
