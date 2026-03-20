@@ -464,7 +464,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _hasUnsavedChanges = false;
 
     if (mounted) {
-      context.go('/memo/detail/${memo.id}');
+      context.go('/memo');
     }
   }
 
