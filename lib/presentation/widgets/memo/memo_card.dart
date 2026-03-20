@@ -21,7 +21,7 @@ class MemoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryColor = context.memoCategoryColor(memo.category);
+    final categoryColor = memoCategoryColor(context, memo.category);
     final dateStr = DateFormat('yyyy.MM.dd').format(memo.displayDate);
 
     return GestureDetector(
@@ -44,7 +44,7 @@ class MemoCard extends StatelessWidget {
                   Icon(
                     Icons.push_pin_rounded,
                     size: 16,
-                    color: context.appMemoPinColor,
+                    color: memoPinColor(context),
                   ),
                   const SizedBox(width: 6),
                 ],

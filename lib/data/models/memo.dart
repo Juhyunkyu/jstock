@@ -75,9 +75,11 @@ class Memo extends HiveObject {
 
   static const int maxImages = 3;
 
+  static final _whitespaceRegex = RegExp(r'\s+');
+
   String get contentPreview {
     if (content.isEmpty) return '';
-    final singleLine = content.replaceAll(RegExp(r'\s+'), ' ').trim();
+    final singleLine = content.replaceAll(_whitespaceRegex, ' ').trim();
     return singleLine.length > 100
         ? '${singleLine.substring(0, 100)}...'
         : singleLine;

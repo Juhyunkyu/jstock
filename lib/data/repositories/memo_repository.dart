@@ -13,6 +13,7 @@ class MemoRepository {
 
   /// 어댑터 자체 등록 + Box 오픈
   Future<void> init() async {
+    if (isInitialized) return;
     if (!Hive.isAdapterRegistered(25)) {
       Hive.registerAdapter(MemoAdapter());
     }
@@ -26,15 +27,17 @@ class MemoRepository {
   List<Memo> getAll() {
     if (!isInitialized) return [];
     final items = _box!.values.map(_deepCopy).toList();
+    _sortMemos(items);
+    return items;
+  }
+
+  /// 정렬 (고정 우선 → sortOrder → 최신순)
+  void _sortMemos(List<Memo> items) {
     items.sort((a, b) {
-      // 1순위: 고정 메모 상단
       if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
-      // 2순위: sortOrder (낮을수록 위)
       if (a.sortOrder != b.sortOrder) return a.sortOrder.compareTo(b.sortOrder);
-      // 3순위: 날짜 최신순
       return b.displayDate.compareTo(a.displayDate);
     });
-    return items;
   }
 
   /// ID로 조회
@@ -56,20 +59,29 @@ class MemoRepository {
     await _box!.delete(id);
   }
 
-  /// 검색 (제목 + 본문, 대소문자 무시)
+  /// 검색 (제목 + 본문, 대소문자 무시) — 필터 후 deep copy + 정렬
   List<Memo> search(String query) {
     if (!isInitialized || query.isEmpty) return getAll();
     final lower = query.toLowerCase();
-    return getAll()
+    final filtered = _box!.values
         .where((m) =>
             m.title.toLowerCase().contains(lower) ||
             m.content.toLowerCase().contains(lower))
+        .map(_deepCopy)
         .toList();
+    _sortMemos(filtered);
+    return filtered;
   }
 
-  /// 카테고리 필터
+  /// 카테고리 필터 — 필터 후 deep copy + 정렬
   List<Memo> getByCategory(MemoCategory category) {
-    return getAll().where((m) => m.category == category).toList();
+    if (!isInitialized) return [];
+    final filtered = _box!.values
+        .where((m) => m.category == category)
+        .map(_deepCopy)
+        .toList();
+    _sortMemos(filtered);
+    return filtered;
   }
 
   /// 전체 삭제

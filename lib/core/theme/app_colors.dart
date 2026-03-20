@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../data/models/memo.dart';
 
 /// 앱 색상 팔레트 - 미니멀 & 모던 디자인
 class AppColors {
@@ -238,36 +237,4 @@ extension ThemeAwareColors on BuildContext {
         ),
       ];
 
-  // ═══════════════════════════════════════════════════════════════
-  // 메모 카테고리 색상
-  // ═══════════════════════════════════════════════════════════════
-
-  /// 메모 고정 아이콘 색상
-  Color get appMemoPinColor => isDarkMode
-      ? const Color(0xFFFBBF24) // amber-400
-      : const Color(0xFFF59E0B); // amber-500
-
-  /// 메모 카테고리 색상
-  Color memoCategoryColor(MemoCategory category) {
-    switch (category) {
-      case MemoCategory.general:
-        return isDarkMode ? AppColors.gray500 : AppColors.gray400;
-      case MemoCategory.analysis:
-        return isDarkMode ? AppColors.darkAccent : AppColors.blue500;
-      case MemoCategory.insight:
-        return isDarkMode
-            ? const Color(0xFFA78BFA) // purple-400
-            : const Color(0xFF8B5CF6); // purple-500
-      case MemoCategory.study:
-        return isDarkMode
-            ? const Color(0xFF34D399) // green-400
-            : const Color(0xFF10B981); // green-500
-      case MemoCategory.strategy:
-        return isDarkMode
-            ? const Color(0xFFFBBF24) // orange-400
-            : const Color(0xFFF59E0B); // orange-500
-      case MemoCategory.diary:
-        return const Color(0xFFF87171); // red-400 (same for both)
-    }
-  }
 }

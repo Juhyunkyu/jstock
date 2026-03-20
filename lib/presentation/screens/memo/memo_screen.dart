@@ -267,7 +267,15 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
           key: ValueKey(memo.id),
           memo: memo,
           onTap: () => context.go('/memo/edit/${memo.id}'),
-          onDismissed: () => _deleteMemo(memo),
+          onDismissed: () {
+            ref.read(memoListProvider.notifier).delete(memo.id);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('"${memo.title}" 삭제됨'),
+                duration: const Duration(seconds: 2),
+              ),
+            );
+          },
         );
       },
     );

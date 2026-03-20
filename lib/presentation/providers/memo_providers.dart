@@ -153,7 +153,3 @@ final memoListProvider =
   return MemoListNotifier(repository);
 });
 
-/// 총 메모 수 Provider
-final memoCountProvider = Provider<int>((ref) {
-  return ref.watch(memoRepositoryProvider).count;
-});

@@ -13,6 +13,38 @@ const memoCategoryLabels = <MemoCategory, String>{
   MemoCategory.diary: '일지',
 };
 
+/// 메모 카테고리 색상 (다크모드 대응)
+Color memoCategoryColor(BuildContext context, MemoCategory category) {
+  final isDark = context.isDarkMode;
+  switch (category) {
+    case MemoCategory.general:
+      return isDark ? AppColors.gray500 : AppColors.gray400;
+    case MemoCategory.analysis:
+      return isDark ? AppColors.darkAccent : AppColors.blue500;
+    case MemoCategory.insight:
+      return isDark
+          ? const Color(0xFFA78BFA)
+          : const Color(0xFF8B5CF6);
+    case MemoCategory.study:
+      return isDark
+          ? const Color(0xFF34D399)
+          : const Color(0xFF10B981);
+    case MemoCategory.strategy:
+      return isDark
+          ? const Color(0xFFFBBF24)
+          : const Color(0xFFF59E0B);
+    case MemoCategory.diary:
+      return const Color(0xFFF87171);
+  }
+}
+
+/// 메모 고정 아이콘 색상
+Color memoPinColor(BuildContext context) {
+  return context.isDarkMode
+      ? const Color(0xFFFBBF24)
+      : const Color(0xFFF59E0B);
+}
+
 /// 메모 카테고리 필터 칩 (가로 스크롤)
 ///
 /// [selectedCategory] null이면 '전체' 선택 상태.
@@ -46,7 +78,7 @@ class MemoCategoryChips extends StatelessWidget {
           const SizedBox(width: 8),
           // 카테고리별 칩
           ...MemoCategory.values.map((cat) {
-            final color = context.memoCategoryColor(cat);
+            final color = memoCategoryColor(context, cat);
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _buildChip(
@@ -116,7 +148,7 @@ class MemoCategoryChoiceChips extends StatelessWidget {
       runSpacing: 8,
       children: MemoCategory.values.map((cat) {
         final isSelected = selected == cat;
-        final color = context.memoCategoryColor(cat);
+        final color = memoCategoryColor(context, cat);
         return ChoiceChip(
           label: Text(memoCategoryLabels[cat] ?? cat.name),
           selected: isSelected,
