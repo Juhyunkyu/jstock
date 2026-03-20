@@ -55,14 +55,7 @@ class MemoDetailScreen extends ConsumerWidget {
       memo.createdAt.add(const Duration(seconds: 1)),
     );
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop) {
-          context.go('/memo');
-        }
-      },
-      child: Scaffold(
+    return Scaffold(
       backgroundColor: context.appBackground,
       appBar: AppBar(
         backgroundColor: context.appSurface,
@@ -257,7 +250,6 @@ class MemoDetailScreen extends ConsumerWidget {
           ),
         ),
       ),
-    ),
     );
   }
 
