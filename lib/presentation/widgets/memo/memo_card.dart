@@ -110,7 +110,7 @@ class MemoCard extends StatelessWidget {
               ),
             ],
 
-            // 이미지 수 (있을 때만)
+            // 이미지 수 (마커 기준)
             if (memo.imageCount > 0) ...[
               const SizedBox(height: 8),
               Row(

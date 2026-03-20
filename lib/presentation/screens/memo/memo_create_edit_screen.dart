@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +10,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/memo.dart';
 import '../../providers/providers.dart';
 import '../../widgets/memo/memo_category_chips.dart';
+import '../../widgets/memo/memo_content_renderer.dart';
 import '../../widgets/memo/memo_image_picker.dart';
 import '../../widgets/memo/memo_image_viewer.dart';
 import '../../widgets/shared/confirm_dialog.dart';
@@ -15,6 +18,7 @@ import '../../widgets/shared/confirm_dialog.dart';
 /// 메모 작성/수정 통합 화면
 ///
 /// [memoId] null이면 새 메모 작성, 값이 있으면 수정 모드.
+/// 이미지를 커서 위치에 [IMG:N] 마커로 삽입하여 인라인 표시.
 class MemoCreateEditScreen extends ConsumerStatefulWidget {
   final String? memoId;
 
@@ -35,17 +39,20 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   DateTime _selectedDate = DateTime.now();
   List<String> _images = [];
   bool _hasUnsavedChanges = false;
+  bool _showPreview = false;
 
   // 편집 모드용 원본 데이터
   Memo? _originalMemo;
 
   bool get _isEditMode => widget.memoId != null;
 
+  static final _imgMarkerRegex = RegExp(r'\[IMG:(\d+)\]');
+
   @override
   void initState() {
     super.initState();
     _titleController.addListener(_markChanged);
-    _contentController.addListener(_markChanged);
+    _contentController.addListener(_onContentChanged);
 
     if (_isEditMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadMemo());
@@ -54,7 +61,8 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
 
   void _loadMemo() {
     final memoState = ref.read(memoListProvider);
-    final memo = memoState.memos.where((m) => m.id == widget.memoId).firstOrNull;
+    final memo =
+        memoState.memos.where((m) => m.id == widget.memoId).firstOrNull;
     if (memo == null) return;
 
     _originalMemo = memo;
@@ -70,6 +78,13 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   void _markChanged() {
     if (!_hasUnsavedChanges) {
       setState(() => _hasUnsavedChanges = true);
+    }
+  }
+
+  void _onContentChanged() {
+    _markChanged();
+    if (_showPreview) {
+      setState(() {});
     }
   }
 
@@ -92,6 +107,53 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
       isDanger: true,
     );
     return confirmed;
+  }
+
+  /// 커서 위치에 이미지 마커 삽입
+  void _insertImageAtCursor(String base64) {
+    final newIndex = _images.length;
+    _images.add(base64);
+
+    final text = _contentController.text;
+    final selection = _contentController.selection;
+    final cursorPos = selection.isValid ? selection.baseOffset : text.length;
+
+    final marker = '\n[IMG:$newIndex]\n';
+    final before = text.substring(0, cursorPos);
+    final after = text.substring(cursorPos);
+    _contentController.text = '$before$marker$after';
+
+    // 커서를 마커 뒤로 이동
+    final newPos = cursorPos + marker.length;
+    _contentController.selection = TextSelection.collapsed(offset: newPos);
+
+    _hasUnsavedChanges = true;
+    setState(() {});
+  }
+
+  /// 이미지 삭제 + 마커 제거 + 리인덱싱
+  void _removeImage(int index) {
+    if (index < 0 || index >= _images.length) return;
+
+    // 이미지 리스트에서 제거
+    _images.removeAt(index);
+
+    // 콘텐츠에서 해당 마커 제거
+    var text = _contentController.text;
+    text = text.replaceAll(RegExp(r'\n?\[IMG:' + index.toString() + r'\]\n?'), '\n');
+
+    // N > index인 마커의 인덱스를 1씩 감소
+    text = text.replaceAllMapped(_imgMarkerRegex, (match) {
+      final n = int.parse(match.group(1)!);
+      if (n > index) {
+        return '[IMG:${n - 1}]';
+      }
+      return match.group(0)!;
+    });
+
+    _contentController.text = text.trim();
+    _hasUnsavedChanges = true;
+    setState(() {});
   }
 
   Future<void> _save() async {
@@ -188,7 +250,10 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final contentLength = _contentController.text.length;
+    final contentLength = _contentController.text
+        .replaceAll(_imgMarkerRegex, '')
+        .trim()
+        .length;
 
     return PopScope(
       canPop: !_hasUnsavedChanges,
@@ -223,6 +288,16 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
             style: TextStyle(color: context.appTextPrimary),
           ),
           actions: [
+            // 미리보기 토글
+            IconButton(
+              icon: Icon(
+                _showPreview ? Icons.edit_rounded : Icons.visibility_rounded,
+                color: context.appTextSecondary,
+                size: 22,
+              ),
+              tooltip: _showPreview ? '편집' : '미리보기',
+              onPressed: () => setState(() => _showPreview = !_showPreview),
+            ),
             TextButton(
               onPressed: _save,
               child: Text(
@@ -268,7 +343,8 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: context.appAccent, width: 1.5),
+                    borderSide:
+                        BorderSide(color: context.appAccent, width: 1.5),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -298,62 +374,56 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
               _buildDateField(),
               const SizedBox(height: 20),
 
-              // 내용
-              _buildSectionLabel('내용'),
+              // 내용 (편집 or 미리보기)
+              Row(
+                children: [
+                  _buildSectionLabel('내용'),
+                  const Spacer(),
+                  if (_images.isNotEmpty)
+                    Text(
+                      '이미지 ${_images.length}장',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.appTextHint,
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 8),
-              TextField(
-                controller: _contentController,
-                focusNode: _contentFocusNode,
-                maxLines: null,
-                minLines: 8,
-                maxLength: 10000,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: context.appTextPrimary,
-                  height: 1.5,
-                ),
-                decoration: InputDecoration(
-                  hintText: '메모 내용을 입력하세요...',
-                  hintStyle: TextStyle(color: context.appTextHint),
-                  filled: true,
-                  fillColor: context.appSurface,
-                  counterStyle: TextStyle(color: context.appTextHint),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: context.appDivider),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: context.appDivider),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: context.appAccent, width: 1.5),
-                  ),
-                  contentPadding: const EdgeInsets.all(16),
-                ),
-              ),
-              const SizedBox(height: 20),
 
-              // 이미지
-              MemoImagePicker(
-                images: _images,
-                onAdd: (base64) {
-                  setState(() {
-                    _images.add(base64);
-                    _hasUnsavedChanges = true;
-                  });
-                },
-                onRemove: (index) {
-                  setState(() {
-                    _images.removeAt(index);
-                    _hasUnsavedChanges = true;
-                  });
-                },
-                onTap: (index) {
-                  MemoImageViewer.show(context, _images, index);
-                },
-              ),
+              if (_showPreview)
+                _buildPreviewArea()
+              else
+                _buildEditArea(),
+
+              const SizedBox(height: 12),
+
+              // 이미지 추가 버튼 + 이미지 썸네일 목록
+              if (!_showPreview) ...[
+                Row(
+                  children: [
+                    MemoImagePickButton(
+                      onImagePicked: _insertImageAtCursor,
+                    ),
+                    if (_images.isNotEmpty) ...[
+                      const SizedBox(width: 12),
+                      Text(
+                        '커서 위치에 삽입됩니다',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: context.appTextHint,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                // 이미지 썸네일 목록 (삭제용)
+                if (_images.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _buildImageThumbnails(),
+                ],
+              ],
+
               const SizedBox(height: 24),
 
               // 하단 정보 + 삭제 버튼
@@ -389,6 +459,106 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// 편집 모드: TextField
+  Widget _buildEditArea() {
+    return TextField(
+      controller: _contentController,
+      focusNode: _contentFocusNode,
+      maxLines: null,
+      minLines: 8,
+      maxLength: 10000,
+      style: TextStyle(
+        fontSize: 15,
+        color: context.appTextPrimary,
+        height: 1.5,
+      ),
+      decoration: InputDecoration(
+        hintText: '메모 내용을 입력하세요...\n\n이미지 추가 버튼으로 커서 위치에 이미지를 삽입할 수 있습니다.',
+        hintStyle: TextStyle(color: context.appTextHint),
+        filled: true,
+        fillColor: context.appSurface,
+        counterStyle: TextStyle(color: context.appTextHint),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: context.appDivider),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: context.appDivider),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: context.appAccent, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  /// 미리보기 모드: 인라인 렌더링
+  Widget _buildPreviewArea() {
+    final content = _contentController.text;
+    if (content.isEmpty && _images.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: context.appDivider),
+        ),
+        child: Center(
+          child: Text(
+            '내용이 비어있습니다',
+            style: TextStyle(
+              fontSize: 14,
+              color: context.appTextHint,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appDivider),
+      ),
+      child: MemoContentRenderer(
+        content: content,
+        imageBase64List: _images,
+        textStyle: TextStyle(
+          fontSize: 15,
+          color: context.appTextPrimary,
+          height: 1.6,
+        ),
+      ),
+    );
+  }
+
+  /// 이미지 썸네일 리스트 (삭제 가능)
+  Widget _buildImageThumbnails() {
+    return SizedBox(
+      height: 72,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _images.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          return _ImageThumbnailItem(
+            base64String: _images[index],
+            index: index,
+            onRemove: () => _removeImage(index),
+            onTap: () => MemoImageViewer.show(context, _images, index),
+          );
+        },
       ),
     );
   }
@@ -465,4 +635,90 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
       return '${dateFormat.format(date)} ($weekday)';
     }
   }
+}
+
+/// 이미지 썸네일 (인덱스 뱃지 + X 삭제 버튼)
+class _ImageThumbnailItem extends StatelessWidget {
+  final String base64String;
+  final int index;
+  final VoidCallback onRemove;
+  final VoidCallback onTap;
+
+  const _ImageThumbnailItem({
+    required this.base64String,
+    required this.index,
+    required this.onRemove,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 64,
+              height: 64,
+              child: Image.memory(
+                base64Decode(base64String),
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: context.appIconBg,
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    size: 24,
+                    color: context.appTextHint,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // 인덱스 뱃지
+          Positioned(
+            bottom: 2,
+            left: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                '$index',
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          // X 삭제 버튼
+          Positioned(
+            top: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.6),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 12,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

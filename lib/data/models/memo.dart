@@ -71,15 +71,13 @@ class Memo extends HiveObject {
 
   int get imageCount => imageBase64List.length;
 
-  bool get canAddImage => imageBase64List.length < maxImages;
-
-  static const int maxImages = 3;
-
   static final _whitespaceRegex = RegExp(r'\s+');
+  static final _imgMarkerRegex = RegExp(r'\[IMG:\d+\]');
 
   String get contentPreview {
     if (content.isEmpty) return '';
-    final singleLine = content.replaceAll(_whitespaceRegex, ' ').trim();
+    final stripped = content.replaceAll(_imgMarkerRegex, '');
+    final singleLine = stripped.replaceAll(_whitespaceRegex, ' ').trim();
     return singleLine.length > 100
         ? '${singleLine.substring(0, 100)}...'
         : singleLine;
