@@ -46,6 +46,15 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
 
   bool get _isEditMode => widget.memoId != null;
 
+  /// 편집 모드면 상세 화면으로, 새 메모면 목록으로 복귀
+  void _goBack() {
+    if (_isEditMode) {
+      context.go('/memo/detail/${widget.memoId}');
+    } else {
+      context.go('/memo');
+    }
+  }
+
   static final _imgMarkerRegex = RegExp(r'\[IMG:(\d+)\]');
 
   @override
@@ -190,7 +199,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _hasUnsavedChanges = false;
 
     if (mounted) {
-      context.go('/memo');
+      context.go('/memo/detail/${memo.id}');
     }
   }
 
@@ -261,7 +270,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
         if (didPop) return;
         final shouldPop = await _onWillPop();
         if (shouldPop && context.mounted) {
-          context.go('/memo');
+          _goBack();
         }
       },
       child: Scaffold(
@@ -276,10 +285,10 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
               if (_hasUnsavedChanges) {
                 final shouldPop = await _onWillPop();
                 if (shouldPop && context.mounted) {
-                  context.go('/memo');
+                  _goBack();
                 }
               } else {
-                context.go('/memo');
+                _goBack();
               }
             },
           ),

@@ -266,7 +266,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
         return _DismissibleMemoCard(
           key: ValueKey(memo.id),
           memo: memo,
-          onTap: () => context.go('/memo/edit/${memo.id}'),
+          onTap: () => context.go('/memo/detail/${memo.id}'),
           onDismissed: () {
             ref.read(memoListProvider.notifier).delete(memo.id);
             ScaffoldMessenger.of(context).showSnackBar(
@@ -295,7 +295,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
         final memo = memoState.memos[index];
         return MemoCard(
           memo: memo,
-          onTap: () => context.go('/memo/edit/${memo.id}'),
+          onTap: () => context.go('/memo/detail/${memo.id}'),
         );
       },
     );
