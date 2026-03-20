@@ -10,3 +10,4 @@ export 'cycle_repository.dart';
 export 'trade_repository.dart';
 export 'watchlist_group_repository.dart';
 export 'recent_view_repository.dart';
+export 'memo_repository.dart';

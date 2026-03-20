@@ -15,6 +15,8 @@ import '../../repositories/recent_view_repository.dart';
 import '../../repositories/holding_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../repositories/settings_repository.dart';
+import '../../repositories/memo_repository.dart';
+import '../../models/memo.dart';
 
 /// 데이터 백업/복원/내보내기/초기화 서비스
 class DataManagementService {
@@ -26,6 +28,7 @@ class DataManagementService {
   final TradeRepository tradeRepository;
   final WatchlistGroupRepository watchlistGroupRepository;
   final RecentViewRepository recentViewRepository;
+  final MemoRepository memoRepository;
 
   DataManagementService({
     required this.watchlistRepository,
@@ -36,12 +39,13 @@ class DataManagementService {
     required this.tradeRepository,
     required this.watchlistGroupRepository,
     required this.recentViewRepository,
+    required this.memoRepository,
   });
 
   /// 전체 데이터를 JSON Map으로 백업
   Map<String, dynamic> createBackup() {
     return {
-      'version': 4,
+      'version': 5,
       'createdAt': DateTime.now().toIso8601String(),
       'data': {
         'settings': settingsRepository.settings.toJson(),
@@ -53,6 +57,7 @@ class DataManagementService {
         'trades': tradeRepository.getAll().map((t) => t.toJson()).toList(),
         'watchlistGroups': watchlistGroupRepository.getAll().map((g) => g.toJson()).toList(),
         'recentViews': recentViewRepository.getAll().map((r) => r.toJson()).toList(),
+        'memos': memoRepository.getAll().map((m) => m.toJson()).toList(),
       },
     };
   }
@@ -60,7 +65,7 @@ class DataManagementService {
   /// JSON Map에서 데이터 복원 (기존 데이터 전체 삭제 후 삽입)
   Future<void> restoreFromBackup(Map<String, dynamic> backup) async {
     final version = backup['version'] as int? ?? 1;
-    if (version > 4) {
+    if (version > 5) {
       throw FormatException('지원하지 않는 백업 버전: $version');
     }
 
@@ -141,6 +146,14 @@ class DataManagementService {
         await recentViewRepository.recordView(item);
       }
     }
+
+    // 11. Memos 복원 (v5+)
+    if (data['memos'] != null) {
+      for (final json in (data['memos'] as List)) {
+        final memo = Memo.fromJson(json as Map<String, dynamic>);
+        await memoRepository.save(memo);
+      }
+    }
   }
 
   /// 거래내역을 CSV 문자열로 내보내기
@@ -203,6 +216,7 @@ class DataManagementService {
       tradeRepository.clearAll(),
       watchlistGroupRepository.clear(),
       recentViewRepository.clear(),
+      memoRepository.clear(),
     ]);
   }
 

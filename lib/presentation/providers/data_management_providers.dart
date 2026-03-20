@@ -4,6 +4,7 @@ import 'core/repository_providers.dart';
 import 'watchlist_providers.dart';
 import 'watchlist_group_providers.dart';
 import 'notification_history_provider.dart';
+import 'memo_providers.dart';
 
 /// DataManagementService Provider
 final dataManagementServiceProvider = Provider<DataManagementService>((ref) {
@@ -16,5 +17,6 @@ final dataManagementServiceProvider = Provider<DataManagementService>((ref) {
     tradeRepository: ref.watch(tradeRepositoryProvider),
     watchlistGroupRepository: ref.watch(watchlistGroupRepositoryProvider),
     recentViewRepository: ref.watch(recentViewRepositoryProvider),
+    memoRepository: ref.watch(memoRepositoryProvider),
   );
 });

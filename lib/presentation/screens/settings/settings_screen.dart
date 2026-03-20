@@ -277,8 +277,10 @@ class SettingsScreen extends ConsumerWidget {
     // 수동 load()가 필요한 프로바이더 (MainShell.initState에서만 호출됨)
     ref.invalidate(watchlistProvider);
     ref.invalidate(notificationHistoryProvider);
+    ref.invalidate(memoListProvider);
     ref.read(watchlistProvider.notifier).load();
     ref.read(notificationHistoryProvider.notifier).load();
+    ref.read(memoListProvider.notifier).load();
   }
 
   void _showComingSoon(BuildContext context, String message) {
