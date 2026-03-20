@@ -12,6 +12,7 @@ import '../presentation/screens/holdings/holding_detail_screen.dart';
 import '../presentation/screens/holdings/holding_setup_screen.dart';
 import '../presentation/screens/history/history_screen.dart';
 import '../presentation/screens/memo/memo_screen.dart';
+import '../presentation/screens/memo/memo_create_edit_screen.dart';
 import '../presentation/screens/settings/settings_screen.dart';
 import '../presentation/screens/index/index_detail_screen.dart';
 import '../presentation/screens/watchlist/watchlist_screen.dart';
@@ -73,6 +74,8 @@ class AppRouter {
   static const String indexDetail = '/index/:symbol';
   static const String history = '/history';
   static const String memo = '/memo';
+  static const String memoCreate = '/memo/create';
+  static const String memoEdit = '/memo/edit/:memoId';
   static const String settings = '/settings';
 
   /// GoRouter 인스턴스
@@ -131,6 +134,17 @@ class AppRouter {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: MemoScreen(),
             ),
+          ),
+          GoRoute(
+            path: memoCreate,
+            builder: (context, state) => const MemoCreateEditScreen(),
+          ),
+          GoRoute(
+            path: memoEdit,
+            builder: (context, state) {
+              final memoId = state.pathParameters['memoId']!;
+              return MemoCreateEditScreen(memoId: memoId);
+            },
           ),
           GoRoute(
             path: settings,

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:js_interop';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 /// Web 이미지 압축 서비스
@@ -25,25 +25,8 @@ class ImageCompressService {
 
     input.addEventListener(
       'change',
-      ((web.Event event) async {
-        try {
-          final files = input.files;
-          if (files == null || files.length == 0) {
-            if (!completer.isCompleted) completer.complete(null);
-            return;
-          }
-
-          final file = files.item(0);
-          if (file == null) {
-            if (!completer.isCompleted) completer.complete(null);
-            return;
-          }
-
-          final base64 = await _compressFile(file);
-          if (!completer.isCompleted) completer.complete(base64);
-        } catch (e) {
-          if (!completer.isCompleted) completer.complete(null);
-        }
+      ((web.Event event) {
+        _handleFileChange(input, completer);
       }).toJS,
     );
 
@@ -59,6 +42,31 @@ class ImageCompressService {
 
     input.click();
     return completer.future;
+  }
+
+  /// change 이벤트 핸들러 (toJS 호환을 위해 비동기 분리)
+  static Future<void> _handleFileChange(
+    web.HTMLInputElement input,
+    Completer<String?> completer,
+  ) async {
+    try {
+      final files = input.files;
+      if (files == null || files.length == 0) {
+        if (!completer.isCompleted) completer.complete(null);
+        return;
+      }
+
+      final file = files.item(0);
+      if (file == null) {
+        if (!completer.isCompleted) completer.complete(null);
+        return;
+      }
+
+      final base64 = await _compressFile(file);
+      if (!completer.isCompleted) completer.complete(base64);
+    } catch (e) {
+      if (!completer.isCompleted) completer.complete(null);
+    }
   }
 
   /// 파일 → Canvas 리사이즈 → JPEG 압축 → base64
