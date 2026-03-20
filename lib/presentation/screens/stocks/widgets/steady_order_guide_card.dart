@@ -49,7 +49,12 @@ class SteadyOrderGuideCard extends ConsumerWidget {
                 style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: context.appTextPrimary),
               ),
               GestureDetector(
-                onTap: () => _showHelpDialog(context),
+                onTap: () {
+                  final cycles = ref.read(cycleListProvider);
+                  final cycle = cycles.where((c) => c.id == cycleId).firstOrNull;
+                  final version = cycle?.steadyVersion ?? SteadyVersion.v1;
+                  _showHelpDialog(context, version);
+                },
                 child: Icon(Icons.help_outline, size: 18, color: context.appTextHint),
               ),
             ],
@@ -270,7 +275,66 @@ class SteadyOrderGuideCard extends ConsumerWidget {
     );
   }
 
-  static void _showHelpDialog(BuildContext context) {
+  static void _showHelpDialog(BuildContext context, SteadyVersion version) {
+    final content = switch (version) {
+      SteadyVersion.v1 => '── 매수 (매일) ──\n\n'
+          'LOC A (평단가)\n'
+          '0.5unit을 평단가에 LOC 주문.\n'
+          '종가가 평단 이하이면 종가에 체결됩니다.\n'
+          '현재가 > 평단이면 A는 주문하지 않습니다.\n\n'
+          'LOC B (+10% 큰수매수)\n'
+          '0.5unit을 평단×1.1에 LOC 주문.\n'
+          '종가가 이 가격 이하이면 체결 (거의 항상 체결).\n\n'
+          'LOC (Limit On Close)\n'
+          '설정 가격 이하로 종가가 형성되면 종가에 체결.\n'
+          '종가가 설정 가격보다 높으면 미체결.\n\n'
+          '── 매도 (매일) ──\n\n'
+          '지정가 매도 (전량)\n'
+          '보유 전량을 평단+10%에 매도 주문.\n'
+          '장중 이 가격에 도달하면 전량 매도 → 사이클 완료.\n\n'
+          '── 기타 ──\n\n'
+          '40회 소진\n'
+          '모든 금액을 투입한 상태. 매수 중단.\n'
+          '매도 주문만 유지하며 익절을 기다립니다.\n\n'
+          '미체결 (정상)\n'
+          'LOC A가 체결되지 않는 날이 있습니다.\n'
+          '이는 현금이 보존되는 것이므로 정상입니다.',
+      SteadyVersion.v2_2 => '── 매수 ──\n\n'
+          'T값: 투자금 ÷ 1회 매수금 (소수점 올림)\n'
+          'T가 클수록 원금 소진. 예: T=5 → 5회분 투입\n\n'
+          '오프셋: LOC 주문가를 평단 대비 몇%로 설정할지.\n'
+          'T가 커질수록 낮아져 → 더 싼 가격에서만 매수.\n\n'
+          'LOC A (평단): 0.5unit, 종가 ≤ 평단 시 체결\n'
+          'LOC B (오프셋): 0.5unit, 종가 ≤ 오프셋가 시 체결\n\n'
+          '전반전 (T<20): A+B 2종 주문\n'
+          '후반전 (T≥20): 오프셋 LOC 1종만\n\n'
+          '── 매도 ──\n\n'
+          'LOC 매도 (1/4): 보유 25%를 오프셋가에 LOC\n'
+          '지정가 매도 (3/4): 보유 75%를 +10%에 지정가\n'
+          '매일 매수+매도를 동시에 설정합니다.\n\n'
+          '── 특수 ──\n\n'
+          '쿼터모드 (T≥39.1): 원금 소진 안전장치\n'
+          '1/4 MOC 손절 + 3/4 +10% 지정가 매도\n\n'
+          'MOC: 종가에 무조건 체결되는 시장가 주문',
+      SteadyVersion.v3_0 => '── 매수 ──\n\n'
+          'T값: 투자금 ÷ 1회 매수금 (소수점 올림)\n'
+          '반복리 시 매도 수익금도 포함하여 계산.\n\n'
+          '오프셋: TQQQ형 15-1.5T / SOXL형 20-2T\n'
+          'T가 커질수록 낮아져 → 더 싼 가격에서만 매수.\n\n'
+          'LOC A (오프셋): 0.5unit, 종가 ≤ 오프셋가 시 체결\n'
+          'LOC B (평단): 0.5unit, 종가 ≤ 평단 시 체결\n\n'
+          '전반전 (T<10): A+B 2종 주문\n'
+          '후반전 (T≥10): 오프셋 LOC 1종만\n\n'
+          '── 매도 ──\n\n'
+          'LOC 매도 (1/4): 보유 25%를 오프셋가에 LOC\n'
+          '지정가 매도 (3/4): TQQQ +15% / SOXL +20%\n\n'
+          '── 특수 ──\n\n'
+          '반복리: 매도 수익 ÷ 40을 다음 매수금에 추가\n'
+          '손해 시 매수금 유지.\n\n'
+          '쿼터모드 (19<T<20): 원금 소진 안전장치\n'
+          '1/4 MOC 매도 + 3/4 지정가 매도 + 추가매수 5회',
+    };
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -279,61 +343,19 @@ class SteadyOrderGuideCard extends ConsumerWidget {
           children: [
             Icon(Icons.help_outline, size: 20, color: ctx.appAccent),
             const SizedBox(width: 8),
-            Text('용어 설명', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ctx.appTextPrimary)),
+            Text(
+              switch (version) {
+                SteadyVersion.v1 => 'V1 Simple 가이드',
+                SteadyVersion.v2_2 => 'V2.2 Original 가이드',
+                SteadyVersion.v3_0 => 'V3.0 Aggressive 가이드',
+              },
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ctx.appTextPrimary),
+            ),
           ],
         ),
         content: SingleChildScrollView(
           child: Text(
-            '── 매수 ──\n\n'
-            'T값 (회차)\n'
-            '투자한 금액 ÷ 1회 매수금. T가 클수록 원금 소진.\n'
-            '예: T=5 → 5회분 투입 완료\n\n'
-            '오프셋 (별%)\n'
-            'LOC 주문가를 평단 대비 몇%로 설정할지 결정.\n'
-            'T가 커질수록 낮아져 → 더 싼 가격에서만 매수.\n'
-            '예: +10% → 평단보다 비싸도 매수\n'
-            '    -5% → 평단보다 싸야만 매수\n\n'
-            'LOC A / LOC B (전반전)\n'
-            '전반전에 2종 매수 주문을 동시에 설정.\n'
-            'V2.2: A=평단가, B=오프셋가\n'
-            'V3.0: A=오프셋가, B=평단가\n\n'
-            '전반전 / 후반전\n'
-            '총 분할의 절반 기준 (V2.2: T=20, V3.0: T=10).\n'
-            '전반전: 2종 주문 / 후반전: 1종 주문\n\n'
-            '── 매도 ──\n\n'
-            '매일 매수+매도를 동시에 설정\n'
-            '증권사에서 매수 LOC와 매도 주문을 같은 날 걸어놓습니다.\n'
-            '다음 날 체결 여부를 확인하고 앱에 기록합니다.\n\n'
-            'LOC 매도 (1/4)\n'
-            '보유수량의 25%를 별% 가격에 LOC 매도.\n'
-            '종가 ≥ 별% 가격이면 체결. 부분 수익 실현.\n\n'
-            '지정가 매도 (3/4)\n'
-            '보유수량의 75%를 익절 목표가에 지정가 매도.\n'
-            '장중 목표가 이상 도달 시 즉시 체결.\n'
-            'V2.2: +10%, V3.0: TQQQ +15% / SOXL +20%\n\n'
-            '미체결 (정상)\n'
-            'LOC 주문이 체결되지 않을 수 있습니다.\n'
-            '이는 "현금 보존"이며 하락장 방어의 핵심입니다.\n\n'
-            '── 특수 ──\n\n'
-            '반복리 (V3.0)\n'
-            '매도 수익의 1/40을 다음 매수금에 추가.\n'
-            '손해 시에는 매수금을 유지합니다.\n\n'
-            '쿼터모드\n'
-            '원금 소진 시 발동하는 안전장치.\n'
-            'V2.2: 1/4 MOC 손절 → 10회 재진입\n'
-            'V3.0: 1/4 MOC 매도 + 지정가 매도\n\n'
-            'MOC (Market On Close)\n'
-            '종가에 무조건 체결되는 시장가 주문.\n'
-            'LOC와 달리 가격 조건 없이 확실하게 체결됩니다.\n\n'
-            '── V1 Simple ──\n\n'
-            '40분할 매수\n'
-            '시드를 40등분하여 매일 1회분씩 매수.\n'
-            'A: 평단가 LOC (0.5unit) — 종가 ≤ 평단이면 체결\n'
-            'B: +10% LOC (0.5unit) — 종가 ≤ 평단×1.1이면 체결\n'
-            '현재가 > 평단이면 B만 주문합니다.\n\n'
-            '매도: 평단+10% 지정가 매도 (전량)\n'
-            '매일 전체 수량을 평단+10%에 매도 주문 설정.\n'
-            '도달하면 전량 매도 → 사이클 완료.',
+            content,
             style: TextStyle(fontSize: 13, color: ctx.appTextSecondary, height: 1.6),
           ),
         ),

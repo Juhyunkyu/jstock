@@ -431,9 +431,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     final price = prices[cycle.ticker];
     final quote = ref.read(stockQuoteProvider).quotes[cycle.ticker];
 
-    // V2.2/V3.0 Steady: 매수+매도 통합 시트
-    if (cycle.strategyType == StrategyType.infiniteBuy &&
-        cycle.steadyVersion != SteadyVersion.v1) {
+    // Steady Cycle (V1/V2.2/V3.0): 매수+매도 통합 시트
+    if (cycle.strategyType == StrategyType.infiniteBuy) {
       showModalBottomSheet(
         context: context,
         useRootNavigator: true,
@@ -489,7 +488,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       return;
     }
 
-    // V1 + Smart Cycle: 기존 시트
+    // Smart Cycle: 기존 시트
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
