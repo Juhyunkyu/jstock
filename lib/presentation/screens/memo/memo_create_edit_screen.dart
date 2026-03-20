@@ -230,12 +230,19 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              onSurface: context.appTextPrimary,
-              surface: context.appSurface,
-            ),
+            colorScheme: context.isDarkMode
+                ? ColorScheme.dark(
+                    primary: context.appAccent,
+                    onPrimary: Colors.white,
+                    onSurface: context.appTextPrimary,
+                    surface: context.appSurface,
+                  )
+                : ColorScheme.light(
+                    primary: AppColors.primary,
+                    onPrimary: Colors.white,
+                    onSurface: context.appTextPrimary,
+                    surface: context.appSurface,
+                  ),
             datePickerTheme: DatePickerThemeData(
               backgroundColor: context.appSurface,
               headerBackgroundColor: AppColors.primary,
@@ -307,14 +314,25 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
               tooltip: _showPreview ? '편집' : '미리보기',
               onPressed: () => setState(() => _showPreview = !_showPreview),
             ),
-            TextButton(
-              onPressed: _save,
-              child: Text(
-                '저장',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: context.appAccent,
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: context.appAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  '저장',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
