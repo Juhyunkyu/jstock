@@ -68,11 +68,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     // 탭 변경 시 PageView도 동기화
     ref.listen<int>(selectedWatchlistTabProvider, (prev, next) {
       if (_pageController.hasClients && next < tabLabels.length) {
-        _pageController.animateToPage(
-          next,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeInOut,
-        );
+        _pageController.jumpToPage(next);
       }
     });
 
