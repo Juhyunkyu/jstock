@@ -429,6 +429,7 @@ class _SteadyCombinedTradeSheetState
             sharesCtrl: _sellLocSharesCtrl,
             recommendedPrice: sellLoc.price,
             recommendedShares: sellLoc.shares,
+            isSell: true,
           ),
         if (sellLoc != null && sellLimit != null) const SizedBox(height: 12),
         if (sellLimit != null)
@@ -440,6 +441,7 @@ class _SteadyCombinedTradeSheetState
             sharesCtrl: _sellLimitSharesCtrl,
             recommendedPrice: sellLimit.price,
             recommendedShares: sellLimit.shares,
+            isSell: true,
           ),
       ],
     );
@@ -457,6 +459,7 @@ class _SteadyCombinedTradeSheetState
     required TextEditingController sharesCtrl,
     double? recommendedPrice,
     double? recommendedShares,
+    bool isSell = false,
   }) {
     final intShares = recommendedShares?.floor();
 
@@ -502,7 +505,7 @@ class _SteadyCombinedTradeSheetState
           children: [
             Expanded(flex: 3, child: _priceField(context, priceCtrl)),
             const SizedBox(width: 8),
-            Expanded(flex: 2, child: _sharesField(context, sharesCtrl)),
+            Expanded(flex: 3, child: _sharesField(context, sharesCtrl, isSell: isSell)),
           ],
         ),
       ],
@@ -544,36 +547,104 @@ class _SteadyCombinedTradeSheetState
     );
   }
 
-  Widget _sharesField(BuildContext context, TextEditingController ctrl) {
-    return TextField(
-      controller: ctrl,
-      keyboardType: TextInputType.number,
-      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-      style: TextStyle(fontSize: 14, color: context.appTextPrimary),
-      decoration: InputDecoration(
-        suffixText: '주',
-        suffixStyle: TextStyle(fontSize: 13, color: context.appTextHint),
-        hintText: '수량',
-        hintStyle: TextStyle(fontSize: 13, color: context.appTextHint),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        isDense: true,
-        filled: true,
-        fillColor: context.appBackground,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: context.appBorder, width: 0.5),
+  /// 매도 시 다른 매도 필드에서 이미 사용 중인 수량을 제외한 최대 매도 가능 수량
+  int _maxSellableShares(TextEditingController currentCtrl) {
+    final total = widget.cycle.totalShares.floor();
+    int otherSellShares = 0;
+    // 현재 컨트롤러가 아닌 다른 매도 컨트롤러의 수량 합산
+    if (currentCtrl != _sellLocSharesCtrl) {
+      otherSellShares += int.tryParse(_sellLocSharesCtrl.text) ?? 0;
+    }
+    if (currentCtrl != _sellLimitSharesCtrl) {
+      otherSellShares += int.tryParse(_sellLimitSharesCtrl.text) ?? 0;
+    }
+    return (total - otherSellShares).clamp(0, total);
+  }
+
+  Widget _sharesField(
+    BuildContext context,
+    TextEditingController ctrl, {
+    bool isSell = false,
+  }) {
+    void clampIfSell() {
+      if (!isSell) return;
+      final max = _maxSellableShares(ctrl);
+      final current = int.tryParse(ctrl.text) ?? 0;
+      if (current > max) {
+        ctrl.text = max.toString();
+        ctrl.selection = TextSelection.fromPosition(
+          TextPosition(offset: ctrl.text.length),
+        );
+      }
+    }
+
+    void stepShares(int delta) {
+      final current = int.tryParse(ctrl.text) ?? 0;
+      var next = (current + delta).clamp(0, 999999);
+      if (isSell) {
+        final max = _maxSellableShares(ctrl);
+        next = next.clamp(0, max);
+      }
+      ctrl.text = next == 0 ? '' : next.toString();
+      ctrl.selection = TextSelection.fromPosition(
+        TextPosition(offset: ctrl.text.length),
+      );
+      setState(() {});
+    }
+
+    return Row(
+      children: [
+        _StepperButton(
+          icon: Icons.remove,
+          onPressed: () => stepShares(-1),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: context.appBorder, width: 0.5),
+        const SizedBox(width: 4),
+        Expanded(
+          child: TextField(
+            controller: ctrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+            decoration: InputDecoration(
+              suffixText: '주',
+              suffixStyle:
+                  TextStyle(fontSize: 13, color: context.appTextHint),
+              hintText: '수량',
+              hintStyle:
+                  TextStyle(fontSize: 13, color: context.appTextHint),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              isDense: true,
+              filled: true,
+              fillColor: context.appBackground,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    BorderSide(color: context.appBorder, width: 0.5),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    BorderSide(color: context.appBorder, width: 0.5),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide:
+                    BorderSide(color: context.appAccent, width: 1),
+              ),
+            ),
+            onChanged: (_) {
+              clampIfSell();
+              setState(() {});
+            },
+          ),
         ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: context.appAccent, width: 1),
+        const SizedBox(width: 4),
+        _StepperButton(
+          icon: Icons.add,
+          onPressed: () => stepShares(1),
         ),
-      ),
-      onChanged: (_) => setState(() {}),
+      ],
     );
   }
 
@@ -799,7 +870,28 @@ class _SteadyCombinedTradeSheetState
   // 저장
   // ═══════════════════════════════════════════════════════════════
 
+  // ═══════════════════════════════════════════════════════════════
+  // 매도 수량 초과 검증 (_onSave 직전)
+  // ═══════════════════════════════════════════════════════════════
+
+  bool _validateSellShares(BuildContext context) {
+    final totalHeld = widget.cycle.totalShares.floor();
+    final sellTotal = (_sellLocShares + _sellLimitShares).toInt();
+    if (sellTotal > totalHeld) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('매도 합계 $sellTotal주가 보유 수량 $totalHeld주를 초과합니다'),
+          backgroundColor: AppColors.red500,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _onSave() async {
+    if (!_validateSellShares(context)) return;
     setState(() => _isSubmitting = true);
     final exchangeRate = widget.currentExchangeRate;
     final date = _selectedDate;
@@ -871,5 +963,36 @@ class _SteadyCombinedTradeSheetState
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 스텝퍼 버튼 (수량 +/-)
+// ═══════════════════════════════════════════════════════════════
+
+class _StepperButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  const _StepperButton({
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 36,
+      height: 36,
+      child: Material(
+        color: context.appBackground,
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(8),
+          child: Icon(icon, size: 18, color: context.appTextSecondary),
+        ),
+      ),
+    );
   }
 }

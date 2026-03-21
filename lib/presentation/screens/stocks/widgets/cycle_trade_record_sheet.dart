@@ -146,9 +146,10 @@ class _CycleTradeRecordSheetState
         );
         final hasInitialEntry = widget.cycle.averagePrice > 0;
         if (hasInitialEntry && buySignals.contains(TradeSignal.initial)) {
-          // 초기진입 완료 → initial 건너뛰고 다음 매수 신호 선택
-          final nextSignals = buySignals.where((s) => s != TradeSignal.initial).toList();
-          _selectedSignal = nextSignals.isNotEmpty ? nextSignals.first : buySignals.first;
+          // 초기진입 완료 + hold 상태 → 수동 기본 선택
+          _selectedSignal = buySignals.contains(TradeSignal.manual)
+              ? TradeSignal.manual
+              : buySignals.last;
         } else {
           _selectedSignal = buySignals.first;
         }
