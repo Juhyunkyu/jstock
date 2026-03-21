@@ -389,6 +389,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           bbSignal: ind.bbSignal,
                                           ichSignal: ind.ichSignal,
                                           isDarkMode: Theme.of(context).brightness == Brightness.dark,
+                                          isDesktop: screenWidth >= 768,
                                           textColor: context.appTextSecondary,
                                           cardBgColor: context.appSurface,
                                           currentPrice: widget.currentPrice,

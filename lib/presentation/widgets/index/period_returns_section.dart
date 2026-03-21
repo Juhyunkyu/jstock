@@ -12,6 +12,7 @@ class PeriodReturnsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final periods = ['1D', '1W', '1M', '3M', 'YTD', '1Y'];
     final labels = ['1일', '1주', '1개월', '3개월', 'YTD', '1년'];
     return Container(
@@ -45,7 +46,7 @@ class PeriodReturnsSection extends StatelessWidget {
                         ? '${isPositive ? '+' : ''}${value.toStringAsFixed(1)}%'
                         : '-',
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: isDesktop ? 13.0 : 12.0,
                       fontWeight: FontWeight.w700,
                       color: color,
                     ),
@@ -54,7 +55,7 @@ class PeriodReturnsSection extends StatelessWidget {
                   Text(
                     labels[i],
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: isDesktop ? 12.0 : 10.0,
                       color: context.appTextHint,
                     ),
                   ),

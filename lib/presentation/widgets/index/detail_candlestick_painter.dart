@@ -24,6 +24,7 @@ class DetailCandlestickPainter extends CustomPainter {
   final IndicatorSignal? bbSignal;
   final IndicatorSignal? ichSignal;
   final bool isDarkMode;
+  final bool isDesktop;
   final Color textColor;
   final Color cardBgColor;
   final double? currentPrice;
@@ -45,6 +46,7 @@ class DetailCandlestickPainter extends CustomPainter {
     this.bbSignal,
     this.ichSignal,
     required this.isDarkMode,
+    this.isDesktop = false,
     required this.textColor,
     required this.cardBgColor,
     this.currentPrice,
@@ -343,7 +345,7 @@ class DetailCandlestickPainter extends CustomPainter {
     final yPositions = [topPadding, topPadding + chartHeight / 3, topPadding + chartHeight * 2 / 3, topPadding + chartHeight];
 
     for (int i = 0; i < values.length; i++) {
-      final textSpan = TextSpan(text: formatAxisPrice(values[i]), style: TextStyle(color: textColor, fontSize: 10));
+      final textSpan = TextSpan(text: formatAxisPrice(values[i]), style: TextStyle(color: textColor, fontSize: isDesktop ? 12.0 : 10.0));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(size.width - rightPadding + 8, yPositions[i] - textPainter.height / 2));
@@ -368,7 +370,7 @@ class DetailCandlestickPainter extends CustomPainter {
         default: label = "${DateFormat('MM/dd').format(date)} '${DateFormat('yy').format(date)}";
       }
 
-      final textSpan = TextSpan(text: label, style: TextStyle(color: textColor, fontSize: 10));
+      final textSpan = TextSpan(text: label, style: TextStyle(color: textColor, fontSize: isDesktop ? 11.0 : 10.0));
       final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
       textPainter.layout();
       textPainter.paint(canvas, Offset(x - textPainter.width / 2, topPadding + chartHeight + 6));
@@ -405,9 +407,10 @@ class DetailCandlestickPainter extends CustomPainter {
     canvas.drawPath(highTriPath, Paint()..color = AppColors.stockUp..style = PaintingStyle.fill);
 
     final highLabel = _buildMarkerLabel(highCandle.high, highCandle.date);
+    final markerFontSize = isDesktop ? 11.0 : 9.0;
     final highSpan = TextSpan(
       text: highLabel,
-      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+      style: TextStyle(color: Colors.white, fontSize: markerFontSize, fontWeight: FontWeight.w600),
     );
     final highPainter = TextPainter(text: highSpan, textDirection: ui.TextDirection.ltr);
     highPainter.layout();
@@ -437,7 +440,7 @@ class DetailCandlestickPainter extends CustomPainter {
     final lowLabel = _buildMarkerLabel(lowCandle.low, lowCandle.date);
     final lowSpan = TextSpan(
       text: lowLabel,
-      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+      style: TextStyle(color: Colors.white, fontSize: markerFontSize, fontWeight: FontWeight.w600),
     );
     final lowPainter = TextPainter(text: lowSpan, textDirection: ui.TextDirection.ltr);
     lowPainter.layout();
@@ -465,7 +468,7 @@ class DetailCandlestickPainter extends CustomPainter {
     final priceText = _formatMarkerPrice(currentPrice!);
     final textSpan = TextSpan(
       text: priceText,
-      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+      style: TextStyle(color: Colors.white, fontSize: isDesktop ? 12.0 : 10.0, fontWeight: FontWeight.w600),
     );
     final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
     textPainter.layout();
