@@ -222,7 +222,8 @@ class _ChartDrawingMenuButtonState extends State<ChartDrawingMenuButton> {
             SizedBox(
               width: isDesktop ? 24 : 20,
               height: isDesktop ? 24 : 20,
-              child: Center(
+              child: Align(
+                alignment: Alignment.centerLeft,
                 child: Icon(icon, size: iconSize, color: context.appTextPrimary),
               ),
             ),
