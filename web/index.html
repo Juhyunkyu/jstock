@@ -100,6 +100,10 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
+    @keyframes exitToastFade {
+      0%, 70% { opacity: 1; }
+      100% { opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -121,6 +125,14 @@
         splash.classList.add('fade-out');
         setTimeout(function() { splash.remove(); }, 300);
       }
+
+      // 종료 방지 guard entry: 홈 아래에 삽입
+      // go_router가 URL을 설정한 후 실행되므로 hash URL(/#/) 호환
+      // 현재 상태를 guard로 교체 → 실제 홈을 위에 push
+      var currentState = history.state;
+      var currentUrl = location.href;
+      history.replaceState({ _exitGuard: true }, '', currentUrl);
+      history.pushState(currentState, '', currentUrl);
     });
   </script>
 
@@ -145,8 +157,28 @@
         if (window._flutterModalCount > 0 && window._closeFlutterModal) {
           window._closeFlutterModal();
           e.stopImmediatePropagation();
+          return;
+        }
+        // 종료 guard 도달 → 토스트 표시, 한 번 더 누르면 종료
+        if (e.state && e.state._exitGuard) {
+          _showExitToast();
+          e.stopImmediatePropagation();
         }
       });
+
+      function _showExitToast() {
+        var existing = document.getElementById('exit-toast');
+        if (existing) existing.remove();
+        var toast = document.createElement('div');
+        toast.id = 'exit-toast';
+        toast.textContent = '한 번 더 누르면 종료됩니다';
+        toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
+          'background:rgba(0,0,0,0.8);color:white;padding:10px 24px;border-radius:20px;' +
+          'font-size:14px;z-index:99999;font-family:inherit;pointer-events:none;' +
+          'animation:exitToastFade 2s ease-out forwards;';
+        document.body.appendChild(toast);
+        setTimeout(function() { toast.remove(); }, 2000);
+      }
     })();
   </script>
 
