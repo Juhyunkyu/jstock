@@ -1,3 +1,5 @@
+import 'dart:js_interop';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,25 +23,62 @@ import '../presentation/widgets/common/main_shell.dart';
 import '../presentation/widgets/stocks/popular_etf_list.dart';
 import '../core/utils/symbol_name_resolver.dart';
 
+/// JS interop: window._flutterModalCount (모달 열림 수)
+@JS('_flutterModalCount')
+external set _jsModalCount(JSNumber value);
+
+/// JS interop: window._closeFlutterModal (모달 닫기 콜백)
+@JS('_closeFlutterModal')
+external set _jsCloseModal(JSFunction? value);
+
 /// 모달(BottomSheet, Dialog) 열림 상태를 추적하는 NavigatorObserver
 ///
 /// 브라우저 뒤로가기 시 모달이 열려있으면 모달만 닫고 페이지 이동을 방지하기 위해 사용.
+/// index.html의 popstate 핸들러와 연동:
+/// - window._flutterModalCount: 열린 모달 수
+/// - window._closeFlutterModal: 최상위 모달 닫기 콜백
 class _ModalObserver extends NavigatorObserver {
   int openCount = 0;
 
+  void _syncToJs() {
+    _jsModalCount = openCount.toJS;
+    if (openCount > 0) {
+      _jsCloseModal = _closeTopModal.toJS;
+    } else {
+      _jsCloseModal = null;
+    }
+  }
+
   @override
   void didPush(Route route, Route? previousRoute) {
-    if (route is PopupRoute) openCount++;
+    if (route is PopupRoute) {
+      openCount++;
+      _syncToJs();
+    }
   }
 
   @override
   void didPop(Route route, Route? previousRoute) {
-    if (route is PopupRoute && openCount > 0) openCount--;
+    if (route is PopupRoute && openCount > 0) {
+      openCount--;
+      _syncToJs();
+    }
   }
 
   @override
   void didRemove(Route route, Route? previousRoute) {
-    if (route is PopupRoute && openCount > 0) openCount--;
+    if (route is PopupRoute && openCount > 0) {
+      openCount--;
+      _syncToJs();
+    }
+  }
+}
+
+/// 최상위 모달 닫기 (JS popstate 핸들러에서 호출)
+void _closeTopModal() {
+  final rootNav = AppRouter._rootNavigatorKey.currentState;
+  if (rootNav != null && rootNav.canPop()) {
+    rootNav.pop();
   }
 }
 
@@ -58,9 +97,6 @@ class AppRouter {
 
   /// 모달 추적 옵저버
   static final _modalObserver = _ModalObserver();
-
-  /// 현재 라우트 경로 (모달 닫기 시 복귀용)
-  static String _currentLocation = '/';
 
   /// 라우트 경로 상수
   static const String home = '/';
@@ -85,21 +121,8 @@ class AppRouter {
     navigatorKey: _rootNavigatorKey,
     observers: [_modalObserver],
     initialLocation: home,
-    redirect: (context, state) {
-      final newPath = state.matchedLocation;
-
-      // 모달이 열려있는 상태에서 뒤로가기 → 모달만 닫고 현재 페이지 유지
-      if (_modalObserver.openCount > 0 && newPath != _currentLocation) {
-        final rootNav = _rootNavigatorKey.currentState;
-        if (rootNav != null && rootNav.canPop()) {
-          rootNav.pop();
-        }
-        return _currentLocation;
-      }
-
-      _currentLocation = newPath;
-      return null;
-    },
+    // 모달 뒤로가기는 index.html의 popstate 핸들러에서 처리
+    // (go_router redirect보다 먼저 실행, stopImmediatePropagation으로 차단)
     routes: [
       // 하단 네비게이션을 포함하는 쉘 라우트
       ShellRoute(
