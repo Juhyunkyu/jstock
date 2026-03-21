@@ -267,20 +267,34 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
   }
 
   Widget _buildDesktopGrid(MemoListState memoState) {
-    return GridView.builder(
+    return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 4.0,
-      ),
+      buildDefaultDragHandles: false,
+      proxyDecorator: (child, index, animation) {
+        return Material(
+          elevation: 4,
+          borderRadius: BorderRadius.circular(12),
+          color: Colors.transparent,
+          child: child,
+        );
+      },
+      onReorder: (oldIndex, newIndex) {
+        ref.read(memoListProvider.notifier).reorder(oldIndex, newIndex);
+      },
       itemCount: memoState.memos.length,
       itemBuilder: (context, index) {
         final memo = memoState.memos[index];
-        return MemoCard(
-          memo: memo,
-          onTap: () => context.go('/memo/detail/${memo.id}'),
+        return Padding(
+          key: ValueKey(memo.id),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: ReorderableDragStartListener(
+            index: index,
+            child: MemoCard(
+              memo: memo,
+              showDragHandle: true,
+              onTap: () => context.go('/memo/detail/${memo.id}'),
+            ),
+          ),
         );
       },
     );
