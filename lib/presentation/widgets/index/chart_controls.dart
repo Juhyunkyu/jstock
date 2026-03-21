@@ -15,6 +15,7 @@ class ChartPeriodSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     const periods = ['일봉', '주봉', '월봉'];
     return Container(
       padding: const EdgeInsets.all(2),
@@ -29,7 +30,10 @@ class ChartPeriodSelector extends StatelessWidget {
           return GestureDetector(
             onTap: () => onPeriodChanged(period),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 10 : 8,
+                vertical: isDesktop ? 5 : 4,
+              ),
               decoration: BoxDecoration(
                 color: isSelected ? context.appSurface.withValues(alpha: 0.5) : Colors.transparent,
                 borderRadius: BorderRadius.circular(6),
@@ -40,7 +44,7 @@ class ChartPeriodSelector extends StatelessWidget {
               child: Text(
                 period,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: isDesktop ? 13.0 : 11.0,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                   color: isSelected ? context.appTextPrimary : context.appTextHint,
                 ),
@@ -68,6 +72,7 @@ class IndicatorChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     const indicators = [
       {'key': 'VOL', 'label': 'VOL'},
       {'key': 'BB', 'label': 'BB'},
@@ -91,7 +96,10 @@ class IndicatorChips extends StatelessWidget {
             child: GestureDetector(
               onTap: () => onToggle(key),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isDesktop ? 12 : 10,
+                  vertical: isDesktop ? 6 : 5,
+                ),
                 decoration: BoxDecoration(
                   color: isActive ? context.appSurface : context.appIconBg,
                   borderRadius: BorderRadius.circular(14),
@@ -106,7 +114,7 @@ class IndicatorChips extends StatelessWidget {
                     Text(
                       label,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: isDesktop ? 13.0 : 11.0,
                         fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                         color: isActive ? context.appTextPrimary : context.appTextHint,
                       ),
@@ -114,7 +122,7 @@ class IndicatorChips extends StatelessWidget {
                     const SizedBox(width: 3),
                     GestureDetector(
                       onTap: () => onHelpTap(key),
-                      child: Icon(Icons.help_outline, size: 14, color: context.appTextHint),
+                      child: Icon(Icons.help_outline, size: isDesktop ? 15 : 14, color: context.appTextHint),
                     ),
                   ],
                 ),
@@ -138,6 +146,7 @@ class LegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final textColor = context.isDarkMode ? color : (darkColor ?? color);
     return Padding(
       padding: const EdgeInsets.only(left: 4, right: 1),
@@ -146,7 +155,7 @@ class LegendItem extends StatelessWidget {
         children: [
           Container(width: 8, height: 2, color: color),
           const SizedBox(width: 2),
-          Text(label, style: TextStyle(fontSize: 10, color: textColor, fontWeight: FontWeight.w600)),
+          Text(label, style: TextStyle(fontSize: isDesktop ? 11.0 : 10.0, color: textColor, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -168,10 +177,10 @@ class SubChartHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.sizeOf(context).width < 600;
-    final fontSize = isMobile ? 11.0 : 13.0;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    final fontSize = isDesktop ? 13.0 : 11.0;
     return Padding(
-      padding: EdgeInsets.only(top: isMobile ? 4 : 6, bottom: 2),
+      padding: EdgeInsets.only(top: isDesktop ? 6 : 4, bottom: 2),
       child: Row(
         children: [
           Text(

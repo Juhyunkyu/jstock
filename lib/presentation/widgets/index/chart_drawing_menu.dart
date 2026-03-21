@@ -63,12 +63,20 @@ class _ChartDrawingMenuButtonState extends State<ChartDrawingMenuButton> {
     }
 
     // 기본 -> 연필 아이콘 + 커스텀 팝업
+    final pencilSize = isDesktop ? 32.0 : 28.0;
     return GestureDetector(
       key: _drawingToggleKey,
       onTap: _toggleDrawingMenu,
-      child: Padding(
-        padding: EdgeInsets.all(isDesktop ? 4 : 2),
-        child: Icon(Icons.edit, size: isDesktop ? 20 : 16, color: context.appTextHint),
+      child: Container(
+        width: pencilSize,
+        height: pencilSize,
+        decoration: BoxDecoration(
+          color: context.appIconBg,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Icon(Icons.edit, size: isDesktop ? 18 : 15, color: context.appTextHint),
+        ),
       ),
     );
   }
@@ -213,7 +221,10 @@ class _ChartDrawingMenuButtonState extends State<ChartDrawingMenuButton> {
           children: [
             SizedBox(
               width: isDesktop ? 22 : 20,
-              child: Icon(icon, size: iconSize, color: context.appTextPrimary),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Icon(icon, size: iconSize, color: context.appTextPrimary),
+              ),
             ),
             SizedBox(width: isDesktop ? 8 : 6),
             Text(

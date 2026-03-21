@@ -362,10 +362,10 @@ class DetailCandlestickPainter extends CustomPainter {
 
       String label;
       switch (selectedPeriod) {
-        case '일봉': label = DateFormat('MM/dd').format(date); break;
-        case '주봉': label = DateFormat('yy/MM').format(date); break;
+        case '일봉': label = "${DateFormat('MM/dd').format(date)} '${DateFormat('yy').format(date)}"; break;
+        case '주봉': label = DateFormat('yyyy.MM').format(date); break;
         case '월봉': label = DateFormat('yyyy').format(date); break;
-        default: label = DateFormat('MM/dd').format(date);
+        default: label = "${DateFormat('MM/dd').format(date)} '${DateFormat('yy').format(date)}";
       }
 
       final textSpan = TextSpan(text: label, style: TextStyle(color: textColor, fontSize: 10));
