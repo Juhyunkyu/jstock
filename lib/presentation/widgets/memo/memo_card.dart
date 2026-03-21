@@ -27,7 +27,10 @@ class MemoCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: MediaQuery.sizeOf(context).width >= 768 ? 16 : 10,
+        ),
         decoration: BoxDecoration(
           color: context.appCardBackground,
           borderRadius: BorderRadius.circular(12),
