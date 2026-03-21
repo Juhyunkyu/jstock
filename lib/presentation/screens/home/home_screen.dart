@@ -215,15 +215,18 @@ class _SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    // 카드 margin(16) + 카드 내부 padding(10~14)과 정렬
+    final leftPad = isDesktop ? 30.0 : 26.0;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.only(left: leftPad, right: 16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             title,
             style: TextStyle(
-              fontSize: MediaQuery.sizeOf(context).width >= 768 ? 18 : 16,
+              fontSize: isDesktop ? 18 : 16,
               fontWeight: FontWeight.bold,
               color: context.appTextPrimary,
             ),
