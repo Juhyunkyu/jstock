@@ -27,11 +27,14 @@ import '../core/utils/symbol_name_resolver.dart';
 /// 모달(BottomSheet, Dialog) 열림 상태를 추적하는 NavigatorObserver
 ///
 /// 브라우저 뒤로가기 시 모달이 열려있으면 모달만 닫고 페이지 이동을 방지하기 위해 사용.
-/// index.html의 popstate 핸들러와 연동:
-/// - window._flutterModalCount: 열린 모달 수
-/// - window._closeFlutterModal: 최상위 모달 닫기 콜백
+/// index.html의 popstate 핸들러와 연동.
+///
+/// 모달 열림 → history.pushState (모달 전용 엔트리 추가)
+/// 뒤로가기 → popstate가 모달 엔트리를 자연 소비 → JS 핸들러가 모달 닫기
+/// 수동 닫기 → history.back()으로 모달 엔트리 제거 + suppress 플래그
 class _ModalObserver extends NavigatorObserver {
   int openCount = 0;
+  bool _closedByBackButton = false;
 
   void _syncToJs() {
     try {
@@ -46,19 +49,46 @@ class _ModalObserver extends NavigatorObserver {
     }
   }
 
+  /// 모달 열림 → 히스토리 엔트리 추가
+  void _pushModalEntry() {
+    try {
+      _callHistoryPushState();
+    } catch (e) {
+      debugPrint('[ModalObserver] pushState error: $e');
+    }
+  }
+
+  /// 모달 수동 닫힘 → 히스토리 엔트리 제거 (suppress 플래그로 popstate 무시)
+  void _removeModalEntry() {
+    try {
+      globalContext['_suppressModalPopstate'] = true.toJS;
+      _callHistoryBack();
+    } catch (e) {
+      debugPrint('[ModalObserver] back error: $e');
+    }
+  }
+
   @override
   void didPush(Route route, Route? previousRoute) {
     if (route is PopupRoute) {
       openCount++;
       _syncToJs();
+      _pushModalEntry();
     }
   }
 
   @override
   void didPop(Route route, Route? previousRoute) {
     if (route is PopupRoute && openCount > 0) {
+      final wasByBack = _closedByBackButton;
+      _closedByBackButton = false;
       openCount--;
       _syncToJs();
+      // 뒤로가기로 닫힌 경우 → 엔트리가 이미 소비됨, 제거 불필요
+      // 수동으로 닫힌 경우 → 모달 엔트리를 제거해야 함
+      if (!wasByBack) {
+        _removeModalEntry();
+      }
     }
   }
 
@@ -71,8 +101,30 @@ class _ModalObserver extends NavigatorObserver {
   }
 }
 
+/// JS interop: history.pushState(null, '', location.href)
+@JS('history.pushState')
+external void _jsPushState(JSAny? state, JSString title, JSString url);
+
+/// JS interop: history.back()
+@JS('history.back')
+external void _jsHistoryBack();
+
+/// JS interop: location.href
+@JS('location.href')
+external JSString get _jsLocationHref;
+
+void _callHistoryPushState() {
+  _jsPushState(null, ''.toJS, _jsLocationHref);
+}
+
+void _callHistoryBack() {
+  _jsHistoryBack();
+}
+
 /// 최상위 모달 닫기 (JS popstate 핸들러에서 호출)
 void _closeTopModal() {
+  final observer = AppRouter._modalObserver;
+  observer._closedByBackButton = true;
   final rootNav = AppRouter._rootNavigatorKey.currentState;
   if (rootNav != null && rootNav.canPop()) {
     rootNav.pop();

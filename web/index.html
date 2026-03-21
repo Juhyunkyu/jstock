@@ -125,24 +125,25 @@
   </script>
 
   <script>
-    // 모바일 뒤로가기 처리
+    // 모바일 뒤로가기: 모달 popstate 핸들러
+    // go_router보다 먼저 등록 (index.html → flutter_bootstrap.js 순서)
+    // 모달이 열릴 때 Dart에서 history.pushState로 엔트리를 추가한다.
+    // 뒤로가기 시 그 엔트리가 자연스럽게 pop → 여기서 모달만 닫고 go_router 차단.
     (function() {
-      // (1) 히스토리 바닥에 홈(/) 엔트리 1개 확보
-      // go_router가 탭 전환 시 최상위를 교체(replaceState)해도 / 가 바닥에 남는다.
-      // 흐름: [/] → pushState → [/, /] → go('/watchlist') replaces → [/, /watchlist]
-      //       → back → [/] (홈) → back → 종료
-      history.pushState(null, '', location.href);
-
-      // (2) 모달 popstate 핸들러: go_router보다 먼저 등록
-      // Flutter _ModalObserver가 window._flutterModalCount를 관리한다.
-      // 모달이 열려있을 때 뒤로가기 → 모달만 닫고 go_router에 전파하지 않음.
       window._flutterModalCount = 0;
       window._closeFlutterModal = null;
+      window._suppressModalPopstate = false;
 
       window.addEventListener('popstate', function(e) {
+        // 수동 닫기 시 history.back()으로 modal entry 제거 → 이 popstate는 무시
+        if (window._suppressModalPopstate) {
+          window._suppressModalPopstate = false;
+          e.stopImmediatePropagation();
+          return;
+        }
+        // 모달이 열려있으면 닫기 + go_router 전파 차단
         if (window._flutterModalCount > 0 && window._closeFlutterModal) {
           window._closeFlutterModal();
-          history.pushState(null, '', location.href);
           e.stopImmediatePropagation();
         }
       });
