@@ -50,7 +50,7 @@ class FearGreedCard extends ConsumerWidget {
                 Text(
                   'Fear & Greed Index',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 14 * fs,
                     fontWeight: FontWeight.w600,
                     color: context.appTextPrimary,
                   ),
