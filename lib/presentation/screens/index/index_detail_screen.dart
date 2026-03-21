@@ -88,7 +88,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
 
     try {
       final chartData = await twelveDataService.getChartData(
-        _chartSymbol, interval: '1day', outputsize: 730,
+        _chartSymbol, interval: '1day', outputsize: 1500,
       );
       if (!mounted) return;
       if (chartData.isNotEmpty) {
@@ -116,7 +116,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
       try {
         final service = ref.read(twelveDataServiceProvider);
         final chartData = await service.getChartData(
-          _chartSymbol, interval: '1day', outputsize: 730,
+          _chartSymbol, interval: '1day', outputsize: 1500,
         );
         if (!mounted) return;
         if (chartData.isNotEmpty) {
@@ -209,11 +209,11 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
     switch (_selectedPeriod) {
       case '일봉':
         interval = '1day';
-        outputsize = 730; // ~2년
+        outputsize = 1500; // ~4년
         break;
       case '주봉':
         interval = '1week';
-        outputsize = 520; // ~10년
+        outputsize = 1000; // ~20년
         break;
       case '월봉':
         interval = '1month';
@@ -221,7 +221,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
         break;
       default:
         interval = '1day';
-        outputsize = 730;
+        outputsize = 1500;
     }
 
     final service = ref.read(twelveDataServiceProvider);
