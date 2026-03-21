@@ -1,4 +1,5 @@
 import 'dart:js_interop';
+import 'dart:js_interop_unsafe';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -23,14 +24,6 @@ import '../presentation/widgets/common/main_shell.dart';
 import '../presentation/widgets/stocks/popular_etf_list.dart';
 import '../core/utils/symbol_name_resolver.dart';
 
-/// JS interop: window._flutterModalCount (모달 열림 수)
-@JS('_flutterModalCount')
-external set _jsModalCount(JSNumber value);
-
-/// JS interop: window._closeFlutterModal (모달 닫기 콜백)
-@JS('_closeFlutterModal')
-external set _jsCloseModal(JSFunction? value);
-
 /// 모달(BottomSheet, Dialog) 열림 상태를 추적하는 NavigatorObserver
 ///
 /// 브라우저 뒤로가기 시 모달이 열려있으면 모달만 닫고 페이지 이동을 방지하기 위해 사용.
@@ -41,11 +34,15 @@ class _ModalObserver extends NavigatorObserver {
   int openCount = 0;
 
   void _syncToJs() {
-    _jsModalCount = openCount.toJS;
-    if (openCount > 0) {
-      _jsCloseModal = _closeTopModal.toJS;
-    } else {
-      _jsCloseModal = null;
+    try {
+      globalContext['_flutterModalCount'] = openCount.toJS;
+      if (openCount > 0) {
+        globalContext['_closeFlutterModal'] = _closeTopModal.toJS;
+      } else {
+        globalContext['_closeFlutterModal'] = null;
+      }
+    } catch (e) {
+      debugPrint('[ModalObserver] JS sync error: $e');
     }
   }
 
