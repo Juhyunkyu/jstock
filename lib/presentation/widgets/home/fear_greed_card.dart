@@ -191,28 +191,70 @@ class FearGreedCard extends ConsumerWidget {
             else
               _wrapContent(
                 useExpanded: !useOuterMargin,
-                child: Center(
-                  child: Builder(builder: (context) {
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 600;
                     final activeZoneIdx = getActiveZoneIndex(clampedValue);
                     final activeZone = fearGreedZones[activeZoneIdx];
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FearGreedGauge(
-                          value: clampedValue,
-                          isLoading: isLoading,
-                          cardBackgroundColor: context.appCardBackground,
-                          textColor: context.appTextPrimary,
-                          isDarkMode: context.isDarkMode,
-                        ),
-                        SizedBox(height: 8 * fs),
-                        _ActiveZoneLabel(
-                          zone: activeZone,
-                          fs: fs,
-                        ),
-                      ],
+
+                    if (isWide) {
+                      // Wide layout: gauge left, zone description panel right
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  FearGreedGauge(
+                                    value: clampedValue,
+                                    isLoading: isLoading,
+                                    cardBackgroundColor: context.appCardBackground,
+                                    textColor: context.appTextPrimary,
+                                    isDarkMode: context.isDarkMode,
+                                  ),
+                                  SizedBox(height: 8 * fs),
+                                  _ActiveZoneLabel(
+                                    zone: activeZone,
+                                    fs: fs,
+                                    showInfoIcon: false,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 16 * fs),
+                          Expanded(
+                            flex: 2,
+                            child: ZoneDescriptionPanel(value: clampedValue),
+                          ),
+                        ],
+                      );
+                    }
+
+                    // Narrow layout: vertical stack (unchanged)
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FearGreedGauge(
+                            value: clampedValue,
+                            isLoading: isLoading,
+                            cardBackgroundColor: context.appCardBackground,
+                            textColor: context.appTextPrimary,
+                            isDarkMode: context.isDarkMode,
+                          ),
+                          SizedBox(height: 8 * fs),
+                          _ActiveZoneLabel(
+                            zone: activeZone,
+                            fs: fs,
+                          ),
+                        ],
+                      ),
                     );
-                  }),
+                  },
                 ),
               ),
           ],
@@ -231,8 +273,13 @@ class FearGreedCard extends ConsumerWidget {
 class _ActiveZoneLabel extends StatelessWidget {
   final ZoneData zone;
   final double fs;
+  final bool showInfoIcon;
 
-  const _ActiveZoneLabel({required this.zone, required this.fs});
+  const _ActiveZoneLabel({
+    required this.zone,
+    required this.fs,
+    this.showInfoIcon = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -264,15 +311,17 @@ class _ActiveZoneLabel extends StatelessWidget {
               color: context.appTextPrimary,
             ),
           ),
-          SizedBox(width: 6 * fs),
-          GestureDetector(
-            onTap: () => _showAllZones(context),
-            child: Icon(
-              Icons.info_outline_rounded,
-              size: 12 * fs,
-              color: context.appTextHint,
+          if (showInfoIcon) ...[
+            SizedBox(width: 6 * fs),
+            GestureDetector(
+              onTap: () => _showAllZones(context),
+              child: Icon(
+                Icons.info_outline_rounded,
+                size: 12 * fs,
+                color: context.appTextHint,
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
