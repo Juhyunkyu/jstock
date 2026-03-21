@@ -125,14 +125,13 @@
   </script>
 
   <script>
-    // 모바일 물리 뒤로가기 앱 종료 방지 + 모달 뒤로가기 처리
+    // 모바일 뒤로가기 처리
     (function() {
-      // (1) Guard entries: 히스토리 스택에 버퍼를 쌓아 종료 방지
-      // go_router가 최상위 엔트리를 교체하고 그 위에서 동작한다.
-      // 사용자가 메인 탭에서 뒤로가기를 눌러도 guard가 소비될 뿐 종료되지 않음.
-      for (var i = 0; i < 20; i++) {
-        history.pushState(null, '', location.href);
-      }
+      // (1) 히스토리 바닥에 홈(/) 엔트리 1개 확보
+      // go_router가 탭 전환 시 최상위를 교체(replaceState)해도 / 가 바닥에 남는다.
+      // 흐름: [/] → pushState → [/, /] → go('/watchlist') replaces → [/, /watchlist]
+      //       → back → [/] (홈) → back → 종료
+      history.pushState(null, '', location.href);
 
       // (2) 모달 popstate 핸들러: go_router보다 먼저 등록
       // Flutter _ModalObserver가 window._flutterModalCount를 관리한다.
@@ -142,11 +141,8 @@
 
       window.addEventListener('popstate', function(e) {
         if (window._flutterModalCount > 0 && window._closeFlutterModal) {
-          // 모달 닫기
           window._closeFlutterModal();
-          // 소비된 히스토리 엔트리 복원 (페이지 이동 방지)
           history.pushState(null, '', location.href);
-          // go_router에 이벤트 전파 차단
           e.stopImmediatePropagation();
         }
       });
