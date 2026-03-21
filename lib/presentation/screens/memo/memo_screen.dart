@@ -75,8 +75,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
     return Scaffold(
       backgroundColor: context.appBackground,
       appBar: _isSearchMode ? _buildSearchAppBar() : _buildNormalAppBar(memoState),
-      body: SelectionContainer.disabled(
-        child: memoState.isLoading
+      body: memoState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -97,7 +96,6 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
                 ),
               ],
             ),
-      ),
       floatingActionButton: isDesktop
           ? FloatingActionButton.extended(
               onPressed: () => context.go('/memo/create'),

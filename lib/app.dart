@@ -37,7 +37,7 @@ class AlphaCycleApp extends ConsumerWidget {
       ],
       builder: (context, child) {
         return initialization.when(
-          data: (_) => SelectionArea(child: child!),
+          data: (_) => child!,
           loading: () => const _SplashScreen(),
           error: (error, stack) => _ErrorScreen(error: error.toString()),
         );

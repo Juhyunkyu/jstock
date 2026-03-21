@@ -218,14 +218,16 @@ class MemoDetailScreen extends ConsumerWidget {
                     ),
                   )
                 else
-                  MemoContentRenderer(
-                    content: memo.content,
-                    imageBase64List: memo.imageBase64List,
-                    maxImageHeight: isDesktop ? 500 : 400,
-                    textStyle: TextStyle(
-                      fontSize: 15,
-                      color: context.appTextPrimary,
-                      height: 1.7,
+                  SelectionArea(
+                    child: MemoContentRenderer(
+                      content: memo.content,
+                      imageBase64List: memo.imageBase64List,
+                      maxImageHeight: isDesktop ? 500 : 400,
+                      textStyle: TextStyle(
+                        fontSize: 15,
+                        color: context.appTextPrimary,
+                        height: 1.7,
+                      ),
                     ),
                   ),
 

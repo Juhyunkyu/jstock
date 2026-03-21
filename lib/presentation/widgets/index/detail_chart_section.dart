@@ -267,8 +267,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       indicatorService: widget.indicatorService,
     );
 
-    return SelectionContainer.disabled(
-      child: Container(
+    return Container(
       color: context.appSurface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
@@ -470,7 +469,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           ),
         ],
       ),
-    ),
     );
   }
 }
