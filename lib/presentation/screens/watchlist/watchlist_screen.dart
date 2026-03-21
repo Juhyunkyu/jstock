@@ -91,7 +91,8 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
           const NotificationBellButton(),
         ],
       ),
-      body: watchlistState.isLoading || groupState.isLoading
+      body: SelectionContainer.disabled(
+        child: watchlistState.isLoading || groupState.isLoading
           ? const Center(child: CircularProgressIndicator())
           : watchlistState.error != null
               ? _buildErrorState(watchlistState.error!)
@@ -117,6 +118,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                     ),
                   ],
                 ),
+      ),
     );
   }
 
