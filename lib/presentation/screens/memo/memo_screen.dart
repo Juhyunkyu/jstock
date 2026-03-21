@@ -96,11 +96,22 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: () => context.go('/memo/create'),
-        backgroundColor: context.appAccent,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: isDesktop
+          ? FloatingActionButton.extended(
+              onPressed: () => context.go('/memo/create'),
+              backgroundColor: context.appAccent,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text(
+                '새 메모',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            )
+          : FloatingActionButton.small(
+              onPressed: () => context.go('/memo/create'),
+              backgroundColor: context.appAccent,
+              child: const Icon(Icons.add, color: Colors.white),
+            ),
     );
   }
 
@@ -267,33 +278,38 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
   }
 
   Widget _buildDesktopGrid(MemoListState memoState) {
-    return ReorderableListView.builder(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-      buildDefaultDragHandles: false,
-      proxyDecorator: (child, index, animation) {
-        return Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.transparent,
-          child: child,
-        );
-      },
-      onReorder: (oldIndex, newIndex) {
-        ref.read(memoListProvider.notifier).reorder(oldIndex, newIndex);
-      },
-      itemCount: memoState.memos.length,
-      itemBuilder: (context, index) {
-        final memo = memoState.memos[index];
+      itemCount: (memoState.memos.length / 2).ceil(),
+      itemBuilder: (context, rowIndex) {
+        final leftIndex = rowIndex * 2;
+        final rightIndex = leftIndex + 1;
+        final leftMemo = memoState.memos[leftIndex];
+        final rightMemo = rightIndex < memoState.memos.length
+            ? memoState.memos[rightIndex]
+            : null;
+
         return Padding(
-          key: ValueKey(memo.id),
-          padding: const EdgeInsets.only(bottom: 8),
-          child: ReorderableDragStartListener(
-            index: index,
-            child: MemoCard(
-              memo: memo,
-              showDragHandle: true,
-              onTap: () => context.go('/memo/detail/${memo.id}'),
-            ),
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: MemoCard(
+                  memo: leftMemo,
+                  onTap: () => context.go('/memo/detail/${leftMemo.id}'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: rightMemo != null
+                    ? MemoCard(
+                        memo: rightMemo,
+                        onTap: () => context.go('/memo/detail/${rightMemo.id}'),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
           ),
         );
       },
