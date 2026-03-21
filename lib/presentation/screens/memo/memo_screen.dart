@@ -96,11 +96,10 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: FloatingActionButton.small(
         onPressed: () => context.go('/memo/create'),
         backgroundColor: context.appAccent,
-        foregroundColor: Colors.white,
-        child: const Icon(Icons.add, size: 24),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
