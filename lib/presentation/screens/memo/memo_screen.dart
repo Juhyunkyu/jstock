@@ -96,12 +96,11 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: FloatingActionButton(
         onPressed: () => context.go('/memo/create'),
         backgroundColor: context.appAccent,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('새 메모'),
+        child: const Icon(Icons.add, size: 24),
       ),
     );
   }
@@ -226,20 +225,6 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
           Text(
             '종목 분석, 시장 인사이트, 매매 일지',
             style: TextStyle(fontSize: 14, color: context.appTextHint),
-          ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () => context.go('/memo/create'),
-            icon: const Icon(Icons.add),
-            label: const Text('첫 메모 작성하기'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: context.appAccent,
-              side: BorderSide(color: context.appAccent),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
           ),
         ],
       ),
