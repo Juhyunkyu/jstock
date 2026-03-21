@@ -148,14 +148,17 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
       },
       itemBuilder: (context, index) {
         final ticker = group.tickers[index];
-        return _TickerRow(
+        return ReorderableDragStartListener(
           key: ValueKey(ticker),
-          ticker: ticker,
-          onDelete: () {
-            ref
-                .read(watchlistGroupProvider.notifier)
-                .removeTicker(group.id, ticker);
-          },
+          index: index,
+          child: _TickerRow(
+            ticker: ticker,
+            onDelete: () {
+              ref
+                  .read(watchlistGroupProvider.notifier)
+                  .removeTicker(group.id, ticker);
+            },
+          ),
         );
       },
     );

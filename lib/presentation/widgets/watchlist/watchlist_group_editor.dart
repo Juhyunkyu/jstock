@@ -49,11 +49,14 @@ class WatchlistGroupEditor extends ConsumerWidget {
                   },
                   itemBuilder: (context, index) {
                     final group = groups[index];
-                    return _GroupRow(
+                    return ReorderableDragStartListener(
                       key: ValueKey(group.id),
-                      groupId: group.id,
-                      name: group.name,
-                      tickerCount: group.tickers.length,
+                      index: index,
+                      child: _GroupRow(
+                        groupId: group.id,
+                        name: group.name,
+                        tickerCount: group.tickers.length,
+                      ),
                     );
                   },
                 ),
