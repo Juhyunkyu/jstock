@@ -30,7 +30,7 @@ class GlobalIndicatorsCard extends ConsumerWidget {
                 Text(
                   '글로벌 지표',
                   style: TextStyle(
-                    fontSize: 14 * fs,
+                    fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: context.appTextPrimary,
                   ),
