@@ -5,10 +5,14 @@ import 'app.dart';
 import 'data/models/models.dart';
 import 'data/services/background/background_task_handler.dart';
 import 'data/services/cache/logo_cache_service.dart';
+import 'routes/app_router.dart';
 
 void main() async {
   // Flutter 바인딩 초기화
   WidgetsFlutterBinding.ensureInitialized();
+
+  // go_router: push/pop을 브라우저 히스토리에 반영
+  AppRouter.init();
 
   // Hive 초기화
   await Hive.initFlutter();

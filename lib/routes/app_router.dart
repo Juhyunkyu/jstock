@@ -116,6 +116,13 @@ class AppRouter {
   static const String memoEdit = '/memo/edit/:memoId';
   static const String settings = '/settings';
 
+  /// push/pop이 브라우저 히스토리에 반영되도록 설정
+  /// go_router v14+에서 기본값이 false → push()가 히스토리에 안 들어감
+  /// → 물리 뒤로가기 시 detail 페이지를 건너뛰고 탭/종료로 점프하는 버그 발생
+  static void init() {
+    GoRouter.optionURLReflectsImperativeAPIs = true;
+  }
+
   /// GoRouter 인스턴스
   static final router = GoRouter(
     navigatorKey: _rootNavigatorKey,
