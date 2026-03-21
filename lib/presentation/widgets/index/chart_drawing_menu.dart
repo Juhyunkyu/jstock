@@ -136,8 +136,10 @@ class _ChartDrawingMenuButtonState extends State<ChartDrawingMenuButton> {
                     width: 0.5,
                   ),
                 ),
-                child: Column(
+                child: IntrinsicWidth(
+                      child: Column(
                         mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildMenuItem(
                             icon: Icons.horizontal_rule,
@@ -189,6 +191,7 @@ class _ChartDrawingMenuButtonState extends State<ChartDrawingMenuButton> {
                           ),
                         ],
                       ),
+                    ),
               ),
             ),
           ),
@@ -217,13 +220,11 @@ class _ChartDrawingMenuButtonState extends State<ChartDrawingMenuButton> {
           vertical: isDesktop ? 6 : 5,
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: isDesktop ? 24 : 20,
               height: isDesktop ? 24 : 20,
-              child: Align(
-                alignment: Alignment.centerLeft,
+              child: Center(
                 child: Icon(icon, size: iconSize, color: context.appTextPrimary),
               ),
             ),
