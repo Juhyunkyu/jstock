@@ -120,15 +120,12 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
             child: Row(
               children: [
-                Flexible(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: context.appTextPrimary,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
                   ),
                 ),
                 if (newsState.isLoading) ...[
