@@ -198,7 +198,7 @@ class FearGreedCard extends ConsumerWidget {
                     final activeZone = fearGreedZones[activeZoneIdx];
 
                     if (isWide) {
-                      // Wide layout: gauge left, zone description panel right
+                      // Wide layout: gauge left, compact zone list right
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
@@ -225,10 +225,13 @@ class FearGreedCard extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          SizedBox(width: 16 * fs),
+                          SizedBox(width: 12 * fs),
                           Expanded(
                             flex: 2,
-                            child: ZoneDescriptionPanel(value: clampedValue),
+                            child: _CompactZoneList(
+                              value: clampedValue,
+                              fs: fs,
+                            ),
                           ),
                         ],
                       );
@@ -367,6 +370,167 @@ class _ActiveZoneLabel extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 와이드 레이아웃 전용 — 간결한 Zone 목록 (이름 + 범위만)
+/// ⓘ 아이콘 상단, 게이지와 높이 맞춤
+class _CompactZoneList extends StatelessWidget {
+  final int value;
+  final double fs;
+
+  const _CompactZoneList({required this.value, required this.fs});
+
+  @override
+  Widget build(BuildContext context) {
+    final activeIdx = getActiveZoneIndex(value);
+    final isDark = context.isDarkMode;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ⓘ 아이콘 (탭하면 상세 설명)
+        GestureDetector(
+          onTap: () => _showAllZones(context),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 16,
+              color: context.appTextHint,
+            ),
+          ),
+        ),
+        // 5단계 목록
+        for (int i = 0; i < fearGreedZones.length; i++) ...[
+          _CompactZoneRow(
+            zone: fearGreedZones[i],
+            isActive: i == activeIdx,
+            isDark: isDark,
+          ),
+          if (i < fearGreedZones.length - 1) const SizedBox(height: 4),
+        ],
+      ],
+    );
+  }
+
+  void _showAllZones(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: context.appCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Fear & Greed 단계 설명',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: context.appTextPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'S&P 500 옵션 시장 기반 시장 심리 종합 지표. '
+              'VIX, 모멘텀, 풋/콜 비율 등 7개 지표를 종합하여 '
+              '투자자들의 공포·탐욕 수준을 0~100으로 나타냅니다.',
+              style: TextStyle(
+                fontSize: 13,
+                color: context.appTextSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            for (final z in fearGreedZones) ...[
+              _ZoneInfoRow(zone: z),
+              const SizedBox(height: 6),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 간결한 Zone 행 (이름 + 범위만, 설명 없음)
+class _CompactZoneRow extends StatelessWidget {
+  final ZoneData zone;
+  final bool isActive;
+  final bool isDark;
+
+  const _CompactZoneRow({
+    required this.zone,
+    required this.isActive,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: isActive
+            ? zone.accentColor.withValues(alpha: isDark ? 0.15 : 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        children: [
+          // 색상 원
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isActive
+                  ? zone.accentColor
+                  : zone.accentColor.withValues(alpha: 0.35),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 이름
+          Text(
+            zone.koreanName,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive
+                  ? context.appTextPrimary
+                  : context.appTextHint,
+            ),
+          ),
+          const SizedBox(width: 6),
+          // 범위 뱃지
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: isActive
+                  ? zone.accentColor.withValues(alpha: isDark ? 0.25 : 0.12)
+                  : context.appIconBg,
+              borderRadius: BorderRadius.circular(3),
+            ),
+            child: Text(
+              '${zone.rangeStart}-${zone.rangeEnd}',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isActive
+                    ? zone.accentColor
+                    : context.appTextHint,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
