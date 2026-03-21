@@ -130,6 +130,7 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
 
   Widget _buildTickerList(WatchlistGroup group) {
     return ReorderableListView.builder(
+      buildDefaultDragHandles: false,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: group.tickers.length,
       onReorder: (oldIndex, newIndex) {
@@ -345,7 +346,7 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
   }
 }
 
-/// 단일 티커 행 (드래그 핸들 + 로고 + 이름 + 삭제)
+/// 단일 티커 행 (로고 + 이름 + 삭제, 롱프레스 드래그)
 class _TickerRow extends ConsumerWidget {
   final String ticker;
   final VoidCallback onDelete;
@@ -375,13 +376,6 @@ class _TickerRow extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          // 드래그 핸들
-          Icon(
-            Icons.drag_handle,
-            size: 20,
-            color: context.appTextHint,
-          ),
-          const SizedBox(width: 8),
           // 로고
           TickerLogo(
             ticker: ticker,
@@ -416,7 +410,7 @@ class _TickerRow extends ConsumerWidget {
           // 삭제 버튼
           IconButton(
             icon: Icon(
-              Icons.remove_circle_outline,
+              Icons.delete_outline,
               size: 20,
               color: context.appTextHint,
             ),

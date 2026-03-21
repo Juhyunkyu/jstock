@@ -28,6 +28,7 @@ class WatchlistGroupEditor extends ConsumerWidget {
                   ),
                 )
               : ReorderableListView.builder(
+                  buildDefaultDragHandles: false,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
@@ -64,7 +65,7 @@ class WatchlistGroupEditor extends ConsumerWidget {
   }
 }
 
-/// 단일 그룹 행 (드래그 핸들 + 이름 + 개수 배지 + 삭제)
+/// 단일 그룹 행 (이름 + 개수 배지 + 삭제, 롱프레스 드래그)
 class _GroupRow extends ConsumerStatefulWidget {
   final String groupId;
   final String name;
@@ -142,13 +143,6 @@ class _GroupRowState extends ConsumerState<_GroupRow> {
       ),
       child: Row(
         children: [
-          // 드래그 핸들
-          Icon(
-            Icons.drag_handle,
-            size: 20,
-            color: context.appTextHint,
-          ),
-          const SizedBox(width: 10),
           // 그룹 이름 (탭하면 인라인 편집)
           Expanded(
             child: _isEditing
