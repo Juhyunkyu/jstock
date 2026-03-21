@@ -139,8 +139,19 @@ class _CycleTradeRecordSheetState
         _isBuy = false;
         _selectedSignal = sig;
       } else {
-        _selectedSignal =
-            CycleTradeCard.buySignalsFor(widget.cycle.strategyType, steadyVersion: widget.cycle.steadyVersion).first;
+        // hold 상태: 초기진입 완료 여부에 따라 기본 신호 선택
+        final buySignals = CycleTradeCard.buySignalsFor(
+          widget.cycle.strategyType,
+          steadyVersion: widget.cycle.steadyVersion,
+        );
+        final hasInitialEntry = widget.cycle.averagePrice > 0;
+        if (hasInitialEntry && buySignals.contains(TradeSignal.initial)) {
+          // 초기진입 완료 → initial 건너뛰고 다음 매수 신호 선택
+          final nextSignals = buySignals.where((s) => s != TradeSignal.initial).toList();
+          _selectedSignal = nextSignals.isNotEmpty ? nextSignals.first : buySignals.first;
+        } else {
+          _selectedSignal = buySignals.first;
+        }
       }
     }
   }
@@ -213,6 +224,41 @@ class _CycleTradeRecordSheetState
             // ═══ 4. 매수/매도 토글 (수정 모드에서는 비활성) ═══
             _buildToggle(context),
             const SizedBox(height: 12),
+
+            // ═══ 4.5. 신호 없음 안내 (Smart Cycle, hold, 초기진입 완료) ═══
+            if (!_isEditing &&
+                widget.currentSignal == TradeSignal.hold &&
+                widget.cycle.strategyType == StrategyType.alphaCycleV3 &&
+                widget.cycle.averagePrice > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: context.appAccent.withValues(alpha: context.isDarkMode ? 0.1 : 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: context.appAccent.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 18, color: context.appAccent),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '현재 매수 신호가 없습니다\n수동으로 거래를 기록할 수 있습니다',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: context.appTextSecondary,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // ═══ 5. 신호 선택 (토글 바로 아래) ═══
             _buildSignalSection(context),
