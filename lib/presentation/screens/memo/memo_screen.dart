@@ -233,6 +233,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
   Widget _buildMobileList(MemoListState memoState) {
     return ReorderableListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+      buildDefaultDragHandles: false,
       proxyDecorator: (child, index, animation) {
         return Material(
           elevation: 4,
@@ -270,9 +271,9 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 2.2,
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 4.0,
       ),
       itemCount: memoState.memos.length,
       itemBuilder: (context, index) {
