@@ -215,12 +215,7 @@ class FearGreedCard extends ConsumerWidget {
                                     textColor: context.appTextPrimary,
                                     isDarkMode: context.isDarkMode,
                                   ),
-                                  SizedBox(height: 8 * fs),
-                                  _ActiveZoneLabel(
-                                    zone: activeZone,
-                                    fs: fs,
-                                    showInfoIcon: false,
-                                  ),
+                                  // 와이드: 극도의 공포 라벨 제거 (오른쪽 목록과 중복)
                                 ],
                               ),
                             ),
@@ -476,62 +471,68 @@ class _CompactZoneRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: isActive
-            ? zone.accentColor.withValues(alpha: isDark ? 0.15 : 0.08)
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        children: [
-          // 색상 원
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isActive
-                  ? zone.accentColor
-                  : zone.accentColor.withValues(alpha: 0.35),
-            ),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+          decoration: BoxDecoration(
+            color: isActive
+                ? zone.accentColor.withValues(alpha: isDark ? 0.15 : 0.08)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
           ),
-          const SizedBox(width: 8),
-          // 이름
-          Text(
-            zone.koreanName,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive
-                  ? context.appTextPrimary
-                  : context.appTextHint,
-            ),
-          ),
-          const SizedBox(width: 6),
-          // 범위 뱃지
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
-              color: isActive
-                  ? zone.accentColor.withValues(alpha: isDark ? 0.25 : 0.12)
-                  : context.appIconBg,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              '${zone.rangeStart}-${zone.rangeEnd}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                color: isActive
-                    ? zone.accentColor
-                    : context.appTextHint,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 색상 원
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isActive
+                      ? zone.accentColor
+                      : zone.accentColor.withValues(alpha: 0.35),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              // 이름
+              Text(
+                zone.koreanName,
+                style: TextStyle(
+                  fontSize: isActive ? 14 : 12,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                  color: isActive
+                      ? context.appTextPrimary
+                      : context.appTextHint,
+                ),
+              ),
+              const SizedBox(width: 6),
+              // 범위 뱃지
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? zone.accentColor.withValues(alpha: isDark ? 0.25 : 0.12)
+                      : context.appIconBg,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: Text(
+                  '${zone.rangeStart}-${zone.rangeEnd}',
+                  style: TextStyle(
+                    fontSize: isActive ? 11 : 10,
+                    fontWeight: FontWeight.w500,
+                    color: isActive
+                        ? zone.accentColor
+                        : context.appTextHint,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
