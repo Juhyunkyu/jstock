@@ -1,12 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/notification_record.dart';
 import '../../data/repositories/notification_repository.dart';
+import 'core/repository_providers.dart';
 import 'watchlist_alert_provider.dart';
-
-/// 알림 내역 저장소 Provider
-final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
-  return NotificationRepository();
-});
 
 /// 알림 내역 상태
 class NotificationHistoryState {
@@ -46,7 +42,6 @@ class NotificationHistoryNotifier extends StateNotifier<NotificationHistoryState
     state = state.copyWith(isLoading: true);
 
     try {
-      await _repository.init();
       // 30일 이전 알림 자동 정리
       await _repository.deleteOlderThan(const Duration(days: 30));
 

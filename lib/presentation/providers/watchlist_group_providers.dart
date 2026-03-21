@@ -4,19 +4,7 @@ import '../../data/models/watchlist_group.dart';
 import '../../data/models/recent_view_item.dart';
 import '../../data/repositories/watchlist_group_repository.dart';
 import '../../data/repositories/recent_view_repository.dart';
-
-// ═══════════════════════════════════════════════════════════════
-// Repository Providers (self-init 패턴)
-// ═══════════════════════════════════════════════════════════════
-
-final watchlistGroupRepositoryProvider =
-    Provider<WatchlistGroupRepository>((ref) {
-  return WatchlistGroupRepository();
-});
-
-final recentViewRepositoryProvider = Provider<RecentViewRepository>((ref) {
-  return RecentViewRepository();
-});
+import 'core/repository_providers.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // 그룹 상태 관리
@@ -48,11 +36,10 @@ class WatchlistGroupNotifier extends StateNotifier<WatchlistGroupState> {
   WatchlistGroupNotifier(this._repository)
       : super(const WatchlistGroupState());
 
-  /// 초기 로드
+  /// 초기 로드 (Repository는 appInitializationProvider에서 이미 init됨)
   Future<void> load() async {
     if (!mounted) return;
     state = state.copyWith(isLoading: true);
-    await _repository.init();
     final groups = _repository.getAll().map((g) => WatchlistGroup(
       id: g.id,
       name: g.name,
@@ -149,9 +136,8 @@ class RecentViewNotifier extends StateNotifier<List<RecentViewItem>> {
 
   RecentViewNotifier(this._repository) : super([]);
 
-  /// 초기 로드 (지수 심볼 제외)
+  /// 초기 로드 (Repository는 appInitializationProvider에서 이미 init됨)
   Future<void> load() async {
-    await _repository.init();
     if (!mounted) return;
     state = _filteredItems();
   }

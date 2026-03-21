@@ -3,12 +3,8 @@ import '../../data/models/watchlist_item.dart';
 import '../../data/repositories/watchlist_repository.dart';
 import '../../data/services/api/finnhub_service.dart';
 import 'api_providers.dart';
+import 'core/repository_providers.dart';
 import 'watchlist_alert_provider.dart';
-
-/// 관심종목 저장소 Provider
-final watchlistRepositoryProvider = Provider<WatchlistRepository>((ref) {
-  return WatchlistRepository();
-});
 
 /// 관심종목 목록 상태 (시세는 stockQuoteProvider에서 관리)
 class WatchlistState {
@@ -49,13 +45,12 @@ class WatchlistNotifier extends StateNotifier<WatchlistState> {
   WatchlistNotifier(this._repository, this._ref)
       : super(const WatchlistState());
 
-  /// 초기 로드 (repository 초기화 포함)
+  /// 초기 로드 (Repository는 appInitializationProvider에서 이미 init됨)
   Future<void> load() async {
     if (!mounted) return;
     state = state.copyWith(isLoading: true);
 
     try {
-      await _repository.init();
       final items = _repository.getAll();
       if (!mounted) return;
       state = state.copyWith(items: items, isLoading: false);
