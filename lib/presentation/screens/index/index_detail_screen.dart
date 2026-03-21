@@ -259,6 +259,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final quote = ref.watch(
       stockQuoteProvider.select((s) => s.quotes[_chartSymbol]),
     );
@@ -286,11 +287,11 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
           style: TextStyle(
             color: context.appTextPrimary,
             fontWeight: FontWeight.w700,
-            fontSize: 16,
+            fontSize: isDesktop ? 18 : 16,
           ),
         ),
         actions: [
-          if (quote != null) _buildAppBarPrice(quote),
+          if (quote != null) _buildAppBarPrice(quote, isDesktop),
           const SizedBox(width: 2),
           SizedBox(
             width: 36,
@@ -317,11 +318,11 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildMetaInfo(quote),
+                        _buildMetaInfo(quote, isDesktop),
                         PeriodReturnsSection(periodReturns: _periodReturns),
                         const SizedBox(height: 10),
                         if (_chartData.isEmpty)
-                          _buildChartPlaceholder()
+                          _buildChartPlaceholder(isDesktop)
                         else
                           DetailChartSection(
                             symbol: _chartSymbol,
@@ -363,14 +364,14 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
     );
   }
 
-  Widget _buildAppBarPrice(StockQuote quote) {
+  Widget _buildAppBarPrice(StockQuote quote, bool isDesktop) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           _formatPrice(quote.currentPrice),
           style: TextStyle(
-            fontSize: 15,
+            fontSize: isDesktop ? 17 : 15,
             fontWeight: FontWeight.w700,
             color: context.appTextPrimary,
             letterSpacing: -0.3,
@@ -388,7 +389,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
     );
   }
 
-  Widget _buildMetaInfo(StockQuote? quote) {
+  Widget _buildMetaInfo(StockQuote? quote, bool isDesktop) {
     final timeStr = quote != null
         ? DateFormat('yyyy/MM/dd HH:mm').format(quote.timestamp)
         : '';
@@ -397,12 +398,12 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
       padding: const EdgeInsets.only(left: 16, right: 16, top: 6, bottom: 2),
       child: Text(
         '$_chartSymbol · $timeStr',
-        style: TextStyle(fontSize: 12, color: context.appTextHint),
+        style: TextStyle(fontSize: isDesktop ? 14 : 12, color: context.appTextHint),
       ),
     );
   }
 
-  Widget _buildChartPlaceholder() {
+  Widget _buildChartPlaceholder(bool isDesktop) {
     final hasFailed = _chartRetryCount >= _maxChartRetry && _chartData.isEmpty;
 
     return Container(
@@ -422,12 +423,12 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                   const SizedBox(height: 8),
                   Text(
                     '차트를 불러오지 못했습니다',
-                    style: TextStyle(fontSize: 13, color: context.appTextHint),
+                    style: TextStyle(fontSize: isDesktop ? 15 : 13, color: context.appTextHint),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '아래로 당겨서 새로고침 해주세요',
-                    style: TextStyle(fontSize: 11, color: context.appTextHint),
+                    style: TextStyle(fontSize: isDesktop ? 13 : 11, color: context.appTextHint),
                   ),
                 ],
               )
@@ -445,7 +446,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
                   const SizedBox(height: 10),
                   Text(
                     '차트 불러오는 중...',
-                    style: TextStyle(fontSize: 13, color: context.appTextHint),
+                    style: TextStyle(fontSize: isDesktop ? 15 : 13, color: context.appTextHint),
                   ),
                 ],
               ),

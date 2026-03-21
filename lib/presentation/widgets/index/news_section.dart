@@ -26,6 +26,7 @@ class _NewsSectionState extends State<NewsSection> {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final displayNews = _showAllNews ? widget.news : widget.news.take(3).toList();
 
     return Container(
@@ -36,7 +37,7 @@ class _NewsSectionState extends State<NewsSection> {
         children: [
           Row(
             children: [
-              Text('최신 뉴스', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+              Text('최신 뉴스', style: TextStyle(fontSize: isDesktop ? 17 : 15, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
               if (widget.isLoading) ...[
                 const SizedBox(width: 8),
                 const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
@@ -45,7 +46,7 @@ class _NewsSectionState extends State<NewsSection> {
               if (!widget.isLoading && widget.news.length > 3 && !_showAllNews)
                 GestureDetector(
                   onTap: () => setState(() => _showAllNews = true),
-                  child: Text('더보기 >', style: TextStyle(fontSize: 13, color: context.appTextSecondary)),
+                  child: Text('더보기 >', style: TextStyle(fontSize: isDesktop ? 14 : 13, color: context.appTextSecondary)),
                 ),
             ],
           ),
@@ -53,21 +54,21 @@ class _NewsSectionState extends State<NewsSection> {
           if (widget.isLoading)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('뉴스를 번역하는 중...', style: TextStyle(color: context.appTextHint, fontSize: 13))),
+              child: Center(child: Text('뉴스를 번역하는 중...', style: TextStyle(color: context.appTextHint, fontSize: isDesktop ? 14 : 13))),
             )
           else if (widget.news.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: Text('뉴스가 없습니다', style: TextStyle(color: context.appTextHint, fontSize: 13))),
+              child: Center(child: Text('뉴스가 없습니다', style: TextStyle(color: context.appTextHint, fontSize: isDesktop ? 14 : 13))),
             )
           else
-            ...List.generate(displayNews.length, (i) => _buildNewsItem(displayNews[i])),
+            ...List.generate(displayNews.length, (i) => _buildNewsItem(displayNews[i], isDesktop)),
         ],
       ),
     );
   }
 
-  Widget _buildNewsItem(NewsItem news) {
+  Widget _buildNewsItem(NewsItem news, bool isDesktop) {
     final timeAgo = _formatTimeAgo(news.publishedAt);
 
     return GestureDetector(
@@ -106,7 +107,7 @@ class _NewsSectionState extends State<NewsSection> {
                     news.displayTitle,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: context.appTextPrimary, height: 1.4),
+                    style: TextStyle(fontSize: isDesktop ? 16 : 14, fontWeight: FontWeight.w500, color: context.appTextPrimary, height: 1.4),
                   ),
                   if (news.translatedTitle != null) ...[
                     const SizedBox(height: 3),
@@ -114,13 +115,13 @@ class _NewsSectionState extends State<NewsSection> {
                       news.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 11, color: context.appTextHint, height: 1.3),
+                      style: TextStyle(fontSize: isDesktop ? 12 : 11, color: context.appTextHint, height: 1.3),
                     ),
                   ],
                   const SizedBox(height: 6),
                   Text(
                     '${news.publisher} • $timeAgo',
-                    style: TextStyle(fontSize: 11, color: context.appTextHint),
+                    style: TextStyle(fontSize: isDesktop ? 12 : 11, color: context.appTextHint),
                   ),
                 ],
               ),

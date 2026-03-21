@@ -101,6 +101,7 @@ class _DescriptionSectionState extends State<DescriptionSection> {
     };
 
     String? description = descriptions[widget.name] ?? symbolDescriptions[widget.symbol];
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
 
     return Container(
       color: context.appSurface,
@@ -112,7 +113,7 @@ class _DescriptionSectionState extends State<DescriptionSection> {
             onTap: () => setState(() => _isDescExpanded = !_isDescExpanded),
             child: Row(
               children: [
-                Text('소개', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                Text('소개', style: TextStyle(fontSize: isDesktop ? 17 : 15, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
                 const Spacer(),
                 Icon(_isDescExpanded ? Icons.expand_less : Icons.expand_more, size: 20, color: context.appTextHint),
               ],
@@ -124,11 +125,11 @@ class _DescriptionSectionState extends State<DescriptionSection> {
               description ?? '${widget.name}에 대한 정보가 없습니다.',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: context.appTextSecondary, height: 1.6),
+              style: TextStyle(fontSize: isDesktop ? 15 : 13, color: context.appTextSecondary, height: 1.6),
             ),
             secondChild: Text(
               description ?? '${widget.name}에 대한 정보가 없습니다.',
-              style: TextStyle(fontSize: 13, color: context.appTextSecondary, height: 1.6),
+              style: TextStyle(fontSize: isDesktop ? 15 : 13, color: context.appTextSecondary, height: 1.6),
             ),
             crossFadeState: _isDescExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
             duration: const Duration(milliseconds: 200),

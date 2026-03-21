@@ -46,7 +46,7 @@ class _DrawingToolbarState extends State<DrawingToolbar> {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         // 팔레트 (버튼 위에 표시, 아이콘만)
         if (_showPalette) ...[

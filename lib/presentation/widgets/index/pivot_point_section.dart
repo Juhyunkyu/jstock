@@ -19,6 +19,7 @@ class PivotPointSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (pivotLevels == null) return const SizedBox.shrink();
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
 
     return Container(
       color: context.appBackground,
@@ -30,7 +31,7 @@ class PivotPointSection extends StatelessWidget {
             children: [
               Text(
                 '기술적 지표',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.appTextPrimary),
+                style: TextStyle(fontSize: isDesktop ? 17 : 15, fontWeight: FontWeight.w600, color: context.appTextPrimary),
               ),
               const SizedBox(width: 4),
               GestureDetector(
@@ -41,7 +42,7 @@ class PivotPointSection extends StatelessWidget {
               Text(
                 '차트 표시',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: isDesktop ? 14 : 12,
                   color: showPivotLines ? context.appTextPrimary : context.appTextHint,
                 ),
               ),
@@ -66,19 +67,19 @@ class PivotPointSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           _buildIndicatorPairRow(
-            context,
+            context, isDesktop,
             '저항선 2 (R2)', pivotLevels!['R2']!, AppColors.stockUp,
             '저항선 1 (R1)', pivotLevels!['R1']!, AppColors.stockUp,
           ),
           const SizedBox(height: 6),
           _buildIndicatorPairRow(
-            context,
+            context, isDesktop,
             '피봇 포인트', pivotLevels!['P']!, context.appTextPrimary,
             '현재가', currentPrice, context.appTextPrimary,
           ),
           const SizedBox(height: 6),
           _buildIndicatorPairRow(
-            context,
+            context, isDesktop,
             '지지선 1 (S1)', pivotLevels!['S1']!, AppColors.stockDown,
             '지지선 2 (S2)', pivotLevels!['S2']!, AppColors.stockDown,
           ),
@@ -88,7 +89,7 @@ class PivotPointSection extends StatelessWidget {
   }
 
   Widget _buildIndicatorPairRow(
-    BuildContext context,
+    BuildContext context, bool isDesktop,
     String label1, double value1, Color color1,
     String label2, double value2, Color color2,
   ) {
@@ -103,9 +104,9 @@ class PivotPointSection extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Text(label, style: TextStyle(fontSize: 11, color: color.withAlpha(180), fontWeight: FontWeight.w500)),
+              Text(label, style: TextStyle(fontSize: isDesktop ? 13 : 11, color: color.withAlpha(180), fontWeight: FontWeight.w500)),
               const Spacer(),
-              Text(_formatPrice(value), style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color)),
+              Text(_formatPrice(value), style: TextStyle(fontSize: isDesktop ? 15 : 13, fontWeight: FontWeight.w700, color: color)),
             ],
           ),
         ),
