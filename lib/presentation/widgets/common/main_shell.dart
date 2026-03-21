@@ -128,44 +128,6 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 
-  /// 메인 탭 경로 목록
-  static const _mainTabPaths = [
-    AppRouter.home,
-    AppRouter.watchlist,
-    AppRouter.stocks,
-    AppRouter.history,
-    AppRouter.memo,
-    AppRouter.settings,
-  ];
-
-  /// 현재 경로가 메인 탭 경로인지 확인
-  bool _isMainTabRoute(String location) {
-    return _mainTabPaths.contains(location);
-  }
-
-  /// 브라우저 뒤로가기 처리
-  void _handleBackNavigation(bool didPop, dynamic result) {
-    if (didPop) return;
-
-    final location = GoRouterState.of(context).uri.path;
-
-    if (_isMainTabRoute(location)) {
-      // 메인 탭에서 뒤로가기: 홈이 아니면 홈으로, 홈이면 무시
-      if (location != AppRouter.home) {
-        context.go(AppRouter.home);
-      }
-      // 이미 홈이면 아무것도 안 함 (앱 종료 방지)
-    } else {
-      // 상세 페이지: 정상 pop 동작
-      final shellNav = AppRouter.shellNavigatorKey.currentState;
-      if (shellNav != null && shellNav.canPop()) {
-        shellNav.pop();
-      } else {
-        context.go(AppRouter.home);
-      }
-    }
-  }
-
   /// 업데이트 배너 + 콘텐츠를 Column으로 합성
   Widget _wrapWithBanner(Widget child) {
     if (!_updateAvailable) return child;
@@ -189,27 +151,23 @@ class _MainShellState extends ConsumerState<MainShell> {
           final available = width - sidebarWidth;
           final desktopMaxWidth = (available * 0.95).clamp(0.0, 1600.0);
 
-          return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: _handleBackNavigation,
-            child: Scaffold(
-              backgroundColor: context.appBackground,
-              body: Row(
-                children: [
-                  _buildNavigationRail(context),
-                  Expanded(
-                    child: _wrapWithBanner(
-                      Align(
-                        alignment: Alignment.topLeft,
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxWidth: desktopMaxWidth),
-                          child: widget.child,
-                        ),
+          return Scaffold(
+            backgroundColor: context.appBackground,
+            body: Row(
+              children: [
+                _buildNavigationRail(context),
+                Expanded(
+                  child: _wrapWithBanner(
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: desktopMaxWidth),
+                        child: widget.child,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }
@@ -218,32 +176,24 @@ class _MainShellState extends ConsumerState<MainShell> {
         // 비율 기반 maxWidth: 화면 폭의 95%, 최대 1100px
         if (width >= 768) {
           final tabletMaxWidth = (width * 0.95).clamp(0.0, 1100.0);
-          return PopScope(
-            canPop: false,
-            onPopInvokedWithResult: _handleBackNavigation,
-            child: Scaffold(
-              backgroundColor: context.appBackground,
-              body: _wrapWithBanner(
-                Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: tabletMaxWidth),
-                    child: widget.child,
-                  ),
+          return Scaffold(
+            backgroundColor: context.appBackground,
+            body: _wrapWithBanner(
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: tabletMaxWidth),
+                  child: widget.child,
                 ),
               ),
-              bottomNavigationBar: const _BottomNavBar(),
             ),
+            bottomNavigationBar: const _BottomNavBar(),
           );
         }
 
         // Mobile (<768px): BottomNav only for main tabs
-        return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: _handleBackNavigation,
-          child: Scaffold(
-            body: _wrapWithBanner(widget.child),
-            bottomNavigationBar: const _BottomNavBar(),
-          ),
+        return Scaffold(
+          body: _wrapWithBanner(widget.child),
+          bottomNavigationBar: const _BottomNavBar(),
         );
       },
     );

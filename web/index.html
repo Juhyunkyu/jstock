@@ -124,6 +124,25 @@
     });
   </script>
 
+  <script>
+    // Sentinel history entry: 모바일 물리 뒤로가기 시 앱 종료 방지
+    // 히스토리 스택이 비면 OS가 앱을 종료하므로, 항상 엔트리를 유지한다.
+    (function() {
+      // 초기 sentinel 추가
+      if (!history.state || !history.state._sentinel) {
+        history.replaceState({ _sentinel: true }, '', location.href);
+        history.pushState({ _sentinel: true }, '', location.href);
+      }
+
+      window.addEventListener('popstate', function(e) {
+        // 히스토리가 비어서 sentinel까지 도달하면 다시 push
+        if (!e.state || e.state._sentinel) {
+          history.pushState({ _sentinel: true }, '', location.href);
+        }
+      });
+    })();
+  </script>
+
   <script src="flutter_bootstrap.js" async></script>
 
   <script>
