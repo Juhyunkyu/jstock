@@ -203,7 +203,7 @@ class FearGreedCard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            flex: 3,
+                            flex: 4,
                             child: Center(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -487,8 +487,8 @@ class _CompactZoneRow extends StatelessWidget {
             children: [
               // 색상 원
               Container(
-                width: 8,
-                height: 8,
+                width: 9,
+                height: 9,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isActive
@@ -497,31 +497,33 @@ class _CompactZoneRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // 이름
-              Text(
-                zone.koreanName,
-                style: TextStyle(
-                  fontSize: isActive ? 14 : 12,
-                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                  color: isActive
-                      ? context.appTextPrimary
-                      : context.appTextHint,
+              // 이름 (고정 폭으로 수직 정렬)
+              SizedBox(
+                width: 90,
+                child: Text(
+                  zone.koreanName,
+                  style: TextStyle(
+                    fontSize: isActive ? 15 : 13,
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: isActive
+                        ? context.appTextPrimary
+                        : context.appTextHint,
+                  ),
                 ),
               ),
-              const SizedBox(width: 6),
-              // 범위 뱃지
+              // 범위 뱃지 (수직 정렬됨)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 decoration: BoxDecoration(
                   color: isActive
                       ? zone.accentColor.withValues(alpha: isDark ? 0.25 : 0.12)
                       : context.appIconBg,
-                  borderRadius: BorderRadius.circular(3),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   '${zone.rangeStart}-${zone.rangeEnd}',
                   style: TextStyle(
-                    fontSize: isActive ? 11 : 10,
+                    fontSize: isActive ? 12 : 11,
                     fontWeight: FontWeight.w500,
                     color: isActive
                         ? zone.accentColor
