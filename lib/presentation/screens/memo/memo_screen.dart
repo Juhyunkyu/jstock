@@ -259,19 +259,22 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
       itemCount: memoState.memos.length,
       itemBuilder: (context, index) {
         final memo = memoState.memos[index];
-        return _DismissibleMemoCard(
+        return ReorderableDragStartListener(
           key: ValueKey(memo.id),
-          memo: memo,
-          onTap: () => context.go('/memo/detail/${memo.id}'),
-          onDismissed: () {
-            ref.read(memoListProvider.notifier).delete(memo.id);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('"${memo.title}" 삭제됨'),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          },
+          index: index,
+          child: _DismissibleMemoCard(
+            memo: memo,
+            onTap: () => context.go('/memo/detail/${memo.id}'),
+            onDismissed: () {
+              ref.read(memoListProvider.notifier).delete(memo.id);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('"${memo.title}" 삭제됨'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
         );
       },
     );
