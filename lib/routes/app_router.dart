@@ -101,13 +101,21 @@ class _ModalObserver extends NavigatorObserver {
   }
 }
 
-/// JS interop: history.pushState(null, '', location.href)
+/// JS interop: history.pushState(state, '', url)
 @JS('history.pushState')
 external void _jsPushState(JSAny? state, JSString title, JSString url);
+
+/// JS interop: history.replaceState(state, '', url)
+@JS('history.replaceState')
+external void _jsReplaceState(JSAny? state, JSString title, JSString url);
 
 /// JS interop: history.back()
 @JS('history.back')
 external void _jsHistoryBack();
+
+/// JS interop: history.state
+@JS('history.state')
+external JSAny? get _jsHistoryState;
 
 /// JS interop: location.href
 @JS('location.href')
@@ -164,6 +172,39 @@ class AppRouter {
   static const String memoDetail = '/memo/detail/:memoId';
   static const String memoEdit = '/memo/edit/:memoId';
   static const String settings = '/settings';
+
+  /// 종료 guard entry 삽입 (홈 아래에 guard → 뒤로가기 시 토스트)
+  /// PWA standalone에서만 유효. go_router 초기화 완료 후 호출해야 함.
+  static void insertExitGuard() {
+    try {
+      // PWA standalone 모드인지 확인
+      final isPwa = _isStandalone();
+      if (!isPwa) return;
+
+      final currentState = _jsHistoryState;
+      final currentUrl = _jsLocationHref;
+      // 현재 엔트리를 guard로 교체
+      final guardState = <String, bool>{'_exitGuard': true}.jsify();
+      _jsReplaceState(guardState, ''.toJS, currentUrl);
+      // 원래 상태를 위에 push
+      _jsPushState(currentState, ''.toJS, currentUrl);
+    } catch (e) {
+      debugPrint('[ExitGuard] Insert error: $e');
+    }
+  }
+
+  /// PWA standalone 모드 감지
+  static bool _isStandalone() {
+    try {
+      final result = globalContext.callMethod(
+        'eval'.toJS,
+        'window.matchMedia("(display-mode: standalone)").matches'.toJS,
+      );
+      return (result as JSBoolean?)?.toDart ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
 
   /// push/pop이 브라우저 히스토리에 반영되도록 설정
   /// go_router v14+에서 기본값이 false → push()가 히스토리에 안 들어감

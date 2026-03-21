@@ -126,13 +126,8 @@
         setTimeout(function() { splash.remove(); }, 300);
       }
 
-      // 종료 방지 guard entry: 홈 아래에 삽입
-      // go_router가 URL을 설정한 후 실행되므로 hash URL(/#/) 호환
-      // 현재 상태를 guard로 교체 → 실제 홈을 위에 push
-      var currentState = history.state;
-      var currentUrl = location.href;
-      history.replaceState({ _exitGuard: true }, '', currentUrl);
-      history.pushState(currentState, '', currentUrl);
+      // 종료 방지 guard entry: Dart(MainShell)에서 go_router 초기화 완료 후 삽입
+      // window._insertExitGuard()를 Dart에서 호출
     });
   </script>
 
@@ -159,8 +154,8 @@
           e.stopImmediatePropagation();
           return;
         }
-        // 종료 guard 도달 → 토스트 표시, 한 번 더 누르면 종료
-        if (e.state && e.state._exitGuard) {
+        // 종료 guard 도달 → 토스트 표시, 한 번 더 누르면 종료 (PWA standalone만)
+        if (e.state && e.state._exitGuard && window.matchMedia('(display-mode: standalone)').matches) {
           _showExitToast();
           e.stopImmediatePropagation();
         }

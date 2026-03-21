@@ -43,6 +43,10 @@ class _MainShellState extends ConsumerState<MainShell> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
+
+      // 종료 guard entry 삽입 (go_router 초기화 완료 후)
+      AppRouter.insertExitGuard();
+
       // 전역: 브라우저 알림 권한 요청 (비동기, 대화상자 응답을 기다리지 않음)
       WebNotificationService.requestPermission();
 
