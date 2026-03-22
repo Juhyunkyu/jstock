@@ -30,6 +30,7 @@ class DetailCandlestickPainter extends CustomPainter {
   final double? currentPrice;
   final double? previousClose;
   final int? selectedCandleIndex;
+  final double? crosshairPrice;
 
   DetailCandlestickPainter({
     required this.data,
@@ -53,6 +54,7 @@ class DetailCandlestickPainter extends CustomPainter {
     this.currentPrice,
     this.previousClose,
     this.selectedCandleIndex,
+    this.crosshairPrice,
   });
 
   @override
@@ -178,6 +180,49 @@ class DetailCandlestickPainter extends CustomPainter {
         final segEnd = (drawY + dashWidth).clamp(drawY, endY);
         canvas.drawLine(Offset(selX, drawY), Offset(selX, segEnd), crosshairPaint);
         drawY += dashWidth + gapWidth;
+      }
+
+      // 수평 십자선 (점선) + 우측 가격 라벨
+      if (crosshairPrice != null) {
+        final hY = toY(crosshairPrice!);
+        if (hY >= topPadding && hY <= topPadding + chartHeight) {
+          // 수평 점선
+          double drawX = leftPadding;
+          final endX = leftPadding + chartWidth;
+          while (drawX < endX) {
+            final segEnd = (drawX + dashWidth).clamp(drawX, endX);
+            canvas.drawLine(Offset(drawX, hY), Offset(segEnd, hY), crosshairPaint);
+            drawX += dashWidth + gapWidth;
+          }
+
+          // 우측 가격 라벨 배지
+          final priceText = crosshairPrice!.toStringAsFixed(2);
+          final tp = TextPainter(
+            text: TextSpan(
+              text: priceText,
+              style: TextStyle(
+                fontSize: isDesktop ? 11 : 9,
+                fontWeight: FontWeight.w600,
+                color: cardBgColor,
+              ),
+            ),
+            textDirection: ui.TextDirection.ltr,
+          )..layout();
+          final badgeW = tp.width + 8;
+          final badgeH = tp.height + 4;
+          final badgeX = size.width - rightPadding + 2;
+          final badgeY = hY - badgeH / 2;
+
+          // 배지 배경
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(badgeX, badgeY, badgeW, badgeH),
+              const Radius.circular(3),
+            ),
+            Paint()..color = textColor.withAlpha(180),
+          );
+          tp.paint(canvas, Offset(badgeX + 4, badgeY + 2));
+        }
       }
     }
 

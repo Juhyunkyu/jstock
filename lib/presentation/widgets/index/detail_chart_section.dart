@@ -106,6 +106,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
   // 캔들 선택 상태
   int? _selectedCandleIndex; // widget.chartData 기준 full index, null이면 미선택
+  double? _crosshairPrice; // 십자선 수평선의 가격 위치
 
   // 측정 도구 상태 (Hive 비저장)
   bool _isMeasuring = false;
@@ -149,6 +150,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     if (widget.chartData.length != oldWidget.chartData.length ||
         widget.selectedPeriod != oldWidget.selectedPeriod) {
       _selectedCandleIndex = null;
+      _crosshairPrice = null;
       _scrollOffset = (widget.chartData.length - _visibleCount).clamp(0, widget.chartData.length);
     }
   }
@@ -408,6 +410,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                               _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
                                               ? _selectedCandleIndex! - offset
                                               : null,
+                                          crosshairPrice: _crosshairPrice,
                                         ),
                                       ),
                                       // 드로잉 오버레이 (+ 미리보기)

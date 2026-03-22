@@ -56,6 +56,7 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
     // 드로잉이 선택되면 캔들 선택 해제
     if (_selectedDrawingId != null) {
       _selectedCandleIndex = null;
+      _crosshairPrice = null;
       return;
     }
 
@@ -66,9 +67,15 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
       if (fullIndex >= 0 && fullIndex < widget.chartData.length &&
           localPos.dy >= yRange.topPadding &&
           localPos.dy <= yRange.topPadding + yRange.chartHeight) {
-        setState(() => _selectedCandleIndex = fullIndex);
+        setState(() {
+          _selectedCandleIndex = fullIndex;
+          _crosshairPrice = widget.chartData[fullIndex].close;
+        });
       } else {
-        setState(() => _selectedCandleIndex = null);
+        setState(() {
+          _selectedCandleIndex = null;
+          _crosshairPrice = null;
+        });
       }
     }
   }
@@ -341,6 +348,7 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
       _drawingMode = mode;
       _selectedDrawingId = null;
       _selectedCandleIndex = null;
+      _crosshairPrice = null;
       _waitingSecondPoint = false;
       _tempTrendLineStartDate = null;
       _tempTrendLineStartPrice = null;
@@ -711,8 +719,10 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
     if (_drawingMode != DrawingMode.none) return;
     final dataIndex = yRange.fromX(details.localPosition.dx);
     final fullIndex = (dataIndex + scrollOffset).clamp(0, widget.chartData.length - 1);
+    final price = yRange.fromY(details.localPosition.dy);
     setState(() {
       _selectedCandleIndex = fullIndex;
+      _crosshairPrice = price;
       _selectedDrawingId = null;
     });
     _notifyDrawingActive();
@@ -723,8 +733,18 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
     if (_drawingMode != DrawingMode.none || _selectedCandleIndex == null) return;
     final dataIndex = yRange.fromX(details.localPosition.dx);
     final fullIndex = (dataIndex + scrollOffset).clamp(0, widget.chartData.length - 1);
+    final price = yRange.fromY(details.localPosition.dy);
+    bool changed = false;
     if (fullIndex != _selectedCandleIndex) {
-      setState(() => _selectedCandleIndex = fullIndex);
+      _selectedCandleIndex = fullIndex;
+      changed = true;
+    }
+    if (_crosshairPrice == null || (price - _crosshairPrice!).abs() > 0.01) {
+      _crosshairPrice = price;
+      changed = true;
+    }
+    if (changed) {
+      setState(() {});
       HapticFeedback.selectionClick();
     }
   }
