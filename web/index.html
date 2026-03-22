@@ -100,10 +100,6 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    @keyframes exitToastFade {
-      0%, 70% { opacity: 1; }
-      100% { opacity: 0; }
-    }
   </style>
 </head>
 <body>
@@ -126,8 +122,6 @@
         setTimeout(function() { splash.remove(); }, 300);
       }
 
-      // 종료 방지 guard entry: Dart(MainShell)에서 go_router 초기화 완료 후 삽입
-      // window._insertExitGuard()를 Dart에서 호출
     });
   </script>
 
@@ -154,26 +148,7 @@
           e.stopImmediatePropagation();
           return;
         }
-        // 종료 guard 도달 → 토스트 표시, 한 번 더 누르면 종료 (PWA standalone만)
-        if (e.state && e.state._exitGuard && window.matchMedia('(display-mode: standalone)').matches) {
-          _showExitToast();
-          e.stopImmediatePropagation();
-        }
       });
-
-      function _showExitToast() {
-        var existing = document.getElementById('exit-toast');
-        if (existing) existing.remove();
-        var toast = document.createElement('div');
-        toast.id = 'exit-toast';
-        toast.textContent = '한 번 더 누르면 종료됩니다';
-        toast.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);' +
-          'background:rgba(0,0,0,0.8);color:white;padding:10px 24px;border-radius:20px;' +
-          'font-size:14px;z-index:99999;font-family:inherit;pointer-events:none;' +
-          'animation:exitToastFade 2s ease-out forwards;';
-        document.body.appendChild(toast);
-        setTimeout(function() { toast.remove(); }, 2000);
-      }
     })();
   </script>
 
