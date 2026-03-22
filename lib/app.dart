@@ -1,3 +1,5 @@
+import 'dart:js_interop';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +8,6 @@ import 'core/theme/app_colors.dart';
 import 'core/constants/app_constants.dart';
 import 'routes/app_router.dart';
 import 'presentation/providers/providers.dart';
-import 'presentation/widgets/common/app_title_logo.dart';
 
 /// 알파 사이클 앱 루트 위젯
 class AlphaCycleApp extends ConsumerWidget {
@@ -37,68 +38,35 @@ class AlphaCycleApp extends ConsumerWidget {
       ],
       builder: (context, child) {
         return initialization.when(
-          data: (_) => child!,
-          loading: () => const _SplashScreen(),
-          error: (error, stack) => _ErrorScreen(error: error.toString()),
+          data: (_) {
+            // 초기화 완료 → HTML 스플래시 제거
+            _removeSplash();
+            return child!;
+          },
+          loading: () => const SizedBox.shrink(), // HTML 스플래시가 위에 덮고 있음
+          error: (error, stack) {
+            _removeSplash();
+            return _ErrorScreen(error: error.toString());
+          },
         );
       },
     );
   }
 }
 
-/// 앱 초기화 중 표시되는 스플래시 화면
-/// index.html의 HTML 스플래시와 동일한 디자인 (흰 배경 + ∞ Alpha Cycle + 스피너)
-class _SplashScreen extends StatelessWidget {
-  const _SplashScreen();
+/// JS interop: window._removeSplash() 호출
+@JS('_removeSplash')
+external void _jsRemoveSplash();
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // HTML 스플래시와 동일한 색상값 하드코딩 (테마 무관하게 일치시키기 위함)
-            const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '∞',
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF2563EB), // index.html .infinity-symbol color
-                    height: 1,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Alpha Cycle',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1a1a1a), // index.html .app-name color
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 48),
-            const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(
-                strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
-                backgroundColor: Color(0xFFe5e7eb),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+bool _splashRemoved = false;
+
+/// HTML 스플래시 제거 (1회만 실행)
+void _removeSplash() {
+  if (_splashRemoved) return;
+  _splashRemoved = true;
+  try {
+    _jsRemoveSplash();
+  } catch (_) {}
 }
 
 /// 에러 화면

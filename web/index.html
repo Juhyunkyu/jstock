@@ -113,16 +113,20 @@
   </div>
 
   <script>
-    // Remove splash screen when Flutter app is ready
     window.addEventListener('flutter-first-frame', function() {
       window._flutterFirstFrameFired = true;
+      // HTML 스플래시는 여기서 제거하지 않음
+      // Dart에서 앱 초기화 완료 후 window._removeSplash()를 호출하여 제거
+    });
+
+    // Dart에서 호출: 앱 초기화 완료 후 HTML 스플래시 제거
+    window._removeSplash = function() {
       var splash = document.getElementById('splash');
       if (splash) {
         splash.classList.add('fade-out');
         setTimeout(function() { splash.remove(); }, 300);
       }
-
-    });
+    };
   </script>
 
   <script>
