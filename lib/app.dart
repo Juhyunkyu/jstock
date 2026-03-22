@@ -47,62 +47,50 @@ class AlphaCycleApp extends ConsumerWidget {
 }
 
 /// 앱 초기화 중 표시되는 스플래시 화면
+/// index.html의 HTML 스플래시와 동일한 디자인 (흰 배경 + ∞ Alpha Cycle + 스피너)
 class _SplashScreen extends StatelessWidget {
   const _SplashScreen();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary,
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // 앱 로고
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: ShaderMask(
-                shaderCallback: (bounds) => const LinearGradient(
-                  colors: [
-                    Color(0xFF2563EB), // Blue 600
-                    Color(0xFF10B981), // Green 500
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ).createShader(bounds),
-                child: const Icon(
-                  Icons.trending_up,
-                  size: 60,
-                  color: Colors.white,
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '∞',
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    height: 1,
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const AppTitleLogo(
-              fontSize: 30,
-              iconColor: Colors.white70,
-              textColor: Colors.white,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              '3배 레버리지 ETF 분할매수 도우미',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.white70,
-              ),
+                const SizedBox(width: 8),
+                Text(
+                  'Alpha Cycle',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1a1a1a),
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 48),
-            const SizedBox(
-              width: 24,
-              height: 24,
+            SizedBox(
+              width: 28,
+              height: 28,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+                backgroundColor: const Color(0xFFe5e7eb),
               ),
             ),
           ],
