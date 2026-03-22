@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
@@ -18,6 +19,7 @@ import 'chart_sub_charts.dart';
 import 'detail_candlestick_painter.dart';
 import 'drawing_guide_bar.dart';
 // drawing_help_dialog.dart — 도움말은 오버레이로 인라인 처리
+import 'candle_info_overlay.dart';
 import 'drawing_overlay_painter.dart';
 import 'drawing_selection_buttons.dart';
 import 'drawing_settings_sheet.dart';
@@ -102,6 +104,9 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   String? _draggingAnchor;           // 앵커 드래그: 'start' 또는 'end' (null이면 평행 이동)
   bool _ignoreNextTap = false;        // 인라인 버튼 터치 시 탭 무시 플래그
 
+  // 캔들 선택 상태
+  int? _selectedCandleIndex; // widget.chartData 기준 full index, null이면 미선택
+
   // 측정 도구 상태 (Hive 비저장)
   bool _isMeasuring = false;
   int? _measureStartFullIndex;
@@ -140,8 +145,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   @override
   void didUpdateWidget(DetailChartSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // chartData가 변경되면 스크롤 위치 재설정
-    if (widget.chartData.length != oldWidget.chartData.length) {
+    // chartData나 기간 변경 시 캔들 선택 초기화 + 스크롤 위치 재설정
+    if (widget.chartData.length != oldWidget.chartData.length ||
+        widget.selectedPeriod != oldWidget.selectedPeriod) {
+      _selectedCandleIndex = null;
       _scrollOffset = (widget.chartData.length - _visibleCount).clamp(0, widget.chartData.length);
     }
   }
@@ -359,6 +366,9 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                             details, chartWidth, displayData, ind.displayBB,
                             ind.displayIchimoku, ind.bbSummary, ind.ichSummary, offset,
                           ),
+                          onLongPressStart: (details) => _handleCandleScrubStart(details, yRange, offset),
+                          onLongPressMoveUpdate: (details) => _handleCandleScrubUpdate(details, yRange, offset),
+                          onLongPressEnd: (_) {},
                           child: Listener(
                             onPointerSignal: _drawingMode == DrawingMode.none && !_isMeasuring
                                 ? _handlePointerSignal : null,
@@ -394,6 +404,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           cardBgColor: context.appSurface,
                                           currentPrice: widget.currentPrice,
                                           previousClose: widget.previousClose,
+                                          selectedCandleIndex: (_selectedCandleIndex != null &&
+                                              _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
+                                              ? _selectedCandleIndex! - offset
+                                              : null,
                                         ),
                                       ),
                                       // 드로잉 오버레이 (+ 미리보기)
@@ -419,6 +433,21 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           tempZoneLowerPrice: _isDraggingNewZone ? _tempZoneLowerPrice : null,
                                         ),
                                       ),
+                                      // 캔들 정보 오버레이
+                                      if (_selectedCandleIndex != null &&
+                                          _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
+                                        Positioned(
+                                          top: 2,
+                                          left: 10,
+                                          right: 50, // Y축 레이블 영역 피하기
+                                          child: CandleInfoOverlay(
+                                            candle: widget.chartData[_selectedCandleIndex!],
+                                            previousCandle: _selectedCandleIndex! > 0
+                                                ? widget.chartData[_selectedCandleIndex! - 1]
+                                                : null,
+                                            selectedPeriod: widget.selectedPeriod,
+                                          ),
+                                        ),
                                       // 가이드 바 (드로잉 모드 시 상단)
                                       Positioned(
                                         top: 0,

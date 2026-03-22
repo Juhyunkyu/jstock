@@ -49,8 +49,28 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
       }
     }
 
-    // 일반 모드: hit test -> 가장 가까운 드로잉 선택
+    // 일반 모드: 드로잉 히트 테스트 먼저
+    final previousSelected = _selectedDrawingId;
     _handleSelectionTap(localPos, yRange, displayData, scrollOffset);
+
+    // 드로잉이 선택되면 캔들 선택 해제
+    if (_selectedDrawingId != null) {
+      _selectedCandleIndex = null;
+      return;
+    }
+
+    // 드로잉 미선택 → 캔들 선택
+    if (previousSelected == null && _selectedDrawingId == null) {
+      final dataIndex = yRange.fromX(localPos.dx);
+      final fullIndex = dataIndex + scrollOffset;
+      if (fullIndex >= 0 && fullIndex < widget.chartData.length &&
+          localPos.dy >= yRange.topPadding &&
+          localPos.dy <= yRange.topPadding + yRange.chartHeight) {
+        setState(() => _selectedCandleIndex = fullIndex);
+      } else {
+        setState(() => _selectedCandleIndex = null);
+      }
+    }
   }
 
   void _handleDrawingTap(
@@ -320,6 +340,7 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
     setState(() {
       _drawingMode = mode;
       _selectedDrawingId = null;
+      _selectedCandleIndex = null;
       _waitingSecondPoint = false;
       _tempTrendLineStartDate = null;
       _tempTrendLineStartPrice = null;
@@ -681,6 +702,30 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
         _draggingAnchor = null;
       });
       return;
+    }
+  }
+
+  // ─── 캔들 롱프레스 스크럽 ────────────────────────────────────
+
+  void _handleCandleScrubStart(LongPressStartDetails details, ChartYRange yRange, int scrollOffset) {
+    if (_drawingMode != DrawingMode.none) return;
+    final dataIndex = yRange.fromX(details.localPosition.dx);
+    final fullIndex = (dataIndex + scrollOffset).clamp(0, widget.chartData.length - 1);
+    setState(() {
+      _selectedCandleIndex = fullIndex;
+      _selectedDrawingId = null;
+    });
+    _notifyDrawingActive();
+    HapticFeedback.selectionClick();
+  }
+
+  void _handleCandleScrubUpdate(LongPressMoveUpdateDetails details, ChartYRange yRange, int scrollOffset) {
+    if (_drawingMode != DrawingMode.none || _selectedCandleIndex == null) return;
+    final dataIndex = yRange.fromX(details.localPosition.dx);
+    final fullIndex = (dataIndex + scrollOffset).clamp(0, widget.chartData.length - 1);
+    if (fullIndex != _selectedCandleIndex) {
+      setState(() => _selectedCandleIndex = fullIndex);
+      HapticFeedback.selectionClick();
     }
   }
 

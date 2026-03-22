@@ -29,6 +29,7 @@ class DetailCandlestickPainter extends CustomPainter {
   final Color cardBgColor;
   final double? currentPrice;
   final double? previousClose;
+  final int? selectedCandleIndex;
 
   DetailCandlestickPainter({
     required this.data,
@@ -51,6 +52,7 @@ class DetailCandlestickPainter extends CustomPainter {
     required this.cardBgColor,
     this.currentPrice,
     this.previousClose,
+    this.selectedCandleIndex,
   });
 
   @override
@@ -143,6 +145,40 @@ class DetailCandlestickPainter extends CustomPainter {
     // 피봇 포인트
     if (showPivotLines && pivotLevels != null) {
       _drawPivotLines(canvas, size, pivotLevels!, chartWidth, chartHeight, minY, maxY, leftPadding, topPadding, rightPadding);
+    }
+
+    // 선택된 캔들 십자선 + 하이라이트
+    if (selectedCandleIndex != null &&
+        selectedCandleIndex! >= 0 &&
+        selectedCandleIndex! < data.length) {
+      final selX = toX(selectedCandleIndex!);
+
+      // 캔들 하이라이트 (반투명 세로 배경)
+      final highlightHalfWidth = candleWidth / 2 * 1.5;
+      canvas.drawRect(
+        Rect.fromLTRB(
+          selX - highlightHalfWidth,
+          topPadding,
+          selX + highlightHalfWidth,
+          topPadding + chartHeight,
+        ),
+        Paint()..color = textColor.withAlpha(20),
+      );
+
+      // 수직 십자선 (점선)
+      final crosshairPaint = Paint()
+        ..color = textColor.withAlpha(80)
+        ..strokeWidth = 1
+        ..style = PaintingStyle.stroke;
+      const dashWidth = 4.0;
+      const gapWidth = 4.0;
+      double drawY = topPadding;
+      final endY = topPadding + chartHeight;
+      while (drawY < endY) {
+        final segEnd = (drawY + dashWidth).clamp(drawY, endY);
+        canvas.drawLine(Offset(selX, drawY), Offset(selX, segEnd), crosshairPaint);
+        drawY += dashWidth + gapWidth;
+      }
     }
 
     canvas.restore(); // 클리핑 해제 — 축 라벨, 오버레이, 마커는 클리핑 밖
