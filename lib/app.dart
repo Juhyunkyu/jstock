@@ -59,7 +59,8 @@ class _SplashScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Row(
+            // HTML 스플래시와 동일한 색상값 하드코딩 (테마 무관하게 일치시키기 위함)
+            const Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
@@ -67,30 +68,30 @@ class _SplashScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 36,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.primary,
+                    color: Color(0xFF2563EB), // index.html .infinity-symbol color
                     height: 1,
                   ),
                 ),
-                const SizedBox(width: 8),
+                SizedBox(width: 8),
                 Text(
                   'Alpha Cycle',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF1a1a1a),
+                    color: Color(0xFF1a1a1a), // index.html .app-name color
                     letterSpacing: -0.5,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 48),
-            SizedBox(
+            const SizedBox(
               width: 28,
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-                backgroundColor: const Color(0xFFe5e7eb),
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2563EB)),
+                backgroundColor: Color(0xFFe5e7eb),
               ),
             ),
           ],
