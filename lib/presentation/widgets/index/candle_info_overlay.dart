@@ -26,13 +26,17 @@ class CandleInfoOverlay extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    final fs = isDesktop ? 12.0 : 10.0;
+    final changeFontSize = isDesktop ? 10.0 : 9.0;
+
     final hintStyle = TextStyle(
-      fontSize: 10,
+      fontSize: fs,
       color: context.appTextHint,
       height: 1.2,
     );
     final valueStyle = TextStyle(
-      fontSize: 10,
+      fontSize: fs,
       color: context.appTextPrimary,
       fontWeight: FontWeight.w600,
       height: 1.2,
@@ -43,13 +47,13 @@ class CandleInfoOverlay extends StatelessWidget {
       Text(_formatDate(), style: hintStyle),
       const SizedBox(height: 2),
       // OHLC
-      _buildOhlcRow(context, '시', candle.open, hintStyle, valueStyle),
+      _buildOhlcRow('시', candle.open, hintStyle, valueStyle, changeFontSize),
       const SizedBox(height: 2),
-      _buildOhlcRow(context, '고', candle.high, hintStyle, valueStyle),
+      _buildOhlcRow('고', candle.high, hintStyle, valueStyle, changeFontSize),
       const SizedBox(height: 2),
-      _buildOhlcRow(context, '저', candle.low, hintStyle, valueStyle),
+      _buildOhlcRow('저', candle.low, hintStyle, valueStyle, changeFontSize),
       const SizedBox(height: 2),
-      _buildOhlcRow(context, '종', candle.close, hintStyle, valueStyle),
+      _buildOhlcRow('종', candle.close, hintStyle, valueStyle, changeFontSize),
       const SizedBox(height: 2),
       // 거래량
       _buildLabelValueRow('거래량', _formatKoreanVolume(candle.volume), hintStyle, valueStyle),
@@ -68,7 +72,7 @@ class CandleInfoOverlay extends StatelessWidget {
     return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: context.appSurface.withValues(alpha: 235 / 255),
+          color: context.appSurface.withValues(alpha: 0.75),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: context.appDivider,
@@ -87,18 +91,18 @@ class CandleInfoOverlay extends StatelessWidget {
 
   /// OHLC 행: 라벨 + 가격 + 등락률
   Widget _buildOhlcRow(
-    BuildContext context,
     String label,
     double price,
     TextStyle hintStyle,
     TextStyle valueStyle,
+    double changeFontSize,
   ) {
     final change = _changeFor(price);
     final isUp = change >= 0;
     final changeColor = isUp ? AppColors.red500 : AppColors.blue500;
     final sign = isUp ? '+' : '';
     final changeStyle = TextStyle(
-      fontSize: 9,
+      fontSize: changeFontSize,
       color: changeColor,
       height: 1.2,
     );
