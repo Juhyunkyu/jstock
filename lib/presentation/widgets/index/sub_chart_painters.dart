@@ -109,18 +109,19 @@ class RSIPainter extends CustomPainter {
 
     double toY(double value) => topPadding + (1 - value / 100) * chartHeight;
 
-    // 기준선 (30, 70) 점선
-    final gridColor = isDarkMode ? const Color(0xFF374151) : const Color(0xFFD1D5DB);
-    for (final level in [30.0, 70.0]) {
+    // 기준선 (30, 50, 70) 실선
+    final gridColor = isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFBBBBBB);
+    final gridColor50 = isDarkMode ? const Color(0xFF374151) : const Color(0xFFD1D5DB);
+    for (final level in [30.0, 50.0, 70.0]) {
       final y = toY(level);
-      final paint = Paint()..color = gridColor..strokeWidth = 0.5;
-      const dashWidth = 3.0;
-      const dashSpace = 3.0;
-      double startX = leftPadding;
-      while (startX < leftPadding + chartWidth) {
-        canvas.drawLine(Offset(startX, y), Offset((startX + dashWidth).clamp(0, leftPadding + chartWidth), y), paint);
-        startX += dashWidth + dashSpace;
-      }
+      final isMiddle = level == 50.0;
+      canvas.drawLine(
+        Offset(leftPadding, y),
+        Offset(leftPadding + chartWidth, y),
+        Paint()
+          ..color = isMiddle ? gridColor50 : gridColor
+          ..strokeWidth = isMiddle ? 0.5 : 0.8,
+      );
     }
 
     // RSI 선 + 과매수/과매도 웅덩이 (RSI선과 기준선 사이만 채움)

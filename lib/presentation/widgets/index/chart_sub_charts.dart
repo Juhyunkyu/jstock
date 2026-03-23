@@ -58,9 +58,9 @@ class SubChartList extends StatelessWidget {
             signal: indicators.rsiSignal,
           ),
           SizedBox(
-            height: 85,
+            height: 120,
             child: CustomPaint(
-              size: Size(chartWidth, 85),
+              size: Size(chartWidth, 120),
               painter: RSIPainter(
                 rsiValues: indicators.displayRSI!,
                 isDarkMode: isDarkMode,
