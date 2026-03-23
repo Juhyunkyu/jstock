@@ -43,8 +43,8 @@ class CandleInfoOverlay extends StatelessWidget {
     );
 
     final rows = <Widget>[
-      // 날짜
-      Text(_formatDate(), style: hintStyle),
+      // 날짜 (진하게 표시)
+      Text(_formatDate(), style: valueStyle),
       const SizedBox(height: 2),
       // OHLC
       _buildOhlcRow('시', candle.open, hintStyle, valueStyle, changeFontSize),
