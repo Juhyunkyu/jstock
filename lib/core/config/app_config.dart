@@ -71,6 +71,6 @@ class AppConfig {
     defaultValue: '',
   );
 
-  /// FMP API URL
-  static const String fmpBaseUrl = 'https://financialmodelingprep.com/api/v3';
+  /// FMP API URL (stable — v3는 2025-08-31 이후 가입자 차단됨)
+  static const String fmpBaseUrl = 'https://financialmodelingprep.com/stable';
 }

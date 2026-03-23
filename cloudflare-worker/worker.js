@@ -393,12 +393,12 @@ async function handleFMP(request, env, url) {
   const apiKey = env.FMP_API_KEY;
   if (!apiKey) return jsonError('FMP_API_KEY not configured', 500, request);
 
-  // /api/fmp/income-statement/AAPL?period=annual&limit=5
-  // → https://financialmodelingprep.com/api/v3/income-statement/AAPL?period=annual&limit=5&apikey=KEY
+  // /api/fmp/income-statement?symbol=AAPL&period=annual&limit=5
+  // → https://financialmodelingprep.com/stable/income-statement?symbol=AAPL&period=annual&limit=5&apikey=KEY
   const fmpPath = url.pathname.replace(/^\/api\/fmp/, '');
   if (!fmpPath || fmpPath === '/') return jsonError('FMP endpoint required', 400, request);
 
-  const fmpUrl = new URL(`https://financialmodelingprep.com/api/v3${fmpPath}`);
+  const fmpUrl = new URL(`https://financialmodelingprep.com/stable${fmpPath}`);
   // 클라이언트 쿼리 파라미터 복사
   for (const [key, value] of url.searchParams) {
     fmpUrl.searchParams.set(key, value);

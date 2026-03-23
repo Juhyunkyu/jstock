@@ -58,9 +58,11 @@ class FinancialService {
       final queryParams = <String, dynamic>{};
 
       if (AppConfig.useProxy) {
-        url = '${AppConfig.proxyBaseUrl}/api/fmp/profile/$symbol';
+        url = '${AppConfig.proxyBaseUrl}/api/fmp/profile';
+        queryParams['symbol'] = symbol;
       } else {
-        url = '${AppConfig.fmpBaseUrl}/profile/$symbol';
+        url = '${AppConfig.fmpBaseUrl}/profile';
+        queryParams['symbol'] = symbol;
         queryParams['apikey'] = AppConfig.fmpApiKey;
       }
 
@@ -89,8 +91,9 @@ class FinancialService {
     if (AppConfig.fmpApiKey.isEmpty) return null;
 
     try {
-      final url = '${AppConfig.fmpBaseUrl}/profile/$symbol';
+      final url = '${AppConfig.fmpBaseUrl}/profile';
       final response = await _dio.get(url, queryParameters: {
+        'symbol': symbol,
         'apikey': AppConfig.fmpApiKey,
       });
 
@@ -170,9 +173,11 @@ class FinancialService {
       };
 
       if (AppConfig.useProxy) {
-        url = '${AppConfig.proxyBaseUrl}/api/fmp/income-statement/$symbol';
+        url = '${AppConfig.proxyBaseUrl}/api/fmp/income-statement';
+        queryParams['symbol'] = symbol;
       } else {
-        url = '${AppConfig.fmpBaseUrl}/income-statement/$symbol';
+        url = '${AppConfig.fmpBaseUrl}/income-statement';
+        queryParams['symbol'] = symbol;
         queryParams['apikey'] = AppConfig.fmpApiKey;
       }
 
@@ -206,8 +211,9 @@ class FinancialService {
     if (AppConfig.fmpApiKey.isEmpty) return [];
 
     try {
-      final url = '${AppConfig.fmpBaseUrl}/income-statement/$symbol';
+      final url = '${AppConfig.fmpBaseUrl}/income-statement';
       final response = await _dio.get(url, queryParameters: {
+        'symbol': symbol,
         'period': period,
         'limit': limit,
         'apikey': AppConfig.fmpApiKey,
