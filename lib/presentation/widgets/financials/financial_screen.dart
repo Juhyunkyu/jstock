@@ -4,12 +4,11 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/financial_data.dart';
 import '../../providers/financial_providers.dart';
 
-// 섹션 위젯 (다른 에이전트가 구현 예정 -- placeholder import)
-// import 'financial_overview_card.dart';
-// import 'financial_metrics_card.dart';
-// import 'financial_revenue_chart.dart';
-// import 'financial_eps_chart.dart';
-// import 'financial_analysis_card.dart';
+import 'financial_overview_card.dart';
+import 'financial_metrics_card.dart';
+import 'financial_revenue_chart.dart';
+import 'financial_eps_chart.dart';
+import 'financial_analysis_card.dart';
 
 /// 재무 탭 전체 화면
 ///
@@ -106,23 +105,31 @@ class FinancialScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 섹션 1: 기업 개요
-            _buildPlaceholder(context, '기업 개요', Icons.business_rounded),
-            const SizedBox(height: 12),
+            if (data.profile != null)
+              FinancialOverviewCard(profile: data.profile!),
+            if (data.profile != null) const SizedBox(height: 12),
 
             // 섹션 2: 핵심 투자 지표
-            _buildPlaceholder(context, '핵심 투자 지표', Icons.analytics_rounded),
-            const SizedBox(height: 12),
+            if (data.metrics != null)
+              FinancialMetricsCard(metrics: data.metrics!),
+            if (data.metrics != null) const SizedBox(height: 12),
 
             // 섹션 3: 실적 추이 차트
-            _buildPlaceholder(context, '실적 추이', Icons.bar_chart_rounded),
-            const SizedBox(height: 12),
+            if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
+              FinancialRevenueChart(
+                annualStatements: data.annualStatements,
+                quarterlyStatements: data.quarterlyStatements,
+              ),
+            if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
+              const SizedBox(height: 12),
 
             // 섹션 4: EPS Beat/Miss 차트
-            _buildPlaceholder(context, 'EPS 실적 vs 예상', Icons.trending_up_rounded),
-            const SizedBox(height: 12),
+            if (data.earnings.isNotEmpty)
+              FinancialEpsChart(earnings: data.earnings),
+            if (data.earnings.isNotEmpty) const SizedBox(height: 12),
 
             // 섹션 5: 기업 분석 요약
-            _buildPlaceholder(context, '기업 분석 요약', Icons.summarize_rounded),
+            FinancialAnalysisCard(data: data),
             const SizedBox(height: 24),
 
             // 면책 문구
@@ -200,41 +207,6 @@ class FinancialScreen extends ConsumerWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 섹션 위젯 placeholder (다른 에이전트가 실제 위젯으로 교체 예정)
-  Widget _buildPlaceholder(BuildContext context, String title, IconData icon) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: context.appCardBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: context.appBorder),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, size: 32, color: context.appTextHint),
-          const SizedBox(height: 8),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: context.appTextSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            '준비 중',
-            style: TextStyle(
-              fontSize: 12,
-              color: context.appTextHint,
-            ),
-          ),
-        ],
       ),
     );
   }
