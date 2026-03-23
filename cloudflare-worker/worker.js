@@ -1,12 +1,13 @@
 /**
  * Alpha Cycle API Proxy — Cloudflare Worker
  *
- * CORS 우회 프록시: CNN Fear&Greed + DeepL 번역 + FRED 경제 데이터 + RSS 시장 뉴스
+ * CORS 우회 프록시: CNN Fear&Greed + DeepL 번역 + FRED 경제 데이터 + RSS 시장 뉴스 + FMP 재무제표
  *
  * 환경 변수 (Cloudflare Dashboard > Settings > Variables):
  *   DEEPL_API_KEY      — DeepL API 키
  *   FRED_API_KEY       — FRED API 키
  *   TWELVE_DATA_API_KEY — Twelve Data API 키
+ *   FMP_API_KEY        — Financial Modeling Prep API 키
  *
  * 배포:
  *   1. Cloudflare Dashboard > Workers & Pages > Create
@@ -383,6 +384,84 @@ async function handleTwelveData(request, env, url) {
   }
 }
 
+// ─── FMP 재무제표 프록시 (캐시) ───
+async function handleFMP(request, env, url) {
+  if (request.method !== 'GET') {
+    return jsonError('GET only', 405, request);
+  }
+
+  const apiKey = env.FMP_API_KEY;
+  if (!apiKey) return jsonError('FMP_API_KEY not configured', 500, request);
+
+  // /api/fmp/income-statement/AAPL?period=annual&limit=5
+  // → https://financialmodelingprep.com/api/v3/income-statement/AAPL?period=annual&limit=5&apikey=KEY
+  const fmpPath = url.pathname.replace(/^\/api\/fmp/, '');
+  if (!fmpPath || fmpPath === '/') return jsonError('FMP endpoint required', 400, request);
+
+  const fmpUrl = new URL(`https://financialmodelingprep.com/api/v3${fmpPath}`);
+  // 클라이언트 쿼리 파라미터 복사
+  for (const [key, value] of url.searchParams) {
+    fmpUrl.searchParams.set(key, value);
+  }
+  // API 키 서버사이드 주입
+  fmpUrl.searchParams.set('apikey', apiKey);
+
+  // Cloudflare Cache API — 24시간 캐시 (재무제표는 분기별 변경)
+  const cacheKey = new Request(
+    `https://cache.fmp${fmpPath}?${url.searchParams.toString()}`,
+    request
+  );
+  const cache = caches.default;
+
+  let cachedResponse = await cache.match(cacheKey);
+  if (cachedResponse) {
+    const headers = new Headers(cachedResponse.headers);
+    Object.entries(corsHeaders(request)).forEach(([k, v]) => headers.set(k, v));
+    headers.set('X-Cache', 'HIT');
+    return new Response(cachedResponse.body, {
+      status: cachedResponse.status,
+      headers,
+    });
+  }
+
+  try {
+    const resp = await fetch(fmpUrl.toString(), {
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!resp.ok) {
+      return new Response(resp.body, {
+        status: resp.status,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
+      });
+    }
+
+    const data = await resp.text();
+    const cacheTTL = 86400; // 24시간
+
+    const responseToCache = new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${cacheTTL}`,
+      },
+    });
+    await cache.put(cacheKey, responseToCache.clone());
+
+    return new Response(data, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': `public, max-age=${cacheTTL}`,
+        'X-Cache': 'MISS',
+        ...corsHeaders(request),
+      },
+    });
+  } catch (e) {
+    return jsonError(`FMP error: ${e.message}`, 502, request);
+  }
+}
+
 // ─── 라우터 ───
 export default {
   async fetch(request, env) {
@@ -422,6 +501,11 @@ export default {
     // Twelve Data 차트 데이터 (캐시 프록시)
     if (url.pathname === '/api/twelvedata/chart') {
       return handleTwelveData(request, env, url);
+    }
+
+    // FMP 재무제표 (캐시 프록시)
+    if (url.pathname.startsWith('/api/fmp/')) {
+      return handleFMP(request, env, url);
     }
 
     return jsonError('Not found', 404, request);

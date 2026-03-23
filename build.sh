@@ -28,6 +28,7 @@ echo "Building Alpha Cycle (release)..."
   --dart-define=MARKETAUX_API_KEY=$MARKETAUX_API_KEY \
   --dart-define=DEEPL_API_KEY=$DEEPL_API_KEY \
   --dart-define=FRED_API_KEY=$FRED_API_KEY \
+  --dart-define=FMP_API_KEY=$FMP_API_KEY \
   ${PROXY_BASE_URL:+--dart-define=PROXY_BASE_URL=$PROXY_BASE_URL}
 
 echo "Build complete! Run with: python3 serve_nocache.py 8080"

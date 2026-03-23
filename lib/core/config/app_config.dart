@@ -64,4 +64,13 @@ class AppConfig {
 
   /// FRED API URL
   static const String fredBaseUrl = 'https://api.stlouisfed.org/fred';
+
+  /// FMP (Financial Modeling Prep) API 키 (재무제표)
+  static const String fmpApiKey = String.fromEnvironment(
+    'FMP_API_KEY',
+    defaultValue: '',
+  );
+
+  /// FMP API URL
+  static const String fmpBaseUrl = 'https://financialmodelingprep.com/api/v3';
 }
