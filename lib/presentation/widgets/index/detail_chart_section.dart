@@ -494,6 +494,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                   indicators: ind,
                                   displayData: displayData,
                                   chartWidth: chartWidth,
+                                  selectedCandleDisplayIndex: (_selectedCandleIndex != null &&
+                                      _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
+                                      ? _selectedCandleIndex! - offset
+                                      : null,
                                 ),
                               ],
                             ),

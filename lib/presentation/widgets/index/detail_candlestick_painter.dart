@@ -165,20 +165,14 @@ class DetailCandlestickPainter extends CustomPainter {
         Paint()..color = textColor.withAlpha(20),
       );
 
-      // 수직 십자선 (점선)
-      final crosshairPaint = Paint()
-        ..color = textColor.withAlpha(80)
-        ..strokeWidth = 1
-        ..style = PaintingStyle.stroke;
-      const dashWidth = 4.0;
-      const gapWidth = 4.0;
-      double drawY = topPadding;
-      final endY = topPadding + chartHeight;
-      while (drawY < endY) {
-        final segEnd = (drawY + dashWidth).clamp(drawY, endY);
-        canvas.drawLine(Offset(selX, drawY), Offset(selX, segEnd), crosshairPaint);
-        drawY += dashWidth + gapWidth;
-      }
+      // 수직 십자선 (실선)
+      canvas.drawLine(
+        Offset(selX, topPadding),
+        Offset(selX, topPadding + chartHeight),
+        Paint()
+          ..color = textColor.withAlpha(80)
+          ..strokeWidth = 0.8,
+      );
 
     }
 
