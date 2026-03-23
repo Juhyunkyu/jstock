@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/technical_indicator_service.dart';
+import '../../../domain/trading/rsi_divergence.dart';
 import '../../utils/chart_utils.dart';
 
 /// 거래량 서브차트
@@ -84,7 +85,15 @@ class RSIPainter extends CustomPainter {
   final List<double?> rsiValues;
   final bool isDarkMode;
   final Color textColor;
-  RSIPainter({required this.rsiValues, this.isDarkMode = false, this.textColor = const Color(0xFF6B7280)});
+  final List<Divergence>? divergences;
+  final int scrollOffset;
+  RSIPainter({
+    required this.rsiValues,
+    this.isDarkMode = false,
+    this.textColor = const Color(0xFF6B7280),
+    this.divergences,
+    this.scrollOffset = 0,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -184,6 +193,41 @@ class RSIPainter extends CustomPainter {
     // RSI 선 그리기
     if (started) {
       canvas.drawPath(linePath, Paint()..color = rsiLineColor..strokeWidth = 1.5..style = PaintingStyle.stroke);
+    }
+
+    // 다이버전스 연결선 + 마커
+    if (divergences != null) {
+      for (final div in divergences!) {
+        // fullData 인덱스를 display 인덱스로 변환
+        final displayFirst = div.firstIndex - scrollOffset;
+        final displaySecond = div.secondIndex - scrollOffset;
+
+        // 화면 밖이면 건너뛰기
+        if (displayFirst < 0 || displaySecond >= rsiValues.length) continue;
+        if (displayFirst >= rsiValues.length || displaySecond < 0) continue;
+
+        final x1 = leftPadding + displayFirst * candleWidth + candleWidth / 2;
+        final x2 = leftPadding + displaySecond * candleWidth + candleWidth / 2;
+        final y1 = toY(div.firstRSI);
+        final y2 = toY(div.secondRSI);
+
+        final isBullish = div.type == DivergenceType.bullish;
+        final color = isBullish
+            ? const Color(0xFF4CAF50)  // 초록 (상승)
+            : const Color(0xFFFF5252); // 빨강 (하락)
+
+        // 연결선 (실선 2px)
+        canvas.drawLine(
+          Offset(x1, y1),
+          Offset(x2, y2),
+          Paint()..color = color..strokeWidth = 2..style = PaintingStyle.stroke,
+        );
+
+        // 피봇 마커 (작은 원)
+        final markerPaint = Paint()..color = color..style = PaintingStyle.fill;
+        canvas.drawCircle(Offset(x1, y1), 3, markerPaint);
+        canvas.drawCircle(Offset(x2, y2), 3, markerPaint);
+      }
     }
 
     // Y축 라벨
