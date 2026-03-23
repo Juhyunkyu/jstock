@@ -13,6 +13,7 @@ import '../../widgets/index/pivot_point_section.dart';
 import '../../widgets/index/description_section.dart';
 import '../../widgets/index/news_section.dart';
 import '../../widgets/shared/return_badge.dart';
+import '../../widgets/financials/financial_screen.dart';
 import '../../providers/providers.dart';
 
 /// 지수 상세 페이지
@@ -30,7 +31,10 @@ class IndexDetailScreen extends ConsumerStatefulWidget {
   ConsumerState<IndexDetailScreen> createState() => _IndexDetailScreenState();
 }
 
-class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
+class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
+    with TickerProviderStateMixin {
+  late final TabController? _tabController;
+
   bool _isLoading = true;
   bool _isNewsLoading = true;
   String? _error;
@@ -48,6 +52,9 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
   int _chartRetryCount = 0;
   static const _maxChartRetry = 3;
 
+  /// 지수 심볼인 경우 탭 없이 기존 레이아웃 유지
+  bool get _isIndex => widget.symbol.startsWith('^');
+
   String get _chartSymbol {
     switch (widget.symbol) {
       case '^NDX':
@@ -62,14 +69,21 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = _isIndex ? null : TabController(length: 2, vsync: this);
     _loadData();
     // 최근 조회 기록 (지수 심볼 제외)
-    if (!widget.symbol.startsWith('^')) {
+    if (!_isIndex) {
       ref.read(recentViewProvider.notifier).recordView(
             ticker: widget.symbol,
             name: widget.name,
           );
     }
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -309,58 +323,97 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _error != null
               ? Center(child: Text('에러: $_error'))
-              : RefreshIndicator(
-                  onRefresh: _loadData,
-                  child: SingleChildScrollView(
-                    physics: _isDrawingActive
-                        ? const NeverScrollableScrollPhysics()
-                        : const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              : _isIndex
+                  ? _buildChartContent(quote, isDesktop)
+                  : Column(
                       children: [
-                        _buildMetaInfo(quote, isDesktop),
-                        PeriodReturnsSection(periodReturns: _periodReturns),
-                        const SizedBox(height: 10),
-                        if (_chartData.isEmpty)
-                          _buildChartPlaceholder(isDesktop)
-                        else
-                          DetailChartSection(
-                            symbol: _chartSymbol,
-                            chartData: _chartData,
-                            selectedPeriod: _selectedPeriod,
-                            onPeriodChanged: (period) {
-                              setState(() => _selectedPeriod = period);
-                              _loadChartData();
-                            },
-                            showPivotLines: _showPivotLines,
-                            pivotLevels: _calculatePivotLevels(),
-                            indicatorService: _indicatorService,
-                            currentPrice: quote?.currentPrice,
-                            previousClose: quote?.previousClose,
-                            onDrawingActiveChanged: (active) {
-                              if (_isDrawingActive != active) {
-                                setState(() => _isDrawingActive = active);
-                              }
-                            },
+                        _buildTabBar(),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildChartContent(quote, isDesktop),
+                              FinancialScreen(symbol: _chartSymbol),
+                            ],
                           ),
-                        const SizedBox(height: 10),
-                        PivotPointSection(
-                          pivotLevels: _calculatePivotLevels(),
-                          currentPrice: _getCurrentPrice(),
-                          showPivotLines: _showPivotLines,
-                          onTogglePivotLines: () {
-                            setState(() => _showPivotLines = !_showPivotLines);
-                          },
                         ),
-                        const SizedBox(height: 10),
-                        DescriptionSection(symbol: _chartSymbol, name: widget.name),
-                        const SizedBox(height: 10),
-                        NewsSection(news: _news, isLoading: _isNewsLoading, symbol: _chartSymbol),
-                        const SizedBox(height: 24),
                       ],
                     ),
-                  ),
-                ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      color: context.appSurface,
+      child: TabBar(
+        controller: _tabController,
+        labelColor: context.appAccent,
+        unselectedLabelColor: context.appTextHint,
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+        indicatorColor: context.appAccent,
+        indicatorWeight: 2,
+        dividerColor: context.appDivider,
+        tabs: const [
+          Tab(text: '차트'),
+          Tab(text: '재무'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChartContent(StockQuote? quote, bool isDesktop) {
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      child: SingleChildScrollView(
+        physics: _isDrawingActive
+            ? const NeverScrollableScrollPhysics()
+            : const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildMetaInfo(quote, isDesktop),
+            PeriodReturnsSection(periodReturns: _periodReturns),
+            const SizedBox(height: 10),
+            if (_chartData.isEmpty)
+              _buildChartPlaceholder(isDesktop)
+            else
+              DetailChartSection(
+                symbol: _chartSymbol,
+                chartData: _chartData,
+                selectedPeriod: _selectedPeriod,
+                onPeriodChanged: (period) {
+                  setState(() => _selectedPeriod = period);
+                  _loadChartData();
+                },
+                showPivotLines: _showPivotLines,
+                pivotLevels: _calculatePivotLevels(),
+                indicatorService: _indicatorService,
+                currentPrice: quote?.currentPrice,
+                previousClose: quote?.previousClose,
+                onDrawingActiveChanged: (active) {
+                  if (_isDrawingActive != active) {
+                    setState(() => _isDrawingActive = active);
+                  }
+                },
+              ),
+            const SizedBox(height: 10),
+            PivotPointSection(
+              pivotLevels: _calculatePivotLevels(),
+              currentPrice: _getCurrentPrice(),
+              showPivotLines: _showPivotLines,
+              onTogglePivotLines: () {
+                setState(() => _showPivotLines = !_showPivotLines);
+              },
+            ),
+            const SizedBox(height: 10),
+            DescriptionSection(symbol: _chartSymbol, name: widget.name),
+            const SizedBox(height: 10),
+            NewsSection(news: _news, isLoading: _isNewsLoading, symbol: _chartSymbol),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
     );
   }
 

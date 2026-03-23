@@ -237,4 +237,12 @@ extension ThemeAwareColors on BuildContext {
         ),
       ];
 
+  // 재무 지표 판정 색상 (양호/보통/주의)
+  Color get appGoodColor =>
+      isDarkMode ? AppColors.green500 : AppColors.green600;
+  Color get appCautionColor =>
+      isDarkMode ? AppColors.amber500 : AppColors.amber600;
+  Color get appWarningColor =>
+      isDarkMode ? AppColors.red500 : AppColors.red600;
+
 }

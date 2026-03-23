@@ -135,7 +135,7 @@ class FinancialService {
       final data = response.data;
       if (data == null || data['metric'] == null) return null;
 
-      final metrics = FinancialMetrics.fromJson(data['metric'] as Map<String, dynamic>);
+      final metrics = FinancialMetrics.fromFinnhubJson(data as Map<String, dynamic>);
       _setCache(cacheKey, metrics);
       return metrics;
     } catch (_) {
