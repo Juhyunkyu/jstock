@@ -16,7 +16,6 @@ import 'chart_drawing_hit_test.dart';
 import 'chart_drawing_menu.dart';
 import 'chart_indicator_calculator.dart';
 import 'chart_sub_charts.dart';
-import '../../../domain/trading/rsi_divergence.dart';
 import 'detail_candlestick_painter.dart';
 import 'drawing_guide_bar.dart';
 // drawing_help_dialog.dart — 도움말은 오버레이로 인라인 처리
@@ -114,9 +113,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   int? _measureEndFullIndex;
   double? _measureStartPrice;
   double? _measureEndPrice;
-
-  // RSI 다이버전스 토글
-  bool _showDivergence = false;
 
   // 지지/저항 영역 드래그 배치 상태
   bool _isDraggingNewZone = false;
@@ -277,18 +273,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       activeIndicators: _activeIndicators,
       indicatorService: widget.indicatorService,
     );
-
-    // RSI 다이버전스 감지
-    List<Divergence>? rsiDivergences;
-    if (_showDivergence && ind.displayRSI != null) {
-      final fullRSI = widget.indicatorService.calculateRSI(
-        widget.chartData.map((e) => e.close).toList(),
-      );
-      rsiDivergences = RSIDivergenceDetector.detect(
-        data: widget.chartData,
-        rsi: fullRSI,
-      );
-    }
 
     return Container(
       color: context.appSurface,
@@ -510,10 +494,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                   indicators: ind,
                                   displayData: displayData,
                                   chartWidth: chartWidth,
-                                  rsiDivergences: rsiDivergences,
-                                  scrollOffset: offset,
-                                  showDivergence: _showDivergence,
-                                  onToggleDivergence: () => setState(() => _showDivergence = !_showDivergence),
                                 ),
                               ],
                             ),
