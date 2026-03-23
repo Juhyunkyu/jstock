@@ -70,10 +70,10 @@ class Divergence {
 /// - 가격의 Pivot 인덱스를 기준으로 해당 인덱스의 RSI 값을 사용한다.
 class RSIDivergenceDetector {
   /// 피봇 좌측 확인 캔들 수
-  static const int pivotLeft = 5;
+  static const int pivotLeft = 3;
 
   /// 피봇 우측 확인 캔들 수 (확정 지연)
-  static const int pivotRight = 5;
+  static const int pivotRight = 3;
 
   /// 두 피봇 간 최소 거리 (캔들 수)
   static const int minBarsBetween = 5;
@@ -81,11 +81,11 @@ class RSIDivergenceDetector {
   /// 두 피봇 간 최대 거리 (캔들 수)
   static const int maxBarsBetween = 60;
 
-  /// 과매도 기준 (Bullish divergence 신뢰도 필터)
-  static const double oversoldLevel = 40.0;
+  /// 과매도 기준 — RSI 필터 없이 모든 수준에서 감지 (100으로 비활성화)
+  static const double oversoldLevel = 100.0;
 
-  /// 과매수 기준 (Bearish divergence 신뢰도 필터)
-  static const double overboughtLevel = 60.0;
+  /// 과매수 기준 — RSI 필터 없이 모든 수준에서 감지 (0으로 비활성화)
+  static const double overboughtLevel = 0.0;
 
   RSIDivergenceDetector._();
 
