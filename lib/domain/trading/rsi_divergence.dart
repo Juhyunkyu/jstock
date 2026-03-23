@@ -1,4 +1,27 @@
+import 'dart:js_interop';
+
 import '../../data/models/ohlc_data.dart';
+
+/// JS interop: console.log
+@JS('console.log')
+external void _jsConsoleLog(JSString msg);
+
+/// JS 전역 변수에 로그 저장 (window._divLog)
+@JS('_divLog')
+external set _jsDivLog(JSString value);
+
+@JS('_divLog')
+external JSString? get _jsDivLogGet;
+
+String _logBuffer = '';
+
+void _log(String msg) {
+  try {
+    _jsConsoleLog('[Divergence] $msg'.toJS);
+    _logBuffer += '$msg\n';
+    _jsDivLog = _logBuffer.toJS;
+  } catch (_) {}
+}
 
 /// 다이버전스 유형
 enum DivergenceType { bullish, bearish }
@@ -83,11 +106,19 @@ class RSIDivergenceDetector {
     final pivotLows = _findPricePivotLows(data);
     final pivotHighs = _findPricePivotHighs(data);
 
+    // 피봇 감지 결과 로깅 (웹 콘솔에 표시)
+    _log('data.length=${data.length}, pivotLows=${pivotLows.length}, pivotHighs=${pivotHighs.length}');
+
     final bullish = _detectBullishDivergences(pivotLows, data, rsi);
     final bearish = _detectBearishDivergences(pivotHighs, data, rsi);
 
     final result = [...bullish, ...bearish];
     result.sort((a, b) => a.secondIndex.compareTo(b.secondIndex));
+
+    _log('Found ${result.length} divergences');
+    for (final d in result) {
+      _log('  $d');
+    }
 
     return result;
   }

@@ -86,7 +86,7 @@ class SubChartList extends StatelessWidget {
                           : null,
                     ),
                     child: Text(
-                      'D',
+                      showDivergence ? 'D:${rsiDivergences?.length ?? 0}' : 'D',
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
