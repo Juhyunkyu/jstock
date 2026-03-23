@@ -433,19 +433,31 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           tempZoneLowerPrice: _isDraggingNewZone ? _tempZoneLowerPrice : null,
                                         ),
                                       ),
-                                      // 캔들 정보 플로팅 팝업
+                                      // 캔들 정보 플로팅 팝업 (캔들 바로 옆에 표시)
                                       if (_selectedCandleIndex != null &&
                                           _selectedCandleIndex! >= offset && _selectedCandleIndex! < end) ...[
                                         () {
                                           final displayIdx = _selectedCandleIndex! - offset;
                                           final candleX = yRange.toX(displayIdx);
+                                          final selectedCandle = widget.chartData[_selectedCandleIndex!];
+                                          // 캔들 중간 높이 (시가와 종가의 중간)
+                                          final candleMidPrice = (selectedCandle.open + selectedCandle.close) / 2;
+                                          final candleY = yRange.toY(candleMidPrice);
+                                          // 팝업 예상 높이 (OHLC + 거래량 + 거래대금 = ~120px, 보조지표 추가 시 더)
+                                          const popupEstHeight = 140.0;
+                                          // Y 클램프: 차트 영역 안에서 벗어나지 않게
+                                          final topY = (candleY - popupEstHeight / 2)
+                                              .clamp(yRange.topPadding, 300 - popupEstHeight)
+                                              .toDouble();
+                                          // X: 캔들 왼쪽 절반이면 오른쪽에, 오른쪽이면 왼쪽에
                                           final isLeftHalf = candleX < chartWidth / 2;
+                                          final gap = 16.0; // 캔들과 팝업 간격
                                           return Positioned(
-                                            top: yRange.topPadding + 4,
-                                            left: isLeftHalf ? candleX + 20 : null,
-                                            right: isLeftHalf ? null : chartWidth - candleX + 20,
+                                            top: topY,
+                                            left: isLeftHalf ? candleX + gap : null,
+                                            right: isLeftHalf ? null : chartWidth - candleX + gap,
                                             child: CandleInfoOverlay(
-                                              candle: widget.chartData[_selectedCandleIndex!],
+                                              candle: selectedCandle,
                                               previousCandle: _selectedCandleIndex! > 0
                                                   ? widget.chartData[_selectedCandleIndex! - 1]
                                                   : null,

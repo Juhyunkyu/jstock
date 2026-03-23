@@ -65,13 +65,7 @@ class CandleInfoOverlay extends StatelessWidget {
       rows.addAll(indicatorRows);
     }
 
-    final showOnRight = candleX < chartWidth / 2;
-
-    return Positioned(
-      top: 4,
-      left: showOnRight ? null : 8,
-      right: showOnRight ? 8 : null,
-      child: Container(
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
           color: context.appSurface.withValues(alpha: 235 / 255),
@@ -81,12 +75,11 @@ class CandleInfoOverlay extends StatelessWidget {
             width: 0.5,
           ),
         ),
-        child: IntrinsicWidth(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: rows,
-          ),
+      child: IntrinsicWidth(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: rows,
         ),
       ),
     );
