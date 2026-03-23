@@ -39,16 +39,24 @@ class FinancialMetricsCard extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: context.appDivider),
-          // 지표 리스트
+          // 지표 그리드 (2열)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              children: [
-                for (int i = 0; i < items.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 14),
-                  _MetricRow(item: items[i]),
-                ],
-              ],
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final itemWidth = (constraints.maxWidth - 12) / 2; // 12 = gap
+                return Wrap(
+                  spacing: 12,
+                  runSpacing: 14,
+                  children: [
+                    for (final item in items)
+                      SizedBox(
+                        width: itemWidth,
+                        child: _MetricTile(item: item),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -138,10 +146,10 @@ class _MetricItem {
 // 개별 지표 행
 // ─────────────────────────────────────────────────────────────
 
-class _MetricRow extends StatelessWidget {
+class _MetricTile extends StatelessWidget {
   final _MetricItem item;
 
-  const _MetricRow({required this.item});
+  const _MetricTile({required this.item});
 
   @override
   Widget build(BuildContext context) {
@@ -152,46 +160,43 @@ class _MetricRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 라벨 + 값 + 판정 텍스트 + (i)
+        // 라벨 + 값 + 도트 + 판정 + (i)
         Row(
           children: [
             // 라벨
-            SizedBox(
-              width: 72,
-              child: Text(
-                item.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: context.appTextSecondary,
-                ),
+            Text(
+              item.label,
+              style: TextStyle(
+                fontSize: 12,
+                color: context.appTextSecondary,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             // 값
             Text(
               item.formatValue(item.value),
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: context.appTextPrimary,
               ),
             ),
-            const SizedBox(width: 8),
-            // 판정 라벨 + 도트
+            const SizedBox(width: 5),
+            // 판정 도트 + 라벨
             if (item.value != null) ...[
               Container(
-                width: 6,
-                height: 6,
+                width: 5,
+                height: 5,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: color,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 3),
               Text(
                 ratingLabel,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w500,
                   color: color,
                 ),
@@ -203,18 +208,18 @@ class _MetricRow extends StatelessWidget {
               onTap: () => _showExplanationSheet(context, item.key),
               child: Icon(
                 Icons.info_outline_rounded,
-                size: 18,
+                size: 16,
                 color: context.appTextHint,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 6),
-        // 프로그레스 바
+        const SizedBox(height: 4),
+        // 프로그레스 바 (얇게)
         ClipRRect(
-          borderRadius: BorderRadius.circular(3),
+          borderRadius: BorderRadius.circular(2),
           child: SizedBox(
-            height: 6,
+            height: 4,
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: context.appDivider,

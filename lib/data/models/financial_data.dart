@@ -44,7 +44,7 @@ class CompanyProfile {
       sector: json['sector'] as String?,
       industry: json['industry'] as String?,
       ceo: json['ceo'] as String?,
-      mktCap: (json['mktCap'] as num?)?.toDouble(),
+      mktCap: (json['marketCap'] as num?)?.toDouble() ?? (json['mktCap'] as num?)?.toDouble(),
       fullTimeEmployees: json['fullTimeEmployees']?.toString(),
       ipoDate: json['ipoDate'] as String?,
       image: json['image'] as String?,

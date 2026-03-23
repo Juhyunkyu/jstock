@@ -173,11 +173,14 @@ class _EpsChartPainter extends CustomPainter {
 
       // Y축 라벨
       final label = '\$${value.toStringAsFixed(2)}';
+      final labelColor = isDarkMode
+          ? const Color(0xFFD1D5DB)
+          : const Color(0xFF4B5563);
       final textSpan = TextSpan(
         text: label,
         style: TextStyle(
-          color: textColor.withValues(alpha: 0.7),
-          fontSize: 9,
+          color: labelColor,
+          fontSize: 11,
         ),
       );
       final tp = TextPainter(
@@ -260,7 +263,7 @@ class _EpsChartPainter extends CustomPainter {
           text: surpriseText,
           style: TextStyle(
             color: surpriseColor,
-            fontSize: 9,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
           ),
         );
@@ -277,11 +280,14 @@ class _EpsChartPainter extends CustomPainter {
 
       // X축 라벨 (Q3'24)
       final xLabel = _xLabel(d);
+      final xLabelColor = isDarkMode
+          ? const Color(0xFFD1D5DB)
+          : const Color(0xFF4B5563);
       final textSpan = TextSpan(
         text: xLabel,
         style: TextStyle(
-          color: textColor.withValues(alpha: 0.7),
-          fontSize: 10,
+          color: xLabelColor,
+          fontSize: 11,
         ),
       );
       final tp = TextPainter(

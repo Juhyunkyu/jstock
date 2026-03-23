@@ -116,6 +116,10 @@ class FinancialScreen extends ConsumerWidget {
 
             // 섹션 3: 실적 추이 차트
             if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
+              _buildSectionInfo(context, '매출, 영업이익, 순이익의 연간/분기별 추이입니다.'),
+            if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
+              const SizedBox(height: 4),
+            if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
               FinancialRevenueChart(
                 annualStatements: data.annualStatements,
                 quarterlyStatements: data.quarterlyStatements,
@@ -125,15 +129,15 @@ class FinancialScreen extends ConsumerWidget {
 
             // 섹션 4: EPS Beat/Miss 차트
             if (data.earnings.isNotEmpty)
+              _buildSectionInfo(context, 'EPS(주당순이익)는 1주당 벌어들인 순이익입니다.\nBeat는 시장 예상을 초과한 것, Miss는 미달한 것입니다.'),
+            if (data.earnings.isNotEmpty)
+              const SizedBox(height: 4),
+            if (data.earnings.isNotEmpty)
               FinancialEpsChart(earnings: data.earnings),
             if (data.earnings.isNotEmpty) const SizedBox(height: 12),
 
             // 섹션 5: 기업 분석 요약
             FinancialAnalysisCard(data: data),
-            const SizedBox(height: 24),
-
-            // 면책 문구
-            _buildDisclaimer(context),
             const SizedBox(height: 16),
           ],
         ),
@@ -206,6 +210,20 @@ class FinancialScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionInfo(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: context.appTextHint,
+          height: 1.4,
         ),
       ),
     );
