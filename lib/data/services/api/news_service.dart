@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:hive/hive.dart';
 import '../../../core/config/app_config.dart';
 import 'finnhub_service.dart';
 
@@ -6,8 +7,30 @@ import 'finnhub_service.dart';
 ///
 /// MarketAux API (키워드 검색, 3개) + Finnhub company-news (제목 필터링, 3개)
 /// DeepL API로 제목을 한국어로 번역합니다.
+/// 번역 결과는 Hive에 영속 캐싱하여 DeepL API 사용량을 절약합니다.
 class NewsService {
   final Dio _dio;
+
+  /// 번역 캐시 (영문 제목 → 한국어 번역). Hive 기반 영속 저장.
+  /// 앱을 꺼도 유지되므로 같은 뉴스 제목은 다시 번역하지 않음.
+  static Box<String>? _translationCache;
+
+  /// 캐시 초기화 (앱 시작 시 1회 호출)
+  static Future<void> initCache() async {
+    _translationCache = await Hive.openBox<String>('translation_cache');
+    // 30일 이상 오래된 항목 정리 (박스가 무한히 커지는 것 방지)
+    _cleanOldEntries();
+  }
+
+  static void _cleanOldEntries() {
+    final box = _translationCache;
+    if (box == null || box.isEmpty) return;
+    // 항목이 5000개 이상이면 앞쪽(오래된) 절반 삭제
+    if (box.length > 5000) {
+      final keysToDelete = box.keys.take(box.length ~/ 2).toList();
+      box.deleteAll(keysToDelete);
+    }
+  }
 
   NewsService()
       : _dio = Dio(BaseOptions(
@@ -319,58 +342,76 @@ class NewsService {
     }
   }
 
-  /// 뉴스 제목들을 한국어로 일괄 번역 (DeepL API)
+  /// 뉴스 제목들을 한국어로 일괄 번역 (DeepL API + Hive 캐시)
+  ///
+  /// 1. 캐시에 있는 제목은 캐시에서 가져옴 (DeepL 호출 안 함)
+  /// 2. 캐시에 없는 제목만 DeepL에 요청
+  /// 3. 번역 결과를 캐시에 저장 (앱 재시작 후에도 유지)
   Future<List<NewsItem>> _translateTitles(List<NewsItem> articles) async {
     if (articles.isEmpty) return articles;
-    // 로컬: API 키 필요, 프록시: Worker가 서버사이드 주입
     if (!AppConfig.useProxy && AppConfig.deeplApiKey.isEmpty) return articles;
 
-    // DeepL은 한 번에 여러 텍스트를 번역할 수 있음 (일괄 요청)
-    try {
-      final texts = articles.map((a) => a.title).where((t) => t.isNotEmpty).toList();
-      if (texts.isEmpty) return articles;
+    final cache = _translationCache;
 
-      // CORS 우회: 로컬 프록시 경유 (프로덕션에서도 동일 경로 사용)
+    // 1단계: 캐시에서 가져올 수 있는 것 먼저 처리
+    final uncachedArticles = <int>[]; // 캐시 미스된 기사의 인덱스
+    final uncachedTexts = <String>[]; // DeepL에 보낼 텍스트
+    final result = List<NewsItem>.from(articles);
+
+    for (int i = 0; i < articles.length; i++) {
+      final title = articles[i].title;
+      if (title.isEmpty) continue;
+
+      final cached = cache?.get(title);
+      if (cached != null) {
+        // 캐시 히트 → DeepL 호출 불필요
+        result[i] = articles[i].copyWith(translatedTitle: cached);
+      } else {
+        // 캐시 미스 → DeepL 요청 대상
+        uncachedArticles.add(i);
+        uncachedTexts.add(title);
+      }
+    }
+
+    // 2단계: 캐시 미스 항목만 DeepL에 요청
+    if (uncachedTexts.isEmpty) return result; // 전부 캐시 히트
+
+    try {
       final response = await _dio.post(
         '${AppConfig.proxyBaseUrl}/api/deepl/translate',
         options: Options(
           headers: {
-            // 프록시 사용 시 Worker가 인증 처리, 로컬은 직접 전달
             if (!AppConfig.useProxy)
               'Authorization': 'DeepL-Auth-Key ${AppConfig.deeplApiKey}',
             'Content-Type': 'application/json',
           },
         ),
         data: {
-          'text': texts,
+          'text': uncachedTexts,
           'source_lang': 'EN',
           'target_lang': 'KO',
         },
       );
 
       final translations = response.data['translations'] as List?;
-      if (translations == null) return articles;
+      if (translations == null) return result;
 
-      // 번역 결과를 기사에 매핑
-      final result = <NewsItem>[];
-      int translationIdx = 0;
-      for (final article in articles) {
-        if (article.title.isNotEmpty && translationIdx < translations.length) {
-          final translated = translations[translationIdx]['text'] as String?;
-          translationIdx++;
-          if (translated != null && translated.isNotEmpty && translated != article.title) {
-            result.add(article.copyWith(translatedTitle: translated));
-          } else {
-            result.add(article);
-          }
-        } else {
-          result.add(article);
+      // 3단계: 번역 결과 매핑 + 캐시 저장
+      for (int j = 0; j < uncachedArticles.length && j < translations.length; j++) {
+        final translated = translations[j]['text'] as String?;
+        final articleIdx = uncachedArticles[j];
+        final originalTitle = articles[articleIdx].title;
+
+        if (translated != null && translated.isNotEmpty && translated != originalTitle) {
+          result[articleIdx] = articles[articleIdx].copyWith(translatedTitle: translated);
+          // 캐시에 저장 (영속)
+          cache?.put(originalTitle, translated);
         }
       }
+
       return result;
     } catch (_) {
-      // DeepL 실패 시 원문 그대로 반환
-      return articles;
+      return result; // 캐시된 것은 유지, DeepL 실패분은 원문
     }
   }
 }

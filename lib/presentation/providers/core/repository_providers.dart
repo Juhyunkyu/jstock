@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/repositories/repositories.dart';
+import '../../../data/services/api/news_service.dart';
 import '../api_providers.dart';
 import '../stock_providers.dart';
 import '../notification_providers.dart';
@@ -79,7 +80,7 @@ final recentViewRepositoryProvider = Provider<RecentViewRepository>((ref) {
 
 /// 앱 초기화 — Repository init() + API 로드
 final appInitializationProvider = FutureProvider<bool>((ref) async {
-  // 1. Repository 초기화 (병렬)
+  // 1. Repository + 번역 캐시 초기화 (병렬)
   await Future.wait([
     _settingsRepo.init(),
     _holdingRepo.init(),
@@ -91,6 +92,7 @@ final appInitializationProvider = FutureProvider<bool>((ref) async {
     _notificationRepo.init(),
     _watchlistGroupRepo.init(),
     _recentViewRepo.init(),
+    NewsService.initCache(),
   ]);
 
   // 2. API 초기화 (실패해도 앱 시작은 허용)
