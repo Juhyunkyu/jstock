@@ -116,10 +116,6 @@ class FinancialScreen extends ConsumerWidget {
 
             // 섹션 3: 실적 추이 차트
             if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
-              _buildSectionInfo(context, '매출, 영업이익, 순이익의 연간/분기별 추이입니다.'),
-            if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
-              const SizedBox(height: 4),
-            if (data.annualStatements.isNotEmpty || data.quarterlyStatements.isNotEmpty)
               FinancialRevenueChart(
                 annualStatements: data.annualStatements,
                 quarterlyStatements: data.quarterlyStatements,
@@ -128,10 +124,6 @@ class FinancialScreen extends ConsumerWidget {
               const SizedBox(height: 12),
 
             // 섹션 4: EPS Beat/Miss 차트
-            if (data.earnings.isNotEmpty)
-              _buildSectionInfo(context, 'EPS(주당순이익)는 1주당 벌어들인 순이익입니다.\nBeat는 시장 예상을 초과한 것, Miss는 미달한 것입니다.'),
-            if (data.earnings.isNotEmpty)
-              const SizedBox(height: 4),
             if (data.earnings.isNotEmpty)
               FinancialEpsChart(earnings: data.earnings),
             if (data.earnings.isNotEmpty) const SizedBox(height: 12),
@@ -215,38 +207,4 @@ class FinancialScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildSectionInfo(BuildContext context, String text) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          color: context.appTextHint,
-          height: 1.4,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDisclaimer(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.appIconBg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        '본 정보는 투자 참고용이며 투자 권유가 아닙니다. '
-        '투자 판단의 책임은 본인에게 있습니다.',
-        style: TextStyle(
-          fontSize: 11,
-          color: context.appTextHint,
-          height: 1.4,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
 }

@@ -26,13 +26,22 @@ class FinancialEpsChart extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'EPS 실적 vs 예상',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: context.appTextPrimary,
-          ),
+        Row(
+          children: [
+            Text(
+              'EPS 실적 vs 예상',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: context.appTextPrimary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: () => _showHelpSheet(context),
+              child: Icon(Icons.info_outline, size: 16, color: context.appTextHint),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         SizedBox(
@@ -49,6 +58,42 @@ class FinancialEpsChart extends StatelessWidget {
         const SizedBox(height: 8),
         _buildLegend(isDark, context),
       ],
+    );
+  }
+
+  void _showHelpSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(color: context.appDivider, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('EPS 실적 vs 예상', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.appTextPrimary)),
+            const SizedBox(height: 12),
+            Text(
+              'EPS(주당순이익)는 기업이 1주당 벌어들인 순이익입니다.\n\n'
+              '• Beat (초록): 실제 EPS가 시장 예상보다 높음 → 긍정적\n'
+              '• Miss (빨강): 실제 EPS가 시장 예상보다 낮음 → 부정적\n'
+              '• Q1~Q4: 1분기~4분기 (예: Q4\'25 = 2025년 4분기)\n\n'
+              'EPS가 꾸준히 성장하고 Beat가 이어지면 기업 실적이 양호하다는 의미입니다.',
+              style: TextStyle(fontSize: 13, color: context.appTextSecondary, height: 1.5),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

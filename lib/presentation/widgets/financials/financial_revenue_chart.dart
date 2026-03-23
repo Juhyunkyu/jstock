@@ -48,13 +48,23 @@ class _FinancialRevenueChartState extends State<FinancialRevenueChart> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              '실적 추이',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: context.appTextPrimary,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '실적 추이',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: () => _showHelpSheet(context),
+                  child: Icon(Icons.info_outline, size: 16, color: context.appTextHint),
+                ),
+              ],
             ),
             if (hasAnnual && hasQuarterly)
               SegmentedButton<bool>(
@@ -126,6 +136,42 @@ class _FinancialRevenueChartState extends State<FinancialRevenueChart> {
         const SizedBox(width: 16),
         _legendItem(netIncomeColor, '순이익'),
       ],
+    );
+  }
+
+  void _showHelpSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                decoration: BoxDecoration(color: context.appDivider, borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('실적 추이', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.appTextPrimary)),
+            const SizedBox(height: 12),
+            Text(
+              '기업의 매출, 영업이익, 순이익의 연간/분기별 추이를 보여줍니다.\n\n'
+              '• 매출: 기업이 벌어들인 전체 수익\n'
+              '• 영업이익: 매출에서 운영 비용을 뺀 이익\n'
+              '• 순이익: 세금 등 모든 비용을 뺀 최종 이익\n\n'
+              '막대가 꾸준히 성장하면 기업이 성장하고 있다는 의미입니다.',
+              style: TextStyle(fontSize: 13, color: context.appTextSecondary, height: 1.5),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
