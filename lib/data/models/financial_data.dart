@@ -105,7 +105,7 @@ class FinancialMetrics {
       roa: (metric['roaTTM'] as num?)?.toDouble(),
       dividendYield:
           (metric['dividendYieldIndicatedAnnual'] as num?)?.toDouble(),
-      debtToEquity: (metric['totalDebtToEquity'] as num?)?.toDouble(),
+      debtToEquity: _parseDebtToEquity(metric),
       operatingMargin: (metric['operatingMarginTTM'] as num?)?.toDouble(),
       netMargin: (metric['netProfitMarginTTM'] as num?)?.toDouble(),
       grossMargin: (metric['grossMarginTTM'] as num?)?.toDouble(),
@@ -115,6 +115,16 @@ class FinancialMetrics {
       week52Low: (metric['52WeekLow'] as num?)?.toDouble(),
       beta: (metric['beta'] as num?)?.toDouble(),
     );
+  }
+
+  /// Finnhub 부채비율 파싱 (필드명에 슬래시 포함)
+  /// 값은 비율(1.35 = 135%)이므로 *100 변환
+  static double? _parseDebtToEquity(Map<String, dynamic> metric) {
+    final quarterly = (metric['totalDebt/totalEquityQuarterly'] as num?)?.toDouble();
+    if (quarterly != null) return quarterly * 100;
+    final annual = (metric['totalDebt/totalEquityAnnual'] as num?)?.toDouble();
+    if (annual != null) return annual * 100;
+    return null;
   }
 
   @override
