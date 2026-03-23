@@ -401,10 +401,10 @@ class DetailCandlestickPainter extends CustomPainter {
 
       String label;
       switch (selectedPeriod) {
-        case '일봉': label = "${DateFormat('MM/dd').format(date)} '${DateFormat('yy').format(date)}"; break;
-        case '주봉': label = DateFormat('yyyy.MM').format(date); break;
-        case '월봉': label = DateFormat('yyyy').format(date); break;
-        default: label = "${DateFormat('MM/dd').format(date)} '${DateFormat('yy').format(date)}";
+        case '일봉': label = DateFormat('yy/MM/dd').format(date); break;
+        case '주봉': label = DateFormat('yy/MM/dd').format(date); break;
+        case '월봉': label = DateFormat('yyyy.MM').format(date); break;
+        default: label = DateFormat('yy/MM/dd').format(date);
       }
 
       final textSpan = TextSpan(text: label, style: TextStyle(color: textColor, fontSize: isDesktop ? 11.0 : 10.0));
@@ -422,7 +422,7 @@ class DetailCandlestickPainter extends CustomPainter {
       final v = ((price - currentPrice!) / currentPrice!) * 100;
       pct = ' (${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}%)';
     }
-    return '$p$pct ${DateFormat('MM/dd').format(date)}';
+    return '$p$pct ${DateFormat('yy/MM/dd').format(date)}';
   }
 
   void _drawHighLowMarkers(Canvas canvas, Size size, double Function(int) toX, double Function(double) toY, double leftPadding, double rightPadding, int highIdx, int lowIdx) {

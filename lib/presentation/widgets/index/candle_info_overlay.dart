@@ -244,13 +244,13 @@ class CandleInfoOverlay extends StatelessWidget {
       case '1day':
         final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
         final dayOfWeek = weekdays[d.weekday - 1];
-        return '${DateFormat('MM/dd').format(d)}($dayOfWeek)';
+        return '${DateFormat('yy/MM/dd').format(d)}($dayOfWeek)';
       case '1week':
-        return DateFormat('yyyy.MM.dd').format(d);
+        return DateFormat('yy/MM/dd').format(d);
       case '1month':
         return DateFormat('yyyy.MM').format(d);
       default:
-        return DateFormat('MM/dd').format(d);
+        return DateFormat('yy/MM/dd').format(d);
     }
   }
 }
