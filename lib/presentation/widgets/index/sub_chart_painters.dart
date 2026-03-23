@@ -109,16 +109,9 @@ class RSIPainter extends CustomPainter {
 
     double toY(double value) => topPadding + (1 - value / 100) * chartHeight;
 
-    // 과매수/과매도 배경
-    final overboughtRect = Rect.fromLTRB(leftPadding, toY(100), leftPadding + chartWidth, toY(70));
-    canvas.drawRect(overboughtRect, Paint()..color = AppColors.stockUp.withAlpha(20));
-
-    final oversoldRect = Rect.fromLTRB(leftPadding, toY(30), leftPadding + chartWidth, toY(0));
-    canvas.drawRect(oversoldRect, Paint()..color = AppColors.stockDown.withAlpha(20));
-
-    // 기준선 (30, 50, 70)
+    // 기준선 (30, 70) 점선
     final gridColor = isDarkMode ? const Color(0xFF374151) : const Color(0xFFD1D5DB);
-    for (final level in [30.0, 50.0, 70.0]) {
+    for (final level in [30.0, 70.0]) {
       final y = toY(level);
       final paint = Paint()..color = gridColor..strokeWidth = 0.5;
       const dashWidth = 3.0;
@@ -130,18 +123,67 @@ class RSIPainter extends CustomPainter {
       }
     }
 
-    // RSI 선
-    final path = Path();
+    // RSI 선 + 과매수/과매도 웅덩이 (RSI선과 기준선 사이만 채움)
+    final rsiLineColor = isDarkMode ? const Color(0xFFCE93D8) : const Color(0xFF7B1FA2);
+    final linePath = Path();
+    final overboughtFill = Path(); // 70 이상 웅덩이
+    final oversoldFill = Path();   // 30 이하 웅덩이
     bool started = false;
+    bool obStarted = false; // overbought fill 시작 여부
+    bool osStarted = false; // oversold fill 시작 여부
+    final y70 = toY(70);
+    final y30 = toY(30);
+
     for (int i = 0; i < rsiValues.length; i++) {
       if (rsiValues[i] == null) continue;
       final x = leftPadding + i * candleWidth + candleWidth / 2;
       final y = toY(rsiValues[i]!);
-      if (!started) { path.moveTo(x, y); started = true; } else { path.lineTo(x, y); }
+
+      // RSI 선
+      if (!started) { linePath.moveTo(x, y); started = true; } else { linePath.lineTo(x, y); }
+
+      // 과매수 웅덩이 (70 이상): RSI선과 70선 사이
+      if (rsiValues[i]! >= 70) {
+        if (!obStarted) { overboughtFill.moveTo(x, y70); obStarted = true; }
+        overboughtFill.lineTo(x, y);
+      } else if (obStarted) {
+        // 70 아래로 내려오면 웅덩이 닫기
+        overboughtFill.lineTo(x, y70);
+        overboughtFill.close();
+        obStarted = false;
+      }
+
+      // 과매도 웅덩이 (30 이하): RSI선과 30선 사이
+      if (rsiValues[i]! <= 30) {
+        if (!osStarted) { oversoldFill.moveTo(x, y30); osStarted = true; }
+        oversoldFill.lineTo(x, y);
+      } else if (osStarted) {
+        // 30 위로 올라오면 웅덩이 닫기
+        oversoldFill.lineTo(x, y30);
+        oversoldFill.close();
+        osStarted = false;
+      }
     }
+
+    // 마지막 캔들에서 아직 웅덩이가 열려있으면 닫기
+    if (obStarted) {
+      final lastX = leftPadding + (rsiValues.length - 1) * candleWidth + candleWidth / 2;
+      overboughtFill.lineTo(lastX, y70);
+      overboughtFill.close();
+    }
+    if (osStarted) {
+      final lastX = leftPadding + (rsiValues.length - 1) * candleWidth + candleWidth / 2;
+      oversoldFill.lineTo(lastX, y30);
+      oversoldFill.close();
+    }
+
+    // 웅덩이 채우기
+    canvas.drawPath(overboughtFill, Paint()..color = AppColors.stockUp.withAlpha(50)..style = PaintingStyle.fill);
+    canvas.drawPath(oversoldFill, Paint()..color = AppColors.stockDown.withAlpha(50)..style = PaintingStyle.fill);
+
+    // RSI 선 그리기
     if (started) {
-      final rsiLineColor = isDarkMode ? const Color(0xFFCE93D8) : const Color(0xFF7B1FA2);
-      canvas.drawPath(path, Paint()..color = rsiLineColor..strokeWidth = 1.5..style = PaintingStyle.stroke);
+      canvas.drawPath(linePath, Paint()..color = rsiLineColor..strokeWidth = 1.5..style = PaintingStyle.stroke);
     }
 
     // Y축 라벨
