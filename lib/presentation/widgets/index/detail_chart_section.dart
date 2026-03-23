@@ -444,7 +444,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           final isLeftHalf = candleX < chartWidth / 2;
                                           final gap = 16.0; // 캔들과 팝업 간격
                                           return Positioned(
-                                            top: yRange.topPadding,
+                                            top: 0,
                                             left: isLeftHalf ? candleX + gap : null,
                                             right: isLeftHalf ? null : chartWidth - candleX + gap,
                                             child: CandleInfoOverlay(
