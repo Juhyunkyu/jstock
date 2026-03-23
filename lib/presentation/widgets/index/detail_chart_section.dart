@@ -106,7 +106,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
   // 캔들 선택 상태
   int? _selectedCandleIndex; // widget.chartData 기준 full index, null이면 미선택
-  double? _crosshairPrice; // 십자선 수평선의 가격 위치
 
   // 측정 도구 상태 (Hive 비저장)
   bool _isMeasuring = false;
@@ -150,7 +149,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     if (widget.chartData.length != oldWidget.chartData.length ||
         widget.selectedPeriod != oldWidget.selectedPeriod) {
       _selectedCandleIndex = null;
-      _crosshairPrice = null;
       _scrollOffset = (widget.chartData.length - _visibleCount).clamp(0, widget.chartData.length);
     }
   }
@@ -370,7 +368,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                           ),
                           onLongPressStart: (details) => _handleCandleScrubStart(details, yRange, offset),
                           onLongPressMoveUpdate: (details) => _handleCandleScrubUpdate(details, yRange, offset),
-                          onLongPressEnd: (_) {},
+                          onLongPressEnd: (_) => _handleCandleScrubEnd(),
                           child: Listener(
                             onPointerSignal: _drawingMode == DrawingMode.none && !_isMeasuring
                                 ? _handlePointerSignal : null,
@@ -410,7 +408,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                               _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
                                               ? _selectedCandleIndex! - offset
                                               : null,
-                                          crosshairPrice: _crosshairPrice,
                                         ),
                                       ),
                                       // 드로잉 오버레이 (+ 미리보기)
@@ -436,21 +433,31 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                           tempZoneLowerPrice: _isDraggingNewZone ? _tempZoneLowerPrice : null,
                                         ),
                                       ),
-                                      // 캔들 정보 오버레이
+                                      // 캔들 정보 플로팅 팝업
                                       if (_selectedCandleIndex != null &&
-                                          _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
-                                        Positioned(
-                                          top: 2,
-                                          left: 10,
-                                          right: 50, // Y축 레이블 영역 피하기
-                                          child: CandleInfoOverlay(
-                                            candle: widget.chartData[_selectedCandleIndex!],
-                                            previousCandle: _selectedCandleIndex! > 0
-                                                ? widget.chartData[_selectedCandleIndex! - 1]
-                                                : null,
-                                            selectedPeriod: widget.selectedPeriod,
-                                          ),
-                                        ),
+                                          _selectedCandleIndex! >= offset && _selectedCandleIndex! < end) ...[
+                                        () {
+                                          final displayIdx = _selectedCandleIndex! - offset;
+                                          final candleX = yRange.toX(displayIdx);
+                                          final isLeftHalf = candleX < chartWidth / 2;
+                                          return Positioned(
+                                            top: yRange.topPadding + 4,
+                                            left: isLeftHalf ? candleX + 20 : null,
+                                            right: isLeftHalf ? null : chartWidth - candleX + 20,
+                                            child: CandleInfoOverlay(
+                                              candle: widget.chartData[_selectedCandleIndex!],
+                                              previousCandle: _selectedCandleIndex! > 0
+                                                  ? widget.chartData[_selectedCandleIndex! - 1]
+                                                  : null,
+                                              selectedPeriod: widget.selectedPeriod,
+                                              candleX: candleX,
+                                              chartWidth: chartWidth,
+                                              indicators: ind,
+                                              displayIndex: displayIdx,
+                                            ),
+                                          );
+                                        }(),
+                                      ],
                                       // 가이드 바 (드로잉 모드 시 상단)
                                       Positioned(
                                         top: 0,
