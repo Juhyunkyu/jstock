@@ -14,6 +14,7 @@ import '../../widgets/index/description_section.dart';
 import '../../widgets/index/news_section.dart';
 import '../../widgets/shared/return_badge.dart';
 import '../../widgets/financials/financial_screen.dart';
+import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../providers/providers.dart';
 
 /// 지수 상세 페이지
@@ -296,13 +297,23 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
             }
           },
         ),
-        title: Text(
-          widget.name,
-          style: TextStyle(
-            color: context.appTextPrimary,
-            fontWeight: FontWeight.w700,
-            fontSize: isDesktop ? 18 : 16,
-          ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                widget.name,
+                style: TextStyle(
+                  color: context.appTextPrimary,
+                  fontWeight: FontWeight.w700,
+                  fontSize: isDesktop ? 18 : 16,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 6),
+            _buildStarIcon(context),
+          ],
         ),
         actions: [
           if (quote != null) _buildAppBarPrice(quote, isDesktop),
@@ -339,6 +350,34 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
                         ),
                       ],
                     ),
+    );
+  }
+
+  Widget _buildStarIcon(BuildContext context) {
+    if (widget.symbol.startsWith('^')) return const SizedBox.shrink();
+
+    final isInGroup = ref.watch(watchlistGroupProvider).groups
+        .any((g) => g.tickers.contains(widget.symbol));
+
+    return GestureDetector(
+      onTap: () => _showGroupSheet(context),
+      child: Icon(
+        isInGroup ? Icons.star_rounded : Icons.star_outline_rounded,
+        size: 22,
+        color: isInGroup ? AppColors.amber500 : context.appTextHint,
+      ),
+    );
+  }
+
+  void _showGroupSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => GroupSelectionSheet(ticker: widget.symbol),
     );
   }
 
