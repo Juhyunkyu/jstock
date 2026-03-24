@@ -342,6 +342,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
                         Expanded(
                           child: TabBarView(
                             controller: _tabController,
+                            physics: const NeverScrollableScrollPhysics(),
                             children: [
                               _buildChartContent(quote, isDesktop),
                               FinancialScreen(symbol: _chartSymbol),
