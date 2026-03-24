@@ -178,9 +178,10 @@ class RSIPainter extends CustomPainter {
       oversoldFill.close();
     }
 
-    // 웅덩이 채우기
-    canvas.drawPath(overboughtFill, Paint()..color = AppColors.stockUp.withAlpha(50)..style = PaintingStyle.fill);
-    canvas.drawPath(oversoldFill, Paint()..color = AppColors.stockDown.withAlpha(50)..style = PaintingStyle.fill);
+    // 웅덩이 채우기 (다크모드에서 더 진하게)
+    final fillAlpha = isDarkMode ? 90 : 50;
+    canvas.drawPath(overboughtFill, Paint()..color = AppColors.stockUp.withAlpha(fillAlpha)..style = PaintingStyle.fill);
+    canvas.drawPath(oversoldFill, Paint()..color = AppColors.stockDown.withAlpha(fillAlpha)..style = PaintingStyle.fill);
 
     // RSI 선 그리기
     if (started) {
