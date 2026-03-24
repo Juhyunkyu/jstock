@@ -13,3 +13,4 @@ export 'notification_repository.dart';
 export 'watchlist_group_repository.dart';
 export 'recent_view_repository.dart';
 export 'memo_repository.dart';
+export 'rsi_watch_point_repository.dart';

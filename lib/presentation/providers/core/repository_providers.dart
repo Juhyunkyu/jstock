@@ -23,6 +23,7 @@ final _watchlistRepo = WatchlistRepository();
 final _notificationRepo = NotificationRepository();
 final _watchlistGroupRepo = WatchlistGroupRepository();
 final _recentViewRepo = RecentViewRepository();
+final _rsiWatchPointRepo = RsiWatchPointRepository();
 
 /// Settings Repository Provider
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
@@ -74,6 +75,11 @@ final recentViewRepositoryProvider = Provider<RecentViewRepository>((ref) {
   return _recentViewRepo;
 });
 
+/// RsiWatchPoint Repository Provider
+final rsiWatchPointRepositoryProvider = Provider<RsiWatchPointRepository>((ref) {
+  return _rsiWatchPointRepo;
+});
+
 // ═══════════════════════════════════════════════════════════════
 // 앱 초기화 Provider
 // ═══════════════════════════════════════════════════════════════
@@ -92,6 +98,7 @@ final appInitializationProvider = FutureProvider<bool>((ref) async {
     _notificationRepo.init(),
     _watchlistGroupRepo.init(),
     _recentViewRepo.init(),
+    _rsiWatchPointRepo.init(),
     NewsService.initCache(),
   ]);
 

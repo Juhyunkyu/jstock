@@ -498,6 +498,9 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                       _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
                                       ? _selectedCandleIndex! - offset
                                       : null,
+                                  scrollOffset: offset,
+                                  symbol: widget.symbol,
+                                  selectedPeriod: widget.selectedPeriod,
                                 ),
                               ],
                             ),

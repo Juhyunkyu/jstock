@@ -10,6 +10,9 @@ import '../../../routes/app_router.dart';
 import '../../providers/providers.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
+import '../../providers/rsi_divergence_providers.dart';
+import '../../../data/models/rsi_watch_point.dart';
+import '../../../data/services/technical_indicator_service.dart';
 import 'app_title_logo.dart';
 import 'update_banner.dart';
 
@@ -54,6 +57,7 @@ class _MainShellState extends ConsumerState<MainShell> {
         ref.read(watchlistProvider.notifier).load(),
         ref.read(watchlistGroupProvider.notifier).load(),
         ref.read(recentViewProvider.notifier).load(),
+        ref.read(rsiWatchPointProvider.notifier).load(),
       ]);
 
       if (!mounted) return;
@@ -67,6 +71,10 @@ class _MainShellState extends ConsumerState<MainShell> {
       ref.listenManual(fearGreedAlertMonitorProvider, (prev, next) {
         if (next == null) return;
         _handleFearGreedAlert(next);
+      }, fireImmediately: true);
+      ref.listenManual(rsiDivergenceMonitorProvider, (prev, next) {
+        if (next.isEmpty) return;
+        _handleRsiDivergenceAlerts(next);
       }, fireImmediately: true);
     });
   }
@@ -126,6 +134,101 @@ class _MainShellState extends ConsumerState<MainShell> {
       }
     } catch (e) {
       debugPrint('[AlertError] Fear & Greed alert failed: $e');
+    }
+  }
+
+  /// RSI 다이버전스 돌파 알림 처리 (비동기 RSI 계산 + 다이버전스 판정)
+  Future<void> _handleRsiDivergenceAlerts(List<RsiDivergenceAlert> alerts) async {
+    for (final alert in alerts) {
+      if (alert.status != RsiAlertStatus.breached) continue;
+
+      try {
+        final point = alert.watchPoint;
+
+        // 1. Twelve Data API로 차트 데이터 가져오기
+        final twelveData = ref.read(twelveDataServiceProvider);
+        final chartData = await twelveData.getChartData(
+          point.ticker,
+          interval: point.interval,
+          outputsize: 50, // RSI(14) 계산에 최소 15개 필요, 여유분 포함
+        );
+
+        if (chartData.isEmpty) continue;
+
+        // 2. RSI 계산
+        final closes = chartData.map((d) => d.close).toList();
+        final indicatorService = TechnicalIndicatorService();
+        final rsiValues = indicatorService.calculateRSI(closes, period: point.rsiPeriod);
+
+        // 3. 최신 RSI 값 추출
+        final currentRsi = rsiValues.lastWhere((r) => r != null, orElse: () => null);
+        if (currentRsi == null) continue;
+
+        // 4. 다이버전스 판정
+        final isDivergence = _checkDivergence(point, currentRsi);
+
+        if (isDivergence) {
+          // 5a. 알림 발생 + 감시점 트리거 처리
+          _triggerDivergenceNotification(point, alert.currentPrice, currentRsi);
+          ref.read(rsiWatchPointProvider.notifier).markTriggered(
+            point.id,
+            triggeredPrice: alert.currentPrice,
+            triggeredRsi: currentRsi,
+          );
+        }
+        // 5b. 다이버전스 아님 -> 쿨다운 후 다음 돌파 시 재체크 (자동)
+      } catch (e) {
+        debugPrint('[RsiDivergence] Error processing alert: $e');
+      }
+    }
+  }
+
+  /// 다이버전스 판정
+  bool _checkDivergence(RsiWatchPoint point, double currentRsi) {
+    if (point.mode == RsiWatchMode.bearish) {
+      // 하락 다이버전스: 가격은 올랐는데 RSI는 내렸다
+      return currentRsi < point.watchRsi;
+    } else {
+      // 상승 다이버전스: 가격은 내렸는데 RSI는 올랐다
+      return currentRsi > point.watchRsi;
+    }
+  }
+
+  /// 다이버전스 알림 발생
+  void _triggerDivergenceNotification(
+    RsiWatchPoint point, double currentPrice, double currentRsi,
+  ) {
+    try {
+      final isBearish = point.mode == RsiWatchMode.bearish;
+      final modeLabel = isBearish ? '하락' : '상승';
+      final priceDir = isBearish ? '신고점' : '신저점';
+      final rsiDir = isBearish ? '하락' : '상승';
+      final advice = isBearish
+          ? '모멘텀 약화 \u2014 하락 전환 가능성에 주의하세요'
+          : '하락 모멘텀 약화 \u2014 반등 가능성에 주목하세요';
+
+      final record = NotificationRecord(
+        id: 'rsi_div_${DateTime.now().millisecondsSinceEpoch}',
+        ticker: point.ticker,
+        title: '${point.ticker} $modeLabel 다이버전스 감지!',
+        body: '가격 \$${point.watchPrice.toStringAsFixed(2)} \u2192 '
+            '\$${currentPrice.toStringAsFixed(2)} ($priceDir) | '
+            'RSI ${point.watchRsi.toStringAsFixed(1)} \u2192 '
+            '${currentRsi.toStringAsFixed(1)} ($rsiDir)\n$advice',
+        type: 'rsi_divergence',
+        triggeredAt: DateTime.now(),
+      );
+
+      ref.read(notificationHistoryProvider.notifier).addRecord(record);
+
+      final muted = ref.read(settingsProvider).notificationMuted;
+      if (!muted) {
+        try {
+          WebNotificationService.show(title: record.title, body: record.body);
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('[AlertError] RSI divergence notification failed: $e');
     }
   }
 

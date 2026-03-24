@@ -16,3 +16,4 @@ export 'trade.dart';
 export 'watchlist_group.dart';
 export 'recent_view_item.dart';
 export 'memo.dart';
+export 'rsi_watch_point.dart';
