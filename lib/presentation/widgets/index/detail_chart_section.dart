@@ -79,7 +79,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   int _startVisibleCount = 80;
   double _dragRemainder = 0.0; // 소수점 캔들 이동량 누적
   static const int _minVisible = 20;
-  static const int _maxVisible = 200;
+  static const int _maxVisible = 500;
 
   // 보조 지표 토글 상태
   late Set<String> _activeIndicators;
