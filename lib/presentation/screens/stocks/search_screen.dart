@@ -260,7 +260,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              '다른 검색어를 입력하거나\n인기 ETF에서 선택해주세요',
+              '영문 티커 또는 기업명으로 검색해주세요\n예: AAPL, NVDA, IONQ, Tesla',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12,
