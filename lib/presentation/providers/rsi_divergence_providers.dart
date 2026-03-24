@@ -190,15 +190,17 @@ class RsiDivergenceChecker {
     return alerts;
   }
 
-  /// 교차 감지: 가격이 감시 가격을 관통했는지 확인
+  /// 돌파 감지: 처음 1회만 트리거
+  /// - 첫 체크(previous == null): 이미 돌파 상태면 즉시 트리거 (과거 고점 설정 테스트용)
+  /// - 이후: 교차 감지 (이전가 ≤ 감시가 → 현재가 > 감시가)
   bool _isBreached(RsiWatchPoint point, double current, double? previous) {
-    if (previous == null) return false; // 첫 체크는 스킵 (교차 판정 불가)
-
     if (point.mode == RsiWatchMode.bearish) {
-      // 고점 감시: 가격이 아래에서 위로 관통
+      // 고점 감시: 현재가 > 감시가
+      if (previous == null) return current > point.watchPrice;
       return previous <= point.watchPrice && current > point.watchPrice;
     } else {
-      // 저점 감시: 가격이 위에서 아래로 관통
+      // 저점 감시: 현재가 < 감시가
+      if (previous == null) return current < point.watchPrice;
       return previous >= point.watchPrice && current < point.watchPrice;
     }
   }
