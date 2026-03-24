@@ -246,7 +246,8 @@ class AppRouter {
             path: stocksSearch,
             builder: (context, state) {
               final forHolding = state.uri.queryParameters['forHolding'] == 'true';
-              return SearchScreen(forHolding: forHolding);
+              final forDetail = state.uri.queryParameters['forDetail'] == 'true';
+              return SearchScreen(forHolding: forHolding, forDetail: forDetail);
             },
           ),
           GoRoute(

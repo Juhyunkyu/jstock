@@ -17,7 +17,10 @@ class SearchScreen extends ConsumerStatefulWidget {
   /// 보유 종목 검색 여부
   final bool forHolding;
 
-  const SearchScreen({super.key, this.forHolding = false});
+  /// 상세 페이지 이동 모드 (관심종목 검색 바에서 진입 시)
+  final bool forDetail;
+
+  const SearchScreen({super.key, this.forHolding = false, this.forDetail = false});
 
   @override
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
@@ -95,7 +98,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => context.pop(),
         ),
-        title: Text(widget.forHolding ? '종목검색' : '종목 추가'),
+        title: Text(widget.forHolding ? '종목검색' : widget.forDetail ? '종목 검색' : '종목 추가'),
       ),
       body: Column(
         children: [
@@ -216,6 +219,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onWatchlistItemSelected(WatchlistItem item) {
+    if (widget.forDetail) {
+      context.push('/index/${Uri.encodeComponent(item.ticker)}');
+      return;
+    }
     final etf = PopularEtf(
       ticker: item.ticker,
       name: item.name,
@@ -284,10 +291,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onEtfSelected(PopularEtf etf) {
+    if (widget.forDetail) {
+      context.push('/index/${Uri.encodeComponent(etf.ticker)}');
+      return;
+    }
     context.push('/holdings/setup/${etf.ticker}', extra: etf);
   }
 
   void _onSearchResultSelected(SearchResult result) {
+    if (widget.forDetail) {
+      context.push('/index/${Uri.encodeComponent(result.symbol)}');
+      return;
+    }
     // PopularEtf 형식으로 변환하여 전달
     final etf = PopularEtf(
       ticker: result.symbol,

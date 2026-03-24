@@ -97,6 +97,29 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
               ? _buildErrorState(watchlistState.error!)
               : Column(
                   children: [
+                    // 검색 바
+                    InkWell(
+                      onTap: () => context.push('/stocks/search?forDetail=true'),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: context.appIconBg,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.search, size: 20, color: context.appTextHint),
+                            const SizedBox(width: 10),
+                            Text(
+                              '종목 검색 (티커 또는 기업명)',
+                              style: TextStyle(fontSize: 14, color: context.appTextHint),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     // 탭 바
                     WatchlistTabBar(
                       tabLabels: tabLabels,
@@ -203,12 +226,20 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   }
 
   void _showSettingsSheet(BuildContext context) {
+    // 현재 선택된 탭이 사용자 그룹이면 그 그룹 ID 전달
+    final tabIndex = ref.read(selectedWatchlistTabProvider);
+    final groups = ref.read(watchlistGroupProvider).groups;
+    String? currentGroupId;
+    if (tabIndex >= 2 && tabIndex - 2 < groups.length) {
+      currentGroupId = groups[tabIndex - 2].id;
+    }
+
     showModalBottomSheet(
       context: context,
       useRootNavigator: true,
       isScrollControlled: true,
       backgroundColor: context.appSurface,
-      builder: (context) => const WatchlistSettingsSheet(),
+      builder: (context) => WatchlistSettingsSheet(initialGroupId: currentGroupId),
     );
   }
 

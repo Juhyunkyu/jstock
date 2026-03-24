@@ -6,7 +6,8 @@ import 'watchlist_group_editor.dart';
 
 /// 관심종목 설정 BottomSheet (종목편집 / 그룹편집 2탭)
 class WatchlistSettingsSheet extends ConsumerStatefulWidget {
-  const WatchlistSettingsSheet({super.key});
+  final String? initialGroupId;
+  const WatchlistSettingsSheet({super.key, this.initialGroupId});
 
   @override
   ConsumerState<WatchlistSettingsSheet> createState() =>
@@ -73,9 +74,9 @@ class _WatchlistSettingsSheetState extends ConsumerState<WatchlistSettingsSheet>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: const [
-                WatchlistTickerEditor(),
-                WatchlistGroupEditor(),
+              children: [
+                WatchlistTickerEditor(initialGroupId: widget.initialGroupId),
+                const WatchlistGroupEditor(),
               ],
             ),
           ),

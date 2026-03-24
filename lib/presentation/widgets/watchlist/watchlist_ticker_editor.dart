@@ -8,7 +8,8 @@ import '../../providers/providers.dart';
 
 /// 그룹 내 종목 편집 (추가/삭제/순서변경)
 class WatchlistTickerEditor extends ConsumerStatefulWidget {
-  const WatchlistTickerEditor({super.key});
+  final String? initialGroupId;
+  const WatchlistTickerEditor({super.key, this.initialGroupId});
 
   @override
   ConsumerState<WatchlistTickerEditor> createState() =>
@@ -20,6 +21,12 @@ class _WatchlistTickerEditorState extends ConsumerState<WatchlistTickerEditor> {
   bool _isSearching = false;
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedGroupId = widget.initialGroupId;
+  }
 
   @override
   void dispose() {
