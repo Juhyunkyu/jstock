@@ -100,6 +100,10 @@ class RsiDrawingOverlay extends ConsumerStatefulWidget {
   final String selectedPeriod;
   final List<RsiWatchPoint> watchPoints;
 
+  // 감시점 모드 (메인 차트 롱프레스 연동)
+  final bool isWatchPointMode;
+  final VoidCallback? onWatchPointModeToggle;
+
   const RsiDrawingOverlay({
     super.key,
     required this.chartWidth,
@@ -117,6 +121,8 @@ class RsiDrawingOverlay extends ConsumerStatefulWidget {
     required this.symbol,
     required this.selectedPeriod,
     required this.watchPoints,
+    this.isWatchPointMode = false,
+    this.onWatchPointModeToggle,
   });
 
   @override
@@ -279,30 +285,6 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     setState(() {
       _selectedLineId = hitId;
     });
-  }
-
-  void _handleLongPressStart(LongPressStartDetails details) {
-    if (_isDrawing) return; // 그리기 모드에서는 무시
-
-    final pos = details.localPosition;
-    final idx = _fromX(pos.dx);
-    if (idx < 0 || idx >= widget.displayData.length) return;
-    if (idx >= widget.rsiValues.length) return;
-
-    final rsiVal = widget.rsiValues[idx];
-    if (rsiVal == null) return;
-
-    final candle = widget.displayData[idx];
-
-    showWatchPointSetupSheet(
-      context: context,
-      ref: ref,
-      symbol: widget.symbol,
-      date: candle.date,
-      price: candle.close,
-      rsi: rsiVal,
-      selectedPeriod: widget.selectedPeriod,
-    );
   }
 
   void _handleDragStart(DragStartDetails details) {
@@ -518,6 +500,30 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
                   ),
                 ),
               ),
+              // 감시점(pin) 토글 버튼
+              GestureDetector(
+                onTap: widget.onWatchPointModeToggle,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  margin: const EdgeInsets.only(right: 4),
+                  decoration: BoxDecoration(
+                    color: widget.isWatchPointMode
+                        ? (widget.isDarkMode ? const Color(0xFF1B3A5C) : const Color(0xFFE3F2FD))
+                        : context.appIconBg,
+                    borderRadius: BorderRadius.circular(4),
+                    border: widget.isWatchPointMode
+                        ? Border.all(color: const Color(0xFF2196F3), width: 0.5)
+                        : null,
+                  ),
+                  child: Icon(
+                    Icons.push_pin_outlined,
+                    size: 14,
+                    color: widget.isWatchPointMode
+                        ? const Color(0xFF2196F3)
+                        : context.appTextHint,
+                  ),
+                ),
+              ),
               const Spacer(),
               if (widget.rsiSignal != null)
                 SizedBox(
@@ -575,7 +581,6 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTapUp: _handleTap,
-                onLongPressStart: _handleLongPressStart,
                 onPanStart: !_isDrawing ? _handleDragStart : null,
                 onPanUpdate: !_isDrawing ? _handleDragUpdate : null,
                 onPanEnd: !_isDrawing ? _handleDragEnd : null,

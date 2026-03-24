@@ -319,6 +319,7 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
   void selectDrawingMode(DrawingMode mode) {
     setState(() {
       _drawingMode = mode;
+      _rsiWatchMode = false; // 드로잉 모드 진입 시 감시점 모드 해제
       _selectedDrawingId = null;
       _selectedCandleIndex = null;
       _waitingSecondPoint = false;

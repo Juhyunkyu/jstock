@@ -19,6 +19,10 @@ class SubChartList extends ConsumerWidget {
   final String symbol;
   final String selectedPeriod; // '일봉', '주봉', '월봉'
 
+  // RSI 감시점 모드 (메인 차트 롱프레스 연동)
+  final bool isRsiWatchPointMode;
+  final VoidCallback? onRsiWatchPointModeToggle;
+
   const SubChartList({
     super.key,
     required this.activeIndicators,
@@ -29,6 +33,8 @@ class SubChartList extends ConsumerWidget {
     required this.scrollOffset,
     required this.symbol,
     required this.selectedPeriod,
+    this.isRsiWatchPointMode = false,
+    this.onRsiWatchPointModeToggle,
   });
 
   @override
@@ -118,6 +124,8 @@ class SubChartList extends ConsumerWidget {
             symbol: symbol,
             selectedPeriod: selectedPeriod,
             watchPoints: watchPoints,
+            isWatchPointMode: isRsiWatchPointMode,
+            onWatchPointModeToggle: onRsiWatchPointModeToggle,
           ),
         ],
         // MACD 서브차트

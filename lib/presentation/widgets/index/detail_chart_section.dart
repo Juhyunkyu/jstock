@@ -25,6 +25,7 @@ import 'drawing_selection_buttons.dart';
 import 'drawing_settings_sheet.dart';
 import 'drawing_toolbar.dart';
 import 'indicator_help_dialog.dart';
+import 'rsi_watch_point_sheet.dart';
 import '../../providers/providers.dart';
 
 part 'chart_drawing_gesture_handler.dart';
@@ -113,6 +114,9 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   int? _measureEndFullIndex;
   double? _measureStartPrice;
   double? _measureEndPrice;
+
+  // RSI 감시점 모드 (메인 차트 롱프레스 연동)
+  bool _rsiWatchMode = false;
 
   // 지지/저항 영역 드래그 배치 상태
   bool _isDraggingNewZone = false;
@@ -229,6 +233,26 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   double? _getSelectedLineY(ChartYRange yRange) =>
       ChartDrawingHitTest.getSelectedLineY(
         _selectedDrawingId, ref.read(chartDrawingProvider), yRange);
+
+  void _showRsiWatchPointFromIndex(int fullIndex) {
+    if (fullIndex < 0 || fullIndex >= widget.chartData.length) return;
+
+    final candle = widget.chartData[fullIndex];
+    final closes = widget.chartData.map((e) => e.close).toList();
+    final rsiValues = widget.indicatorService.calculateRSI(closes);
+
+    if (fullIndex >= rsiValues.length || rsiValues[fullIndex] == null) return;
+
+    showWatchPointSetupSheet(
+      context: context,
+      ref: ref,
+      symbol: widget.symbol,
+      date: candle.date,
+      price: candle.close,
+      rsi: rsiValues[fullIndex]!,
+      selectedPeriod: widget.selectedPeriod,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +392,17 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                           ),
                           onLongPressStart: (details) => _handleCandleScrubStart(details, yRange, offset),
                           onLongPressMoveUpdate: (details) => _handleCandleScrubUpdate(details, yRange, offset),
-                          onLongPressEnd: (_) => _handleCandleScrubEnd(),
+                          onLongPressEnd: (_) {
+                            if (_rsiWatchMode && _selectedCandleIndex != null) {
+                              final idx = _selectedCandleIndex!;
+                              setState(() => _rsiWatchMode = false);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (!mounted) return;
+                                _showRsiWatchPointFromIndex(idx);
+                              });
+                            }
+                            _handleCandleScrubEnd();
+                          },
                           child: Listener(
                             onPointerSignal: _drawingMode == DrawingMode.none && !_isMeasuring
                                 ? _handlePointerSignal : null,
@@ -501,6 +535,14 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                   scrollOffset: offset,
                                   symbol: widget.symbol,
                                   selectedPeriod: widget.selectedPeriod,
+                                  isRsiWatchPointMode: _rsiWatchMode,
+                                  onRsiWatchPointModeToggle: () => setState(() {
+                                    _rsiWatchMode = !_rsiWatchMode;
+                                    // 감시점 모드와 드로잉 모드는 동시 활성화 불가
+                                    if (_rsiWatchMode && _drawingMode != DrawingMode.none) {
+                                      cancelDrawing();
+                                    }
+                                  }),
                                 ),
                               ],
                             ),
