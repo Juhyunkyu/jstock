@@ -139,11 +139,13 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   /// RSI 다이버전스 돌파 알림 처리 (비동기 RSI 계산 + 다이버전스 판정)
   Future<void> _handleRsiDivergenceAlerts(List<RsiDivergenceAlert> alerts) async {
+    debugPrint('[RsiDivergence] Processing ${alerts.length} alerts');
     for (final alert in alerts) {
       if (alert.status != RsiAlertStatus.breached) continue;
 
       try {
         final point = alert.watchPoint;
+        debugPrint('[RsiDivergence] ${point.ticker}: breached at ${alert.currentPrice} (watch: ${point.watchPrice})');
 
         // 1. Twelve Data API로 차트 데이터 가져오기
         final twelveData = ref.read(twelveDataServiceProvider);
@@ -167,16 +169,20 @@ class _MainShellState extends ConsumerState<MainShell> {
         // 4. 다이버전스 판정
         final isDivergence = _checkDivergence(point, currentRsi);
 
+        // 5. 결과에 관계없이 1회 체크 후 비활성화 (재트리거 방지)
+        ref.read(rsiWatchPointProvider.notifier).markTriggered(
+          point.id,
+          triggeredPrice: alert.currentPrice,
+          triggeredRsi: currentRsi,
+        );
+
         if (isDivergence) {
-          // 5a. 알림 발생 + 감시점 트리거 처리
+          // 다이버전스 확인 → 알림 발생
           _triggerDivergenceNotification(point, alert.currentPrice, currentRsi);
-          ref.read(rsiWatchPointProvider.notifier).markTriggered(
-            point.id,
-            triggeredPrice: alert.currentPrice,
-            triggeredRsi: currentRsi,
-          );
+        } else {
+          // 다이버전스 아님 → 알림 없이 종료 (감시점은 이미 비활성화됨)
+          debugPrint('[RsiDivergence] ${point.ticker}: No divergence (RSI ${point.watchRsi} → $currentRsi)');
         }
-        // 5b. 다이버전스 아님 -> 쿨다운 후 다음 돌파 시 재체크 (자동)
       } catch (e) {
         debugPrint('[RsiDivergence] Error processing alert: $e');
       }
