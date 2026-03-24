@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
-import '../../../data/services/technical_indicator_service.dart';
 import 'chart_controls.dart';
 import 'chart_indicator_calculator.dart';
+import 'rsi_drawing_overlay.dart';
 import 'sub_chart_painters.dart';
 
 /// 서브 차트 목록 (VOL, RSI, MACD, STOCH, OBV)
@@ -84,28 +84,21 @@ class SubChartList extends StatelessWidget {
             50,
           ),
         ],
-        // RSI 서브차트
+        // RSI 서브차트 (드로잉 오버레이 포함)
         if (activeIndicators.contains('RSI') && indicators.displayRSI != null) ...[
-          SubChartHeader(
-            label: indicators.rsiLabel ?? 'RSI(14)',
-            labelColor: isDarkMode
+          RsiDrawingOverlay(
+            chartWidth: chartWidth,
+            chartHeight: 120,
+            rsiValues: indicators.displayRSI!,
+            isDarkMode: isDarkMode,
+            textColor: textColor,
+            displayDataLength: displayData.length,
+            rsiLabel: indicators.rsiLabel ?? 'RSI(14)',
+            rsiLabelColor: isDarkMode
                 ? const Color(0xFFCE93D8)
                 : const Color(0xFF7B1FA2),
-            signal: indicators.rsiSignal,
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: 120,
-              child: CustomPaint(
-                size: Size(chartWidth, 120),
-                painter: RSIPainter(
-                  rsiValues: indicators.displayRSI!,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            120,
+            rsiSignal: indicators.rsiSignal,
+            crosshairX: crosshairX,
           ),
         ],
         // MACD 서브차트
