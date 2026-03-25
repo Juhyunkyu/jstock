@@ -104,7 +104,7 @@ class ChartIndicatorCalculator {
     required List<OHLCData> displayData,
     required int offset,
     required int end,
-    required Set<String> activeIndicators,
+    required List<String> activeIndicators,
     required TechnicalIndicatorService indicatorService,
   }) {
     final closes = fullData.map((e) => e.close).toList();
