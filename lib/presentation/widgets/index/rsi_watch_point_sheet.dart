@@ -154,35 +154,45 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
     }
     if (watchIndex < 0) return;
 
-    // 감시점 이후 캔들에서 돌파 찾기
-    int? breachIndex;
+    // RSI 먼저 계산 (돌파 후 최적 지점 찾기에 필요)
+    final closes = chartData.map((d) => d.close).toList();
+    final rsiValues = indicatorService.calculateRSI(closes);
+
+    // 감시점 이후 캔들에서 돌파 구간 찾기
+    // 첫 번째 돌파가 아닌, "가격은 가장 높은데(bearish)/낮은데(bullish) RSI는 가장 낮은/높은" 지점
+    bool breached = false;
+    int? bestIndex;
+    double? bestRsi;
+
     for (int i = watchIndex + 1; i < chartData.length; i++) {
+      if (i >= rsiValues.length || rsiValues[i] == null) continue;
+
       if (point.mode == RsiWatchMode.bearish) {
-        // 고점 감시: 가격이 위로 돌파
+        // 고점 감시: 가격이 위로 돌파한 캔들 중 RSI가 가장 낮은 것
         if (chartData[i].high > point.watchPrice) {
-          breachIndex = i;
-          break;
+          breached = true;
+          if (bestIndex == null || rsiValues[i]! < bestRsi!) {
+            bestIndex = i;
+            bestRsi = rsiValues[i]!;
+          }
         }
       } else {
-        // 저점 감시: 가격이 아래로 이탈
+        // 저점 감시: 가격이 아래로 이탈한 캔들 중 RSI가 가장 높은 것
         if (chartData[i].low < point.watchPrice) {
-          breachIndex = i;
-          break;
+          breached = true;
+          if (bestIndex == null || rsiValues[i]! > bestRsi!) {
+            bestIndex = i;
+            bestRsi = rsiValues[i]!;
+          }
         }
       }
     }
 
-    if (breachIndex == null) return; // 아직 돌파 안 됨 -> 미래 실시간 감시 대기
+    if (!breached || bestIndex == null || bestRsi == null) return;
 
-    // RSI 계산
-    final closes = chartData.map((d) => d.close).toList();
-    final rsiValues = indicatorService.calculateRSI(closes);
-
-    if (breachIndex >= rsiValues.length || rsiValues[breachIndex] == null) return;
-
-    final breachRsi = rsiValues[breachIndex]!;
-    final breachPrice = chartData[breachIndex].close;
-    final breachDate = chartData[breachIndex].date;
+    final breachRsi = bestRsi;
+    final breachPrice = chartData[bestIndex].close;
+    final breachDate = chartData[bestIndex].date;
 
     // 다이버전스 판정
     bool isDivergence;
