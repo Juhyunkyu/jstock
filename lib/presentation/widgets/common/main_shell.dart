@@ -137,7 +137,7 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 
-  /// RSI 다이버전스 돌파 알림 처리 (비동기 RSI 계산 + 다이버전스 판정)
+  /// RSI 다이버전스 돌파 알림 처리 (비동기 RSI+BB 계산 + 다이버전스 판정 + 자동 갱신)
   Future<void> _handleRsiDivergenceAlerts(List<RsiDivergenceAlert> alerts) async {
     debugPrint('[RsiDivergence] Processing ${alerts.length} alerts');
     for (final alert in alerts) {
@@ -154,34 +154,69 @@ class _MainShellState extends ConsumerState<MainShell> {
           interval: point.interval,
           outputsize: 50, // RSI(14) 계산에 최소 15개 필요, 여유분 포함
         );
-
         if (chartData.isEmpty) continue;
 
-        // 2. RSI 계산
+        // 2. RSI + BB 계산
         final closes = chartData.map((d) => d.close).toList();
         final indicatorService = TechnicalIndicatorService();
         final rsiValues = indicatorService.calculateRSI(closes, period: point.rsiPeriod);
+        final bbValues = indicatorService.calculateBollingerBands(closes);
 
-        // 3. 최신 RSI 값 추출
+        // 3. 최신 유효 캔들의 RSI + BB 확인
+        final lastIndex = chartData.length - 1;
         final currentRsi = rsiValues.lastWhere((r) => r != null, orElse: () => null);
         if (currentRsi == null) continue;
 
-        // 4. 다이버전스 판정
+        // BB 값 (마지막 유효값)
+        BBResult? lastBB;
+        for (int i = bbValues.length - 1; i >= 0; i--) {
+          if (bbValues[i].upper != null) { lastBB = bbValues[i]; break; }
+        }
+
+        // 4. BB 터치 확인
+        bool bbTouched = false;
+        if (lastBB != null) {
+          if (point.mode == RsiWatchMode.bearish) {
+            bbTouched = chartData[lastIndex].high >= lastBB.upper!;
+          } else {
+            bbTouched = lastBB.lower != null && chartData[lastIndex].low <= lastBB.lower!;
+          }
+        }
+
+        if (!bbTouched) {
+          // BB 미터치 → 진짜 고점/저점 아님 → 감시 유지 (markTriggered 안 함)
+          debugPrint('[RsiDivergence] ${point.ticker}: BB not touched, keep watching');
+          continue;
+        }
+
+        // 5. BB 터치 확인 → RSI 비교
         final isDivergence = _checkDivergence(point, currentRsi);
 
-        // 5. 결과에 관계없이 1회 체크 후 비활성화 (재트리거 방지)
-        ref.read(rsiWatchPointProvider.notifier).markTriggered(
-          point.id,
-          triggeredPrice: alert.currentPrice,
-          triggeredRsi: currentRsi,
-        );
-
         if (isDivergence) {
-          // 다이버전스 확인 → 알림 발생
+          // 다이버전스 확인 → 알림 + 비활성화
+          ref.read(rsiWatchPointProvider.notifier).markTriggered(
+            point.id,
+            triggeredPrice: alert.currentPrice,
+            triggeredRsi: currentRsi,
+          );
           _triggerDivergenceNotification(point, alert.currentPrice, currentRsi);
         } else {
-          // 다이버전스 아님 → 알림 없이 종료 (감시점은 이미 비활성화됨)
-          debugPrint('[RsiDivergence] ${point.ticker}: No divergence (RSI ${point.watchRsi} → $currentRsi)');
+          // 다이버전스 아님 + BB 터치 → 자동 갱신 (새 기준점)
+          final notifier = ref.read(rsiWatchPointProvider.notifier);
+          final updatedPoint = RsiWatchPoint(
+            id: point.id,
+            ticker: point.ticker,
+            mode: point.mode,
+            watchPrice: alert.currentPrice,
+            watchRsi: currentRsi,
+            watchDate: chartData[lastIndex].date,
+            interval: point.interval,
+            createdAt: point.createdAt,
+            isActive: true, // 계속 활성
+            rsiPeriod: point.rsiPeriod,
+          );
+          notifier.updateWatchPoint(updatedPoint);
+          debugPrint('[RsiDivergence] ${point.ticker}: Auto-renewed → price=${alert.currentPrice}, RSI=$currentRsi');
         }
       } catch (e) {
         debugPrint('[RsiDivergence] Error processing alert: $e');

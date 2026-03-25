@@ -125,21 +125,24 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
     final chartData = widget.chartData;
     final indicatorService = widget.indicatorService;
     final ref = widget.ref;
+    final scaffoldMessenger = ScaffoldMessenger.of(context); // pop 전에 캡처
 
     Navigator.of(context).pop();
 
     // 과거 돌파 즉시 체크
     if (chartData != null && indicatorService != null) {
-      _checkHistoricalBreach(point, chartData, indicatorService, ref);
+      _checkHistoricalBreach(point, chartData, indicatorService, ref, scaffoldMessenger);
     }
   }
 
   /// 감시점 설정 직후, 이미 로드된 차트 데이터에서 과거 돌파를 즉시 확인
+  /// BB 터치 필터 + 자동 갱신 루프 적용
   void _checkHistoricalBreach(
     RsiWatchPoint point,
     List<OHLCData> chartData,
     TechnicalIndicatorService indicatorService,
     WidgetRef ref,
+    ScaffoldMessengerState scaffoldMessenger,
   ) {
     // 감시점 날짜의 인덱스 찾기
     int watchIndex = -1;
@@ -154,65 +157,101 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
     }
     if (watchIndex < 0) return;
 
-    // RSI 먼저 계산 (돌파 후 최적 지점 찾기에 필요)
+    // RSI + BB 계산
     final closes = chartData.map((d) => d.close).toList();
     final rsiValues = indicatorService.calculateRSI(closes);
+    final bbValues = indicatorService.calculateBollingerBands(closes);
 
-    // 감시점 이후 캔들에서 돌파 구간 찾기
-    // 첫 번째 돌파가 아닌, "가격은 가장 높은데(bearish)/낮은데(bullish) RSI는 가장 낮은/높은" 지점
-    bool breached = false;
-    int? bestIndex;
-    double? bestRsi;
+    // 지역 변수로 현재 감시 기준 (자동 갱신 시 변경됨)
+    double currentWatchPrice = point.watchPrice;
+    double currentWatchRsi = point.watchRsi;
+    DateTime currentWatchDate = point.watchDate;
+    bool divergenceFound = false;
+    int? divergenceIndex;
+    double? divergenceRsi;
+    double? divergencePrice;
 
+    // 감시점 이후 캔들 순회
     for (int i = watchIndex + 1; i < chartData.length; i++) {
       if (i >= rsiValues.length || rsiValues[i] == null) continue;
+      if (i >= bbValues.length) continue;
+      final bb = bbValues[i];
 
+      // 1. 가격 돌파 체크
+      bool priceBreached;
       if (point.mode == RsiWatchMode.bearish) {
-        // 고점 감시: 가격이 위로 돌파한 캔들 중 RSI가 가장 낮은 것
-        if (chartData[i].high > point.watchPrice) {
-          breached = true;
-          if (bestIndex == null || rsiValues[i]! < bestRsi!) {
-            bestIndex = i;
-            bestRsi = rsiValues[i]!;
-          }
-        }
+        priceBreached = chartData[i].high > currentWatchPrice;
       } else {
-        // 저점 감시: 가격이 아래로 이탈한 캔들 중 RSI가 가장 높은 것
-        if (chartData[i].low < point.watchPrice) {
-          breached = true;
-          if (bestIndex == null || rsiValues[i]! > bestRsi!) {
-            bestIndex = i;
-            bestRsi = rsiValues[i]!;
-          }
+        priceBreached = chartData[i].low < currentWatchPrice;
+      }
+      if (!priceBreached) continue;
+
+      // 2. BB 터치 체크
+      bool bbTouched;
+      if (point.mode == RsiWatchMode.bearish) {
+        bbTouched = bb.upper != null && chartData[i].high >= bb.upper!;
+      } else {
+        bbTouched = bb.lower != null && chartData[i].low <= bb.lower!;
+      }
+      if (!bbTouched) continue; // BB 미터치 → 진짜 고점/저점 아님, 스킵
+
+      // 3. RSI 비교
+      final candleRsi = rsiValues[i]!;
+      bool isDivergence;
+      if (point.mode == RsiWatchMode.bearish) {
+        isDivergence = candleRsi < currentWatchRsi;
+      } else {
+        isDivergence = candleRsi > currentWatchRsi;
+      }
+
+      if (isDivergence) {
+        // 다이버전스 확정!
+        divergenceFound = true;
+        divergenceIndex = i;
+        divergenceRsi = candleRsi;
+        divergencePrice = chartData[i].close;
+        break;
+      } else {
+        // 다이버전스 아님 → 이 지점을 새 기준점으로 자동 갱신
+        if (point.mode == RsiWatchMode.bearish) {
+          currentWatchPrice = chartData[i].high;
+        } else {
+          currentWatchPrice = chartData[i].low;
         }
+        currentWatchRsi = candleRsi;
+        currentWatchDate = chartData[i].date;
+        // 루프 계속 (다음 돌파 찾기)
       }
     }
 
-    if (!breached || bestIndex == null || bestRsi == null) return;
+    if (divergenceFound && divergenceIndex != null) {
+      // 다이버전스 확인 → 감시점 트리거 + 알림
+      ref.read(rsiWatchPointProvider.notifier).markTriggered(
+        point.id,
+        triggeredPrice: divergencePrice!,
+        triggeredRsi: divergenceRsi!,
+      );
+      _showDivergenceResult(point, divergencePrice!, divergenceRsi!, chartData[divergenceIndex!].date, scaffoldMessenger);
+    } else if (currentWatchPrice != point.watchPrice || currentWatchRsi != point.watchRsi) {
+      // 자동 갱신 발생 (다이버전스 없이 기준점만 업데이트)
+      // Hive 업데이트: 새 기준점으로 감시점 갱신
+      final updatedPoint = RsiWatchPoint(
+        id: point.id,
+        ticker: point.ticker,
+        mode: point.mode,
+        watchPrice: currentWatchPrice,
+        watchRsi: currentWatchRsi,
+        watchDate: currentWatchDate,
+        interval: point.interval,
+        createdAt: point.createdAt,
+        isActive: true,
+        rsiPeriod: point.rsiPeriod,
+      );
+      ref.read(rsiWatchPointProvider.notifier).updateWatchPoint(updatedPoint);
 
-    final breachRsi = bestRsi;
-    final breachPrice = chartData[bestIndex].close;
-    final breachDate = chartData[bestIndex].date;
-
-    // 다이버전스 판정
-    bool isDivergence;
-    if (point.mode == RsiWatchMode.bearish) {
-      isDivergence = breachRsi < point.watchRsi; // RSI가 낮아짐 = 하락 다이버전스
-    } else {
-      isDivergence = breachRsi > point.watchRsi; // RSI가 높아짐 = 상승 다이버전스
+      debugPrint('[RsiWatch] Auto-renewed: ${point.ticker} → price=$currentWatchPrice, RSI=$currentWatchRsi');
     }
-
-    // 감시점 트리거 처리 (Hive 업데이트)
-    ref.read(rsiWatchPointProvider.notifier).markTriggered(
-      point.id,
-      triggeredPrice: breachPrice,
-      triggeredRsi: breachRsi,
-    );
-
-    // 다이버전스인 경우 알림 표시
-    if (isDivergence) {
-      _showDivergenceResult(point, breachPrice, breachRsi, breachDate);
-    }
+    // 돌파 자체가 없었으면 아무것도 안 함 (미래 실시간 감시 대기)
   }
 
   /// 과거 돌파 다이버전스 결과를 SnackBar로 즉시 표시
@@ -221,12 +260,12 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
     double breachPrice,
     double breachRsi,
     DateTime breachDate,
+    ScaffoldMessengerState scaffoldMessenger,
   ) {
-    if (!mounted) return;
     final isBearish = point.mode == RsiWatchMode.bearish;
     final modeLabel = isBearish ? '하락' : '상승';
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    scaffoldMessenger.showSnackBar(
       SnackBar(
         content: Text(
           '$modeLabel 다이버전스 감지!\n'
