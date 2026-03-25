@@ -195,6 +195,30 @@ class SubChartList extends StatelessWidget {
             sizes.obv,
           ),
         ],
+        // PVT
+        if (activeIndicators.contains('PVT') && indicators.displayPVT != null) ...[
+          SubChartHeader(
+            label: indicators.pvtLabel ?? 'PVT',
+            labelColor: const Color(0xFFFF9800),
+            signal: indicators.pvtSignal,
+            indicatorKey: 'PVT',
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
+          ),
+          wrapWithCrosshair(
+            SizedBox(
+              height: sizes.pvt,
+              child: CustomPaint(
+                size: Size(chartWidth, sizes.pvt),
+                painter: PVTPainter(
+                  pvtValues: indicators.displayPVT!,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
+                ),
+              ),
+            ),
+            sizes.pvt,
+          ),
+        ],
         // MFI
         if (activeIndicators.contains('MFI') && indicators.displayMFI != null) ...[
           SubChartHeader(

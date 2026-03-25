@@ -473,27 +473,24 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                   ),
                 ),
               const Spacer(),
-              // 설명 아이콘
+              // 신호 배지
+              if (widget.rsiSignal != null)
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: SignalBadge(signal: widget.rsiSignal!),
+                ),
+              // 설명 아이콘 (탭 영역 확대)
               if (widget.onHelpTap != null)
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: widget.onHelpTap,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                     child: Icon(
                       Icons.help_outline,
                       size: isDesktop ? 14 : 12,
                       color: widget.textColor.withAlpha(150),
                     ),
-                  ),
-                ),
-              // 신호 배지
-              if (widget.rsiSignal != null)
-                SizedBox(
-                  width: 60,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: SignalBadge(signal: widget.rsiSignal!),
                   ),
                 ),
             ],

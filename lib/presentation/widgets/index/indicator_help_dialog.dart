@@ -93,6 +93,21 @@ void showIndicatorHelpDialog(BuildContext context, String key) {
           '• OBV 상승 + 가격 하락 (상승 다이버전스): 반등 신호\n'
           '• OBV 하락 + 가격 상승 (하락 다이버전스): 하락 전환 신호';
       break;
+    case 'PVT':
+      title = 'PVT (Price Volume Trend)';
+      description = 'PVT는 OBV의 업그레이드 버전으로, 가격 변동 비율을 거래량에 반영합니다.\n\n'
+          '• 공식: PVT = 전일PVT + ((종가-전일종가)/전일종가) × 거래량\n\n'
+          'OBV와의 차이:\n'
+          '• OBV: 상승일 → 거래량 전체 더함 (과대평가 가능)\n'
+          '• PVT: 상승 비율만큼만 반영 (더 정확)\n'
+          '• 약한 상승 + 대량 거래 시 OBV는 급등, PVT는 소폭 상승\n\n'
+          '매매 신호:\n'
+          '• PVT 상승: 세력 매집 (자금 유입)\n'
+          '• PVT 하락: 세력 이탈 (자금 유출)\n'
+          '• 가격↑ + PVT↓ (하락 다이버전스): 세력 이탈 → 하락 전환\n'
+          '• 가격↓ + PVT↑ (상승 다이버전스): 세력 매집 → 반등 신호\n\n'
+          '급등락 종목에서 OBV보다 정확도가 높습니다.';
+      break;
     case 'MFI':
       title = 'MFI (14)';
       description = 'MFI(Money Flow Index)는 RSI에 거래량을 결합한 지표입니다.\n'

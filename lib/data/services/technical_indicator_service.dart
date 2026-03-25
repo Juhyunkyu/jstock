@@ -337,6 +337,44 @@ class TechnicalIndicatorService {
     return result;
   }
 
+  /// PVT (Price Volume Trend) — OBV + 가격변동률
+  List<double> calculatePVT(List<OHLCData> data) {
+    if (data.isEmpty) return [];
+    final result = List<double>.filled(data.length, 0);
+    for (int i = 1; i < data.length; i++) {
+      final prevClose = data[i - 1].close;
+      if (prevClose == 0) {
+        result[i] = result[i - 1];
+      } else {
+        result[i] = result[i - 1] +
+            ((data[i].close - prevClose) / prevClose) * data[i].volume;
+      }
+    }
+    return result;
+  }
+
+  IndicatorSignal getPVTSignal(List<double> pvt, List<double> closes) {
+    if (pvt.length < 10 || closes.length < 10) {
+      return const IndicatorSignal(type: SignalType.neutral, label: '데이터 부족', color: AppColors.gray500);
+    }
+    final len = pvt.length;
+    final pvtTrend = pvt[len - 1] - pvt[len - 5];
+    final priceTrend = closes[closes.length - 1] - closes[closes.length - 5];
+
+    final pvtUp = pvtTrend > 0;
+    final priceUp = priceTrend > 0;
+
+    if (pvtUp && !priceUp) {
+      return const IndicatorSignal(type: SignalType.buy, label: '세력 매집', color: AppColors.stockUp);
+    } else if (!pvtUp && priceUp) {
+      return const IndicatorSignal(type: SignalType.sell, label: '세력 이탈', color: AppColors.stockDown);
+    } else if (pvtUp && priceUp) {
+      return const IndicatorSignal(type: SignalType.buy, label: '상승 확인', color: AppColors.stockUp);
+    } else {
+      return const IndicatorSignal(type: SignalType.sell, label: '하락 확인', color: AppColors.stockDown);
+    }
+  }
+
   // --- Signal Interpretation Methods ---
 
   IndicatorSignal getRSISignal(double rsi) {

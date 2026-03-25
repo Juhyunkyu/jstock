@@ -14,6 +14,7 @@ class ChartSizes {
   final double stoch;
   final double obv;
   final double mfi;
+  final double pvt;
 
   const ChartSizes._({
     required this.main,
@@ -23,17 +24,16 @@ class ChartSizes {
     required this.stoch,
     required this.obv,
     required this.mfi,
+    required this.pvt,
   });
 
-  /// 화면 폭 기준 차트 높이 계산
   factory ChartSizes.fromWidth(double screenWidth) {
     if (screenWidth >= 1200) {
-      return const ChartSizes._(main: 450, vol: 65, rsi: 160, macd: 140, stoch: 140, obv: 110, mfi: 160);
+      return const ChartSizes._(main: 450, vol: 65, rsi: 160, macd: 140, stoch: 140, obv: 110, mfi: 160, pvt: 110);
     } else if (screenWidth >= 768) {
-      return const ChartSizes._(main: 380, vol: 55, rsi: 140, macd: 120, stoch: 120, obv: 90, mfi: 140);
+      return const ChartSizes._(main: 380, vol: 55, rsi: 140, macd: 120, stoch: 120, obv: 90, mfi: 140, pvt: 90);
     } else {
-      // 모바일: 3개 서브차트가 한 화면에 보이도록 컴팩트하게
-      return const ChartSizes._(main: 300, vol: 40, rsi: 90, macd: 80, stoch: 80, obv: 60, mfi: 90);
+      return const ChartSizes._(main: 300, vol: 40, rsi: 90, macd: 80, stoch: 80, obv: 60, mfi: 90, pvt: 60);
     }
   }
 }
@@ -115,6 +115,7 @@ class IndicatorChips extends StatelessWidget {
       {'key': 'STOCH', 'label': 'STOCH'},
       {'key': 'ICH', 'label': '일목'},
       {'key': 'OBV', 'label': 'OBV'},
+      {'key': 'PVT', 'label': 'PVT'},
       {'key': 'MFI', 'label': 'MFI'},
     ];
 
@@ -217,12 +218,19 @@ class SubChartHeader extends StatelessWidget {
             style: TextStyle(color: labelColor, fontSize: fontSize, fontWeight: FontWeight.w700),
           ),
           const Spacer(),
-          // 설명 아이콘 (? — 신호배지 왼쪽 고정)
+          // 신호 배지
+          if (signal != null)
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: SignalBadge(signal: signal!),
+            ),
+          // 설명 아이콘 (신호 오른쪽, 탭 영역 확대)
           if (indicatorKey != null && onHelpTap != null)
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () => onHelpTap!(indicatorKey!),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 child: Icon(
                   Icons.help_outline,
                   size: isDesktop ? 14 : 12,
@@ -230,17 +238,6 @@ class SubChartHeader extends StatelessWidget {
                 ),
               ),
             ),
-          // 신호 배지 (없어도 60px 공간 예약 → ? 수직 정렬 유지)
-          SizedBox(
-            width: 60,
-            child: signal != null
-                ? FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: SignalBadge(signal: signal!),
-                  )
-                : null,
-          ),
         ],
       ),
     );

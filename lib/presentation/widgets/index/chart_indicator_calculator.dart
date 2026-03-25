@@ -35,6 +35,11 @@ class ChartIndicatorData {
   final IndicatorSignal? obvSignal;
   final String? obvLabel;
 
+  // PVT
+  final List<double>? displayPVT;
+  final IndicatorSignal? pvtSignal;
+  final String? pvtLabel;
+
   // MFI
   final List<double?>? displayMFI;
   final IndicatorSignal? mfiSignal;
@@ -63,6 +68,9 @@ class ChartIndicatorData {
     this.displayOBV,
     this.obvSignal,
     this.obvLabel,
+    this.displayPVT,
+    this.pvtSignal,
+    this.pvtLabel,
     this.displayMFI,
     this.mfiSignal,
     this.mfiLabel,
@@ -211,6 +219,22 @@ class ChartIndicatorCalculator {
       }
     }
 
+    // PVT
+    List<double>? displayPVT;
+    IndicatorSignal? pvtSignal;
+    String? pvtLabel;
+    if (activeIndicators.contains('PVT')) {
+      final pvt = indicatorService.calculatePVT(fullData);
+      displayPVT = pvt.sublist(offset, end.clamp(0, pvt.length));
+      if (displayPVT.length >= 10) {
+        final displayCloses = closes.sublist(offset, end.clamp(0, closes.length));
+        pvtSignal = indicatorService.getPVTSignal(displayPVT, displayCloses);
+      }
+      if (displayPVT.isNotEmpty) {
+        pvtLabel = 'PVT: ${formatVolume(displayPVT.last)}';
+      }
+    }
+
     // MFI
     List<double?>? displayMFI;
     IndicatorSignal? mfiSignal;
@@ -251,6 +275,9 @@ class ChartIndicatorCalculator {
       displayOBV: displayOBV,
       obvSignal: obvSignal,
       obvLabel: obvLabel,
+      displayPVT: displayPVT,
+      pvtSignal: pvtSignal,
+      pvtLabel: pvtLabel,
       displayMFI: displayMFI,
       mfiSignal: mfiSignal,
       mfiLabel: mfiLabel,

@@ -478,6 +478,72 @@ class OBVPainter extends CustomPainter {
   bool shouldRepaint(covariant OBVPainter oldDelegate) => true;
 }
 
+/// PVT 서브차트 (OBV와 동일 구조, 주황 선)
+class PVTPainter extends CustomPainter {
+  final List<double> pvtValues;
+  final bool isDarkMode;
+  final Color textColor;
+  PVTPainter({required this.pvtValues, this.isDarkMode = false, this.textColor = const Color(0xFF6B7280)});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (pvtValues.isEmpty) return;
+
+    const double leftPadding = 10;
+    const double rightPadding = 50;
+    const double topPadding = 4;
+    const double bottomPadding = 4;
+
+    final chartWidth = size.width - leftPadding - rightPadding;
+    final chartHeight = size.height - topPadding - bottomPadding;
+    final candleWidth = chartWidth / pvtValues.length;
+
+    final dividerColor = isDarkMode ? const Color(0xFF2D333B) : const Color(0xFFE5E7EB);
+    canvas.drawLine(
+      Offset(leftPadding, 0),
+      Offset(leftPadding + chartWidth, 0),
+      Paint()..color = dividerColor..strokeWidth = 0.5,
+    );
+
+    double minVal = double.infinity;
+    double maxVal = double.negativeInfinity;
+    for (final v in pvtValues) {
+      if (v < minVal) minVal = v;
+      if (v > maxVal) maxVal = v;
+    }
+    if (minVal == maxVal) { maxVal += 1; minVal -= 1; }
+    final range = maxVal - minVal;
+    final padY = range * 0.05;
+    minVal -= padY;
+    maxVal += padY;
+
+    double toY(double value) => topPadding + (1 - (value - minVal) / (maxVal - minVal)) * chartHeight;
+
+    final path = Path();
+    bool started = false;
+    for (int i = 0; i < pvtValues.length; i++) {
+      final x = leftPadding + i * candleWidth + candleWidth / 2;
+      final y = toY(pvtValues[i]);
+      if (!started) { path.moveTo(x, y); started = true; } else { path.lineTo(x, y); }
+    }
+    if (started) {
+      canvas.drawPath(path, Paint()..color = const Color(0xFFFF9800)..strokeWidth = 1.5..style = PaintingStyle.stroke);
+    }
+
+    for (final v in [maxVal, (maxVal + minVal) / 2, minVal]) {
+      final y = toY(v);
+      final text = formatVolume(v);
+      final textSpan = TextSpan(text: text, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
+      final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(size.width - rightPadding + 8, y - textPainter.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant PVTPainter oldDelegate) => true;
+}
+
 /// MFI 서브차트 (RSI와 동일 구조, 20/80 존)
 class MFIPainter extends CustomPainter {
   final List<double?> mfiValues;
