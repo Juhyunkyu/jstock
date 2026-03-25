@@ -16,6 +16,7 @@ class ChartIndicatorData {
 
   // RSI
   final List<double?>? displayRSI;
+  final List<double?>? fullRSI; // full data basis (for RSI drawing)
   final IndicatorSignal? rsiSignal;
   final String? rsiLabel;
 
@@ -45,6 +46,7 @@ class ChartIndicatorData {
     this.ichSignal,
     this.ichSummary,
     this.displayRSI,
+    this.fullRSI,
     this.rsiSignal,
     this.rsiLabel,
     this.displayMACD,
@@ -125,16 +127,18 @@ class ChartIndicatorCalculator {
 
     // RSI
     List<double?>? displayRSI;
+    List<double?>? fullRSI;
     IndicatorSignal? rsiSignal;
     String? rsiLabel;
     if (activeIndicators.contains('RSI')) {
       final rsi = indicatorService.calculateRSI(closes);
+      fullRSI = rsi;
       displayRSI = rsi.sublist(offset, end.clamp(0, rsi.length));
-      final lastRsi = lastNonNull(rsi);
-      if (lastRsi != null) {
-        rsiSignal = indicatorService.getRSISignal(lastRsi);
-      }
+      // display 데이터의 마지막 RSI 기준으로 신호+라벨 표시 (스크롤 시 변동)
       final displayLastRsi = lastNonNull(displayRSI);
+      if (displayLastRsi != null) {
+        rsiSignal = indicatorService.getRSISignal(displayLastRsi);
+      }
       rsiLabel = displayLastRsi != null ? 'RSI(14): ${displayLastRsi.toStringAsFixed(1)}' : 'RSI(14)';
     }
 
@@ -211,6 +215,7 @@ class ChartIndicatorCalculator {
       ichSignal: ichSignal,
       ichSummary: ichSummary,
       displayRSI: displayRSI,
+      fullRSI: fullRSI,
       rsiSignal: rsiSignal,
       rsiLabel: rsiLabel,
       displayMACD: displayMACD,

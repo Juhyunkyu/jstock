@@ -111,16 +111,14 @@ class RSIPainter extends CustomPainter {
 
     // 기준선 (30, 50, 70) 실선
     final gridColor = isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFBBBBBB);
-    final gridColor50 = isDarkMode ? const Color(0xFF374151) : const Color(0xFFD1D5DB);
     for (final level in [30.0, 50.0, 70.0]) {
       final y = toY(level);
-      final isMiddle = level == 50.0;
       canvas.drawLine(
         Offset(leftPadding, y),
         Offset(leftPadding + chartWidth, y),
         Paint()
-          ..color = isMiddle ? gridColor50 : gridColor
-          ..strokeWidth = isMiddle ? 0.5 : 0.8,
+          ..color = gridColor
+          ..strokeWidth = 0.8,
       );
     }
 

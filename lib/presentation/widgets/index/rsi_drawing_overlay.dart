@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
@@ -7,26 +8,27 @@ import 'sub_chart_painters.dart';
 
 const _uuid = Uuid();
 
-// ─────────────────────────────────────────────────────────────
-// RSI Drawing Line 모델 (메모리 전용, Hive 저장 안 함)
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------
+// RSI Drawing Line model (memory-only, no Hive)
+// fullDataIndex: zoom/scroll-safe absolute index into fullData
+// -----------------------------------------------------------------
 
 class RsiDrawingLine {
   final String id;
-  double startY; // RSI 값 (0~100)
-  int startIndex; // displayData 기준 인덱스
-  double endY;
-  int endIndex;
+  double startRsi; // RSI value (0~100)
+  int startFullIndex; // fullData index
+  double endRsi;
+  int endFullIndex;
   int colorValue;
   double strokeWidth;
   bool isLocked;
 
   RsiDrawingLine({
     required this.id,
-    required this.startY,
-    required this.startIndex,
-    required this.endY,
-    required this.endIndex,
+    required this.startRsi,
+    required this.startFullIndex,
+    required this.endRsi,
+    required this.endFullIndex,
     this.colorValue = 0xFFFF6B6B,
     this.strokeWidth = 1.5,
     this.isLocked = false,
@@ -39,10 +41,10 @@ class RsiDrawingLine {
   }) {
     return RsiDrawingLine(
       id: id,
-      startY: startY,
-      startIndex: startIndex,
-      endY: endY,
-      endIndex: endIndex,
+      startRsi: startRsi,
+      startFullIndex: startFullIndex,
+      endRsi: endRsi,
+      endFullIndex: endFullIndex,
       colorValue: colorValue ?? this.colorValue,
       strokeWidth: strokeWidth ?? this.strokeWidth,
       isLocked: isLocked ?? this.isLocked,
@@ -50,73 +52,88 @@ class RsiDrawingLine {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 프리셋 색상 (drawing_settings_sheet.dart 와 동일 팔레트)
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------
+// Preset colors
+// -----------------------------------------------------------------
 
 const List<int> _presetColors = [
-  0xFFFF6B6B, // 빨강
-  0xFF4ECDC4, // 청록
-  0xFFFFD93D, // 노랑
-  0xFF6BCB77, // 초록
-  0xFF4D96FF, // 파랑
-  0xFFFF8C42, // 주황
-  0xFFE879F9, // 보라
-  0xFF94A3B8, // 회색
+  0xFFFF6B6B, // red
+  0xFF4ECDC4, // teal
+  0xFFFFD93D, // yellow
+  0xFF6BCB77, // green
+  0xFF4D96FF, // blue
+  0xFFFF8C42, // orange
+  0xFFE879F9, // purple
+  0xFF94A3B8, // gray
 ];
 
-// ─────────────────────────────────────────────────────────────
-// RsiDrawingOverlay — RSI 헤더 + 차트 + 드로잉 레이어 자기완결 위젯
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------
+// RsiDrawingOverlay
+// -----------------------------------------------------------------
 
 class RsiDrawingOverlay extends StatefulWidget {
   final double chartWidth;
   final double chartHeight;
-  final List<double?> rsiValues;
+  final List<double?> rsiValues; // displayData basis
+  final List<double?> fullRsiValues; // fullData basis (for snap)
   final bool isDarkMode;
   final Color textColor;
   final int displayDataLength;
+  final int scrollOffset; // fullData offset
 
-  // RSI 헤더 정보
+  // RSI header
   final String rsiLabel;
   final Color rsiLabelColor;
   final IndicatorSignal? rsiSignal;
 
-  // 수직 십자선
+  // crosshair
   final double? crosshairX;
+
+  // external point placement from main chart long-press
+  final int? pendingFullIndex; // fullData index placed from main chart
+  final VoidCallback? onPointConsumed; // notify parent point was consumed
 
   const RsiDrawingOverlay({
     super.key,
     required this.chartWidth,
     required this.chartHeight,
     required this.rsiValues,
+    required this.fullRsiValues,
     required this.isDarkMode,
     required this.textColor,
     required this.displayDataLength,
+    required this.scrollOffset,
     required this.rsiLabel,
     required this.rsiLabelColor,
     this.rsiSignal,
     this.crosshairX,
+    this.pendingFullIndex,
+    this.onPointConsumed,
   });
 
   @override
-  State<RsiDrawingOverlay> createState() => _RsiDrawingOverlayState();
+  State<RsiDrawingOverlay> createState() => RsiDrawingOverlayState();
 }
 
-class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
-  final List<RsiDrawingLine> _lines = [];
-  bool _isDrawing = false;
+class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
+  // static: 위젯 리빌드/리마운트 시에도 선 데이터 보존
+  static final List<RsiDrawingLine> _lines = [];
+  static bool _isDrawingStatic = false;
+  bool get _isDrawing => _isDrawingStatic;
+  set _isDrawing(bool v) => _isDrawingStatic = v;
   String? _selectedLineId;
 
-  // 그리기 모드: 첫 번째 점
-  int? _firstPointIndex;
-  double? _firstPointRsiValue;
+  // First point (waiting for second)
+  int? _firstPointFullIndex;
+  double? _firstPointRsi;
 
-  // 앵커 드래그
+  // Anchor drag
   String? _draggingLineId;
   String? _draggingAnchor; // 'start' or 'end'
 
-  // ─── 좌표 변환 (RSIPainter 와 동일 상수) ───
+  bool get isDrawing => _isDrawing;
+
+  // --- coordinate transforms (same constants as RSIPainter) ---
 
   static const double _leftPadding = 10.0;
   static const double _rightPadding = 50.0;
@@ -135,13 +152,65 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
   double _fromY(double y) =>
       ((1 - (y - _topPadding) / _drawableHeight) * 100).clamp(0.0, 100.0);
 
-  double _toX(int index) =>
-      _leftPadding + index * _candleWidth + _candleWidth / 2;
+  /// Convert fullData index to screen X (may be offscreen)
+  double _fullIndexToX(int fullIndex) {
+    final displayIndex = fullIndex - widget.scrollOffset;
+    return _leftPadding + displayIndex * _candleWidth + _candleWidth / 2;
+  }
 
-  int _fromX(double x) =>
+  int _xToDisplayIndex(double x) =>
       ((x - _leftPadding) / _candleWidth).round().clamp(0, widget.displayDataLength - 1);
 
-  // ─── 히트 테스트: 선분과 점의 거리 ───
+  /// Get RSI value for a fullData index
+  double? _rsiAtFullIndex(int fullIndex) {
+    if (fullIndex < 0 || fullIndex >= widget.fullRsiValues.length) return null;
+    return widget.fullRsiValues[fullIndex];
+  }
+
+  // --- External point placement from main chart ---
+
+  /// Called by parent when main chart long-press places a point
+  void addPointFromMainChart(int fullIndex) {
+    if (!_isDrawing) return;
+
+    final rsi = _rsiAtFullIndex(fullIndex);
+    if (rsi == null) return;
+
+    if (_firstPointFullIndex == null) {
+      // First point
+      setState(() {
+        _firstPointFullIndex = fullIndex;
+        _firstPointRsi = rsi;
+      });
+    } else {
+      // Second point -> create line
+      setState(() {
+        _lines.add(RsiDrawingLine(
+          id: _uuid.v4(),
+          startRsi: _firstPointRsi!,
+          startFullIndex: _firstPointFullIndex!,
+          endRsi: rsi,
+          endFullIndex: fullIndex,
+        ));
+        _firstPointFullIndex = null;
+        _firstPointRsi = null;
+        // Stay in drawing mode for multiple lines
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(RsiDrawingOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Handle external point placement
+    if (widget.pendingFullIndex != null &&
+        widget.pendingFullIndex != oldWidget.pendingFullIndex) {
+      addPointFromMainChart(widget.pendingFullIndex!);
+      widget.onPointConsumed?.call();
+    }
+  }
+
+  // --- hit test: distance from point to line segment ---
 
   double _distanceToSegment(Offset point, Offset a, Offset b) {
     final ab = b - a;
@@ -154,13 +223,11 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     return (point - proj).distance;
   }
 
-  // ─── 선 근처 탭 → 선택 ───
-
   String? _hitTestLine(Offset localPos) {
     const hitRadius = 12.0;
     for (final line in _lines.reversed) {
-      final a = Offset(_toX(line.startIndex), _toY(line.startY));
-      final b = Offset(_toX(line.endIndex), _toY(line.endY));
+      final a = Offset(_fullIndexToX(line.startFullIndex), _toY(line.startRsi));
+      final b = Offset(_fullIndexToX(line.endFullIndex), _toY(line.endRsi));
       if (_distanceToSegment(localPos, a, b) < hitRadius) {
         return line.id;
       }
@@ -168,52 +235,49 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     return null;
   }
 
-  // ─── 앵커 히트 테스트 ───
-
   String? _hitTestAnchor(Offset localPos, RsiDrawingLine line) {
     const anchorRadius = 14.0;
-    final startOff = Offset(_toX(line.startIndex), _toY(line.startY));
-    final endOff = Offset(_toX(line.endIndex), _toY(line.endY));
+    final startOff = Offset(_fullIndexToX(line.startFullIndex), _toY(line.startRsi));
+    final endOff = Offset(_fullIndexToX(line.endFullIndex), _toY(line.endRsi));
     if ((localPos - startOff).distance < anchorRadius) return 'start';
     if ((localPos - endOff).distance < anchorRadius) return 'end';
     return null;
   }
 
-  // ─── 제스처 핸들러 ───
+  // --- gesture handlers ---
 
   void _handleTap(TapUpDetails details) {
     final pos = details.localPosition;
 
     if (_isDrawing) {
-      // 그리기 모드
-      final idx = _fromX(pos.dx);
-      final rsiVal = _fromY(pos.dy);
+      // In drawing mode, tap on RSI chart = direct point placement
+      final displayIdx = _xToDisplayIndex(pos.dx);
+      final fullIdx = displayIdx + widget.scrollOffset;
+      final rsi = _rsiAtFullIndex(fullIdx);
+      if (rsi == null) return;
 
-      if (_firstPointIndex == null) {
-        // 첫 번째 점
+      if (_firstPointFullIndex == null) {
         setState(() {
-          _firstPointIndex = idx;
-          _firstPointRsiValue = rsiVal;
+          _firstPointFullIndex = fullIdx;
+          _firstPointRsi = rsi;
         });
       } else {
-        // 두 번째 점 → 선 생성
         setState(() {
           _lines.add(RsiDrawingLine(
             id: _uuid.v4(),
-            startY: _firstPointRsiValue!,
-            startIndex: _firstPointIndex!,
-            endY: rsiVal,
-            endIndex: idx,
+            startRsi: _firstPointRsi!,
+            startFullIndex: _firstPointFullIndex!,
+            endRsi: rsi,
+            endFullIndex: fullIdx,
           ));
-          _firstPointIndex = null;
-          _firstPointRsiValue = null;
-          _isDrawing = false;
+          _firstPointFullIndex = null;
+          _firstPointRsi = null;
         });
       }
       return;
     }
 
-    // 비 그리기 모드: 선택/해제
+    // Non-drawing mode: select/deselect
     final hitId = _hitTestLine(pos);
     setState(() {
       _selectedLineId = hitId;
@@ -224,12 +288,11 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     if (_isDrawing) return;
     if (_selectedLineId == null) return;
 
-    final line = _lines.firstWhere(
-      (l) => l.id == _selectedLineId,
-      orElse: () => _lines.first,
+    final line = _lines.cast<RsiDrawingLine?>().firstWhere(
+      (l) => l!.id == _selectedLineId,
+      orElse: () => null,
     );
-    if (line.id != _selectedLineId) return;
-    if (line.isLocked) return;
+    if (line == null || line.isLocked) return;
 
     final anchor = _hitTestAnchor(details.localPosition, line);
     if (anchor != null) {
@@ -243,23 +306,25 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
   void _handleDragUpdate(DragUpdateDetails details) {
     if (_draggingLineId == null || _draggingAnchor == null) return;
 
-    final line = _lines.firstWhere(
-      (l) => l.id == _draggingLineId,
-      orElse: () => _lines.first,
+    final line = _lines.cast<RsiDrawingLine?>().firstWhere(
+      (l) => l!.id == _draggingLineId,
+      orElse: () => null,
     );
-    if (line.id != _draggingLineId) return;
+    if (line == null) return;
 
     final pos = details.localPosition;
-    final idx = _fromX(pos.dx);
-    final rsiVal = _fromY(pos.dy);
+    final displayIdx = _xToDisplayIndex(pos.dx);
+    final fullIdx = displayIdx + widget.scrollOffset;
+    final rsi = _rsiAtFullIndex(fullIdx);
+    if (rsi == null) return;
 
     setState(() {
       if (_draggingAnchor == 'start') {
-        line.startIndex = idx;
-        line.startY = rsiVal;
+        line.startFullIndex = fullIdx;
+        line.startRsi = rsi;
       } else {
-        line.endIndex = idx;
-        line.endY = rsiVal;
+        line.endFullIndex = fullIdx;
+        line.endRsi = rsi;
       }
     });
   }
@@ -271,7 +336,7 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     });
   }
 
-  // ─── 삭제 ───
+  // --- actions ---
 
   void _deleteSelected() {
     if (_selectedLineId == null) return;
@@ -281,15 +346,132 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     });
   }
 
-  // ─── 설정 바텀시트 ───
+  void _clearAll() {
+    if (_lines.isEmpty) return;
+    setState(() {
+      _lines.clear();
+      _selectedLineId = null;
+      _firstPointFullIndex = null;
+      _firstPointRsi = null;
+      _isDrawing = false;
+    });
+  }
+
+  void _showHelpDialog(BuildContext context) {
+    final isDark = widget.isDarkMode;
+    final textPrimary = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+    final textSecondary = isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+    final accent = isDark ? AppColors.darkAccent : AppColors.primary;
+    final cardBg = isDark ? AppColors.darkCardBackground : AppColors.cardBackground;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('RSI 드로잉 가이드',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: textPrimary)),
+              const SizedBox(height: 14),
+
+              // --- 사용법 ---
+              _helpSection('선 그리기', [
+                '1. 추세선 아이콘을 탭하여 드로잉 모드 ON',
+                '2. 메인 차트에서 캔들을 길게 누른 후 손을 떼면 RSI에 점이 찍힘',
+                '3. 두 번째 점도 같은 방식으로 → 선 완성',
+                '4. RSI 차트를 직접 탭해도 점 배치 가능',
+                '5. 드로잉 모드가 유지되어 여러 선을 연속으로 그릴 수 있음',
+              ], accent, textPrimary, textSecondary),
+              const SizedBox(height: 12),
+
+              _helpSection('선 편집', [
+                '드로잉 모드 OFF 상태에서 선을 탭 → 선택',
+                '선택된 선의 끝점을 드래그하여 위치 조절',
+                '삭제/설정 버튼으로 개별 관리',
+                '쓸어내기 아이콘으로 전체 삭제',
+              ], accent, textPrimary, textSecondary),
+              const SizedBox(height: 12),
+
+              // --- 다이버전스 찾기 ---
+              _helpSection('다이버전스 찾는 법', [
+                '상승 다이버전스 (매수 신호):',
+                '  가격: 저점이 점점 낮아지는데',
+                '  RSI: 저점이 점점 높아지면 → 반등 가능',
+                '',
+                '하락 다이버전스 (매도 신호):',
+                '  가격: 고점이 점점 높아지는데',
+                '  RSI: 고점이 점점 낮아지면 → 하락 가능',
+                '',
+                '활용: 가격 차트의 두 고점/저점에 대응하는',
+                'RSI 위치에 선을 그어 기울기를 비교하세요.',
+              ], accent, textPrimary, textSecondary),
+              const SizedBox(height: 12),
+
+              // --- RSI 신호 설명 ---
+              _helpSection('RSI 신호 배지', [
+                '과매수 (RSI > 70): 가격이 과열 상태, 조정 가능성',
+                '과매도 (RSI < 30): 가격이 침체 상태, 반등 가능성',
+                '중립 (30~70): 정상 범위',
+                '',
+                '화면에 보이는 마지막 캔들의 RSI 기준으로 표시됩니다.',
+                '차트를 스크롤하면 해당 시점의 RSI 상태로 변합니다.',
+              ], accent, textPrimary, textSecondary),
+              const SizedBox(height: 14),
+
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text('닫기', style: TextStyle(color: accent)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static Widget _helpSection(
+    String title,
+    List<String> lines,
+    Color accent,
+    Color textPrimary,
+    Color textSecondary,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title,
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: accent)),
+        const SizedBox(height: 6),
+        ...lines.map((line) => Padding(
+          padding: const EdgeInsets.only(bottom: 2),
+          child: Text(
+            line,
+            style: TextStyle(
+              fontSize: 12,
+              color: line.isEmpty ? textSecondary : textSecondary,
+              height: 1.5,
+            ),
+          ),
+        )),
+      ],
+    );
+  }
 
   void _showSettings() {
     if (_selectedLineId == null) return;
-    final line = _lines.firstWhere(
-      (l) => l.id == _selectedLineId,
-      orElse: () => _lines.first,
+    final line = _lines.cast<RsiDrawingLine?>().firstWhere(
+      (l) => l!.id == _selectedLineId,
+      orElse: () => null,
     );
-    if (line.id != _selectedLineId) return;
+    if (line == null) return;
 
     showModalBottomSheet(
       context: context,
@@ -302,10 +484,10 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
             if (idx >= 0) {
               _lines[idx] = RsiDrawingLine(
                 id: updated.id,
-                startY: _lines[idx].startY,
-                startIndex: _lines[idx].startIndex,
-                endY: _lines[idx].endY,
-                endIndex: _lines[idx].endIndex,
+                startRsi: _lines[idx].startRsi,
+                startFullIndex: _lines[idx].startFullIndex,
+                endRsi: _lines[idx].endRsi,
+                endFullIndex: _lines[idx].endFullIndex,
                 colorValue: updated.colorValue,
                 strokeWidth: updated.strokeWidth,
                 isLocked: updated.isLocked,
@@ -317,7 +499,7 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     );
   }
 
-  // ─── 빌드 ───
+  // --- build ---
 
   @override
   Widget build(BuildContext context) {
@@ -327,7 +509,7 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ─── RSI 헤더 + 연필 버튼 ───
+        // --- RSI header + draw button + clear button ---
         Padding(
           padding: EdgeInsets.only(top: isDesktop ? 6 : 4, bottom: 2),
           child: Row(
@@ -341,14 +523,14 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                 ),
               ),
               const SizedBox(width: 4),
-              // 연필 토글 버튼
+              // Trendline draw toggle
               GestureDetector(
                 onTap: () {
                   setState(() {
                     _isDrawing = !_isDrawing;
                     if (!_isDrawing) {
-                      _firstPointIndex = null;
-                      _firstPointRsiValue = null;
+                      _firstPointFullIndex = null;
+                      _firstPointRsi = null;
                     }
                     _selectedLineId = null;
                   });
@@ -364,12 +546,53 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Icon(
-                    Icons.edit,
+                    Icons.show_chart, // trendline icon
                     size: isDesktop ? 15 : 13,
                     color: _isDrawing
                         ? (widget.isDarkMode ? AppColors.darkAccent : AppColors.primary)
                         : widget.textColor.withAlpha(150),
                   ),
+                ),
+              ),
+              // Clear all button (visible when lines exist)
+              if (_lines.isNotEmpty) ...[
+                const SizedBox(width: 2),
+                GestureDetector(
+                  onTap: _clearAll,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      Icons.delete_sweep_outlined,
+                      size: isDesktop ? 15 : 13,
+                      color: widget.textColor.withAlpha(150),
+                    ),
+                  ),
+                ),
+              ],
+              // Drawing mode hint
+              if (_isDrawing)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    _firstPointFullIndex == null ? '1st' : '2nd',
+                    style: TextStyle(
+                      fontSize: 9,
+                      color: widget.isDarkMode ? AppColors.darkAccent : AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              // Help icon
+              const SizedBox(width: 2),
+              GestureDetector(
+                onTap: () => _showHelpDialog(context),
+                child: Icon(
+                  Icons.help_outline,
+                  size: isDesktop ? 14 : 12,
+                  color: widget.textColor.withAlpha(120),
                 ),
               ),
               const Spacer(),
@@ -384,12 +607,12 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
             ],
           ),
         ),
-        // ─── RSI 차트 + 드로잉 오버레이 ───
+        // --- RSI chart + drawing overlay ---
         SizedBox(
           height: widget.chartHeight,
           child: Stack(
             children: [
-              // 기존 RSI 차트
+              // Base RSI chart
               CustomPaint(
                 size: Size(widget.chartWidth, widget.chartHeight),
                 painter: RSIPainter(
@@ -398,22 +621,27 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                   textColor: widget.textColor,
                 ),
               ),
-              // 드로잉 선 오버레이
+              // Drawing lines overlay
               CustomPaint(
                 size: Size(widget.chartWidth, widget.chartHeight),
                 painter: _RsiLinePainter(
                   lines: _lines,
                   selectedLineId: _selectedLineId,
-                  firstPointOffset: _firstPointIndex != null
-                      ? Offset(_toX(_firstPointIndex!), _toY(_firstPointRsiValue!))
+                  firstPointOffset: _firstPointFullIndex != null
+                      ? Offset(
+                          _fullIndexToX(_firstPointFullIndex!),
+                          _toY(_firstPointRsi!),
+                        )
                       : null,
                   chartWidth: widget.chartWidth,
                   chartHeight: widget.chartHeight,
                   displayDataLength: widget.displayDataLength,
+                  scrollOffset: widget.scrollOffset,
+                  fullRsiValues: widget.fullRsiValues,
                   isDarkMode: widget.isDarkMode,
                 ),
               ),
-              // 수직 십자선
+              // Crosshair
               if (widget.crosshairX != null)
                 Positioned(
                   left: widget.crosshairX,
@@ -424,7 +652,7 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                     color: widget.textColor.withAlpha(80),
                   ),
                 ),
-              // 제스처 레이어
+              // Gesture layer
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTapUp: _handleTap,
@@ -432,7 +660,7 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                 onPanUpdate: !_isDrawing ? _handleDragUpdate : null,
                 onPanEnd: !_isDrawing ? _handleDragEnd : null,
               ),
-              // 선택된 선의 삭제/설정 버튼
+              // Selection buttons
               if (_selectedLineId != null)
                 _buildSelectionButtons(),
             ],
@@ -443,17 +671,15 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
   }
 
   Widget _buildSelectionButtons() {
-    final line = _lines.firstWhere(
-      (l) => l.id == _selectedLineId,
-      orElse: () => _lines.first,
+    final line = _lines.cast<RsiDrawingLine?>().firstWhere(
+      (l) => l!.id == _selectedLineId,
+      orElse: () => null,
     );
-    if (line.id != _selectedLineId) return const SizedBox.shrink();
+    if (line == null) return const SizedBox.shrink();
 
-    // 선 중간 좌표
-    final midX = (_toX(line.startIndex) + _toX(line.endIndex)) / 2;
-    final midY = (_toY(line.startY) + _toY(line.endY)) / 2;
+    final midX = (_fullIndexToX(line.startFullIndex) + _fullIndexToX(line.endFullIndex)) / 2;
+    final midY = (_toY(line.startRsi) + _toY(line.endRsi)) / 2;
 
-    // 버튼을 선 위에 배치 (약간 위로)
     final btnTop = (midY - 28).clamp(0.0, widget.chartHeight - 24);
     final btnLeft = (midX - 28).clamp(0.0, widget.chartWidth - 56);
 
@@ -463,7 +689,6 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 삭제 버튼
           _ActionButton(
             icon: Icons.delete_outline,
             color: AppColors.red500,
@@ -473,7 +698,6 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
             onTap: _deleteSelected,
           ),
           const SizedBox(width: 4),
-          // 설정 버튼
           _ActionButton(
             icon: Icons.settings_outlined,
             color: widget.isDarkMode
@@ -490,9 +714,9 @@ class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// 미니 액션 버튼
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------
+// Mini action button
+// -----------------------------------------------------------------
 
 class _ActionButton extends StatelessWidget {
   final IconData icon;
@@ -531,17 +755,19 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// RSI 드로잉 선 Painter
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------
+// RSI Drawing Line Painter — now with RSI value labels
+// -----------------------------------------------------------------
 
 class _RsiLinePainter extends CustomPainter {
   final List<RsiDrawingLine> lines;
   final String? selectedLineId;
-  final Offset? firstPointOffset; // 첫 번째 점 미리보기
+  final Offset? firstPointOffset;
   final double chartWidth;
   final double chartHeight;
   final int displayDataLength;
+  final int scrollOffset;
+  final List<double?> fullRsiValues;
   final bool isDarkMode;
 
   _RsiLinePainter({
@@ -551,6 +777,8 @@ class _RsiLinePainter extends CustomPainter {
     required this.chartWidth,
     required this.chartHeight,
     required this.displayDataLength,
+    required this.scrollOffset,
+    required this.fullRsiValues,
     required this.isDarkMode,
   });
 
@@ -563,20 +791,23 @@ class _RsiLinePainter extends CustomPainter {
   double get _candleWidth => displayDataLength > 0 ? _areaWidth / displayDataLength : 1.0;
   double get _drawableH => chartHeight - _topPadding - _bottomPadding;
 
-  double _toX(int idx) => _leftPadding + idx * _candleWidth + _candleWidth / 2;
+  double _toX(int fullIndex) {
+    final displayIndex = fullIndex - scrollOffset;
+    return _leftPadding + displayIndex * _candleWidth + _candleWidth / 2;
+  }
+
   double _toY(double rsi) => _topPadding + (1 - rsi / 100) * _drawableH;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // 선 그리기
     for (final line in lines) {
       final isSelected = line.id == selectedLineId;
       final color = Color(line.colorValue);
 
-      final startOff = Offset(_toX(line.startIndex), _toY(line.startY));
-      final endOff = Offset(_toX(line.endIndex), _toY(line.endY));
+      final startOff = Offset(_toX(line.startFullIndex), _toY(line.startRsi));
+      final endOff = Offset(_toX(line.endFullIndex), _toY(line.endRsi));
 
-      // 선분
+      // Line segment
       final paint = Paint()
         ..color = color
         ..strokeWidth = line.strokeWidth
@@ -584,13 +815,13 @@ class _RsiLinePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       canvas.drawLine(startOff, endOff, paint);
 
-      // 앵커 포인트
+      // Anchor points
       final anchorRadius = isSelected ? 5.0 : 3.5;
       final anchorPaint = Paint()..color = color..style = PaintingStyle.fill;
       canvas.drawCircle(startOff, anchorRadius, anchorPaint);
       canvas.drawCircle(endOff, anchorRadius, anchorPaint);
 
-      // 선택 시 앵커 테두리
+      // Selection border
       if (isSelected) {
         final borderPaint = Paint()
           ..color = isDarkMode ? Colors.white.withAlpha(180) : Colors.black.withAlpha(120)
@@ -599,9 +830,13 @@ class _RsiLinePainter extends CustomPainter {
         canvas.drawCircle(startOff, anchorRadius + 1.5, borderPaint);
         canvas.drawCircle(endOff, anchorRadius + 1.5, borderPaint);
       }
+
+      // RSI value labels at endpoints
+      _drawRsiLabel(canvas, startOff, line.startRsi, color, isStart: true);
+      _drawRsiLabel(canvas, endOff, line.endRsi, color, isStart: false);
     }
 
-    // 첫 번째 점 미리보기
+    // First point preview
     if (firstPointOffset != null) {
       final dotPaint = Paint()
         ..color = const Color(0xFFFF6B6B)
@@ -613,16 +848,56 @@ class _RsiLinePainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2;
       canvas.drawCircle(firstPointOffset!, 8, ringPaint);
+
+      // Show RSI value for first point too
+      // Calculate RSI from Y position
+      final rsi = ((1 - (firstPointOffset!.dy - _topPadding) / _drawableH) * 100).clamp(0.0, 100.0);
+      _drawRsiLabel(canvas, firstPointOffset!, rsi, const Color(0xFFFF6B6B), isStart: true);
     }
+  }
+
+  void _drawRsiLabel(Canvas canvas, Offset anchor, double rsi, Color color, {required bool isStart}) {
+    final text = rsi.toStringAsFixed(1);
+    final textSpan = TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color,
+        fontSize: 9,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final textPainter = TextPainter(
+      text: textSpan,
+      textDirection: ui.TextDirection.ltr,
+    );
+    textPainter.layout();
+
+    // RSI >= 50: label above anchor, RSI < 50: label below anchor
+    final dx = anchor.dx - textPainter.width / 2;
+    final dy = rsi >= 50
+        ? anchor.dy - textPainter.height - 4  // above
+        : anchor.dy + 6;                       // below
+
+    // Background for readability
+    final bgRect = Rect.fromLTWH(
+      dx - 2, dy - 1,
+      textPainter.width + 4, textPainter.height + 2,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(bgRect, const Radius.circular(2)),
+      Paint()..color = (isDarkMode ? Colors.black : Colors.white).withAlpha(180),
+    );
+
+    textPainter.paint(canvas, Offset(dx, dy));
   }
 
   @override
   bool shouldRepaint(covariant _RsiLinePainter oldDelegate) => true;
 }
 
-// ─────────────────────────────────────────────────────────────
-// RSI 선 설정 바텀시트
-// ─────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------
+// RSI Line Settings Bottom Sheet
+// -----------------------------------------------------------------
 
 class _RsiLineSettingsSheet extends StatefulWidget {
   final RsiDrawingLine line;
@@ -681,7 +956,6 @@ class _RsiLineSettingsSheetState extends State<_RsiLineSettingsSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 드래그 핸들
           Center(
             child: Container(
               width: 36,
@@ -702,8 +976,6 @@ class _RsiLineSettingsSheetState extends State<_RsiLineSettingsSheet> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // 색상 선택
           Text('색상', style: TextStyle(fontSize: 13, color: textSecondary)),
           const SizedBox(height: 8),
           Wrap(
@@ -737,8 +1009,6 @@ class _RsiLineSettingsSheetState extends State<_RsiLineSettingsSheet> {
             }).toList(),
           ),
           const SizedBox(height: 16),
-
-          // 굵기 선택
           Text('굵기', style: TextStyle(fontSize: 13, color: textSecondary)),
           const SizedBox(height: 8),
           Row(
@@ -766,8 +1036,6 @@ class _RsiLineSettingsSheetState extends State<_RsiLineSettingsSheet> {
             }).toList(),
           ),
           const SizedBox(height: 16),
-
-          // 잠금 토글
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

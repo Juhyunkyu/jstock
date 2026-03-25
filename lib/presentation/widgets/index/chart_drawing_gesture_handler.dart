@@ -711,6 +711,13 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
 
   void _handleCandleScrubEnd() {
     if (_selectedCandleIndex != null) {
+      // RSI drawing mode: long-press release = place point on RSI
+      final rsiDrawing = _rsiDrawingKey.currentState;
+      if (rsiDrawing != null && rsiDrawing.isDrawing) {
+        final fullIdx = _selectedCandleIndex!;
+        rsiDrawing.addPointFromMainChart(fullIdx);
+        HapticFeedback.mediumImpact();
+      }
       setState(() {
         _selectedCandleIndex = null;
       });

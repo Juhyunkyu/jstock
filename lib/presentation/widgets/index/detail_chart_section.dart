@@ -16,6 +16,7 @@ import 'chart_drawing_hit_test.dart';
 import 'chart_drawing_menu.dart';
 import 'chart_indicator_calculator.dart';
 import 'chart_sub_charts.dart';
+import 'rsi_drawing_overlay.dart';
 import 'detail_candlestick_painter.dart';
 import 'drawing_guide_bar.dart';
 // drawing_help_dialog.dart — 도움말은 오버레이로 인라인 처리
@@ -106,6 +107,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
   // 캔들 선택 상태
   int? _selectedCandleIndex; // widget.chartData 기준 full index, null이면 미선택
+
+  // RSI 드로잉: 메인 차트 롱프레스 → RSI 포인트 연결
+  final _rsiDrawingKey = GlobalKey<RsiDrawingOverlayState>();
+  int? _rsiDrawingPendingFullIndex;
 
   // 측정 도구 상태 (Hive 비저장)
   bool _isMeasuring = false;
@@ -498,6 +503,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                       _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
                                       ? _selectedCandleIndex! - offset
                                       : null,
+                                  scrollOffset: offset,
+                                  rsiDrawingKey: _rsiDrawingKey,
                                 ),
                               ],
                             ),

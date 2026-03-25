@@ -6,13 +6,19 @@ import 'chart_indicator_calculator.dart';
 import 'rsi_drawing_overlay.dart';
 import 'sub_chart_painters.dart';
 
-/// 서브 차트 목록 (VOL, RSI, MACD, STOCH, OBV)
+/// Sub chart list (VOL, RSI, MACD, STOCH, OBV)
 class SubChartList extends StatelessWidget {
   final Set<String> activeIndicators;
   final ChartIndicatorData indicators;
   final List<OHLCData> displayData;
   final double chartWidth;
-  final int? selectedCandleDisplayIndex; // 선택된 캔들의 display 인덱스 (수직선용)
+  final int? selectedCandleDisplayIndex;
+  final int scrollOffset;
+
+  // RSI drawing: external point from main chart long-press
+  final int? rsiDrawingPendingFullIndex;
+  final VoidCallback? onRsiDrawingPointConsumed;
+  final GlobalKey<RsiDrawingOverlayState>? rsiDrawingKey;
 
   const SubChartList({
     super.key,
@@ -21,6 +27,10 @@ class SubChartList extends StatelessWidget {
     required this.displayData,
     required this.chartWidth,
     this.selectedCandleDisplayIndex,
+    this.scrollOffset = 0,
+    this.rsiDrawingPendingFullIndex,
+    this.onRsiDrawingPointConsumed,
+    this.rsiDrawingKey,
   });
 
   @override
@@ -28,7 +38,7 @@ class SubChartList extends StatelessWidget {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = context.appTextSecondary;
 
-    // 수직 십자선 X 좌표 계산 (서브차트 전체에 공유)
+    // Crosshair X
     double? crosshairX;
     if (selectedCandleDisplayIndex != null && displayData.isNotEmpty) {
       const leftPadding = 10.0;
@@ -61,7 +71,7 @@ class SubChartList extends StatelessWidget {
 
     return Column(
       children: [
-        // 거래량 서브차트
+        // Volume
         if (activeIndicators.contains('VOL')) ...[
           SubChartHeader(
             label: indicators.volCurrentValue != null
@@ -84,24 +94,29 @@ class SubChartList extends StatelessWidget {
             50,
           ),
         ],
-        // RSI 서브차트 (드로잉 오버레이 포함)
+        // RSI (with drawing overlay)
         if (activeIndicators.contains('RSI') && indicators.displayRSI != null) ...[
           RsiDrawingOverlay(
+            key: rsiDrawingKey,
             chartWidth: chartWidth,
             chartHeight: 120,
             rsiValues: indicators.displayRSI!,
+            fullRsiValues: indicators.fullRSI ?? indicators.displayRSI!,
             isDarkMode: isDarkMode,
             textColor: textColor,
             displayDataLength: displayData.length,
+            scrollOffset: scrollOffset,
             rsiLabel: indicators.rsiLabel ?? 'RSI(14)',
             rsiLabelColor: isDarkMode
                 ? const Color(0xFFCE93D8)
                 : const Color(0xFF7B1FA2),
             rsiSignal: indicators.rsiSignal,
             crosshairX: crosshairX,
+            pendingFullIndex: rsiDrawingPendingFullIndex,
+            onPointConsumed: onRsiDrawingPointConsumed,
           ),
         ],
-        // MACD 서브차트
+        // MACD
         if (activeIndicators.contains('MACD') && indicators.displayMACD != null) ...[
           SubChartHeader(
             label: indicators.macdLabel ?? 'MACD(12,26,9)',
@@ -123,7 +138,7 @@ class SubChartList extends StatelessWidget {
             100,
           ),
         ],
-        // 스토캐스틱 서브차트
+        // Stochastic
         if (activeIndicators.contains('STOCH') && indicators.displayStoch != null) ...[
           SubChartHeader(
             label: indicators.stochLabel ?? 'STOCH(14,3)',
@@ -145,7 +160,7 @@ class SubChartList extends StatelessWidget {
             100,
           ),
         ],
-        // OBV 서브차트
+        // OBV
         if (activeIndicators.contains('OBV') && indicators.displayOBV != null) ...[
           SubChartHeader(
             label: indicators.obvLabel ?? 'OBV',
