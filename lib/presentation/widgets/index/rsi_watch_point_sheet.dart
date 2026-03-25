@@ -171,6 +171,12 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
     double? divergenceRsi;
     double? divergencePrice;
 
+    debugPrint('[RsiWatch] watchIndex=$watchIndex, mode=${point.mode == RsiWatchMode.bearish ? "bearish" : "bullish"}, watchPrice=${point.watchPrice}, watchRsi=${point.watchRsi}');
+    debugPrint('[RsiWatch] chartData.length=${chartData.length}, rsiValues.length=${rsiValues.length}, bbValues.length=${bbValues.length}');
+
+    int priceBreachCount = 0;
+    int bbTouchCount = 0;
+
     // 감시점 이후 캔들 순회
     for (int i = watchIndex + 1; i < chartData.length; i++) {
       if (i >= rsiValues.length || rsiValues[i] == null) continue;
@@ -185,6 +191,7 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
         priceBreached = chartData[i].low < currentWatchPrice;
       }
       if (!priceBreached) continue;
+      priceBreachCount++;
 
       // 2. BB 터치 체크
       bool bbTouched;
@@ -193,7 +200,14 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
       } else {
         bbTouched = bb.lower != null && chartData[i].low <= bb.lower!;
       }
-      if (!bbTouched) continue; // BB 미터치 → 진짜 고점/저점 아님, 스킵
+      if (!bbTouched) {
+        if (priceBreachCount <= 3) {
+          debugPrint('[RsiWatch] [$i] price breached but BB NOT touched: high=${chartData[i].high}, bb.upper=${bb.upper}, low=${chartData[i].low}, bb.lower=${bb.lower}');
+        }
+        continue;
+      }
+      bbTouchCount++;
+      debugPrint('[RsiWatch] [$i] BB TOUCHED! high=${chartData[i].high}, bb.upper=${bb.upper}, low=${chartData[i].low}, bb.lower=${bb.lower}, rsi=${rsiValues[i]}');
 
       // 3. RSI 비교
       final candleRsi = rsiValues[i]!;
@@ -223,6 +237,8 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
         // 루프 계속 (다음 돌파 찾기)
       }
     }
+
+    debugPrint('[RsiWatch] Result: priceBreaches=$priceBreachCount, bbTouches=$bbTouchCount, divergence=$divergenceFound, renewed=${currentWatchPrice != point.watchPrice}');
 
     if (divergenceFound && divergenceIndex != null) {
       // 다이버전스 확인 → 감시점 트리거 + 알림
