@@ -477,3 +477,121 @@ class OBVPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant OBVPainter oldDelegate) => true;
 }
+
+/// MFI 서브차트 (RSI와 동일 구조, 20/80 존)
+class MFIPainter extends CustomPainter {
+  final List<double?> mfiValues;
+  final bool isDarkMode;
+  final Color textColor;
+  MFIPainter({required this.mfiValues, this.isDarkMode = false, this.textColor = const Color(0xFF6B7280)});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (mfiValues.isEmpty) return;
+
+    const double leftPadding = 10;
+    const double rightPadding = 50;
+    const double topPadding = 4;
+    const double bottomPadding = 4;
+
+    final chartWidth = size.width - leftPadding - rightPadding;
+    final chartHeight = size.height - topPadding - bottomPadding;
+    final candleWidth = chartWidth / mfiValues.length;
+
+    // 구분선
+    final dividerColor = isDarkMode ? const Color(0xFF2D333B) : const Color(0xFFE5E7EB);
+    canvas.drawLine(
+      Offset(leftPadding, 0),
+      Offset(leftPadding + chartWidth, 0),
+      Paint()..color = dividerColor..strokeWidth = 0.5,
+    );
+
+    double toY(double value) => topPadding + (1 - value / 100) * chartHeight;
+
+    // 기준선 (20, 50, 80)
+    final gridColor = isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFBBBBBB);
+    for (final level in [20.0, 50.0, 80.0]) {
+      final y = toY(level);
+      canvas.drawLine(
+        Offset(leftPadding, y),
+        Offset(leftPadding + chartWidth, y),
+        Paint()..color = gridColor..strokeWidth = 0.8,
+      );
+    }
+
+    // MFI 선 + 과매수/과매도 웅덩이
+    final mfiLineColor = isDarkMode ? const Color(0xFF81D4FA) : const Color(0xFF0277BD);
+    final linePath = Path();
+    final overboughtFill = Path();
+    final oversoldFill = Path();
+    bool started = false;
+    bool obStarted = false;
+    bool osStarted = false;
+    final y80 = toY(80);
+    final y20 = toY(20);
+
+    for (int i = 0; i < mfiValues.length; i++) {
+      if (mfiValues[i] == null) continue;
+      final x = leftPadding + i * candleWidth + candleWidth / 2;
+      final y = toY(mfiValues[i]!);
+
+      if (!started) { linePath.moveTo(x, y); started = true; } else { linePath.lineTo(x, y); }
+
+      // 과매수 (80 이상)
+      if (mfiValues[i]! >= 80) {
+        if (!obStarted) { overboughtFill.moveTo(x, y80); obStarted = true; }
+        overboughtFill.lineTo(x, y);
+      } else if (obStarted) {
+        overboughtFill.lineTo(x, y80);
+        overboughtFill.close();
+        obStarted = false;
+      }
+
+      // 과매도 (20 이하)
+      if (mfiValues[i]! <= 20) {
+        if (!osStarted) { oversoldFill.moveTo(x, y20); osStarted = true; }
+        oversoldFill.lineTo(x, y);
+      } else if (osStarted) {
+        oversoldFill.lineTo(x, y20);
+        oversoldFill.close();
+        osStarted = false;
+      }
+    }
+
+    // 마지막 웅덩이 닫기
+    if (obStarted) {
+      final lastX = leftPadding + (mfiValues.length - 1) * candleWidth + candleWidth / 2;
+      overboughtFill.lineTo(lastX, y80);
+      overboughtFill.close();
+    }
+    if (osStarted) {
+      final lastX = leftPadding + (mfiValues.length - 1) * candleWidth + candleWidth / 2;
+      oversoldFill.lineTo(lastX, y20);
+      oversoldFill.close();
+    }
+
+    final fillAlpha = isDarkMode ? 90 : 50;
+    canvas.drawPath(overboughtFill, Paint()..color = AppColors.stockUp.withAlpha(fillAlpha)..style = PaintingStyle.fill);
+    canvas.drawPath(oversoldFill, Paint()..color = AppColors.stockDown.withAlpha(fillAlpha)..style = PaintingStyle.fill);
+
+    if (started) {
+      canvas.drawPath(linePath, Paint()..color = mfiLineColor..strokeWidth = 1.5..style = PaintingStyle.stroke);
+    }
+
+    // Y축 라벨
+    for (final label in [
+      {'value': 80, 'text': '80'},
+      {'value': 50, 'text': '50'},
+      {'value': 20, 'text': '20'},
+    ]) {
+      final y = toY((label['value'] as int).toDouble());
+      final textSpan = TextSpan(text: label['text'] as String, style: TextStyle(color: textColor.withValues(alpha: 0.7), fontSize: size.width < 600 ? 10.0 : 12.0));
+      final textPainter = TextPainter(text: textSpan, textDirection: ui.TextDirection.ltr);
+      textPainter.layout();
+      textPainter.paint(canvas, Offset(size.width - rightPadding + 8, y - textPainter.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant MFIPainter oldDelegate) => true;
+}

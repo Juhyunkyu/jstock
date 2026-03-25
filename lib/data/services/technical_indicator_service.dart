@@ -91,6 +91,37 @@ class TechnicalIndicatorService {
     return result;
   }
 
+  /// MFI (Money Flow Index) — RSI + 거래량
+  List<double?> calculateMFI(List<OHLCData> data, {int period = 14}) {
+    final result = List<double?>.filled(data.length, null);
+    if (data.length < period + 1) return result;
+
+    for (int i = period; i < data.length; i++) {
+      double posFlow = 0;
+      double negFlow = 0;
+
+      for (int j = i - period + 1; j <= i; j++) {
+        final tp = (data[j].high + data[j].low + data[j].close) / 3;
+        final prevTp = (data[j - 1].high + data[j - 1].low + data[j - 1].close) / 3;
+        final mf = tp * data[j].volume;
+
+        if (tp > prevTp) {
+          posFlow += mf;
+        } else if (tp < prevTp) {
+          negFlow += mf;
+        }
+      }
+
+      if (negFlow == 0) {
+        result[i] = 100.0;
+      } else {
+        final mr = posFlow / negFlow;
+        result[i] = 100 - (100 / (1 + mr));
+      }
+    }
+    return result;
+  }
+
   /// MACD (Moving Average Convergence Divergence)
   List<MACDResult> calculateMACD(List<double> closes, {int fast = 12, int slow = 26, int signal = 9}) {
     final result = List<MACDResult>.filled(closes.length, const MACDResult());
@@ -321,6 +352,18 @@ class TechnicalIndicatorService {
       return const IndicatorSignal(type: SignalType.neutral, label: '상승 편향', color: AppColors.gray500);
     } else {
       return const IndicatorSignal(type: SignalType.neutral, label: '중립', color: AppColors.gray500);
+    }
+  }
+
+  IndicatorSignal getMFISignal(double mfi) {
+    if (mfi >= 80) {
+      return const IndicatorSignal(type: SignalType.strongSell, label: '과매수', color: AppColors.stockDown);
+    } else if (mfi <= 20) {
+      return const IndicatorSignal(type: SignalType.strongBuy, label: '과매도', color: AppColors.stockUp);
+    } else if (mfi > 50) {
+      return const IndicatorSignal(type: SignalType.neutral, label: '자금 유입', color: AppColors.gray500);
+    } else {
+      return const IndicatorSignal(type: SignalType.neutral, label: '자금 유출', color: AppColors.gray500);
     }
   }
 

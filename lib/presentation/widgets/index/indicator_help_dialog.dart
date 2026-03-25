@@ -88,6 +88,24 @@ void showIndicatorHelpDialog(BuildContext context, String key) {
           '• OBV 상승 + 가격 하락 (상승 다이버전스): 반등 신호\n'
           '• OBV 하락 + 가격 상승 (하락 다이버전스): 하락 전환 신호';
       break;
+    case 'MFI':
+      title = 'MFI (14)';
+      description = 'MFI(Money Flow Index)는 RSI에 거래량을 결합한 지표입니다.\n'
+          '가격 변동뿐 아니라 실제 자금 흐름을 반영합니다.\n\n'
+          '• 공식: 평균가격 = (고가+저가+종가) ÷ 3\n'
+          '  Money Flow = 평균가격 × 거래량\n'
+          '  MFI = 100 - (100 / (1 + 긍정MF/부정MF))\n\n'
+          '매매 신호:\n'
+          '• 80 이상: 과매수 (자금 과열, 매도 검토)\n'
+          '• 20 이하: 과매도 (자금 고갈, 매수 검토)\n'
+          '• 50 상향돌파: 자금 유입 → 매수 신호\n'
+          '• 50 하향돌파: 자금 유출 → 매도 신호\n\n'
+          'RSI와의 차이:\n'
+          '• RSI: 가격만 반영 ("얼마나 올랐나")\n'
+          '• MFI: 가격+거래량 ("돈이 실제로 들어오는가")\n'
+          '• 거래량이 실린 상승은 진짜 상승일 가능성 높음\n\n'
+          '박스권 장세에서 특히 효과적입니다.';
+      break;
     default:
       return;
   }

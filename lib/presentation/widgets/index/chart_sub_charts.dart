@@ -185,6 +185,30 @@ class SubChartList extends StatelessWidget {
             sizes.obv,
           ),
         ],
+        // MFI
+        if (activeIndicators.contains('MFI') && indicators.displayMFI != null) ...[
+          SubChartHeader(
+            label: indicators.mfiLabel ?? 'MFI(14)',
+            labelColor: isDarkMode
+                ? const Color(0xFF81D4FA)
+                : const Color(0xFF0277BD),
+            signal: indicators.mfiSignal,
+          ),
+          wrapWithCrosshair(
+            SizedBox(
+              height: sizes.mfi,
+              child: CustomPaint(
+                size: Size(chartWidth, sizes.mfi),
+                painter: MFIPainter(
+                  mfiValues: indicators.displayMFI!,
+                  isDarkMode: isDarkMode,
+                  textColor: textColor,
+                ),
+              ),
+            ),
+            sizes.mfi,
+          ),
+        ],
       ],
     );
   }

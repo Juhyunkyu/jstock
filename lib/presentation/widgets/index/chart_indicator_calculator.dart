@@ -35,6 +35,11 @@ class ChartIndicatorData {
   final IndicatorSignal? obvSignal;
   final String? obvLabel;
 
+  // MFI
+  final List<double?>? displayMFI;
+  final IndicatorSignal? mfiSignal;
+  final String? mfiLabel;
+
   // Volume
   final String? volCurrentValue;
 
@@ -58,6 +63,9 @@ class ChartIndicatorData {
     this.displayOBV,
     this.obvSignal,
     this.obvLabel,
+    this.displayMFI,
+    this.mfiSignal,
+    this.mfiLabel,
     this.volCurrentValue,
   });
 }
@@ -201,6 +209,20 @@ class ChartIndicatorCalculator {
       }
     }
 
+    // MFI
+    List<double?>? displayMFI;
+    IndicatorSignal? mfiSignal;
+    String? mfiLabel;
+    if (activeIndicators.contains('MFI')) {
+      final mfi = indicatorService.calculateMFI(fullData);
+      displayMFI = mfi.sublist(offset, end.clamp(0, mfi.length));
+      final displayLastMfi = lastNonNull(displayMFI);
+      if (displayLastMfi != null) {
+        mfiSignal = indicatorService.getMFISignal(displayLastMfi);
+      }
+      mfiLabel = displayLastMfi != null ? 'MFI(14): ${displayLastMfi.toStringAsFixed(1)}' : 'MFI(14)';
+    }
+
     // Volume
     String? volCurrentValue;
     if (activeIndicators.contains('VOL') && displayData.isNotEmpty) {
@@ -227,6 +249,9 @@ class ChartIndicatorCalculator {
       displayOBV: displayOBV,
       obvSignal: obvSignal,
       obvLabel: obvLabel,
+      displayMFI: displayMFI,
+      mfiSignal: mfiSignal,
+      mfiLabel: mfiLabel,
       volCurrentValue: volCurrentValue,
     );
   }

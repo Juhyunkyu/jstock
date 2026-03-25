@@ -13,6 +13,7 @@ class ChartSizes {
   final double macd;
   final double stoch;
   final double obv;
+  final double mfi;
 
   const ChartSizes._({
     required this.main,
@@ -21,19 +22,17 @@ class ChartSizes {
     required this.macd,
     required this.stoch,
     required this.obv,
+    required this.mfi,
   });
 
   /// 화면 폭 기준 차트 높이 계산
   factory ChartSizes.fromWidth(double screenWidth) {
     if (screenWidth >= 1200) {
-      // Desktop
-      return const ChartSizes._(main: 450, vol: 65, rsi: 160, macd: 140, stoch: 140, obv: 110);
+      return const ChartSizes._(main: 450, vol: 65, rsi: 160, macd: 140, stoch: 140, obv: 110, mfi: 160);
     } else if (screenWidth >= 768) {
-      // Tablet
-      return const ChartSizes._(main: 380, vol: 55, rsi: 140, macd: 120, stoch: 120, obv: 90);
+      return const ChartSizes._(main: 380, vol: 55, rsi: 140, macd: 120, stoch: 120, obv: 90, mfi: 140);
     } else {
-      // Mobile
-      return const ChartSizes._(main: 300, vol: 50, rsi: 120, macd: 100, stoch: 100, obv: 80);
+      return const ChartSizes._(main: 300, vol: 50, rsi: 120, macd: 100, stoch: 100, obv: 80, mfi: 120);
     }
   }
 }
@@ -117,6 +116,7 @@ class IndicatorChips extends StatelessWidget {
       {'key': 'STOCH', 'label': 'STOCH'},
       {'key': 'ICH', 'label': '일목'},
       {'key': 'OBV', 'label': 'OBV'},
+      {'key': 'MFI', 'label': 'MFI'},
     ];
 
     return SingleChildScrollView(
