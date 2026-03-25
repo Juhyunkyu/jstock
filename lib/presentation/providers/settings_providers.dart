@@ -114,7 +114,7 @@ class SettingsNotifier extends StateNotifier<Settings> {
   }
 
   /// 차트 보조지표 설정 업데이트
-  Future<void> updateChartIndicators(Iterable<String> indicators) async {
+  Future<void> updateChartIndicators(Set<String> indicators) async {
     final repo = _ref.read(settingsRepositoryProvider);
     final value = indicators.join(',');
     await repo.save(state.copyWith(chartIndicators: value));
