@@ -361,9 +361,9 @@ class TechnicalIndicatorService {
     } else if (mfi <= 20) {
       return const IndicatorSignal(type: SignalType.strongBuy, label: '과매도', color: AppColors.stockUp);
     } else if (mfi > 50) {
-      return const IndicatorSignal(type: SignalType.neutral, label: '자금 유입', color: AppColors.gray500);
+      return const IndicatorSignal(type: SignalType.neutral, label: '자금 유입', color: AppColors.stockUp);
     } else {
-      return const IndicatorSignal(type: SignalType.neutral, label: '자금 유출', color: AppColors.gray500);
+      return const IndicatorSignal(type: SignalType.neutral, label: '자금 유출', color: AppColors.stockDown);
     }
   }
 
