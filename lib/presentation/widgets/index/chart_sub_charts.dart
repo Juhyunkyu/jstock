@@ -3,6 +3,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
 import 'chart_controls.dart';
 import 'chart_indicator_calculator.dart';
+import 'indicator_help_dialog.dart';
 import 'rsi_drawing_overlay.dart';
 import 'sub_chart_painters.dart';
 
@@ -81,6 +82,8 @@ class SubChartList extends StatelessWidget {
                 ? 'VOL: ${indicators.volCurrentValue}'
                 : 'VOL',
             labelColor: textColor,
+            indicatorKey: 'VOL',
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           wrapWithCrosshair(
             SizedBox(
@@ -117,6 +120,7 @@ class SubChartList extends StatelessWidget {
             crosshairX: crosshairX,
             externalLines: rsiDrawingLines,
             onLinesChanged: onRsiDrawingLinesChanged,
+            onHelpTap: () => showIndicatorHelpDialog(context, 'RSI'),
           ),
         ],
         // MACD
@@ -125,6 +129,8 @@ class SubChartList extends StatelessWidget {
             label: indicators.macdLabel ?? 'MACD(12,26,9)',
             labelColor: const Color(0xFF2196F3),
             signal: indicators.macdSignal,
+            indicatorKey: 'MACD',
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           wrapWithCrosshair(
             SizedBox(
@@ -147,6 +153,8 @@ class SubChartList extends StatelessWidget {
             label: indicators.stochLabel ?? 'STOCH(14,3)',
             labelColor: const Color(0xFF2196F3),
             signal: indicators.stochSignal,
+            indicatorKey: 'STOCH',
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           wrapWithCrosshair(
             SizedBox(
@@ -169,6 +177,8 @@ class SubChartList extends StatelessWidget {
             label: indicators.obvLabel ?? 'OBV',
             labelColor: const Color(0xFF10B981),
             signal: indicators.obvSignal,
+            indicatorKey: 'OBV',
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           wrapWithCrosshair(
             SizedBox(
@@ -193,6 +203,8 @@ class SubChartList extends StatelessWidget {
                 ? const Color(0xFF81D4FA)
                 : const Color(0xFF0277BD),
             signal: indicators.mfiSignal,
+            indicatorKey: 'MFI',
+            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           wrapWithCrosshair(
             SizedBox(

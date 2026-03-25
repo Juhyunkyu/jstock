@@ -292,7 +292,6 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           IndicatorChips(
             activeIndicators: _activeIndicators,
             onToggle: _toggleIndicator,
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
           ),
           const SizedBox(height: 8),
           // 기간 선택 + MA 범례 + 드로잉 버튼

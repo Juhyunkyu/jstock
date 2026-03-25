@@ -157,13 +157,13 @@ class ChartIndicatorCalculator {
     if (activeIndicators.contains('MACD')) {
       final macd = indicatorService.calculateMACD(closes);
       displayMACD = macd.sublist(offset, end.clamp(0, macd.length));
-      final lastMacd = lastValid(macd, (m) => m.macdLine != null);
-      final prevMacd = macd.length >= 2 ? lastValid(macd.sublist(0, macd.length - 1), (m) => m.macdLine != null) : null;
-      if (lastMacd != null) {
-        macdSignal = indicatorService.getMACDSignal(lastMacd, prevMacd);
-      }
+      // display 데이터 기준 신호 (스크롤 시 변동)
       final displayLastMacd = lastValid(displayMACD, (m) => m.macdLine != null);
+      final displayPrevMacd = displayMACD.length >= 2
+          ? lastValid(displayMACD.sublist(0, displayMACD.length - 1), (m) => m.macdLine != null)
+          : null;
       if (displayLastMacd != null) {
+        macdSignal = indicatorService.getMACDSignal(displayLastMacd, displayPrevMacd);
         final m = displayLastMacd.macdLine?.toStringAsFixed(2) ?? '-';
         final s = displayLastMacd.signalLine?.toStringAsFixed(2) ?? '-';
         macdLabel = 'MACD: $m / Signal: $s';
@@ -179,13 +179,13 @@ class ChartIndicatorCalculator {
     if (activeIndicators.contains('STOCH')) {
       final stoch = indicatorService.calculateStochastic(fullData);
       displayStoch = stoch.sublist(offset, end.clamp(0, stoch.length));
-      final lastStoch = lastValid(stoch, (s) => s.k != null);
-      final prevStoch = stoch.length >= 2 ? lastValid(stoch.sublist(0, stoch.length - 1), (s) => s.k != null) : null;
-      if (lastStoch != null) {
-        stochSignal = indicatorService.getStochSignal(lastStoch, prevStoch);
-      }
+      // display 데이터 기준 신호
       final displayLastStoch = lastValid(displayStoch, (s) => s.k != null);
+      final displayPrevStoch = displayStoch.length >= 2
+          ? lastValid(displayStoch.sublist(0, displayStoch.length - 1), (s) => s.k != null)
+          : null;
       if (displayLastStoch != null) {
+        stochSignal = indicatorService.getStochSignal(displayLastStoch, displayPrevStoch);
         final kStr = displayLastStoch.k?.toStringAsFixed(1) ?? '-';
         final dStr = displayLastStoch.d?.toStringAsFixed(1) ?? '-';
         stochLabel = '%K: $kStr  %D: $dStr';
@@ -201,8 +201,10 @@ class ChartIndicatorCalculator {
     if (activeIndicators.contains('OBV')) {
       final obv = indicatorService.calculateOBV(fullData);
       displayOBV = obv.sublist(offset, end.clamp(0, obv.length));
-      if (obv.length >= 10) {
-        obvSignal = indicatorService.getOBVSignal(obv, closes);
+      // display 데이터 기준 신호
+      if (displayOBV.length >= 10) {
+        final displayCloses = closes.sublist(offset, end.clamp(0, closes.length));
+        obvSignal = indicatorService.getOBVSignal(displayOBV, displayCloses);
       }
       if (displayOBV.isNotEmpty) {
         obvLabel = 'OBV: ${formatVolume(displayOBV.last)}';

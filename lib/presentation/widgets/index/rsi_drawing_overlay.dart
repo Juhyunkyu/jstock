@@ -92,6 +92,7 @@ class RsiDrawingOverlay extends StatefulWidget {
   // 부모 소유 lines (리빌드에도 보존)
   final List<RsiDrawingLine>? externalLines;
   final VoidCallback? onLinesChanged;
+  final VoidCallback? onHelpTap;
 
   const RsiDrawingOverlay({
     super.key,
@@ -109,6 +110,7 @@ class RsiDrawingOverlay extends StatefulWidget {
     this.crosshairX,
     this.externalLines,
     this.onLinesChanged,
+    this.onHelpTap,
   });
 
   @override
@@ -351,52 +353,6 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
     _notifyLines();
   }
 
-  void _showHelpDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: context.appSurface,
-        title: Text(
-          'RSI 드로잉 가이드',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: context.appTextPrimary),
-        ),
-        content: SingleChildScrollView(
-          child: Text(
-            '선 그리기:\n'
-            '1. 추세선 아이콘을 탭하여 드로잉 모드 ON\n'
-            '2. 메인 차트에서 캔들을 길게 누른 후 손을 떼면 RSI에 점이 찍힘\n'
-            '3. 두 번째 점도 같은 방식 → 선 완성\n'
-            '4. RSI 차트를 직접 탭해도 점 배치 가능\n'
-            '5. 드로잉 모드가 유지되어 여러 선을 연속으로 그릴 수 있음\n\n'
-            '선 편집:\n'
-            '• 드로잉 모드 OFF 상태에서 선을 탭 → 선택\n'
-            '• 선택된 선의 끝점을 드래그하여 위치 조절\n'
-            '• 삭제/설정 버튼으로 개별 관리\n'
-            '• 쓸어내기 아이콘으로 전체 삭제\n\n'
-            '다이버전스 찾는 법:\n'
-            '• 상승 다이버전스 (매수 신호):\n'
-            '  가격 저점 ↘ + RSI 저점 ↗ → 반등 가능\n'
-            '• 하락 다이버전스 (매도 신호):\n'
-            '  가격 고점 ↗ + RSI 고점 ↘ → 하락 가능\n'
-            '• 가격 차트의 두 고점/저점에 대응하는 RSI 위치에 선을 그어 기울기를 비교하세요\n\n'
-            'RSI 신호 배지:\n'
-            '• 과매수 (RSI > 70): 과열 상태, 조정 가능성\n'
-            '• 과매도 (RSI < 30): 침체 상태, 반등 가능성\n'
-            '• 중립 (30~70): 정상 범위\n'
-            '• 화면에 보이는 마지막 캔들의 RSI 기준으로 표시되며, 스크롤 시 해당 시점으로 변합니다.',
-            style: TextStyle(fontSize: 13, color: context.appTextSecondary, height: 1.6),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showSettings() {
     if (_selectedLineId == null) return;
     final line = _lines.cast<RsiDrawingLine?>().firstWhere(
@@ -442,7 +398,7 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
       children: [
         // --- RSI header + draw button + clear button ---
         Padding(
-          padding: EdgeInsets.only(top: isDesktop ? 6 : 4, bottom: 2),
+          padding: EdgeInsets.only(top: isDesktop ? 6 : 2, bottom: isDesktop ? 2 : 0),
           child: Row(
             children: [
               Text(
@@ -516,22 +472,27 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                     ),
                   ),
                 ),
-              // Help icon
-              const SizedBox(width: 2),
-              GestureDetector(
-                onTap: () => _showHelpDialog(context),
-                child: Icon(
-                  Icons.help_outline,
-                  size: isDesktop ? 14 : 12,
-                  color: widget.textColor.withAlpha(120),
-                ),
-              ),
               const Spacer(),
+              // 설명 아이콘
+              if (widget.onHelpTap != null)
+                GestureDetector(
+                  onTap: widget.onHelpTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      Icons.help_outline,
+                      size: isDesktop ? 14 : 12,
+                      color: widget.textColor.withAlpha(150),
+                    ),
+                  ),
+                ),
+              // 신호 배지
               if (widget.rsiSignal != null)
                 SizedBox(
-                  width: 50,
+                  width: 60,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
                     child: SignalBadge(signal: widget.rsiSignal!),
                   ),
                 ),

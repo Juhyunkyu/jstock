@@ -32,7 +32,8 @@ class ChartSizes {
     } else if (screenWidth >= 768) {
       return const ChartSizes._(main: 380, vol: 55, rsi: 140, macd: 120, stoch: 120, obv: 90, mfi: 140);
     } else {
-      return const ChartSizes._(main: 300, vol: 50, rsi: 120, macd: 100, stoch: 100, obv: 80, mfi: 120);
+      // 모바일: 3개 서브차트가 한 화면에 보이도록 컴팩트하게
+      return const ChartSizes._(main: 300, vol: 40, rsi: 90, macd: 80, stoch: 80, obv: 60, mfi: 90);
     }
   }
 }
@@ -96,13 +97,11 @@ class ChartPeriodSelector extends StatelessWidget {
 class IndicatorChips extends StatelessWidget {
   final Set<String> activeIndicators;
   final ValueChanged<String> onToggle;
-  final ValueChanged<String> onHelpTap;
 
   const IndicatorChips({
     super.key,
     required this.activeIndicators,
     required this.onToggle,
-    required this.onHelpTap,
   });
 
   @override
@@ -144,23 +143,13 @@ class IndicatorChips extends StatelessWidget {
                     width: 1,
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: isDesktop ? 13.0 : 11.0,
-                        fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                        color: isActive ? context.appTextPrimary : context.appTextHint,
-                      ),
-                    ),
-                    const SizedBox(width: 3),
-                    GestureDetector(
-                      onTap: () => onHelpTap(key),
-                      child: Icon(Icons.help_outline, size: isDesktop ? 15 : 14, color: context.appTextHint),
-                    ),
-                  ],
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isDesktop ? 13.0 : 11.0,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                    color: isActive ? context.appTextPrimary : context.appTextHint,
+                  ),
                 ),
               ),
             ),
@@ -198,17 +187,21 @@ class LegendItem extends StatelessWidget {
   }
 }
 
-/// 서브차트 헤더 (라벨 + 신호배지)
+/// 서브차트 헤더 (라벨 + 설명아이콘 + 신호배지)
 class SubChartHeader extends StatelessWidget {
   final String label;
   final Color labelColor;
   final IndicatorSignal? signal;
+  final String? indicatorKey; // 도움말 다이얼로그용
+  final ValueChanged<String>? onHelpTap;
 
   const SubChartHeader({
     super.key,
     required this.label,
     required this.labelColor,
     this.signal,
+    this.indicatorKey,
+    this.onHelpTap,
   });
 
   @override
@@ -216,7 +209,7 @@ class SubChartHeader extends StatelessWidget {
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final fontSize = isDesktop ? 13.0 : 11.0;
     return Padding(
-      padding: EdgeInsets.only(top: isDesktop ? 6 : 4, bottom: 2),
+      padding: EdgeInsets.only(top: isDesktop ? 6 : 2, bottom: isDesktop ? 2 : 0),
       child: Row(
         children: [
           Text(
@@ -224,11 +217,26 @@ class SubChartHeader extends StatelessWidget {
             style: TextStyle(color: labelColor, fontSize: fontSize, fontWeight: FontWeight.w700),
           ),
           const Spacer(),
+          // 설명 아이콘 (? — 신호배지 왼쪽 고정)
+          if (indicatorKey != null && onHelpTap != null)
+            GestureDetector(
+              onTap: () => onHelpTap!(indicatorKey!),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Icon(
+                  Icons.help_outline,
+                  size: isDesktop ? 14 : 12,
+                  color: context.appTextHint.withAlpha(150),
+                ),
+              ),
+            ),
+          // 신호 배지
           if (signal != null)
             SizedBox(
-              width: 50,
+              width: 60,
               child: FittedBox(
                 fit: BoxFit.scaleDown,
+                alignment: Alignment.centerRight,
                 child: SignalBadge(signal: signal!),
               ),
             ),
