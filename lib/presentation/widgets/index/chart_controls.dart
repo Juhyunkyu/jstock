@@ -230,16 +230,17 @@ class SubChartHeader extends StatelessWidget {
                 ),
               ),
             ),
-          // 신호 배지
-          if (signal != null)
-            SizedBox(
-              width: 60,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerRight,
-                child: SignalBadge(signal: signal!),
-              ),
-            ),
+          // 신호 배지 (없어도 60px 공간 예약 → ? 수직 정렬 유지)
+          SizedBox(
+            width: 60,
+            child: signal != null
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: SignalBadge(signal: signal!),
+                  )
+                : null,
+          ),
         ],
       ),
     );
