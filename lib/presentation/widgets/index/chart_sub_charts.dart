@@ -1,27 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/ohlc_data.dart';
-import '../../providers/rsi_divergence_providers.dart';
 import 'chart_controls.dart';
 import 'chart_indicator_calculator.dart';
 import 'rsi_drawing_overlay.dart';
 import 'sub_chart_painters.dart';
 
 /// 서브 차트 목록 (VOL, RSI, MACD, STOCH, OBV)
-class SubChartList extends ConsumerWidget {
+class SubChartList extends StatelessWidget {
   final Set<String> activeIndicators;
   final ChartIndicatorData indicators;
   final List<OHLCData> displayData;
   final double chartWidth;
   final int? selectedCandleDisplayIndex; // 선택된 캔들의 display 인덱스 (수직선용)
-  final int scrollOffset;
-  final String symbol;
-  final String selectedPeriod; // '일봉', '주봉', '월봉'
-
-  // RSI 감시점 모드 (메인 차트 롱프레스 연동)
-  final bool isRsiWatchPointMode;
-  final VoidCallback? onRsiWatchPointModeToggle;
 
   const SubChartList({
     super.key,
@@ -30,23 +21,12 @@ class SubChartList extends ConsumerWidget {
     required this.displayData,
     required this.chartWidth,
     this.selectedCandleDisplayIndex,
-    required this.scrollOffset,
-    required this.symbol,
-    required this.selectedPeriod,
-    this.isRsiWatchPointMode = false,
-    this.onRsiWatchPointModeToggle,
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = context.appTextSecondary;
-
-    // RSI 감시점 로드 (현재 종목 + 활성)
-    final watchPointState = ref.watch(rsiWatchPointProvider);
-    final watchPoints = watchPointState.points
-        .where((p) => p.ticker == symbol)
-        .toList();
 
     // 수직 십자선 X 좌표 계산 (서브차트 전체에 공유)
     double? crosshairX;
@@ -119,13 +99,6 @@ class SubChartList extends ConsumerWidget {
                 : const Color(0xFF7B1FA2),
             rsiSignal: indicators.rsiSignal,
             crosshairX: crosshairX,
-            displayData: displayData,
-            scrollOffset: scrollOffset,
-            symbol: symbol,
-            selectedPeriod: selectedPeriod,
-            watchPoints: watchPoints,
-            isWatchPointMode: isRsiWatchPointMode,
-            onWatchPointModeToggle: onRsiWatchPointModeToggle,
           ),
         ],
         // MACD 서브차트

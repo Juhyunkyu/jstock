@@ -31,4 +31,3 @@ export 'watchlist_alert_provider.dart';
 export 'drawing_providers.dart';
 export 'logo_provider.dart';
 export 'memo_providers.dart';
-export 'rsi_divergence_providers.dart';

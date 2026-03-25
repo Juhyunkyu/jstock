@@ -1,19 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/ohlc_data.dart';
-import '../../../data/models/rsi_watch_point.dart';
 import '../../../data/services/technical_indicator_service.dart';
 import 'chart_controls.dart';
-import 'rsi_watch_point_sheet.dart';
 import 'sub_chart_painters.dart';
 
 const _uuid = Uuid();
 
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 // RSI Drawing Line 모델 (메모리 전용, Hive 저장 안 함)
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 
 class RsiDrawingLine {
   final String id;
@@ -24,7 +20,6 @@ class RsiDrawingLine {
   int colorValue;
   double strokeWidth;
   bool isLocked;
-  bool isDashed; // 자동 드로잉용 점선
 
   RsiDrawingLine({
     required this.id,
@@ -35,14 +30,12 @@ class RsiDrawingLine {
     this.colorValue = 0xFFFF6B6B,
     this.strokeWidth = 1.5,
     this.isLocked = false,
-    this.isDashed = false,
   });
 
   RsiDrawingLine copyWith({
     int? colorValue,
     double? strokeWidth,
     bool? isLocked,
-    bool? isDashed,
   }) {
     return RsiDrawingLine(
       id: id,
@@ -53,14 +46,13 @@ class RsiDrawingLine {
       colorValue: colorValue ?? this.colorValue,
       strokeWidth: strokeWidth ?? this.strokeWidth,
       isLocked: isLocked ?? this.isLocked,
-      isDashed: isDashed ?? this.isDashed,
     );
   }
 }
 
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 // 프리셋 색상 (drawing_settings_sheet.dart 와 동일 팔레트)
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 
 const List<int> _presetColors = [
   0xFFFF6B6B, // 빨강
@@ -73,11 +65,11 @@ const List<int> _presetColors = [
   0xFF94A3B8, // 회색
 ];
 
-// ---------------------------------------------------------------
-// RsiDrawingOverlay — RSI 헤더 + 차트 + 드로잉 레이어 + 감시점 마커
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
+// RsiDrawingOverlay — RSI 헤더 + 차트 + 드로잉 레이어 자기완결 위젯
+// ─────────────────────────────────────────────────────────────
 
-class RsiDrawingOverlay extends ConsumerStatefulWidget {
+class RsiDrawingOverlay extends StatefulWidget {
   final double chartWidth;
   final double chartHeight;
   final List<double?> rsiValues;
@@ -93,17 +85,6 @@ class RsiDrawingOverlay extends ConsumerStatefulWidget {
   // 수직 십자선
   final double? crosshairX;
 
-  // Phase 3/4: 감시점용 파라미터
-  final List<OHLCData> displayData;
-  final int scrollOffset;
-  final String symbol;
-  final String selectedPeriod;
-  final List<RsiWatchPoint> watchPoints;
-
-  // 감시점 모드 (메인 차트 롱프레스 연동)
-  final bool isWatchPointMode;
-  final VoidCallback? onWatchPointModeToggle;
-
   const RsiDrawingOverlay({
     super.key,
     required this.chartWidth,
@@ -116,20 +97,13 @@ class RsiDrawingOverlay extends ConsumerStatefulWidget {
     required this.rsiLabelColor,
     this.rsiSignal,
     this.crosshairX,
-    required this.displayData,
-    required this.scrollOffset,
-    required this.symbol,
-    required this.selectedPeriod,
-    required this.watchPoints,
-    this.isWatchPointMode = false,
-    this.onWatchPointModeToggle,
   });
 
   @override
-  ConsumerState<RsiDrawingOverlay> createState() => _RsiDrawingOverlayState();
+  State<RsiDrawingOverlay> createState() => _RsiDrawingOverlayState();
 }
 
-class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
+class _RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
   final List<RsiDrawingLine> _lines = [];
   bool _isDrawing = false;
   String? _selectedLineId;
@@ -142,7 +116,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
   String? _draggingLineId;
   String? _draggingAnchor; // 'start' or 'end'
 
-  // --- 좌표 변환 (RSIPainter 와 동일 상수) ---
+  // ─── 좌표 변환 (RSIPainter 와 동일 상수) ───
 
   static const double _leftPadding = 10.0;
   static const double _rightPadding = 50.0;
@@ -167,7 +141,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
   int _fromX(double x) =>
       ((x - _leftPadding) / _candleWidth).round().clamp(0, widget.displayDataLength - 1);
 
-  // --- 히트 테스트: 선분과 점의 거리 ---
+  // ─── 히트 테스트: 선분과 점의 거리 ───
 
   double _distanceToSegment(Offset point, Offset a, Offset b) {
     final ab = b - a;
@@ -180,7 +154,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     return (point - proj).distance;
   }
 
-  // --- 선 근처 탭 -> 선택 ---
+  // ─── 선 근처 탭 → 선택 ───
 
   String? _hitTestLine(Offset localPos) {
     const hitRadius = 12.0;
@@ -194,7 +168,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     return null;
   }
 
-  // --- 앵커 히트 테스트 ---
+  // ─── 앵커 히트 테스트 ───
 
   String? _hitTestAnchor(Offset localPos, RsiDrawingLine line) {
     const anchorRadius = 14.0;
@@ -205,37 +179,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     return null;
   }
 
-  // --- 감시점 마커 히트 테스트 ---
-
-  RsiWatchPoint? _hitTestWatchMarker(Offset localPos) {
-    const hitRadius = 14.0;
-    for (final wp in widget.watchPoints) {
-      final markerIndex = _watchPointDisplayIndex(wp);
-      if (markerIndex == null) continue;
-      final rsi = wp.watchRsi;
-      final markerPos = Offset(_toX(markerIndex), _toY(rsi));
-      if ((localPos - markerPos).distance < hitRadius) {
-        return wp;
-      }
-    }
-    return null;
-  }
-
-  /// 감시점의 displayData 인덱스 (화면에 표시 중인 범위 내)
-  int? _watchPointDisplayIndex(RsiWatchPoint wp) {
-    for (int i = 0; i < widget.displayData.length; i++) {
-      final candle = widget.displayData[i];
-      // 날짜 비교 (일 단위)
-      if (candle.date.year == wp.watchDate.year &&
-          candle.date.month == wp.watchDate.month &&
-          candle.date.day == wp.watchDate.day) {
-        return i;
-      }
-    }
-    return null;
-  }
-
-  // --- 제스처 핸들러 ---
+  // ─── 제스처 핸들러 ───
 
   void _handleTap(TapUpDetails details) {
     final pos = details.localPosition;
@@ -252,7 +196,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
           _firstPointRsiValue = rsiVal;
         });
       } else {
-        // 두 번째 점 -> 선 생성
+        // 두 번째 점 → 선 생성
         setState(() {
           _lines.add(RsiDrawingLine(
             id: _uuid.v4(),
@@ -269,18 +213,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
       return;
     }
 
-    // 비 그리기 모드: 마커 탭 체크
-    final hitWp = _hitTestWatchMarker(pos);
-    if (hitWp != null) {
-      showWatchPointManageSheet(
-        context: context,
-        ref: ref,
-        watchPoint: hitWp,
-      );
-      return;
-    }
-
-    // 선 선택/해제
+    // 비 그리기 모드: 선택/해제
     final hitId = _hitTestLine(pos);
     setState(() {
       _selectedLineId = hitId;
@@ -338,7 +271,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     });
   }
 
-  // --- 삭제 ---
+  // ─── 삭제 ───
 
   void _deleteSelected() {
     if (_selectedLineId == null) return;
@@ -348,7 +281,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     });
   }
 
-  // --- 설정 바텀시트 ---
+  // ─── 설정 바텀시트 ───
 
   void _showSettings() {
     if (_selectedLineId == null) return;
@@ -384,78 +317,17 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
     );
   }
 
-  // --- 자동 드로잉 선 생성 (트리거된 감시점) ---
-
-  List<RsiDrawingLine> _buildAutoDrawingLines() {
-    final autoLines = <RsiDrawingLine>[];
-    for (final wp in widget.watchPoints) {
-      if (!wp.isTriggered) continue;
-      if (wp.triggeredRsi == null) continue;
-
-      final startIdx = _watchPointDisplayIndex(wp);
-      if (startIdx == null) continue;
-
-      // 트리거 날짜에 해당하는 캔들 인덱스 찾기
-      int? endIdx;
-      if (wp.triggeredAt != null) {
-        for (int i = 0; i < widget.displayData.length; i++) {
-          final candle = widget.displayData[i];
-          if (candle.date.year == wp.triggeredAt!.year &&
-              candle.date.month == wp.triggeredAt!.month &&
-              candle.date.day == wp.triggeredAt!.day) {
-            endIdx = i;
-            break;
-          }
-        }
-      }
-      // 트리거 날짜 캔들을 못 찾으면 마지막 캔들 사용
-      endIdx ??= widget.displayData.length - 1;
-
-      final isBearish = wp.mode == RsiWatchMode.bearish;
-      autoLines.add(RsiDrawingLine(
-        id: 'auto_${wp.id}',
-        startY: wp.watchRsi,
-        startIndex: startIdx,
-        endY: wp.triggeredRsi!,
-        endIndex: endIdx,
-        colorValue: isBearish ? 0xFFFF6B6B : 0xFF4D96FF,
-        strokeWidth: 1.5,
-        isLocked: true,
-        isDashed: true,
-      ));
-    }
-    return autoLines;
-  }
-
-  // --- 빌드 ---
+  // ─── 빌드 ───
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final headerFontSize = isDesktop ? 13.0 : 11.0;
 
-    // 자동 드로잉 선 병합
-    final autoLines = _buildAutoDrawingLines();
-    final allLines = [..._lines, ...autoLines];
-
-    // 감시점 마커 데이터
-    final markerData = <_WatchMarkerData>[];
-    for (final wp in widget.watchPoints) {
-      final idx = _watchPointDisplayIndex(wp);
-      if (idx == null) continue;
-      markerData.add(_WatchMarkerData(
-        x: _toX(idx),
-        y: _toY(wp.watchRsi),
-        mode: wp.mode,
-        isTriggered: wp.isTriggered,
-        isActive: wp.isActive,
-      ));
-    }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- RSI 헤더 + 연필 버튼 ---
+        // ─── RSI 헤더 + 연필 버튼 ───
         Padding(
           padding: EdgeInsets.only(top: isDesktop ? 6 : 4, bottom: 2),
           child: Row(
@@ -500,30 +372,6 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
                   ),
                 ),
               ),
-              // 감시점(pin) 토글 버튼
-              GestureDetector(
-                onTap: widget.onWatchPointModeToggle,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  margin: const EdgeInsets.only(right: 4),
-                  decoration: BoxDecoration(
-                    color: widget.isWatchPointMode
-                        ? (widget.isDarkMode ? const Color(0xFF1B3A5C) : const Color(0xFFE3F2FD))
-                        : context.appIconBg,
-                    borderRadius: BorderRadius.circular(4),
-                    border: widget.isWatchPointMode
-                        ? Border.all(color: const Color(0xFF2196F3), width: 0.5)
-                        : null,
-                  ),
-                  child: Icon(
-                    Icons.push_pin_outlined,
-                    size: 14,
-                    color: widget.isWatchPointMode
-                        ? const Color(0xFF2196F3)
-                        : context.appTextHint,
-                  ),
-                ),
-              ),
               const Spacer(),
               if (widget.rsiSignal != null)
                 SizedBox(
@@ -536,7 +384,7 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
             ],
           ),
         ),
-        // --- RSI 차트 + 드로잉 오버레이 ---
+        // ─── RSI 차트 + 드로잉 오버레이 ───
         SizedBox(
           height: widget.chartHeight,
           child: Stack(
@@ -550,11 +398,11 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
                   textColor: widget.textColor,
                 ),
               ),
-              // 드로잉 선 오버레이 (수동 + 자동)
+              // 드로잉 선 오버레이
               CustomPaint(
                 size: Size(widget.chartWidth, widget.chartHeight),
                 painter: _RsiLinePainter(
-                  lines: allLines,
+                  lines: _lines,
                   selectedLineId: _selectedLineId,
                   firstPointOffset: _firstPointIndex != null
                       ? Offset(_toX(_firstPointIndex!), _toY(_firstPointRsiValue!))
@@ -563,7 +411,6 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
                   chartHeight: widget.chartHeight,
                   displayDataLength: widget.displayDataLength,
                   isDarkMode: widget.isDarkMode,
-                  markers: markerData,
                 ),
               ),
               // 수직 십자선
@@ -643,29 +490,9 @@ class _RsiDrawingOverlayState extends ConsumerState<RsiDrawingOverlay> {
   }
 }
 
-// ---------------------------------------------------------------
-// 감시점 마커 데이터
-// ---------------------------------------------------------------
-
-class _WatchMarkerData {
-  final double x;
-  final double y;
-  final int mode; // RsiWatchMode.bearish / bullish
-  final bool isTriggered;
-  final bool isActive;
-
-  const _WatchMarkerData({
-    required this.x,
-    required this.y,
-    required this.mode,
-    required this.isTriggered,
-    required this.isActive,
-  });
-}
-
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 // 미니 액션 버튼
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 
 class _ActionButton extends StatelessWidget {
   final IconData icon;
@@ -704,9 +531,9 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------
-// RSI 드로잉 선 + 감시점 마커 Painter
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
+// RSI 드로잉 선 Painter
+// ─────────────────────────────────────────────────────────────
 
 class _RsiLinePainter extends CustomPainter {
   final List<RsiDrawingLine> lines;
@@ -716,7 +543,6 @@ class _RsiLinePainter extends CustomPainter {
   final double chartHeight;
   final int displayDataLength;
   final bool isDarkMode;
-  final List<_WatchMarkerData> markers;
 
   _RsiLinePainter({
     required this.lines,
@@ -726,7 +552,6 @@ class _RsiLinePainter extends CustomPainter {
     required this.chartHeight,
     required this.displayDataLength,
     required this.isDarkMode,
-    required this.markers,
   });
 
   static const double _leftPadding = 10.0;
@@ -757,13 +582,7 @@ class _RsiLinePainter extends CustomPainter {
         ..strokeWidth = line.strokeWidth
         ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
-
-      if (line.isDashed) {
-        // 점선 스타일
-        _drawDashedLine(canvas, startOff, endOff, paint);
-      } else {
-        canvas.drawLine(startOff, endOff, paint);
-      }
+      canvas.drawLine(startOff, endOff, paint);
 
       // 앵커 포인트
       final anchorRadius = isSelected ? 5.0 : 3.5;
@@ -795,107 +614,15 @@ class _RsiLinePainter extends CustomPainter {
         ..strokeWidth = 2;
       canvas.drawCircle(firstPointOffset!, 8, ringPaint);
     }
-
-    // 감시점 마커 그리기
-    for (final marker in markers) {
-      _drawWatchMarker(canvas, marker);
-    }
-  }
-
-  /// 점선 그리기
-  void _drawDashedLine(Canvas canvas, Offset start, Offset end, Paint paint) {
-    const dashLen = 6.0;
-    const gapLen = 4.0;
-    final dx = end.dx - start.dx;
-    final dy = end.dy - start.dy;
-    final dist = (end - start).distance;
-    if (dist == 0) return;
-
-    final ux = dx / dist;
-    final uy = dy / dist;
-    double drawn = 0;
-    while (drawn < dist) {
-      final segEnd = (drawn + dashLen).clamp(0.0, dist);
-      canvas.drawLine(
-        Offset(start.dx + ux * drawn, start.dy + uy * drawn),
-        Offset(start.dx + ux * segEnd, start.dy + uy * segEnd),
-        paint,
-      );
-      drawn += dashLen + gapLen;
-    }
-  }
-
-  /// 감시점 마커: 삼각형
-  void _drawWatchMarker(Canvas canvas, _WatchMarkerData marker) {
-    Color markerColor;
-    if (marker.isTriggered) {
-      markerColor = isDarkMode ? AppColors.darkTextHint : AppColors.textHint;
-    } else if (marker.mode == RsiWatchMode.bearish) {
-      markerColor = AppColors.red500;
-    } else {
-      markerColor = AppColors.blue500;
-    }
-
-    final paint = Paint()
-      ..color = markerColor
-      ..style = PaintingStyle.fill;
-
-    final borderPaint = Paint()
-      ..color = markerColor.withAlpha(80)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0;
-
-    const halfW = 5.0;
-    const h = 7.0;
-    final path = Path();
-
-    if (marker.mode == RsiWatchMode.bearish) {
-      // 역삼각형 (고점 감시)
-      path.moveTo(marker.x - halfW, marker.y - h);
-      path.lineTo(marker.x + halfW, marker.y - h);
-      path.lineTo(marker.x, marker.y);
-      path.close();
-    } else {
-      // 정삼각형 (저점 감시)
-      path.moveTo(marker.x, marker.y);
-      path.lineTo(marker.x - halfW, marker.y + h);
-      path.lineTo(marker.x + halfW, marker.y + h);
-      path.close();
-    }
-
-    canvas.drawPath(path, paint);
-    canvas.drawPath(path, borderPaint);
-
-    // 비활성(일시정지) 상태 표시: X 표시
-    if (!marker.isActive && !marker.isTriggered) {
-      final xPaint = Paint()
-        ..color = markerColor
-        ..strokeWidth = 1.5
-        ..style = PaintingStyle.stroke;
-      const offset = 3.0;
-      final cy = marker.mode == RsiWatchMode.bearish
-          ? marker.y - h / 2
-          : marker.y + h / 2;
-      canvas.drawLine(
-        Offset(marker.x - offset, cy - offset),
-        Offset(marker.x + offset, cy + offset),
-        xPaint,
-      );
-      canvas.drawLine(
-        Offset(marker.x + offset, cy - offset),
-        Offset(marker.x - offset, cy + offset),
-        xPaint,
-      );
-    }
   }
 
   @override
   bool shouldRepaint(covariant _RsiLinePainter oldDelegate) => true;
 }
 
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 // RSI 선 설정 바텀시트
-// ---------------------------------------------------------------
+// ─────────────────────────────────────────────────────────────
 
 class _RsiLineSettingsSheet extends StatefulWidget {
   final RsiDrawingLine line;
