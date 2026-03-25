@@ -251,6 +251,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
       price: candle.close,
       rsi: rsiValues[fullIndex]!,
       selectedPeriod: widget.selectedPeriod,
+      chartData: widget.chartData,
+      indicatorService: widget.indicatorService,
     );
   }
 

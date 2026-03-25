@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/ohlc_data.dart';
 import '../../../data/models/rsi_watch_point.dart';
+import '../../../data/services/technical_indicator_service.dart';
 import '../../providers/rsi_divergence_providers.dart';
 
 const _uuid = Uuid();
@@ -46,6 +48,8 @@ void showWatchPointSetupSheet({
   required double price,
   required double rsi,
   required String selectedPeriod,
+  List<OHLCData>? chartData,
+  TechnicalIndicatorService? indicatorService,
 }) {
   showModalBottomSheet(
     context: context,
@@ -58,6 +62,8 @@ void showWatchPointSetupSheet({
       price: price,
       rsi: rsi,
       selectedPeriod: selectedPeriod,
+      chartData: chartData,
+      indicatorService: indicatorService,
     ),
   );
 }
@@ -69,6 +75,8 @@ class _WatchPointSetupSheet extends StatefulWidget {
   final double price;
   final double rsi;
   final String selectedPeriod;
+  final List<OHLCData>? chartData;
+  final TechnicalIndicatorService? indicatorService;
 
   const _WatchPointSetupSheet({
     required this.ref,
@@ -77,6 +85,8 @@ class _WatchPointSetupSheet extends StatefulWidget {
     required this.price,
     required this.rsi,
     required this.selectedPeriod,
+    this.chartData,
+    this.indicatorService,
   });
 
   @override
@@ -110,7 +120,114 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
       interval: _periodToInterval(widget.selectedPeriod),
     );
     widget.ref.read(rsiWatchPointProvider.notifier).addWatchPoint(point);
+
+    // chartData/indicatorService를 pop 전에 캡처 (pop 후 widget 접근 불가)
+    final chartData = widget.chartData;
+    final indicatorService = widget.indicatorService;
+    final ref = widget.ref;
+
     Navigator.of(context).pop();
+
+    // 과거 돌파 즉시 체크
+    if (chartData != null && indicatorService != null) {
+      _checkHistoricalBreach(point, chartData, indicatorService, ref);
+    }
+  }
+
+  /// 감시점 설정 직후, 이미 로드된 차트 데이터에서 과거 돌파를 즉시 확인
+  void _checkHistoricalBreach(
+    RsiWatchPoint point,
+    List<OHLCData> chartData,
+    TechnicalIndicatorService indicatorService,
+    WidgetRef ref,
+  ) {
+    // 감시점 날짜의 인덱스 찾기
+    int watchIndex = -1;
+    for (int i = 0; i < chartData.length; i++) {
+      final d = chartData[i].date;
+      if (d.year == point.watchDate.year &&
+          d.month == point.watchDate.month &&
+          d.day == point.watchDate.day) {
+        watchIndex = i;
+        break;
+      }
+    }
+    if (watchIndex < 0) return;
+
+    // 감시점 이후 캔들에서 돌파 찾기
+    int? breachIndex;
+    for (int i = watchIndex + 1; i < chartData.length; i++) {
+      if (point.mode == RsiWatchMode.bearish) {
+        // 고점 감시: 가격이 위로 돌파
+        if (chartData[i].high > point.watchPrice) {
+          breachIndex = i;
+          break;
+        }
+      } else {
+        // 저점 감시: 가격이 아래로 이탈
+        if (chartData[i].low < point.watchPrice) {
+          breachIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (breachIndex == null) return; // 아직 돌파 안 됨 -> 미래 실시간 감시 대기
+
+    // RSI 계산
+    final closes = chartData.map((d) => d.close).toList();
+    final rsiValues = indicatorService.calculateRSI(closes);
+
+    if (breachIndex >= rsiValues.length || rsiValues[breachIndex] == null) return;
+
+    final breachRsi = rsiValues[breachIndex]!;
+    final breachPrice = chartData[breachIndex].close;
+    final breachDate = chartData[breachIndex].date;
+
+    // 다이버전스 판정
+    bool isDivergence;
+    if (point.mode == RsiWatchMode.bearish) {
+      isDivergence = breachRsi < point.watchRsi; // RSI가 낮아짐 = 하락 다이버전스
+    } else {
+      isDivergence = breachRsi > point.watchRsi; // RSI가 높아짐 = 상승 다이버전스
+    }
+
+    // 감시점 트리거 처리 (Hive 업데이트)
+    ref.read(rsiWatchPointProvider.notifier).markTriggered(
+      point.id,
+      triggeredPrice: breachPrice,
+      triggeredRsi: breachRsi,
+    );
+
+    // 다이버전스인 경우 알림 표시
+    if (isDivergence) {
+      _showDivergenceResult(point, breachPrice, breachRsi, breachDate);
+    }
+  }
+
+  /// 과거 돌파 다이버전스 결과를 SnackBar로 즉시 표시
+  void _showDivergenceResult(
+    RsiWatchPoint point,
+    double breachPrice,
+    double breachRsi,
+    DateTime breachDate,
+  ) {
+    if (!mounted) return;
+    final isBearish = point.mode == RsiWatchMode.bearish;
+    final modeLabel = isBearish ? '하락' : '상승';
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '$modeLabel 다이버전스 감지!\n'
+          'RSI ${point.watchRsi.toStringAsFixed(1)} -> ${breachRsi.toStringAsFixed(1)}  '
+          '(\$${breachPrice.toStringAsFixed(2)}, ${DateFormat('yyyy-MM-dd').format(breachDate)})',
+        ),
+        backgroundColor: isBearish ? AppColors.red500 : AppColors.blue500,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   @override
