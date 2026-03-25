@@ -14,6 +14,7 @@ class SubChartList extends StatelessWidget {
   final double chartWidth;
   final int? selectedCandleDisplayIndex;
   final int scrollOffset;
+  final ChartSizes? chartSizes;
 
   // RSI drawing
   final GlobalKey<RsiDrawingOverlayState>? rsiDrawingKey;
@@ -28,6 +29,7 @@ class SubChartList extends StatelessWidget {
     required this.chartWidth,
     this.selectedCandleDisplayIndex,
     this.scrollOffset = 0,
+    this.chartSizes,
     this.rsiDrawingKey,
     this.rsiDrawingLines,
     this.onRsiDrawingLinesChanged,
@@ -37,6 +39,7 @@ class SubChartList extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final textColor = context.appTextSecondary;
+    final sizes = chartSizes ?? ChartSizes.fromWidth(MediaQuery.sizeOf(context).width);
 
     // Crosshair X
     double? crosshairX;
@@ -81,9 +84,9 @@ class SubChartList extends StatelessWidget {
           ),
           wrapWithCrosshair(
             SizedBox(
-              height: 50,
+              height: sizes.vol,
               child: CustomPaint(
-                size: Size(chartWidth, 50),
+                size: Size(chartWidth, sizes.vol),
                 painter: VolumePainter(
                   data: displayData,
                   isDarkMode: isDarkMode,
@@ -91,7 +94,7 @@ class SubChartList extends StatelessWidget {
                 ),
               ),
             ),
-            50,
+            sizes.vol,
           ),
         ],
         // RSI (with drawing overlay)
@@ -99,7 +102,7 @@ class SubChartList extends StatelessWidget {
           RsiDrawingOverlay(
             key: rsiDrawingKey,
             chartWidth: chartWidth,
-            chartHeight: 120,
+            chartHeight: sizes.rsi,
             rsiValues: indicators.displayRSI!,
             fullRsiValues: indicators.fullRSI ?? indicators.displayRSI!,
             isDarkMode: isDarkMode,
@@ -125,9 +128,9 @@ class SubChartList extends StatelessWidget {
           ),
           wrapWithCrosshair(
             SizedBox(
-              height: 100,
+              height: sizes.macd,
               child: CustomPaint(
-                size: Size(chartWidth, 100),
+                size: Size(chartWidth, sizes.macd),
                 painter: MACDPainter(
                   macdValues: indicators.displayMACD!,
                   isDarkMode: isDarkMode,
@@ -135,7 +138,7 @@ class SubChartList extends StatelessWidget {
                 ),
               ),
             ),
-            100,
+            sizes.macd,
           ),
         ],
         // Stochastic
@@ -147,9 +150,9 @@ class SubChartList extends StatelessWidget {
           ),
           wrapWithCrosshair(
             SizedBox(
-              height: 100,
+              height: sizes.stoch,
               child: CustomPaint(
-                size: Size(chartWidth, 100),
+                size: Size(chartWidth, sizes.stoch),
                 painter: StochasticPainter(
                   stochValues: indicators.displayStoch!,
                   isDarkMode: isDarkMode,
@@ -157,7 +160,7 @@ class SubChartList extends StatelessWidget {
                 ),
               ),
             ),
-            100,
+            sizes.stoch,
           ),
         ],
         // OBV
@@ -169,9 +172,9 @@ class SubChartList extends StatelessWidget {
           ),
           wrapWithCrosshair(
             SizedBox(
-              height: 80,
+              height: sizes.obv,
               child: CustomPaint(
-                size: Size(chartWidth, 80),
+                size: Size(chartWidth, sizes.obv),
                 painter: OBVPainter(
                   obvValues: indicators.displayOBV!,
                   isDarkMode: isDarkMode,
@@ -179,7 +182,7 @@ class SubChartList extends StatelessWidget {
                 ),
               ),
             ),
-            80,
+            sizes.obv,
           ),
         ],
       ],

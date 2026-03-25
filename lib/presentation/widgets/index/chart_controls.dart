@@ -2,6 +2,42 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/technical_indicator_service.dart';
 
+// ─────────────────────────────────────────────────────────────
+// 반응형 차트 높이 (화면 폭 breakpoint 기반)
+// ─────────────────────────────────────────────────────────────
+
+class ChartSizes {
+  final double main;
+  final double vol;
+  final double rsi;
+  final double macd;
+  final double stoch;
+  final double obv;
+
+  const ChartSizes._({
+    required this.main,
+    required this.vol,
+    required this.rsi,
+    required this.macd,
+    required this.stoch,
+    required this.obv,
+  });
+
+  /// 화면 폭 기준 차트 높이 계산
+  factory ChartSizes.fromWidth(double screenWidth) {
+    if (screenWidth >= 1200) {
+      // Desktop
+      return const ChartSizes._(main: 450, vol: 65, rsi: 160, macd: 140, stoch: 140, obv: 110);
+    } else if (screenWidth >= 768) {
+      // Tablet
+      return const ChartSizes._(main: 380, vol: 55, rsi: 140, macd: 120, stoch: 120, obv: 90);
+    } else {
+      // Mobile
+      return const ChartSizes._(main: 300, vol: 50, rsi: 120, macd: 100, stoch: 100, obv: 80);
+    }
+  }
+}
+
 /// 기간 선택기 (일봉/주봉/월봉)
 class ChartPeriodSelector extends StatelessWidget {
   final String selectedPeriod;

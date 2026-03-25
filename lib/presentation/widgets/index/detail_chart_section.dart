@@ -345,6 +345,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
               final screenWidth = MediaQuery.sizeOf(context).width;
               final rightMargin = screenWidth >= 768 ? 40.0 : 0.0;
               final chartWidth = constraints.maxWidth - rightMargin;
+              final chartSizes = ChartSizes.fromWidth(screenWidth);
+              final mainChartHeight = chartSizes.main;
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -356,7 +358,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                         final yRange = ChartCoordinateCalculator.calculate(
                           data: displayData,
                           width: chartWidth,
-                          height: 300,
+                          height: mainChartHeight,
                           bollingerBands: ind.displayBB,
                           ichimoku: ind.displayIchimoku,
                           bbSummary: ind.bbSummary,
@@ -384,13 +386,13 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                               children: [
                                 // 메인 캔들스틱 차트
                                 SizedBox(
-                                  height: 300,
+                                  height: mainChartHeight,
                                   child: Stack(
                                     clipBehavior: Clip.none,
                                     children: [
                                       // 캔들스틱 차트
                                       CustomPaint(
-                                        size: Size(chartWidth, 300),
+                                        size: Size(chartWidth, mainChartHeight),
                                         painter: DetailCandlestickPainter(
                                           data: displayData,
                                           ma5: displayMa5,
@@ -420,7 +422,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                       ),
                                       // 드로잉 오버레이 (+ 미리보기)
                                       CustomPaint(
-                                        size: Size(chartWidth, 300),
+                                        size: Size(chartWidth, mainChartHeight),
                                         painter: DrawingOverlayPainter(
                                           drawings: ref.watch(chartDrawingProvider),
                                           displayData: displayData,
@@ -502,6 +504,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                   indicators: ind,
                                   displayData: displayData,
                                   chartWidth: chartWidth,
+                                  chartSizes: chartSizes,
                                   selectedCandleDisplayIndex: (_selectedCandleIndex != null &&
                                       _selectedCandleIndex! >= offset && _selectedCandleIndex! < end)
                                       ? _selectedCandleIndex! - offset

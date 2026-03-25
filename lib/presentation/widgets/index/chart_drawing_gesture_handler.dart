@@ -24,10 +24,11 @@ extension _DrawingGestureHandler on _DetailChartSectionState {
     }
 
     final localPos = details.localPosition;
+    final mainH = ChartSizes.fromWidth(MediaQuery.sizeOf(context).width).main;
     final yRange = ChartCoordinateCalculator.calculate(
       data: displayData,
       width: chartWidth,
-      height: 300,
+      height: mainH,
       bollingerBands: displayBB,
       ichimoku: displayIchimoku,
       bbSummary: bbSummary,
