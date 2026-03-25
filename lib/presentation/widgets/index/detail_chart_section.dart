@@ -110,7 +110,10 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
 
   // RSI 드로잉: 메인 차트 롱프레스 → RSI 포인트 연결
   final _rsiDrawingKey = GlobalKey<RsiDrawingOverlayState>();
-  int? _rsiDrawingPendingFullIndex;
+  // 심볼별 static 캐시 → 페이지 이동 후 돌아와도 선 유지
+  static final Map<String, List<RsiDrawingLine>> _rsiDrawingCache = {};
+  List<RsiDrawingLine> get _rsiDrawingLines =>
+      _rsiDrawingCache.putIfAbsent(widget.symbol, () => []);
 
   // 측정 도구 상태 (Hive 비저장)
   bool _isMeasuring = false;
@@ -505,6 +508,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
                                       : null,
                                   scrollOffset: offset,
                                   rsiDrawingKey: _rsiDrawingKey,
+                                  rsiDrawingLines: _rsiDrawingLines,
+                                  onRsiDrawingLinesChanged: () => setState(() {}),
                                 ),
                               ],
                             ),

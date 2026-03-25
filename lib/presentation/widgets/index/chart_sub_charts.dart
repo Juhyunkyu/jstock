@@ -15,10 +15,10 @@ class SubChartList extends StatelessWidget {
   final int? selectedCandleDisplayIndex;
   final int scrollOffset;
 
-  // RSI drawing: external point from main chart long-press
-  final int? rsiDrawingPendingFullIndex;
-  final VoidCallback? onRsiDrawingPointConsumed;
+  // RSI drawing
   final GlobalKey<RsiDrawingOverlayState>? rsiDrawingKey;
+  final List<RsiDrawingLine>? rsiDrawingLines;
+  final VoidCallback? onRsiDrawingLinesChanged;
 
   const SubChartList({
     super.key,
@@ -28,9 +28,9 @@ class SubChartList extends StatelessWidget {
     required this.chartWidth,
     this.selectedCandleDisplayIndex,
     this.scrollOffset = 0,
-    this.rsiDrawingPendingFullIndex,
-    this.onRsiDrawingPointConsumed,
     this.rsiDrawingKey,
+    this.rsiDrawingLines,
+    this.onRsiDrawingLinesChanged,
   });
 
   @override
@@ -112,8 +112,8 @@ class SubChartList extends StatelessWidget {
                 : const Color(0xFF7B1FA2),
             rsiSignal: indicators.rsiSignal,
             crosshairX: crosshairX,
-            pendingFullIndex: rsiDrawingPendingFullIndex,
-            onPointConsumed: onRsiDrawingPointConsumed,
+            externalLines: rsiDrawingLines,
+            onLinesChanged: onRsiDrawingLinesChanged,
           ),
         ],
         // MACD
