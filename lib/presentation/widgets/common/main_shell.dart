@@ -173,13 +173,14 @@ class _MainShellState extends ConsumerState<MainShell> {
           if (bbValues[i].upper != null) { lastBB = bbValues[i]; break; }
         }
 
-        // 4. BB 터치 확인
+        // 4. BB 터치 확인 (종가 기준 — 종가가 BB 밖에서 마감해야 진짜 고점/저점)
+        final lastClose = chartData[lastIndex].close;
         bool bbTouched = false;
         if (lastBB != null) {
           if (point.mode == RsiWatchMode.bearish) {
-            bbTouched = chartData[lastIndex].high >= lastBB.upper!;
+            bbTouched = lastClose >= lastBB.upper!;
           } else {
-            bbTouched = lastBB.lower != null && chartData[lastIndex].low <= lastBB.lower!;
+            bbTouched = lastBB.lower != null && lastClose <= lastBB.lower!;
           }
         }
 

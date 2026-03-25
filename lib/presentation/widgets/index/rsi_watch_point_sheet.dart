@@ -183,31 +183,32 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
       if (i >= bbValues.length) continue;
       final bb = bbValues[i];
 
-      // 1. 가격 돌파 체크
+      // 1. 가격 돌파 체크 (종가 기준)
+      final closePrice = chartData[i].close;
       bool priceBreached;
       if (point.mode == RsiWatchMode.bearish) {
-        priceBreached = chartData[i].high > currentWatchPrice;
+        priceBreached = closePrice > currentWatchPrice;
       } else {
-        priceBreached = chartData[i].low < currentWatchPrice;
+        priceBreached = closePrice < currentWatchPrice;
       }
       if (!priceBreached) continue;
       priceBreachCount++;
 
-      // 2. BB 터치 체크
+      // 2. BB 터치 체크 (종가 기준 — 종가가 BB 밖에서 마감해야 진짜 고점/저점)
       bool bbTouched;
       if (point.mode == RsiWatchMode.bearish) {
-        bbTouched = bb.upper != null && chartData[i].high >= bb.upper!;
+        bbTouched = bb.upper != null && closePrice >= bb.upper!;
       } else {
-        bbTouched = bb.lower != null && chartData[i].low <= bb.lower!;
+        bbTouched = bb.lower != null && closePrice <= bb.lower!;
       }
       if (!bbTouched) {
         if (priceBreachCount <= 3) {
-          debugPrint('[RsiWatch] [$i] price breached but BB NOT touched: high=${chartData[i].high}, bb.upper=${bb.upper}, low=${chartData[i].low}, bb.lower=${bb.lower}');
+          debugPrint('[RsiWatch] [$i] price breached but BB NOT touched: close=$closePrice, bb.upper=${bb.upper}, bb.lower=${bb.lower}');
         }
         continue;
       }
       bbTouchCount++;
-      debugPrint('[RsiWatch] [$i] BB TOUCHED! high=${chartData[i].high}, bb.upper=${bb.upper}, low=${chartData[i].low}, bb.lower=${bb.lower}, rsi=${rsiValues[i]}');
+      debugPrint('[RsiWatch] [$i] BB TOUCHED! close=$closePrice, bb.upper=${bb.upper}, bb.lower=${bb.lower}, rsi=${rsiValues[i]}');
 
       // 3. RSI 비교
       final candleRsi = rsiValues[i]!;
@@ -226,14 +227,11 @@ class _WatchPointSetupSheetState extends State<_WatchPointSetupSheet> {
         divergencePrice = chartData[i].close;
         break;
       } else {
-        // 다이버전스 아님 → 이 지점을 새 기준점으로 자동 갱신
-        if (point.mode == RsiWatchMode.bearish) {
-          currentWatchPrice = chartData[i].high;
-        } else {
-          currentWatchPrice = chartData[i].low;
-        }
+        // 다이버전스 아님 → 이 지점을 새 기준점으로 자동 갱신 (종가 기준)
+        currentWatchPrice = closePrice;
         currentWatchRsi = candleRsi;
         currentWatchDate = chartData[i].date;
+        debugPrint('[RsiWatch] [$i] Auto-renew: price=$closePrice, rsi=$candleRsi');
         // 루프 계속 (다음 돌파 찾기)
       }
     }
