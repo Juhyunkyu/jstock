@@ -297,6 +297,15 @@ class CycleTradeCard extends ConsumerWidget {
                     Text(formatKrw(totalBuyKrw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
                   ],
                 ),
+                // 옵션 버튼 (수정/삭제)
+                if (!readOnly)
+                  GestureDetector(
+                    onTap: () => _showGroupedTradeOptions(context, ref, trades),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(Icons.more_vert_rounded, size: 18, color: context.appTextHint),
+                    ),
+                  ),
               ],
             ),
             // 개별 거래 상세
@@ -375,6 +384,60 @@ class CycleTradeCard extends ConsumerWidget {
                 ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showGroupedTradeOptions(BuildContext context, WidgetRef ref, List<Trade> trades) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 개별 거래 수정
+              for (final t in trades)
+                ListTile(
+                  leading: Icon(Icons.edit_outlined, color: context.appTextSecondary),
+                  title: Text(
+                    '${SignalBadgeConfig.fromSignal(t.signal).label} 수정 (\$${t.price.toStringAsFixed(2)})',
+                    style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showEditTradeSheet(context, ref, specificTrade: t);
+                  },
+                ),
+              const Divider(height: 1),
+              // 전체 삭제
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: AppColors.red500),
+                title: const Text('전체 삭제', style: TextStyle(fontSize: 14, color: AppColors.red500)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final confirmed = await ConfirmDialog.show(
+                    context: context,
+                    title: '거래 삭제',
+                    message: '이 그룹의 거래 ${trades.length}건을 모두 삭제하시겠습니까?',
+                    confirmText: '삭제',
+                    isDanger: true,
+                  );
+                  if (confirmed) {
+                    for (final t in trades) {
+                      ref.read(tradeListProvider(cycle.id).notifier).deleteTradeAndRecalculate(t.id);
+                    }
+                  }
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -584,8 +647,9 @@ class CycleTradeCard extends ConsumerWidget {
   // 수정 시트
   // ═══════════════════════════════════════════════════════════════
 
-  void _showEditTradeSheet(BuildContext context, WidgetRef ref) {
-    final isBuy = trade.action == TradeAction.buy;
+  void _showEditTradeSheet(BuildContext context, WidgetRef ref, {Trade? specificTrade}) {
+    final editTarget = specificTrade ?? trade;
+    final isBuy = editTarget.action == TradeAction.buy;
 
     showModalBottomSheet(
       context: context,
@@ -598,9 +662,9 @@ class CycleTradeCard extends ConsumerWidget {
         height: MediaQuery.sizeOf(context).height,
         child: CycleTradeRecordSheet(
           cycle: cycle,
-          currentExchangeRate: trade.exchangeRate,
+          currentExchangeRate: editTarget.exchangeRate,
           currentSignal: TradeSignal.hold,
-          editingTrade: trade,
+          editingTrade: editTarget,
           editTitle: isBuy ? '매수 기록 수정' : '매도 기록 수정',
           onSubmit: ({
             required bool isBuy,
@@ -612,17 +676,18 @@ class CycleTradeCard extends ConsumerWidget {
             String? memo,
             double extraFundingAmount = 0,
           }) {
-            trade.signal = signal;
-            trade.price = price;
-            trade.shares = shares;
-            trade.exchangeRate = exchangeRate;
-            trade.memo = memo;
+            editTarget.signal = signal;
+            editTarget.price = price;
+            editTarget.shares = shares;
+            editTarget.exchangeRate = exchangeRate;
+            editTarget.tradedAt = date;
+            editTarget.memo = memo;
 
-            trade.amountKrw = price * shares * exchangeRate;
+            editTarget.amountKrw = price * shares * exchangeRate;
 
             ref
                 .read(tradeListProvider(cycle.id).notifier)
-                .updateTrade(trade);
+                .updateTrade(editTarget);
           },
         ),
       ),

@@ -387,17 +387,18 @@ class _SteadyCombinedTradeSheetState
     return Column(
       children: [
         if (onlyBRecommended)
-          _buildInfoChip(context, '💡 현재가 > 평단가 — ${orderB?.label ?? "LOC B"}만 매수 추천')
-        else
-          _buildOrderInput(
-            context: context,
-            label: orderA?.label ?? 'LOC A',
-            labelColor: AppColors.blue500,
-            priceCtrl: _buyAPriceCtrl,
-            sharesCtrl: _buyASharesCtrl,
-            recommendedPrice: orderA?.price,
-            recommendedShares: orderA?.shares,
-          ),
+          _buildInfoChip(context, '💡 현재가 > 평단가 — ${orderB?.label ?? "LOC B"}만 매수 추천'),
+        if (onlyBRecommended)
+          const SizedBox(height: 8),
+        _buildOrderInput(
+          context: context,
+          label: orderA?.label ?? 'LOC A',
+          labelColor: AppColors.blue500,
+          priceCtrl: _buyAPriceCtrl,
+          sharesCtrl: _buyASharesCtrl,
+          recommendedPrice: orderA?.price,
+          recommendedShares: orderA?.shares,
+        ),
         const SizedBox(height: 12),
         _buildOrderInput(
           context: context,

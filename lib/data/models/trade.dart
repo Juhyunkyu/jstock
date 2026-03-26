@@ -78,7 +78,7 @@ class Trade extends HiveObject {
   double exchangeRate;
 
   @HiveField(8)
-  final DateTime tradedAt;
+  DateTime tradedAt;
 
   @HiveField(9)
   String? memo;
