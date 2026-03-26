@@ -83,6 +83,10 @@ class Trade extends HiveObject {
   @HiveField(9)
   String? memo;
 
+  /// 같은 세션에서 기록된 거래끼리 묶는 그룹 ID (LOC A+B 통합 표시용)
+  @HiveField(10)
+  String? groupId;
+
   Trade({
     required this.id,
     required this.cycleId,
@@ -94,6 +98,7 @@ class Trade extends HiveObject {
     required this.exchangeRate,
     DateTime? tradedAt,
     this.memo,
+    this.groupId,
   }) : tradedAt = tradedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -107,6 +112,7 @@ class Trade extends HiveObject {
     'exchangeRate': exchangeRate,
     'tradedAt': tradedAt.toIso8601String(),
     'memo': memo,
+    'groupId': groupId,
   };
 
   static TradeSignal _parseTradeSignal(String value) {
@@ -128,6 +134,7 @@ class Trade extends HiveObject {
     exchangeRate: (json['exchangeRate'] as num).toDouble(),
     tradedAt: DateTime.parse(json['tradedAt'] as String),
     memo: json['memo'] as String?,
+    groupId: json['groupId'] as String?,
   );
 
   @override

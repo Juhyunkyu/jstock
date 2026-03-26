@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import '../../../../data/models/cycle.dart';
@@ -27,6 +28,7 @@ class SteadyCombinedTradeSheet extends ConsumerStatefulWidget {
     required double exchangeRate,
     required DateTime date,
     String? memo,
+    String? groupId,
   }) onRecordBuy;
 
   /// 매도 기록 콜백
@@ -37,6 +39,7 @@ class SteadyCombinedTradeSheet extends ConsumerStatefulWidget {
     required double exchangeRate,
     required DateTime date,
     String? memo,
+    String? groupId,
   }) onRecordSell;
 
   const SteadyCombinedTradeSheet({
@@ -376,17 +379,25 @@ class _SteadyCombinedTradeSheetState
     final orderA = guide?.buyOrderA;
     final orderB = guide?.buyOrderB;
 
+    // 현재가 > 평단가 → LOC A(평단가 주문)는 체결 안 됨 → LOC B만 추천
+    final currentPrice = widget.currentPrice;
+    final avgPrice = widget.cycle.averagePrice;
+    final onlyBRecommended = currentPrice != null && avgPrice > 0 && currentPrice > avgPrice;
+
     return Column(
       children: [
-        _buildOrderInput(
-          context: context,
-          label: orderA?.label ?? 'LOC A',
-          labelColor: AppColors.blue500,
-          priceCtrl: _buyAPriceCtrl,
-          sharesCtrl: _buyASharesCtrl,
-          recommendedPrice: orderA?.price,
-          recommendedShares: orderA?.shares,
-        ),
+        if (onlyBRecommended)
+          _buildInfoChip(context, '💡 현재가 > 평단가 — ${orderB?.label ?? "LOC B"}만 매수 추천')
+        else
+          _buildOrderInput(
+            context: context,
+            label: orderA?.label ?? 'LOC A',
+            labelColor: AppColors.blue500,
+            priceCtrl: _buyAPriceCtrl,
+            sharesCtrl: _buyASharesCtrl,
+            recommendedPrice: orderA?.price,
+            recommendedShares: orderA?.shares,
+          ),
         const SizedBox(height: 12),
         _buildOrderInput(
           context: context,
@@ -896,6 +907,8 @@ class _SteadyCombinedTradeSheetState
     final exchangeRate = widget.currentExchangeRate;
     final date = _selectedDate;
     final memo = _memoController.text.isEmpty ? null : _memoController.text;
+    // 같은 세션의 모든 거래를 하나의 그룹으로 묶음
+    final sessionGroupId = const Uuid().v4();
 
     try {
       // Record buys first
@@ -907,6 +920,7 @@ class _SteadyCombinedTradeSheetState
           exchangeRate: exchangeRate,
           date: date,
           memo: memo,
+          groupId: sessionGroupId,
         );
       }
       if (_buyBPrice > 0 && _buyBShares > 0) {
@@ -916,6 +930,7 @@ class _SteadyCombinedTradeSheetState
           shares: _buyBShares,
           exchangeRate: exchangeRate,
           date: date,
+          groupId: sessionGroupId,
         );
       }
       if (_buySinglePrice > 0 && _buySingleShares > 0) {
@@ -926,6 +941,7 @@ class _SteadyCombinedTradeSheetState
           exchangeRate: exchangeRate,
           date: date,
           memo: memo,
+          groupId: sessionGroupId,
         );
       }
 
@@ -937,6 +953,7 @@ class _SteadyCombinedTradeSheetState
           shares: _sellLocShares,
           exchangeRate: exchangeRate,
           date: date,
+          groupId: sessionGroupId,
         );
       }
       if (_sellLimitPrice > 0 && _sellLimitShares > 0) {
@@ -946,6 +963,7 @@ class _SteadyCombinedTradeSheetState
           shares: _sellLimitShares,
           exchangeRate: exchangeRate,
           date: date,
+          groupId: sessionGroupId,
         );
       }
 

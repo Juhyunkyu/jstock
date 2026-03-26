@@ -41,6 +41,8 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     required double amountKrw,
     required double exchangeRate,
     String? memo,
+    String? groupId,
+    DateTime? tradedAt,
     double extraFundingAmount = 0,
   }) async {
     if (price <= 0 || exchangeRate <= 0) {
@@ -73,7 +75,9 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       shares: shares,
       amountKrw: actualAmount,
       exchangeRate: exchangeRate,
+      tradedAt: tradedAt,
       memo: memo,
+      groupId: groupId,
     );
 
     await _repository.save(trade);
@@ -93,6 +97,8 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     required double shares,
     required double exchangeRate,
     String? memo,
+    String? groupId,
+    DateTime? tradedAt,
   }) async {
     if (price <= 0 || exchangeRate <= 0) {
       throw ArgumentError('Invalid price or exchange rate');
@@ -114,7 +120,9 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       shares: actualShares,
       amountKrw: amountKrw,
       exchangeRate: exchangeRate,
+      tradedAt: tradedAt,
       memo: memo,
+      groupId: groupId,
     );
 
     await _repository.save(trade);
@@ -160,6 +168,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     bool panicBuyUsed = false;
     int roundsUsed = 0;
     double? entryPrice;
+    final countedGroupIds = <String>{}; // groupId 중복 카운트 방지
 
     for (final trade in trades) {
       if (trade.action == TradeAction.buy) {
@@ -178,12 +187,19 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
         }
 
         // Strategy B: 라운드 카운트 (LOC 신호 매수에서만 증가, 수동 매수 제외)
+        // groupId가 있으면 같은 그룹은 1회만 카운트
         if (cycle.strategyType == StrategyType.infiniteBuy &&
             (trade.signal == TradeSignal.locAB ||
              trade.signal == TradeSignal.locA ||
              trade.signal == TradeSignal.locB ||
              trade.signal == TradeSignal.buySingle)) {
-          roundsUsed += 1;
+          if (trade.groupId != null) {
+            if (countedGroupIds.add(trade.groupId!)) {
+              roundsUsed += 1;
+            }
+          } else {
+            roundsUsed += 1;
+          }
         }
       } else {
         totalSellShares += trade.shares;

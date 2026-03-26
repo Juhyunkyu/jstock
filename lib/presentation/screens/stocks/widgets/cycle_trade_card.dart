@@ -21,6 +21,7 @@ import 'cycle_trade_record_sheet.dart';
 /// - ⋮ 버튼 → 옵션 BottomSheet (수정/삭제)
 class CycleTradeCard extends ConsumerWidget {
   final Trade trade;
+  final List<Trade>? groupedTrades; // 같은 groupId로 묶인 거래들
   final Cycle cycle;
   final bool isFirst;
   final bool isLast;
@@ -29,6 +30,7 @@ class CycleTradeCard extends ConsumerWidget {
   const CycleTradeCard({
     super.key,
     required this.trade,
+    this.groupedTrades,
     required this.cycle,
     this.isFirst = false,
     this.isLast = false,
@@ -37,6 +39,11 @@ class CycleTradeCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 그룹화된 거래가 있으면 합쳐서 표시
+    if (groupedTrades != null && groupedTrades!.length > 1) {
+      return _buildGroupedCard(context, ref);
+    }
+
     final isBuy = trade.action == TradeAction.buy;
     final isInitial = isBuy && trade.signal == TradeSignal.initial;
     final amountUsd = trade.price * trade.shares;
@@ -226,6 +233,152 @@ class CycleTradeCard extends ConsumerWidget {
   // ═══════════════════════════════════════════════════════════════
   // 거래 상세 BottomSheet
   // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildGroupedCard(BuildContext context, WidgetRef ref) {
+    final trades = groupedTrades!;
+    final buyTrades = trades.where((t) => t.action == TradeAction.buy).toList();
+    final sellTrades = trades.where((t) => t.action == TradeAction.sell).toList();
+    final dateFormat = DateFormat('yyyy.MM.dd');
+
+    // 매수 합계
+    final totalBuyShares = buyTrades.fold<double>(0, (s, t) => s + t.shares);
+    final totalBuyUsd = buyTrades.fold<double>(0, (s, t) => s + t.price * t.shares);
+    final avgBuyPrice = totalBuyShares > 0 ? totalBuyUsd / totalBuyShares : 0.0;
+    final totalBuyKrw = buyTrades.fold<double>(0, (s, t) => s + t.amountKrw);
+
+    // 신호 라벨
+    final signals = buyTrades.map((t) => SignalBadgeConfig.fromSignal(t.signal).label).toSet();
+    final signalLabel = signals.join(' + ');
+
+    return Container(
+      margin: EdgeInsets.only(
+        left: 16, right: 16,
+        top: isFirst ? 0 : 3,
+        bottom: isLast ? 0 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.appBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 헤더: 매수 배지 + 날짜 + 신호
+            Row(
+              children: [
+                Container(
+                  width: 44, height: 36,
+                  decoration: BoxDecoration(
+                    color: AppColors.buyAction50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text('매수', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.buyAction)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(dateFormat.format(trade.tradedAt), style: TextStyle(fontSize: 12, color: context.appTextHint)),
+                      const SizedBox(height: 2),
+                      Text(signalLabel, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent)),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('\$${totalBuyUsd.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.appTextPrimary)),
+                    Text(formatKrw(totalBuyKrw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                  ],
+                ),
+              ],
+            ),
+            // 개별 거래 상세
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: context.appBackground,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                children: [
+                  for (final t in buyTrades) ...[
+                    Row(
+                      children: [
+                        Text(
+                          SignalBadgeConfig.fromSignal(t.signal).label,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '\$${t.price.toStringAsFixed(2)} × ${t.shares.toStringAsFixed(4)}주',
+                          style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '\$${(t.price * t.shares).toStringAsFixed(2)}',
+                          style: TextStyle(fontSize: 11, color: context.appTextPrimary),
+                        ),
+                      ],
+                    ),
+                    if (t != buyTrades.last) const SizedBox(height: 4),
+                  ],
+                  if (buyTrades.length > 1) ...[
+                    Divider(height: 12, color: context.appDivider),
+                    Row(
+                      children: [
+                        Text('합계', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextSecondary)),
+                        const SizedBox(width: 8),
+                        Text(
+                          '평균 \$${avgBuyPrice.toStringAsFixed(2)} × ${totalBuyShares.toStringAsFixed(4)}주',
+                          style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            // 매도 거래가 있으면 표시
+            if (sellTrades.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              for (final t in sellTrades)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.sellAction50,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          SignalBadgeConfig.fromSignal(t.signal).label,
+                          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: AppColors.sellAction),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '\$${t.price.toStringAsFixed(2)} × ${t.shares.toStringAsFixed(4)}주',
+                        style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
 
   void _showTradeDetail(BuildContext context, double amountUsd) {
     final isBuy = trade.action == TradeAction.buy;

@@ -454,6 +454,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               required exchangeRate,
               required date,
               memo,
+              groupId,
             }) async {
               final amountKrw = shares * price * exchangeRate;
               await ref.read(tradeListProvider(widget.cycleId).notifier).recordBuy(
@@ -463,6 +464,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     amountKrw: amountKrw,
                     exchangeRate: exchangeRate,
                     memo: memo,
+                    groupId: groupId,
+                    tradedAt: date,
                   );
             },
             onRecordSell: ({
@@ -472,6 +475,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               required exchangeRate,
               required date,
               memo,
+              groupId,
             }) async {
               await ref.read(tradeListProvider(widget.cycleId).notifier).recordSell(
                     cycleId: widget.cycleId,
@@ -480,6 +484,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     shares: shares,
                     exchangeRate: exchangeRate,
                     memo: memo,
+                    groupId: groupId,
+                    tradedAt: date,
                   );
             },
           ),
@@ -587,13 +593,38 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             ),
           )
         else
-          ...trades.asMap().entries.map((entry) => CycleTradeCard(
-            trade: entry.value,
-            cycle: cycle,
-            isFirst: entry.key == 0,
-            isLast: entry.key == trades.length - 1,
-            readOnly: cycle.status != CycleStatus.active,
-          )),
+          // groupId 기준으로 거래 묶기 (같은 그룹 = 1개 카드)
+          ...() {
+            final grouped = <String, List<Trade>>{};
+            final ungrouped = <Trade>[];
+            for (final t in trades) {
+              if (t.groupId != null) {
+                grouped.putIfAbsent(t.groupId!, () => []).add(t);
+              } else {
+                ungrouped.add(t);
+              }
+            }
+            // 그룹화된 것은 첫 번째 거래 기준으로 정렬, 미그룹은 그대로
+            final allEntries = <List<Trade>>[];
+            final processedGroups = <String>{};
+            for (final t in trades) {
+              if (t.groupId != null) {
+                if (processedGroups.add(t.groupId!)) {
+                  allEntries.add(grouped[t.groupId!]!);
+                }
+              } else {
+                allEntries.add([t]);
+              }
+            }
+            return allEntries.asMap().entries.map((entry) => CycleTradeCard(
+              trade: entry.value.first,
+              groupedTrades: entry.value.length > 1 ? entry.value : null,
+              cycle: cycle,
+              isFirst: entry.key == 0,
+              isLast: entry.key == allEntries.length - 1,
+              readOnly: cycle.status != CycleStatus.active,
+            ));
+          }(),
       ],
     );
   }
