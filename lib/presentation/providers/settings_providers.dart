@@ -128,10 +128,19 @@ class SettingsNotifier extends StateNotifier<Settings> {
     state = repo.settings;
   }
 
-  /// 다크 모드 설정
+  /// 다크 모드 설정 (레거시 호환)
   Future<void> setDarkMode(bool isDark) async {
     final repo = _ref.read(settingsRepositoryProvider);
     await repo.save(state.copyWith(useDarkMode: isDark));
+    state = repo.settings;
+  }
+
+  /// 테마 타입 설정
+  Future<void> setThemeType(int type) async {
+    final repo = _ref.read(settingsRepositoryProvider);
+    // useDarkMode도 동기화 (isDark 계열인지에 따라)
+    final isDark = type == 1 || type == 2 || type == 3 || type == 4; // dark, amoled, midnight, olive
+    await repo.save(state.copyWith(themeType: type, useDarkMode: isDark));
     state = repo.settings;
   }
 

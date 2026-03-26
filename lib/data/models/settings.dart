@@ -119,6 +119,10 @@ class Settings extends HiveObject {
   @HiveField(20, defaultValue: false)
   bool notificationMuted;
 
+  /// 테마 타입 (0=light, 1=dark, 2=amoledBlack, 3=midnightBlue, 4=darkOlive, 5=cream, 6=coolGray, 7=system)
+  @HiveField(21, defaultValue: 1)
+  int themeType;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -141,6 +145,7 @@ class Settings extends HiveObject {
     this.holdingChartColor = 0,
     this.steadyCycleChartColor = 0,
     this.notificationMuted = false,
+    this.themeType = 1,
   });
 
   /// 기본 설정 생성
@@ -169,6 +174,7 @@ class Settings extends HiveObject {
     int? holdingChartColor,
     int? steadyCycleChartColor,
     bool? notificationMuted,
+    int? themeType,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -192,6 +198,7 @@ class Settings extends HiveObject {
       holdingChartColor: holdingChartColor ?? this.holdingChartColor,
       steadyCycleChartColor: steadyCycleChartColor ?? this.steadyCycleChartColor,
       notificationMuted: notificationMuted ?? this.notificationMuted,
+      themeType: themeType ?? this.themeType,
     );
   }
 
@@ -217,6 +224,7 @@ class Settings extends HiveObject {
         'holdingChartColor': holdingChartColor,
         'steadyCycleChartColor': steadyCycleChartColor,
         'notificationMuted': notificationMuted,
+        'themeType': themeType,
       };
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
@@ -241,6 +249,7 @@ class Settings extends HiveObject {
         holdingChartColor: json['holdingChartColor'] as int? ?? 0,
         steadyCycleChartColor: json['steadyCycleChartColor'] as int? ?? 0,
         notificationMuted: json['notificationMuted'] as bool? ?? false,
+        themeType: json['themeType'] as int? ?? 1,
       );
 
   @override

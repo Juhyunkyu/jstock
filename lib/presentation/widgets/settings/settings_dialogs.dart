@@ -5,35 +5,37 @@ import '../../providers/providers.dart';
 
 /// 테마 설정 다이얼로그
 void showThemeDialog(BuildContext context, WidgetRef ref) {
-  final settings = ref.read(settingsProvider);
+  final currentType = ref.read(settingsProvider).themeType;
 
   showDialog(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (ctx) => AlertDialog(
+      backgroundColor: context.appSurface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('테마 설정'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _ThemeOption(
-            title: '라이트 모드',
-            icon: Icons.light_mode_outlined,
-            isSelected: !settings.useDarkMode,
-            onTap: () {
-              ref.read(settingsProvider.notifier).setDarkMode(false);
-              Navigator.pop(context);
-            },
-          ),
-          _ThemeOption(
-            title: '다크 모드',
-            icon: Icons.dark_mode_outlined,
-            isSelected: settings.useDarkMode,
-            onTap: () {
-              ref.read(settingsProvider.notifier).setDarkMode(true);
-              Navigator.pop(context);
-            },
-          ),
-        ],
+      title: Text('테마 설정', style: TextStyle(color: context.appTextPrimary)),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: AppThemeType.values.map((type) {
+            final index = type.index;
+            final isSelected = currentType == index;
+            final colors = type == AppThemeType.system
+                ? null
+                : AppColors.getThemeColors(type);
+            return _ThemeOption(
+              title: type.label,
+              icon: type.icon,
+              isSelected: isSelected,
+              previewColors: colors != null
+                  ? [colors.background, colors.surface, colors.accent]
+                  : null,
+              onTap: () {
+                ref.read(settingsProvider.notifier).setThemeType(index);
+                Navigator.pop(ctx);
+              },
+            );
+          }).toList(),
+        ),
       ),
     ),
   );
@@ -152,12 +154,14 @@ class _ThemeOption extends StatelessWidget {
   final String title;
   final IconData icon;
   final bool isSelected;
+  final List<Color>? previewColors; // [background, surface, accent]
   final VoidCallback onTap;
 
   const _ThemeOption({
     required this.title,
     required this.icon,
     required this.isSelected,
+    this.previewColors,
     required this.onTap,
   });
 
@@ -165,19 +169,33 @@ class _ThemeOption extends StatelessWidget {
   Widget build(BuildContext context) {
     final selectedColor = context.appAccent;
     return ListTile(
-      leading: Icon(
-        icon,
-        color: isSelected ? selectedColor : context.appTextSecondary,
-      ),
+      dense: true,
+      visualDensity: const VisualDensity(vertical: -1),
+      leading: previewColors != null
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: previewColors!.map((c) => Container(
+                width: 14,
+                height: 14,
+                margin: const EdgeInsets.only(right: 2),
+                decoration: BoxDecoration(
+                  color: c,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.appBorder, width: 0.5),
+                ),
+              )).toList(),
+            )
+          : Icon(icon, color: isSelected ? selectedColor : context.appTextSecondary, size: 20),
       title: Text(
         title,
         style: TextStyle(
+          fontSize: 14,
           color: isSelected ? selectedColor : context.appTextPrimary,
           fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
         ),
       ),
       trailing: isSelected
-          ? Icon(Icons.check, color: selectedColor)
+          ? Icon(Icons.check, color: selectedColor, size: 20)
           : null,
       onTap: onTap,
     );

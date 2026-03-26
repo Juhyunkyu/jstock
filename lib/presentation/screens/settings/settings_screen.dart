@@ -31,7 +31,7 @@ class SettingsScreen extends ConsumerWidget {
               SettingsItem(
                 icon: Icons.palette_outlined,
                 title: '테마',
-                subtitle: settings.useDarkMode ? '다크 모드' : '라이트 모드',
+                subtitle: AppThemeType.values[settings.themeType.clamp(0, AppThemeType.values.length - 1)].label,
                 onTap: () => showThemeDialog(context, ref),
               ),
               SettingsItem(

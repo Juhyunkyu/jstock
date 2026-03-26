@@ -18,12 +18,22 @@ class AlphaCycleApp extends ConsumerWidget {
     final initialization = ref.watch(appInitializationProvider);
     final settings = ref.watch(settingsProvider);
 
+    // 테마 적용
+    final themeType = AppThemeType.values[settings.themeType.clamp(0, AppThemeType.values.length - 1)];
+    final resolvedTheme = themeType == AppThemeType.system
+        ? (MediaQuery.platformBrightnessOf(context) == Brightness.dark
+            ? AppThemeType.dark
+            : AppThemeType.light)
+        : themeType;
+    setCurrentAppTheme(resolvedTheme);
+    final isDark = resolvedTheme.isDark;
+
     return MaterialApp.router(
       title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: settings.useDarkMode ? ThemeMode.dark : ThemeMode.light,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
       routerConfig: AppRouter.router,
       // 한국어 로케일 지원
       locale: const Locale('ko', 'KR'),
