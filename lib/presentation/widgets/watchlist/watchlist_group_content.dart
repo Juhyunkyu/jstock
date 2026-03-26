@@ -25,6 +25,7 @@ class WatchlistGroupContent extends ConsumerWidget {
   final void Function(String ticker) onTickerTap;
   final void Function(String ticker) onRemoveFromWatchlist;
   final void Function(String ticker) onRemoveFromRecent;
+  final void Function(String groupId, String ticker)? onRemoveFromGroup;
   final void Function(String ticker, double? currentPrice) onAlertTap;
   final void Function(String ticker) onStarTap;
   final VoidCallback? onClearAllRecent;
@@ -36,6 +37,7 @@ class WatchlistGroupContent extends ConsumerWidget {
     required this.onTickerTap,
     required this.onRemoveFromWatchlist,
     required this.onRemoveFromRecent,
+    this.onRemoveFromGroup,
     required this.onAlertTap,
     required this.onStarTap,
     this.onClearAllRecent,
@@ -118,6 +120,17 @@ class WatchlistGroupContent extends ConsumerWidget {
     final canAlert = tabType == WatchlistTabType.owned || tabType == WatchlistTabType.custom;
     final canDelete = tabType == WatchlistTabType.recent || tabType == WatchlistTabType.custom;
 
+    // 탭 종류별 삭제 라우팅
+    void handleRemove(String ticker) {
+      if (tabType == WatchlistTabType.recent) {
+        onRemoveFromRecent(ticker);
+      } else if (tabType == WatchlistTabType.custom && groupId != null && onRemoveFromGroup != null) {
+        onRemoveFromGroup!(groupId!, ticker);
+      } else {
+        onRemoveFromWatchlist(ticker);
+      }
+    }
+
     Widget buildWatchlistTile(
         _TickerDisplayItem item, int idx, {bool grid = false}) {
       return WatchlistTile(
@@ -127,9 +140,7 @@ class WatchlistGroupContent extends ConsumerWidget {
         showAlert: canAlert,
         showDelete: canDelete,
         onTap: () => onTickerTap(item.ticker),
-        onRemove: () => tabType == WatchlistTabType.recent
-            ? onRemoveFromRecent(item.ticker)
-            : onRemoveFromWatchlist(item.ticker),
+        onRemove: () => handleRemove(item.ticker),
         onAlertTap: (price) => onAlertTap(item.ticker, price),
         onStarTap: () => onStarTap(item.ticker),
       );
@@ -143,11 +154,7 @@ class WatchlistGroupContent extends ConsumerWidget {
         showDelete: canDelete,
         onTap: () => onTickerTap(item.ticker),
         onStarTap: () => onStarTap(item.ticker),
-        onDelete: canDelete
-            ? () => tabType == WatchlistTabType.recent
-                ? onRemoveFromRecent(item.ticker)
-                : onRemoveFromWatchlist(item.ticker)
-            : null,
+        onDelete: canDelete ? () => handleRemove(item.ticker) : null,
       );
     }
 

@@ -183,6 +183,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         onTickerTap: (ticker) => _onTickerTap(ticker),
         onRemoveFromWatchlist: _onRemove,
         onRemoveFromRecent: _onRemoveFromRecent,
+        onRemoveFromGroup: _onRemoveFromGroup,
         onAlertTap: _onAlertTap,
         onStarTap: _onStarTap,
       );
@@ -302,6 +303,16 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
 
   void _onRemoveFromRecent(String ticker) {
     ref.read(recentViewProvider.notifier).remove(ticker);
+  }
+
+  void _onRemoveFromGroup(String groupId, String ticker) {
+    ref.read(watchlistGroupProvider.notifier).removeTicker(groupId, ticker);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$ticker 그룹에서 제거됨'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   void _onClearAllRecent() {
