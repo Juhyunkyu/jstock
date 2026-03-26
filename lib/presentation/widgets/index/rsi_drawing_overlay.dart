@@ -409,9 +409,10 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 4),
-              // Trendline draw toggle
+              const SizedBox(width: 6),
+              // Trendline draw toggle (badge style)
               GestureDetector(
+                behavior: HitTestBehavior.opaque,
                 onTap: () {
                   setState(() {
                     _isDrawing = !_isDrawing;
@@ -423,55 +424,73 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isDesktop ? 8 : 6,
+                    vertical: isDesktop ? 3 : 2,
+                  ),
                   decoration: BoxDecoration(
                     color: _isDrawing
-                        ? (widget.isDarkMode
-                            ? AppColors.darkAccent.withAlpha(30)
-                            : AppColors.primary.withAlpha(20))
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
+                        ? (widget.isDarkMode ? AppColors.darkAccent.withAlpha(40) : AppColors.primary.withAlpha(30))
+                        : (widget.isDarkMode ? const Color(0xFF1C2128) : const Color(0xFFF3F4F6)),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _isDrawing
+                          ? (widget.isDarkMode ? AppColors.darkAccent : AppColors.primary)
+                          : (widget.isDarkMode ? const Color(0xFF2D333B) : const Color(0xFFD1D5DB)),
+                      width: 1,
+                    ),
                   ),
-                  child: Icon(
-                    Icons.show_chart, // trendline icon
-                    size: isDesktop ? 15 : 13,
-                    color: _isDrawing
-                        ? (widget.isDarkMode ? AppColors.darkAccent : AppColors.primary)
-                        : widget.textColor.withAlpha(150),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.show_chart,
+                        size: isDesktop ? 13 : 11,
+                        color: _isDrawing
+                            ? (widget.isDarkMode ? AppColors.darkAccent : AppColors.primary)
+                            : widget.textColor,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        _isDrawing ? (_firstPointFullIndex == null ? '1st' : '2nd') : '그리기',
+                        style: TextStyle(
+                          fontSize: isDesktop ? 10 : 9,
+                          fontWeight: FontWeight.w600,
+                          color: _isDrawing
+                              ? (widget.isDarkMode ? AppColors.darkAccent : AppColors.primary)
+                              : widget.textColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              // Clear all button (visible when lines exist)
+              // Clear all button (badge style, visible when lines exist)
               if (_lines.isNotEmpty) ...[
-                const SizedBox(width: 2),
+                const SizedBox(width: 4),
                 GestureDetector(
+                  behavior: HitTestBehavior.opaque,
                   onTap: _clearAll,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(4),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 8 : 6,
+                      vertical: isDesktop ? 3 : 2,
                     ),
-                    child: Icon(
-                      Icons.delete_sweep_outlined,
-                      size: isDesktop ? 15 : 13,
-                      color: widget.textColor.withAlpha(150),
+                    decoration: BoxDecoration(
+                      color: widget.isDarkMode ? const Color(0xFF2D333B) : const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      'Clear',
+                      style: TextStyle(
+                        fontSize: isDesktop ? 10 : 9,
+                        fontWeight: FontWeight.w600,
+                        color: widget.isDarkMode ? Colors.white70 : const Color(0xFF374151),
+                      ),
                     ),
                   ),
                 ),
               ],
-              // Drawing mode hint
-              if (_isDrawing)
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: Text(
-                    _firstPointFullIndex == null ? '1st' : '2nd',
-                    style: TextStyle(
-                      fontSize: 9,
-                      color: widget.isDarkMode ? AppColors.darkAccent : AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               const Spacer(),
               // 신호 배지
               if (widget.rsiSignal != null)
