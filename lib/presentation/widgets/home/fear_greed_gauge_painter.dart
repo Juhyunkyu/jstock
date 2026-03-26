@@ -10,6 +10,11 @@ class FearGreedGauge extends StatefulWidget {
   final Color cardBackgroundColor;
   final Color textColor;
   final bool isDarkMode;
+  final Color borderThemeColor;
+  final Color dividerThemeColor;
+  final Color iconBgThemeColor;
+  final Color textPrimaryThemeColor;
+  final Color textSecondaryThemeColor;
 
   const FearGreedGauge({
     super.key,
@@ -18,6 +23,11 @@ class FearGreedGauge extends StatefulWidget {
     required this.cardBackgroundColor,
     required this.textColor,
     required this.isDarkMode,
+    required this.borderThemeColor,
+    required this.dividerThemeColor,
+    required this.iconBgThemeColor,
+    required this.textPrimaryThemeColor,
+    required this.textSecondaryThemeColor,
   });
 
   @override
@@ -93,6 +103,11 @@ class _FearGreedGaugeState extends State<FearGreedGauge>
                     cardBackgroundColor: widget.cardBackgroundColor,
                     textColor: widget.textColor,
                     isDarkMode: widget.isDarkMode,
+                    borderThemeColor: widget.borderThemeColor,
+                    dividerThemeColor: widget.dividerThemeColor,
+                    iconBgThemeColor: widget.iconBgThemeColor,
+                    textPrimaryThemeColor: widget.textPrimaryThemeColor,
+                    textSecondaryThemeColor: widget.textSecondaryThemeColor,
                   ),
                 ),
               ),
@@ -111,39 +126,23 @@ class _CNNFearGreedGaugePainter extends CustomPainter {
   final Color cardBackgroundColor;
   final Color textColor;
   final bool isDarkMode;
+  // 테마 색상 (isDarkMode 하드코딩 대신 외부에서 전달)
+  final Color borderThemeColor;
+  final Color dividerThemeColor;
+  final Color iconBgThemeColor;
+  final Color textPrimaryThemeColor;
+  final Color textSecondaryThemeColor;
 
-  // Theme-aware colors
-  Color get inactiveSegment => isDarkMode
-      ? const Color(0xFF2D333B)
-      : const Color(0xFFF0F1F3);
-
-  Color get activeSegment => isDarkMode
-      ? const Color(0xFF3D444D)
-      : const Color(0xFFDCDEE2);
-
-  Color get needleColor => isDarkMode
-      ? const Color(0xFFE6EDF3)
-      : const Color(0xFF1F2937);
-
-  Color get numberColor => isDarkMode
-      ? const Color(0xFF8B949E)
-      : const Color(0xFF6B7280);
-
-  Color get activeLabelColor => isDarkMode
-      ? const Color(0xFFE6EDF3)
-      : const Color(0xFF1A1A1A);
-
-  Color get inactiveLabelColor => isDarkMode
-      ? const Color(0xFF8B949E)
-      : const Color(0xFF4B5563);
-
-  Color get tickColor => isDarkMode
-      ? const Color(0xFF3D444D)
-      : const Color(0xFFD1D5DB);
-
+  Color get inactiveSegment => iconBgThemeColor;
+  Color get activeSegment => borderThemeColor;
+  Color get needleColor => textPrimaryThemeColor;
+  Color get numberColor => textSecondaryThemeColor;
+  Color get activeLabelColor => textPrimaryThemeColor;
+  Color get inactiveLabelColor => textSecondaryThemeColor;
+  Color get tickColor => borderThemeColor;
   Color get borderColor => isDarkMode
-      ? const Color(0xFF4D555E)
-      : const Color(0xFFB0B3B8);
+      ? borderThemeColor.withAlpha(180)
+      : borderThemeColor;
 
   _CNNFearGreedGaugePainter({
     required this.value,
@@ -151,6 +150,11 @@ class _CNNFearGreedGaugePainter extends CustomPainter {
     required this.cardBackgroundColor,
     required this.textColor,
     required this.isDarkMode,
+    required this.borderThemeColor,
+    required this.dividerThemeColor,
+    required this.iconBgThemeColor,
+    required this.textPrimaryThemeColor,
+    required this.textSecondaryThemeColor,
   });
 
   int _getActiveZone() {

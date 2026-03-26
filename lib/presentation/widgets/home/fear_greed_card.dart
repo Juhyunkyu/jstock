@@ -214,6 +214,11 @@ class FearGreedCard extends ConsumerWidget {
                                     cardBackgroundColor: context.appCardBackground,
                                     textColor: context.appTextPrimary,
                                     isDarkMode: context.isDarkMode,
+                                    borderThemeColor: context.appBorder,
+                                    dividerThemeColor: context.appDivider,
+                                    iconBgThemeColor: context.appIconBg,
+                                    textPrimaryThemeColor: context.appTextPrimary,
+                                    textSecondaryThemeColor: context.appTextSecondary,
                                   ),
                                   // 와이드: 극도의 공포 라벨 제거 (오른쪽 목록과 중복)
                                 ],
@@ -243,6 +248,11 @@ class FearGreedCard extends ConsumerWidget {
                             cardBackgroundColor: context.appCardBackground,
                             textColor: context.appTextPrimary,
                             isDarkMode: context.isDarkMode,
+                            borderThemeColor: context.appBorder,
+                            dividerThemeColor: context.appDivider,
+                            iconBgThemeColor: context.appIconBg,
+                            textPrimaryThemeColor: context.appTextPrimary,
+                            textSecondaryThemeColor: context.appTextSecondary,
                           ),
                           SizedBox(height: 8 * fs),
                           _ActiveZoneLabel(
