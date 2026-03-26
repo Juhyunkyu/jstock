@@ -83,7 +83,7 @@ class SettingsScreen extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: MediaQuery.sizeOf(context).width >= 768 ? 24 : 16),
 
           // 앱 정보 푸터
           Center(
@@ -113,11 +113,13 @@ class SettingsScreen extends ConsumerWidget {
 
   Widget _buildNotificationSection(BuildContext context, WidgetRef ref, dynamic settings) {
     final muted = settings.notificationMuted as bool;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    final iconBoxSize = isDesktop ? 40.0 : 34.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          padding: EdgeInsets.fromLTRB(16, isDesktop ? 24 : 16, 16, isDesktop ? 8 : 4),
           child: Text(
             '알림',
             style: TextStyle(
@@ -134,26 +136,27 @@ class SettingsScreen extends ConsumerWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: SwitchListTile(
+            dense: !isDesktop,
             secondary: Container(
-              width: 40,
-              height: 40,
+              width: iconBoxSize,
+              height: iconBoxSize,
               decoration: BoxDecoration(
                 color: context.appIconBg,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(isDesktop ? 10 : 8),
               ),
               child: Icon(
                 muted ? Icons.notifications_off_outlined : Icons.notifications_outlined,
                 color: context.appTextSecondary,
-                size: 22,
+                size: isDesktop ? 22 : 18,
               ),
             ),
             title: Text(
               '알림',
-              style: TextStyle(fontSize: 15, color: context.appTextPrimary),
+              style: TextStyle(fontSize: isDesktop ? 15 : 14, color: context.appTextPrimary),
             ),
             subtitle: Text(
               muted ? '꺼짐' : '켜짐',
-              style: TextStyle(fontSize: 13, color: context.appTextHint),
+              style: TextStyle(fontSize: isDesktop ? 13 : 12, color: context.appTextHint),
             ),
             value: !muted,
             onChanged: (value) {

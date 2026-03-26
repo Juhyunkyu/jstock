@@ -25,7 +25,7 @@ class BackupRestoreSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          padding: EdgeInsets.fromLTRB(16, MediaQuery.sizeOf(context).width >= 768 ? 24 : 16, 16, MediaQuery.sizeOf(context).width >= 768 ? 8 : 4),
           child: Text(
             '데이터 관리',
             style: TextStyle(
@@ -257,25 +257,29 @@ class _DataActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    final iconBoxSize = isDesktop ? 40.0 : 34.0;
     return ListTile(
+      dense: !isDesktop,
+      visualDensity: isDesktop ? VisualDensity.standard : const VisualDensity(vertical: -2),
       onTap: onTap,
       leading: Container(
-        width: 40,
-        height: 40,
+        width: iconBoxSize,
+        height: iconBoxSize,
         decoration: BoxDecoration(
           color: iconColor.withValues(alpha: context.isDarkMode ? 0.2 : 0.1),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(isDesktop ? 10 : 8),
         ),
         child: Icon(
           icon,
           color: iconColor,
-          size: 22,
+          size: isDesktop ? 22 : 18,
         ),
       ),
       title: Text(
         title,
         style: TextStyle(
-          fontSize: 15,
+          fontSize: isDesktop ? 15 : 14,
           fontWeight: FontWeight.w500,
           color: isDestructive ? AppColors.red500 : context.appTextPrimary,
         ),
@@ -283,13 +287,14 @@ class _DataActionTile extends StatelessWidget {
       subtitle: Text(
         subtitle,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: isDesktop ? 12 : 11,
           color: context.appTextHint,
         ),
       ),
       trailing: Icon(
         Icons.chevron_right_rounded,
         color: isDestructive ? AppColors.red400 : context.appTextHint,
+        size: isDesktop ? 24 : 20,
       ),
     );
   }

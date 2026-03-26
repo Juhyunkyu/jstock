@@ -14,11 +14,12 @@ class SettingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+          padding: EdgeInsets.fromLTRB(16, isDesktop ? 24 : 16, 16, isDesktop ? 8 : 4),
           child: Text(
             title,
             style: TextStyle(
@@ -70,20 +71,24 @@ class SettingsItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.sizeOf(context).width >= 768;
+    final iconSize = isDesktop ? 40.0 : 34.0;
     return ListTile(
+      dense: !isDesktop,
+      visualDensity: isDesktop ? VisualDensity.standard : const VisualDensity(vertical: -2),
       leading: Container(
-        width: 40,
-        height: 40,
+        width: iconSize,
+        height: iconSize,
         decoration: BoxDecoration(
           color: context.appIconBg,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(isDesktop ? 10 : 8),
         ),
-        child: Icon(icon, color: context.appTextSecondary, size: 22),
+        child: Icon(icon, color: context.appTextSecondary, size: isDesktop ? 22 : 18),
       ),
       title: Text(
         title,
         style: TextStyle(
-          fontSize: 15,
+          fontSize: isDesktop ? 15 : 14,
           color: context.appTextPrimary,
         ),
       ),
@@ -91,7 +96,7 @@ class SettingsItem extends StatelessWidget {
           ? Text(
               subtitle!,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: isDesktop ? 13 : 12,
                 color: context.appTextHint,
               ),
             )
@@ -99,6 +104,7 @@ class SettingsItem extends StatelessWidget {
       trailing: Icon(
         Icons.chevron_right_rounded,
         color: context.appTextHint,
+        size: isDesktop ? 24 : 20,
       ),
       onTap: onTap,
     );
