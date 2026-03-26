@@ -82,8 +82,8 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
   static const int _minVisible = 20;
   static const int _maxVisible = 500;
 
-  // 보조 지표 토글 상태
-  late Set<String> _activeIndicators;
+  // 보조 지표 토글 상태 (순서 보존 리스트)
+  late List<String> _activeIndicators;
 
   // 드로잉 상태
   DrawingMode _drawingMode = DrawingMode.none;
@@ -141,7 +141,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
     super.initState();
     // 저장된 보조지표 설정 로드
     final saved = ref.read(settingsProvider).chartIndicators;
-    _activeIndicators = saved.isEmpty ? {} : saved.split(',').toSet();
+    _activeIndicators = saved.isEmpty ? [] : saved.split(',').toList();
     // 최신 데이터가 보이도록 스크롤 위치 설정
     if (widget.chartData.isNotEmpty) {
       _scrollOffset = (widget.chartData.length - _visibleCount).clamp(0, widget.chartData.length);
@@ -211,7 +211,11 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
         _activeIndicators.add(key);
       }
     });
-    // Hive에 저장 (비동기, UI 블록 없음)
+    ref.read(settingsProvider.notifier).updateChartIndicators(_activeIndicators);
+  }
+
+  void _reorderIndicators(List<String> newOrder) {
+    setState(() => _activeIndicators = newOrder);
     ref.read(settingsProvider.notifier).updateChartIndicators(_activeIndicators);
   }
 
@@ -292,6 +296,7 @@ class _DetailChartSectionState extends ConsumerState<DetailChartSection> {
           IndicatorChips(
             activeIndicators: _activeIndicators,
             onToggle: _toggleIndicator,
+            onReorder: _reorderIndicators,
           ),
           const SizedBox(height: 8),
           // 기간 선택 + MA 범례 + 드로잉 버튼

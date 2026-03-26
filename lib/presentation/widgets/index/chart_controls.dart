@@ -95,65 +95,130 @@ class ChartPeriodSelector extends StatelessWidget {
 
 /// 보조지표 선택 칩 목록
 class IndicatorChips extends StatelessWidget {
-  final Set<String> activeIndicators;
+  final List<String> activeIndicators;
   final ValueChanged<String> onToggle;
+  final ValueChanged<List<String>>? onReorder;
+
+  static const _labelMap = {
+    'VOL': 'VOL', 'BB': 'BB', 'RSI': 'RSI', 'MACD': 'MACD',
+    'STOCH': 'STOCH', 'ICH': '일목', 'OBV': 'OBV', 'PVT': 'PVT', 'MFI': 'MFI',
+  };
+
+  static const _allKeys = ['VOL', 'BB', 'RSI', 'MACD', 'STOCH', 'ICH', 'OBV', 'PVT', 'MFI'];
 
   const IndicatorChips({
     super.key,
     required this.activeIndicators,
     required this.onToggle,
+    this.onReorder,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
-    const indicators = [
-      {'key': 'VOL', 'label': 'VOL'},
-      {'key': 'BB', 'label': 'BB'},
-      {'key': 'RSI', 'label': 'RSI'},
-      {'key': 'MACD', 'label': 'MACD'},
-      {'key': 'STOCH', 'label': 'STOCH'},
-      {'key': 'ICH', 'label': '일목'},
-      {'key': 'OBV', 'label': 'OBV'},
-      {'key': 'PVT', 'label': 'PVT'},
-      {'key': 'MFI', 'label': 'MFI'},
-    ];
+
+    // 활성 칩 먼저, 비활성 칩 뒤에
+    final inactiveKeys = _allKeys.where((k) => !activeIndicators.contains(k)).toList();
+    final orderedKeys = [...activeIndicators, ...inactiveKeys];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: indicators.map((ind) {
-          final key = ind['key']!;
-          final label = ind['label']!;
+        children: orderedKeys.map((key) {
+          final label = _labelMap[key] ?? key;
           final isActive = activeIndicators.contains(key);
+          final activeIndex = activeIndicators.indexOf(key);
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: GestureDetector(
-              onTap: () => onToggle(key),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isDesktop ? 12 : 10,
-                  vertical: isDesktop ? 6 : 5,
+          // 칩 위젯 (탭으로 토글)
+          final chipWidget = GestureDetector(
+            onTap: () => onToggle(key),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isDesktop ? 12 : 10,
+                vertical: isDesktop ? 6 : 5,
+              ),
+              decoration: BoxDecoration(
+                color: isActive ? context.appSurface : context.appIconBg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: isActive ? context.appBorder : context.appDivider,
+                  width: 1,
                 ),
-                decoration: BoxDecoration(
-                  color: isActive ? context.appSurface : context.appIconBg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isActive ? context.appBorder : context.appDivider,
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: isDesktop ? 13.0 : 11.0,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
-                    color: isActive ? context.appTextPrimary : context.appTextHint,
-                  ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: isDesktop ? 13.0 : 11.0,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+                  color: isActive ? context.appTextPrimary : context.appTextHint,
                 ),
               ),
             ),
+          );
+
+          // 활성 칩만 롱프레스 드래그 가능
+          Widget result = chipWidget;
+          if (isActive && onReorder != null) {
+            // ★ originalChip: 재할당 전에 값 고정 (클로저 캡처 버그 방지)
+            final originalChip = chipWidget;
+            result = LongPressDraggable<int>(
+              data: activeIndex,
+              delay: const Duration(milliseconds: 300),
+              feedback: Material(
+                color: Colors.transparent,
+                child: Opacity(
+                  opacity: 0.8,
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 12 : 10,
+                      vertical: isDesktop ? 6 : 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: context.appSurface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: context.appAccent, width: 2),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withAlpha(40), blurRadius: 8, offset: const Offset(0, 2)),
+                      ],
+                    ),
+                    child: Text(label, style: TextStyle(
+                      fontSize: isDesktop ? 13.0 : 11.0,
+                      fontWeight: FontWeight.w600,
+                      color: context.appTextPrimary,
+                    )),
+                  ),
+                ),
+              ),
+              childWhenDragging: Opacity(opacity: 0.3, child: originalChip),
+              child: DragTarget<int>(
+                onAcceptWithDetails: (details) {
+                  final fromIndex = details.data;
+                  final toIndex = activeIndex;
+                  if (fromIndex != toIndex) {
+                    final newOrder = activeIndicators.toList();
+                    final item = newOrder.removeAt(fromIndex);
+                    newOrder.insert(toIndex, item);
+                    onReorder!(newOrder);
+                  }
+                },
+                builder: (context, candidateData, rejectedData) {
+                  return Container(
+                    decoration: candidateData.isNotEmpty
+                        ? BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: context.appAccent, width: 2),
+                          )
+                        : null,
+                    child: originalChip, // ★ originalChip 사용 (무한 재귀 방지)
+                  );
+                },
+              ),
+            );
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: result,
           );
         }).toList(),
       ),

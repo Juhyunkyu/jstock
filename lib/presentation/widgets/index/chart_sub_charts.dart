@@ -9,7 +9,7 @@ import 'sub_chart_painters.dart';
 
 /// Sub chart list (VOL, RSI, MACD, STOCH, OBV)
 class SubChartList extends StatelessWidget {
-  final Set<String> activeIndicators;
+  final List<String> activeIndicators;
   final ChartIndicatorData indicators;
   final List<OHLCData> displayData;
   final double chartWidth;
@@ -73,179 +73,67 @@ class SubChartList extends StatelessWidget {
       );
     }
 
-    return Column(
-      children: [
-        // Volume
-        if (activeIndicators.contains('VOL')) ...[
-          SubChartHeader(
-            label: indicators.volCurrentValue != null
-                ? 'VOL: ${indicators.volCurrentValue}'
-                : 'VOL',
-            labelColor: textColor,
-            indicatorKey: 'VOL',
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: sizes.vol,
-              child: CustomPaint(
-                size: Size(chartWidth, sizes.vol),
-                painter: VolumePainter(
-                  data: displayData,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            sizes.vol,
-          ),
-        ],
-        // RSI (with drawing overlay)
-        if (activeIndicators.contains('RSI') && indicators.displayRSI != null) ...[
-          RsiDrawingOverlay(
-            key: rsiDrawingKey,
-            chartWidth: chartWidth,
-            chartHeight: sizes.rsi,
-            rsiValues: indicators.displayRSI!,
-            fullRsiValues: indicators.fullRSI ?? indicators.displayRSI!,
-            isDarkMode: isDarkMode,
-            textColor: textColor,
-            displayDataLength: displayData.length,
-            scrollOffset: scrollOffset,
-            rsiLabel: indicators.rsiLabel ?? 'RSI(14)',
-            rsiLabelColor: isDarkMode
-                ? const Color(0xFFCE93D8)
-                : const Color(0xFF7B1FA2),
-            rsiSignal: indicators.rsiSignal,
-            crosshairX: crosshairX,
-            externalLines: rsiDrawingLines,
-            onLinesChanged: onRsiDrawingLinesChanged,
+    // 각 지표의 위젯 빌더 (activeIndicators 순서대로 호출)
+    Widget? buildSubChart(String key) {
+      void Function(String) helpTap = (k) => showIndicatorHelpDialog(context, k);
+      switch (key) {
+        case 'VOL':
+          return Column(children: [
+            SubChartHeader(label: indicators.volCurrentValue != null ? 'VOL: ${indicators.volCurrentValue}' : 'VOL', labelColor: textColor, indicatorKey: 'VOL', onHelpTap: helpTap),
+            wrapWithCrosshair(SizedBox(height: sizes.vol, child: CustomPaint(size: Size(chartWidth, sizes.vol), painter: VolumePainter(data: displayData, isDarkMode: isDarkMode, textColor: textColor))), sizes.vol),
+          ]);
+        case 'RSI':
+          if (indicators.displayRSI == null) return null;
+          return RsiDrawingOverlay(
+            key: rsiDrawingKey, chartWidth: chartWidth, chartHeight: sizes.rsi,
+            rsiValues: indicators.displayRSI!, fullRsiValues: indicators.fullRSI ?? indicators.displayRSI!,
+            isDarkMode: isDarkMode, textColor: textColor, displayDataLength: displayData.length, scrollOffset: scrollOffset,
+            rsiLabel: indicators.rsiLabel ?? 'RSI(14)', rsiLabelColor: isDarkMode ? const Color(0xFFCE93D8) : const Color(0xFF7B1FA2),
+            rsiSignal: indicators.rsiSignal, crosshairX: crosshairX,
+            externalLines: rsiDrawingLines, onLinesChanged: onRsiDrawingLinesChanged,
             onHelpTap: () => showIndicatorHelpDialog(context, 'RSI'),
-          ),
-        ],
-        // MACD
-        if (activeIndicators.contains('MACD') && indicators.displayMACD != null) ...[
-          SubChartHeader(
-            label: indicators.macdLabel ?? 'MACD(12,26,9)',
-            labelColor: const Color(0xFF2196F3),
-            signal: indicators.macdSignal,
-            indicatorKey: 'MACD',
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: sizes.macd,
-              child: CustomPaint(
-                size: Size(chartWidth, sizes.macd),
-                painter: MACDPainter(
-                  macdValues: indicators.displayMACD!,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            sizes.macd,
-          ),
-        ],
-        // Stochastic
-        if (activeIndicators.contains('STOCH') && indicators.displayStoch != null) ...[
-          SubChartHeader(
-            label: indicators.stochLabel ?? 'STOCH(14,3)',
-            labelColor: const Color(0xFF2196F3),
-            signal: indicators.stochSignal,
-            indicatorKey: 'STOCH',
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: sizes.stoch,
-              child: CustomPaint(
-                size: Size(chartWidth, sizes.stoch),
-                painter: StochasticPainter(
-                  stochValues: indicators.displayStoch!,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            sizes.stoch,
-          ),
-        ],
-        // OBV
-        if (activeIndicators.contains('OBV') && indicators.displayOBV != null) ...[
-          SubChartHeader(
-            label: indicators.obvLabel ?? 'OBV',
-            labelColor: const Color(0xFF10B981),
-            signal: indicators.obvSignal,
-            indicatorKey: 'OBV',
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: sizes.obv,
-              child: CustomPaint(
-                size: Size(chartWidth, sizes.obv),
-                painter: OBVPainter(
-                  obvValues: indicators.displayOBV!,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            sizes.obv,
-          ),
-        ],
-        // PVT
-        if (activeIndicators.contains('PVT') && indicators.displayPVT != null) ...[
-          SubChartHeader(
-            label: indicators.pvtLabel ?? 'PVT',
-            labelColor: const Color(0xFFFF9800),
-            signal: indicators.pvtSignal,
-            indicatorKey: 'PVT',
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: sizes.pvt,
-              child: CustomPaint(
-                size: Size(chartWidth, sizes.pvt),
-                painter: PVTPainter(
-                  pvtValues: indicators.displayPVT!,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            sizes.pvt,
-          ),
-        ],
-        // MFI
-        if (activeIndicators.contains('MFI') && indicators.displayMFI != null) ...[
-          SubChartHeader(
-            label: indicators.mfiLabel ?? 'MFI(14)',
-            labelColor: isDarkMode
-                ? const Color(0xFF81D4FA)
-                : const Color(0xFF0277BD),
-            signal: indicators.mfiSignal,
-            indicatorKey: 'MFI',
-            onHelpTap: (key) => showIndicatorHelpDialog(context, key),
-          ),
-          wrapWithCrosshair(
-            SizedBox(
-              height: sizes.mfi,
-              child: CustomPaint(
-                size: Size(chartWidth, sizes.mfi),
-                painter: MFIPainter(
-                  mfiValues: indicators.displayMFI!,
-                  isDarkMode: isDarkMode,
-                  textColor: textColor,
-                ),
-              ),
-            ),
-            sizes.mfi,
-          ),
-        ],
-      ],
-    );
+          );
+        case 'MACD':
+          if (indicators.displayMACD == null) return null;
+          return Column(children: [
+            SubChartHeader(label: indicators.macdLabel ?? 'MACD(12,26,9)', labelColor: const Color(0xFF2196F3), signal: indicators.macdSignal, indicatorKey: 'MACD', onHelpTap: helpTap),
+            wrapWithCrosshair(SizedBox(height: sizes.macd, child: CustomPaint(size: Size(chartWidth, sizes.macd), painter: MACDPainter(macdValues: indicators.displayMACD!, isDarkMode: isDarkMode, textColor: textColor))), sizes.macd),
+          ]);
+        case 'STOCH':
+          if (indicators.displayStoch == null) return null;
+          return Column(children: [
+            SubChartHeader(label: indicators.stochLabel ?? 'STOCH(14,3)', labelColor: const Color(0xFF2196F3), signal: indicators.stochSignal, indicatorKey: 'STOCH', onHelpTap: helpTap),
+            wrapWithCrosshair(SizedBox(height: sizes.stoch, child: CustomPaint(size: Size(chartWidth, sizes.stoch), painter: StochasticPainter(stochValues: indicators.displayStoch!, isDarkMode: isDarkMode, textColor: textColor))), sizes.stoch),
+          ]);
+        case 'OBV':
+          if (indicators.displayOBV == null) return null;
+          return Column(children: [
+            SubChartHeader(label: indicators.obvLabel ?? 'OBV', labelColor: const Color(0xFF10B981), signal: indicators.obvSignal, indicatorKey: 'OBV', onHelpTap: helpTap),
+            wrapWithCrosshair(SizedBox(height: sizes.obv, child: CustomPaint(size: Size(chartWidth, sizes.obv), painter: OBVPainter(obvValues: indicators.displayOBV!, isDarkMode: isDarkMode, textColor: textColor))), sizes.obv),
+          ]);
+        case 'PVT':
+          if (indicators.displayPVT == null) return null;
+          return Column(children: [
+            SubChartHeader(label: indicators.pvtLabel ?? 'PVT', labelColor: const Color(0xFFFF9800), signal: indicators.pvtSignal, indicatorKey: 'PVT', onHelpTap: helpTap),
+            wrapWithCrosshair(SizedBox(height: sizes.pvt, child: CustomPaint(size: Size(chartWidth, sizes.pvt), painter: PVTPainter(pvtValues: indicators.displayPVT!, isDarkMode: isDarkMode, textColor: textColor))), sizes.pvt),
+          ]);
+        case 'MFI':
+          if (indicators.displayMFI == null) return null;
+          return Column(children: [
+            SubChartHeader(label: indicators.mfiLabel ?? 'MFI(14)', labelColor: isDarkMode ? const Color(0xFF81D4FA) : const Color(0xFF0277BD), signal: indicators.mfiSignal, indicatorKey: 'MFI', onHelpTap: helpTap),
+            wrapWithCrosshair(SizedBox(height: sizes.mfi, child: CustomPaint(size: Size(chartWidth, sizes.mfi), painter: MFIPainter(mfiValues: indicators.displayMFI!, isDarkMode: isDarkMode, textColor: textColor))), sizes.mfi),
+          ]);
+        default:
+          return null; // BB, ICH는 오버레이 → 서브차트 없음
+      }
+    }
+
+    // activeIndicators 순서대로 서브차트 렌더링
+    final children = <Widget>[];
+    for (final key in activeIndicators) {
+      final w = buildSubChart(key);
+      if (w != null) children.add(w);
+    }
+    return Column(children: children);
   }
 }
