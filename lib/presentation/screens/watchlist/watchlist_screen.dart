@@ -305,14 +305,23 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     ref.read(recentViewProvider.notifier).remove(ticker);
   }
 
-  void _onRemoveFromGroup(String groupId, String ticker) {
-    ref.read(watchlistGroupProvider.notifier).removeTicker(groupId, ticker);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$ticker 그룹에서 제거됨'),
-        duration: const Duration(seconds: 2),
-      ),
+  Future<void> _onRemoveFromGroup(String groupId, String ticker) async {
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: '그룹에서 제거',
+      message: '$ticker을(를) 이 그룹에서 제거하시겠습니까?',
+      confirmText: '제거',
+      isDanger: true,
     );
+    if (confirmed && mounted) {
+      ref.read(watchlistGroupProvider.notifier).removeTicker(groupId, ticker);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$ticker 그룹에서 제거됨'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _onClearAllRecent() {
