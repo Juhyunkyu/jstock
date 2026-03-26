@@ -220,7 +220,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onWatchlistItemSelected(WatchlistItem item) {
     if (widget.forDetail) {
-      context.push('/index/${Uri.encodeComponent(item.ticker)}');
+      context.push('/index/${Uri.encodeComponent(item.ticker)}?from=watchlist');
       return;
     }
     final etf = PopularEtf(
@@ -292,7 +292,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onEtfSelected(PopularEtf etf) {
     if (widget.forDetail) {
-      context.push('/index/${Uri.encodeComponent(etf.ticker)}');
+      context.push('/index/${Uri.encodeComponent(etf.ticker)}?from=watchlist');
       return;
     }
     context.push('/holdings/setup/${etf.ticker}', extra: etf);
@@ -300,7 +300,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _onSearchResultSelected(SearchResult result) {
     if (widget.forDetail) {
-      context.push('/index/${Uri.encodeComponent(result.symbol)}');
+      context.push('/index/${Uri.encodeComponent(result.symbol)}?from=watchlist');
       return;
     }
     // PopularEtf 형식으로 변환하여 전달
