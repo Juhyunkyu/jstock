@@ -201,7 +201,7 @@ class CycleTradeCard extends ConsumerWidget {
     // 상세 박스 빌더
     Widget buildDetailBox(List<Trade> items, double avgPrice, double totalShares, Color accentColor) {
       return Container(
-        padding: const EdgeInsets.fromLTRB(8, 8, 34, 8), // right=34: 헤더 금액+⋮(26px) 수직 정렬
+        padding: const EdgeInsets.fromLTRB(8, 8, 18, 8), // right=18: 헤더 금액 끝과 수직 정렬
         decoration: BoxDecoration(
           color: context.appBackground,
           borderRadius: BorderRadius.circular(6),
