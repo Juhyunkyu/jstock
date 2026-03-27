@@ -824,16 +824,16 @@ class _TradeRoundSection extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: context.appAccent.withAlpha(context.isDarkMode ? 30 : 20),
+                color: context.appSurface,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: context.appAccent.withAlpha(60), width: 0.5),
+                border: Border.all(color: context.appBorder, width: 0.5),
               ),
               child: Text(
                 '$roundNumber회차 · $dateStr',
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: context.appAccent,
+                  color: context.appTextSecondary,
                 ),
               ),
             ),
