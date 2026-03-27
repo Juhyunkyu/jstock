@@ -46,13 +46,13 @@ class CycleTradeCard extends ConsumerWidget {
       return _buildGroupedCard(context, ref);
     }
 
+    // ─── 단일 거래 카드 (그룹 스타일 통일) ───
     final isBuy = trade.action == TradeAction.buy;
     final isInitial = isBuy && trade.signal == TradeSignal.initial;
     final amountUsd = trade.price * trade.shares;
     final dateFormat = DateFormat('yyyy.MM.dd');
     final signalConfig = SignalBadgeConfig.fromSignal(trade.signal);
 
-    // 거래 유형별 색상
     final Color typeColor;
     final Color typeBgColor;
     final String typeText;
@@ -71,162 +71,97 @@ class CycleTradeCard extends ConsumerWidget {
       typeText = '매도';
     }
 
-    return GestureDetector(
-      onTap: () => _showTradeDetail(context, amountUsd),
-      child: Container(
-        margin: EdgeInsets.only(
-          left: 16,
-          right: 16,
-          top: isFirst ? 0 : 3,
-          bottom: isLast ? 0 : 3,
-        ),
-        decoration: BoxDecoration(
-          color: context.appSurface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: context.appBorder),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            children: [
-              // === 거래 유형 배지 (44x36) ===
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: typeBgColor,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        typeText,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: typeColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 초기진입 스파클 아이콘
-                  if (isInitial)
-                    Positioned(
-                      top: -4,
-                      right: -4,
-                      child: Container(
-                        width: 16,
-                        height: 16,
-                        decoration: BoxDecoration(
-                          color: typeColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.auto_awesome,
-                          size: 10,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(width: 10),
-
-              // === 거래 정보 (날짜, 단가×수량, 신호 배지) ===
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      margin: EdgeInsets.only(
+        left: 16, right: 16,
+        top: isFirst ? 0 : 3,
+        bottom: isLast ? 0 : 3,
+      ),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.appBorder),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 헤더: 배지 + 날짜 + 신호 + 금액 + ⋮
+            Row(
+              children: [
+                // 거래 유형 배지
+                Stack(
+                  clipBehavior: Clip.none,
                   children: [
-                    // 날짜
-                    Text(
-                      dateFormat.format(trade.tradedAt),
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: context.appTextSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // 단가 × 수량
-                    Text(
-                      '\$${trade.price.toStringAsFixed(2)} x ${formatShares(trade.shares)}주',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    // 신호 배지
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
+                      width: 44, height: 36,
                       decoration: BoxDecoration(
-                        color: signalConfig.color.withValues(
-                          alpha: context.isDarkMode ? 0.15 : 0.08,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
+                        color: typeBgColor,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        signalConfig.label,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: signalConfig.color,
-                        ),
+                      child: Center(
+                        child: Text(typeText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: typeColor)),
                       ),
                     ),
+                    if (isInitial)
+                      Positioned(
+                        top: -4, right: -4,
+                        child: Container(
+                          width: 16, height: 16,
+                          decoration: BoxDecoration(color: typeColor, shape: BoxShape.circle),
+                          child: const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
+                        ),
+                      ),
                   ],
                 ),
-              ),
-
-              // === 거래 금액 (USD, KRW) ===
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '\$${amountUsd.toStringAsFixed(2)}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: context.appTextPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    formatKrw(trade.amountKrw),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextSecondary,
-                    ),
-                  ),
-                ],
-              ),
-
-              // === ⋮ 옵션 버튼 ===
-              if (!readOnly) ...[
-                const SizedBox(width: 8),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _showTradeOptions(context, ref),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Icon(
-                        Icons.more_vert_rounded,
-                        color: context.appTextHint,
-                        size: 20,
-                      ),
-                    ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(dateFormat.format(trade.tradedAt), style: TextStyle(fontSize: 12, color: context.appTextHint)),
+                      const SizedBox(height: 2),
+                      Text(signalConfig.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent)),
+                    ],
                   ),
                 ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('\$${amountUsd.toStringAsFixed(2)}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: context.appTextPrimary)),
+                    Text(formatKrw(trade.amountKrw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                  ],
+                ),
+                if (!readOnly)
+                  GestureDetector(
+                    onTap: () => _showTradeOptions(context, ref),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(Icons.more_vert_rounded, size: 18, color: context.appTextHint),
+                    ),
+                  ),
               ],
-            ],
-          ),
+            ),
+            // 상세 박스
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: context.appBackground,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Text(signalConfig.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent)),
+                  const SizedBox(width: 8),
+                  Text('\$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주', style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                  const Spacer(),
+                  Text('\$${amountUsd.toStringAsFixed(2)}', style: TextStyle(fontSize: 11, color: context.appTextPrimary)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
