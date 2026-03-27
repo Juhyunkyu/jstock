@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
@@ -616,14 +617,24 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                 allEntries.add([t]);
               }
             }
-            return allEntries.asMap().entries.map((entry) => CycleTradeCard(
-              trade: entry.value.first,
-              groupedTrades: entry.value.length > 1 ? entry.value : null,
-              cycle: cycle,
-              isFirst: entry.key == 0,
-              isLast: entry.key == allEntries.length - 1,
-              readOnly: cycle.status != CycleStatus.active,
-            ));
+            final totalRounds = allEntries.length;
+            return allEntries.asMap().entries.map((entry) {
+              final roundNum = totalRounds - entry.key; // 최신=마지막 회차
+              final firstTrade = entry.value.first;
+              final dateStr = DateFormat('yyyy.MM.dd').format(firstTrade.tradedAt);
+              return _TradeRoundSection(
+                roundNumber: roundNum,
+                dateStr: dateStr,
+                child: CycleTradeCard(
+                  trade: firstTrade,
+                  groupedTrades: entry.value.length > 1 ? entry.value : null,
+                  cycle: cycle,
+                  isFirst: true,
+                  isLast: true,
+                  readOnly: cycle.status != CycleStatus.active,
+                ),
+              );
+            });
           }(),
       ],
     );
@@ -772,4 +783,52 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     );
   }
 
+}
+
+/// 회차별 테두리 섹션 (N회차 · 날짜 라벨 + 둥근 카드)
+class _TradeRoundSection extends StatelessWidget {
+  final int roundNumber;
+  final String dateStr;
+  final Widget child;
+
+  const _TradeRoundSection({
+    required this.roundNumber,
+    required this.dateStr,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 회차 라벨
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6, left: 2),
+            child: Text(
+              '$roundNumber회차 · $dateStr',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: context.appTextHint,
+              ),
+            ),
+          ),
+          // 테두리 카드
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: context.appBorder),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: child,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

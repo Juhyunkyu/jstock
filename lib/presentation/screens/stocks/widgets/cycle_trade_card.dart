@@ -71,70 +71,48 @@ class CycleTradeCard extends ConsumerWidget {
       typeText = '매도';
     }
 
-    return Container(
-      margin: EdgeInsets.only(
-        left: 16, right: 16,
-        top: isFirst ? 0 : 3,
-        bottom: isLast ? 0 : 3,
-      ),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.appBorder),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 헤더: 배지 + 날짜 + 신호 + 금액 + ⋮
-            Row(
-              children: [
-                // 거래 유형 배지
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Container(
-                      width: 44, height: 36,
-                      decoration: BoxDecoration(
-                        color: typeBgColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Text(typeText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: typeColor)),
-                      ),
-                    ),
-                    if (isInitial)
-                      Positioned(
-                        top: -4, right: -4,
-                        child: Container(
-                          width: 16, height: 16,
-                          decoration: BoxDecoration(color: typeColor, shape: BoxShape.circle),
-                          child: const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
-                        ),
-                      ),
-                  ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          // 거래 유형 배지
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 44, height: 36,
+                decoration: BoxDecoration(
+                  color: typeBgColor,
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(dateFormat.format(trade.tradedAt), style: TextStyle(fontSize: 12, color: context.appTextHint)),
-                      const SizedBox(height: 2),
-                      Text.rich(TextSpan(children: [
-                        TextSpan(
-                          text: signalConfig.label,
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
-                        ),
-                        TextSpan(
-                          text: '  \$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주',
-                          style: TextStyle(fontSize: 11, color: context.appTextSecondary),
-                        ),
-                      ])),
-                    ],
+                child: Center(
+                  child: Text(typeText, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: typeColor)),
+                ),
+              ),
+              if (isInitial)
+                Positioned(
+                  top: -4, right: -4,
+                  child: Container(
+                    width: 16, height: 16,
+                    decoration: BoxDecoration(color: typeColor, shape: BoxShape.circle),
+                    child: const Icon(Icons.auto_awesome, size: 10, color: Colors.white),
                   ),
                 ),
+            ],
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(TextSpan(children: [
+              TextSpan(
+                text: signalConfig.label,
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
+              ),
+              TextSpan(
+                text: '  \$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주',
+                style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+              ),
+            ])),
+          ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -155,17 +133,10 @@ class CycleTradeCard extends ConsumerWidget {
                         )
                       : null,
                 ),
-              ],
-            ),
-          ],
-        ),
+        ],
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // 거래 상세 BottomSheet
-  // ═══════════════════════════════════════════════════════════════
 
   Widget _buildGroupedCard(BuildContext context, WidgetRef ref) {
     final trades = groupedTrades!;
@@ -225,17 +196,7 @@ class CycleTradeCard extends ConsumerWidget {
               ),
               if (t != items.last) const SizedBox(height: 4),
             ],
-            if (items.length > 1) ...[
-              Divider(height: 12, color: context.appDivider),
-              Row(
-                children: [
-                  Text('합계', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextSecondary)),
-                  const SizedBox(width: 8),
-                  Text('평균 \$${avgPrice.toStringAsFixed(2)} × ${formatShares(totalShares)}주',
-                      style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
-                ],
-              ),
-            ],
+            // 합계는 헤더의 summaryLine으로 이동
           ],
         ),
       );
@@ -244,7 +205,7 @@ class CycleTradeCard extends ConsumerWidget {
     // 헤더 Row 빌더
     Widget buildHeader({
       required String label, required Color color, required Color bgColor,
-      String? dateStr, required String signals, required double usd, required double krw,
+      required String signals, String? summaryLine, required double usd, required double krw,
       bool showOptions = false,
     }) {
       return Row(
@@ -259,12 +220,11 @@ class CycleTradeCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (dateStr != null)
-                  Text(dateStr, style: TextStyle(fontSize: 12, color: context.appTextHint))
-                else
-                  const SizedBox(height: 14), // 날짜 자리 빈공간 유지
-                const SizedBox(height: 2),
                 Text(signals, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent)),
+                if (summaryLine != null) ...[
+                  const SizedBox(height: 2),
+                  Text(summaryLine, style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                ],
               ],
             ),
           ),
@@ -292,14 +252,7 @@ class CycleTradeCard extends ConsumerWidget {
       );
     }
 
-    return Container(
-      margin: EdgeInsets.only(left: 16, right: 16, top: isFirst ? 0 : 3, bottom: isLast ? 0 : 3),
-      decoration: BoxDecoration(
-        color: context.appSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.appBorder),
-      ),
-      child: Padding(
+    return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,8 +260,13 @@ class CycleTradeCard extends ConsumerWidget {
             // 주 헤더 (매수 우선, 없으면 매도)
             buildHeader(
               label: primaryLabel, color: primaryColor, bgColor: primaryBg,
-              dateStr: dateFormat.format(trade.tradedAt),
-              signals: primarySignals, usd: primaryUsd, krw: primaryKrw,
+              signals: primarySignals,
+              summaryLine: (primaryIsBuy && buyTrades.length > 1)
+                  ? '평균 \$${avgBuyPrice.toStringAsFixed(2)} × ${formatShares(totalBuyShares)}주'
+                  : (!primaryIsBuy && sellTrades.length > 1)
+                      ? '평균 \$${avgSellPrice.toStringAsFixed(2)} × ${formatShares(totalSellShares)}주'
+                      : null,
+              usd: primaryUsd, krw: primaryKrw,
               showOptions: true,
             ),
             // 매수 상세 박스
@@ -321,8 +279,11 @@ class CycleTradeCard extends ConsumerWidget {
               const SizedBox(height: 10),
               buildHeader(
                 label: '매도', color: AppColors.sellAction, bgColor: AppColors.sellAction50,
-                dateStr: null, // 날짜 중복 제거, 밑줄에 신호
-                signals: sellSignals, usd: totalSellUsd, krw: totalSellKrw,
+                signals: sellSignals,
+                summaryLine: sellTrades.length > 1
+                    ? '평균 \$${avgSellPrice.toStringAsFixed(2)} × ${formatShares(totalSellShares)}주'
+                    : null,
+                usd: totalSellUsd, krw: totalSellKrw,
               ),
             ],
             // 매도 상세 박스
@@ -332,7 +293,6 @@ class CycleTradeCard extends ConsumerWidget {
             ],
           ],
         ),
-      ),
     );
   }
 
