@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/krw_formatter.dart';
@@ -328,7 +329,7 @@ class CycleTradeCard extends ConsumerWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '\$${t.price.toStringAsFixed(2)} × ${t.shares.toStringAsFixed(4)}주',
+                          '\$${t.price.toStringAsFixed(2)} × ${formatShares(t.shares)}주',
                           style: TextStyle(fontSize: 11, color: context.appTextSecondary),
                         ),
                         const Spacer(),
@@ -347,7 +348,7 @@ class CycleTradeCard extends ConsumerWidget {
                         Text('합계', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextSecondary)),
                         const SizedBox(width: 8),
                         Text(
-                          '평균 \$${avgBuyPrice.toStringAsFixed(2)} × ${totalBuyShares.toStringAsFixed(4)}주',
+                          '평균 \$${avgBuyPrice.toStringAsFixed(2)} × ${formatShares(totalBuyShares)}주',
                           style: TextStyle(fontSize: 11, color: context.appTextSecondary),
                         ),
                       ],
@@ -377,7 +378,7 @@ class CycleTradeCard extends ConsumerWidget {
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        '\$${t.price.toStringAsFixed(2)} × ${t.shares.toStringAsFixed(4)}주',
+                        '\$${t.price.toStringAsFixed(2)} × ${formatShares(t.shares)}주',
                         style: TextStyle(fontSize: 11, color: context.appTextSecondary),
                       ),
                     ],
@@ -409,7 +410,7 @@ class CycleTradeCard extends ConsumerWidget {
                 title: Text('전체 수정', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _showGroupedEditSheet(context, ref, trades);
+                  _showSteadyEditSheet(context, ref, trades);
                 },
               ),
               const Divider(height: 1),
@@ -440,9 +441,18 @@ class CycleTradeCard extends ConsumerWidget {
     );
   }
 
-  void _showGroupedEditSheet(BuildContext context, WidgetRef ref, List<Trade> trades) {
-    final groupId = trades.first.groupId;
-    if (groupId == null) return;
+  /// Steady Cycle 전용 편집 시트 (단일 거래 + 그룹 거래 공통)
+  void _showSteadyEditSheet(BuildContext context, WidgetRef ref, List<Trade> trades) {
+    // groupId가 없으면 새로 생성 (단일 거래 → 그룹으로 승격)
+    final groupId = trades.first.groupId ?? const Uuid().v4();
+
+    // groupId가 없던 거래에 groupId 할당
+    for (final t in trades) {
+      if (t.groupId == null) {
+        t.groupId = groupId;
+        ref.read(tradeListProvider(cycle.id).notifier).updateTrade(t);
+      }
+    }
 
     showModalBottomSheet(
       context: context,
@@ -644,7 +654,12 @@ class CycleTradeCard extends ConsumerWidget {
               subtitle: const Text('거래 정보를 수정합니다'),
               onTap: () {
                 Navigator.pop(sheetContext);
-                _showEditTradeSheet(parentContext, ref);
+                // Steady Cycle → SteadyCombinedTradeSheet 편집 모드
+                if (cycle.strategyType == StrategyType.infiniteBuy) {
+                  _showSteadyEditSheet(parentContext, ref, [trade]);
+                } else {
+                  _showEditTradeSheet(parentContext, ref);
+                }
               },
             ),
             const SizedBox(height: 8),

@@ -490,19 +490,14 @@ class _SteadyCombinedTradeSheetState
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildSellSection(BuildContext context, SteadyOrderGuide? guide) {
-    // ─── 편집 모드: 매도 입력란 항상 표시 ───
+    // ─── 편집 모드: 매도 입력란 항상 표시 (매도 추가 가능) ───
     if (_isEditMode) {
-      final hasSellLoc = widget.editingTrades!.any((t) => t.signal == TradeSignal.sellLocQuarter);
-      final hasSellLimit = widget.editingTrades!.any((t) => t.signal == TradeSignal.sellLimitThreeQ);
-      if (!hasSellLoc && !hasSellLimit) return const SizedBox.shrink();
       return Column(children: [
-        if (hasSellLoc)
-          _buildOrderInput(context: context, label: 'LOC 매도', labelColor: AppColors.green500,
-              priceCtrl: _sellLocPriceCtrl, sharesCtrl: _sellLocSharesCtrl, isSell: true),
-        if (hasSellLoc && hasSellLimit) const SizedBox(height: 12),
-        if (hasSellLimit)
-          _buildOrderInput(context: context, label: '지정가 매도', labelColor: AppColors.green500,
-              priceCtrl: _sellLimitPriceCtrl, sharesCtrl: _sellLimitSharesCtrl, isSell: true),
+        _buildOrderInput(context: context, label: 'LOC 매도', labelColor: AppColors.green500,
+            priceCtrl: _sellLocPriceCtrl, sharesCtrl: _sellLocSharesCtrl, isSell: true),
+        const SizedBox(height: 12),
+        _buildOrderInput(context: context, label: '지정가 매도', labelColor: AppColors.green500,
+            priceCtrl: _sellLimitPriceCtrl, sharesCtrl: _sellLimitSharesCtrl, isSell: true),
       ]);
     }
 
