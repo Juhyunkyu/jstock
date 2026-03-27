@@ -822,14 +822,18 @@ class _TradeRoundSection extends StatelessWidget {
             left: 14,
             top: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              color: context.appBackground, // 테두리 선을 가리는 배경
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: context.appAccent.withAlpha(context.isDarkMode ? 30 : 20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: context.appAccent.withAlpha(60), width: 0.5),
+              ),
               child: Text(
                 '$roundNumber회차 · $dateStr',
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextHint,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: context.appAccent,
                 ),
               ),
             ),

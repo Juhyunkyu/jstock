@@ -80,7 +80,7 @@ class CycleTradeCard extends ConsumerWidget {
             clipBehavior: Clip.none,
             children: [
               Container(
-                width: 44, height: 36,
+                width: 36, height: 26,
                 decoration: BoxDecoration(
                   color: typeBgColor,
                   borderRadius: BorderRadius.circular(8),
@@ -211,7 +211,7 @@ class CycleTradeCard extends ConsumerWidget {
       return Row(
         children: [
           Container(
-            width: 44, height: 36,
+            width: 36, height: 26,
             decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
             child: Center(child: Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color))),
           ),
