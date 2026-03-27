@@ -122,10 +122,16 @@ class CycleTradeCard extends ConsumerWidget {
                     children: [
                       Text(dateFormat.format(trade.tradedAt), style: TextStyle(fontSize: 12, color: context.appTextHint)),
                       const SizedBox(height: 2),
-                      Text(
-                        '${signalConfig.label}  \$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
-                      ),
+                      Text.rich(TextSpan(children: [
+                        TextSpan(
+                          text: signalConfig.label,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
+                        ),
+                        TextSpan(
+                          text: '  \$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주',
+                          style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+                        ),
+                      ])),
                     ],
                   ),
                 ),
@@ -136,14 +142,19 @@ class CycleTradeCard extends ConsumerWidget {
                     Text(formatKrw(trade.amountKrw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
                   ],
                 ),
-                if (!readOnly)
-                  GestureDetector(
-                    onTap: () => _showTradeOptions(context, ref),
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 4),
-                      child: Icon(Icons.more_vert_rounded, size: 18, color: context.appTextHint),
-                    ),
-                  ),
+                // ⋮ 고정 폭 (readOnly면 빈 공간으로 정렬 유지)
+                SizedBox(
+                  width: 26,
+                  child: !readOnly
+                      ? GestureDetector(
+                          onTap: () => _showTradeOptions(context, ref),
+                          child: const Padding(
+                            padding: EdgeInsets.only(left: 4),
+                            child: Icon(Icons.more_vert_rounded, size: 18),
+                          ),
+                        )
+                      : null,
+                ),
               ],
             ),
           ],
@@ -262,14 +273,19 @@ class CycleTradeCard extends ConsumerWidget {
               Text(formatKrw(krw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
             ],
           ),
-          if (showOptions && !readOnly)
-            GestureDetector(
-              onTap: () => _showGroupedTradeOptions(context, ref, trades),
-              child: Padding(
-                padding: const EdgeInsets.only(left: 4),
-                child: Icon(Icons.more_vert_rounded, size: 18, color: context.appTextHint),
-              ),
-            ),
+          // ⋮ 고정 폭 (showOptions 없어도 빈 공간으로 정렬 유지)
+          SizedBox(
+            width: 26,
+            child: (showOptions && !readOnly)
+                ? GestureDetector(
+                    onTap: () => _showGroupedTradeOptions(context, ref, trades),
+                    child: const Padding(
+                      padding: EdgeInsets.only(left: 4),
+                      child: Icon(Icons.more_vert_rounded, size: 18),
+                    ),
+                  )
+                : null,
+          ),
         ],
       );
     }
