@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/krw_formatter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
@@ -92,6 +93,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
 
     // === PnL 계산 (보유 상세와 동일한 분리 방식) ===
     final hasPosition = cycle.totalShares > 0 && cycle.averagePrice > 0;
+    final isPendingCompletion = !hasPosition && trades.isNotEmpty && cycle.status == CycleStatus.active;
     final evaluatedAmountKrw = TradingMath.evaluatedAmount(
       cycle.totalShares, currentPrice, liveExchangeRate,
     );
@@ -137,8 +139,12 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // === 완료 대기 요약 카드 ===
+                  if (isPendingCompletion)
+                    _buildPendingCompletionCard(context, ref, cycle, trades, isMobile),
+
                   // === 현재 시세 카드 (맨 위) ===
-                  if (hasPosition)
+                  if (hasPosition && !isPendingCompletion)
                     ProfitLossSummaryCard(
                       currentPrice: currentPrice,
                       currentExchangeRate: liveExchangeRate,
@@ -201,8 +207,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                   ),
                   SizedBox(height: isMobile ? 14 : 20),
 
-                  // === 사이클 완료 버튼 (active 사이클만) ===
-                  if (cycle.status == CycleStatus.active)
+                  // === 사이클 완료 버튼 (active + 보유 중인 경우만) ===
+                  if (cycle.status == CycleStatus.active && !isPendingCompletion)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: _buildCompleteButton(
@@ -547,6 +553,185 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 전량 매도 완료 대기 카드
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildPendingCompletionCard(
+    BuildContext context, WidgetRef ref, Cycle cycle, List<Trade> trades, bool isMobile,
+  ) {
+    // 총 투자금 (매수 총액)
+    final totalBuyKrw = trades
+        .where((t) => t.action == TradeAction.buy)
+        .fold<double>(0, (s, t) => s + t.amountKrw);
+    // 총 회수금 (매도 총액)
+    final totalSellKrw = trades
+        .where((t) => t.action == TradeAction.sell)
+        .fold<double>(0, (s, t) => s + t.amountKrw);
+    // 순수익
+    final netProfitKrw = totalSellKrw - totalBuyKrw + cycle.remainingCash;
+    final profitRate = totalBuyKrw > 0 ? (netProfitKrw / totalBuyKrw * 100) : 0.0;
+    final isProfit = netProfitKrw >= 0;
+
+    // 회차 수
+    final groupIds = <String>{};
+    int roundCount = 0;
+    for (final t in trades) {
+      if (t.groupId != null) {
+        if (groupIds.add(t.groupId!)) roundCount++;
+      } else {
+        roundCount++;
+      }
+    }
+
+    // 운용 기간
+    final firstDate = trades.map((t) => t.tradedAt).reduce((a, b) => a.isBefore(b) ? a : b);
+    final lastDate = trades.map((t) => t.tradedAt).reduce((a, b) => a.isAfter(b) ? a : b);
+    final durationDays = lastDate.difference(firstDate).inDays + 1;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(isMobile ? 16 : 20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              context.appGradientCardStart,
+              context.appGradientCardEnd,
+            ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 타이틀
+            Row(
+              children: [
+                const Text('🎉', style: TextStyle(fontSize: 20)),
+                const SizedBox(width: 8),
+                Text(
+                  '전량 매도 완료',
+                  style: TextStyle(
+                    fontSize: isMobile ? 16 : 18,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: isMobile ? 14 : 18),
+
+            // 수익 요약
+            _pendingRow('총 투자금', formatKrw(totalBuyKrw), isMobile),
+            const SizedBox(height: 6),
+            _pendingRow('총 회수금', formatKrw(totalSellKrw), isMobile),
+            const SizedBox(height: 6),
+            _pendingRow(
+              '순수익',
+              '${formatKrw(netProfitKrw)}  (${isProfit ? "+" : ""}${profitRate.toStringAsFixed(1)}%)',
+              isMobile,
+              valueColor: isProfit ? AppColors.overlayGreen : AppColors.overlayRed,
+            ),
+            const SizedBox(height: 6),
+            _pendingRow('운용 기간', '$durationDays일 · $roundCount회차', isMobile),
+
+            SizedBox(height: isMobile ? 16 : 20),
+
+            // 구분선
+            Container(height: 0.5, color: Colors.white.withAlpha(40)),
+            SizedBox(height: isMobile ? 14 : 18),
+
+            // 안내 문구
+            Text(
+              '거래 내역을 확인 후 완료하세요',
+              style: TextStyle(
+                fontSize: isMobile ? 13 : 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white.withAlpha(220),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '잘못 기록했다면 아래에서 수정 가능합니다.',
+              style: TextStyle(
+                fontSize: isMobile ? 11 : 12,
+                color: Colors.white.withAlpha(150),
+              ),
+            ),
+            SizedBox(height: isMobile ? 14 : 18),
+
+            // 완료 버튼
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _confirmCycleCompletion(context, ref, cycle),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: context.appGradientCardStart,
+                  padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  '✅ 사이클 완료 및 정산',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Center(
+              child: Text(
+                '완료 시 거래내역 탭으로 이동되며 되돌릴 수 없습니다.',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.white.withAlpha(120),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pendingRow(String label, String value, bool isMobile, {Color? valueColor}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(fontSize: isMobile ? 12 : 13, color: Colors.white.withAlpha(180))),
+        Text(value, style: TextStyle(
+          fontSize: isMobile ? 13 : 14,
+          fontWeight: FontWeight.w600,
+          color: valueColor ?? Colors.white,
+        )),
+      ],
+    );
+  }
+
+  Future<void> _confirmCycleCompletion(BuildContext context, WidgetRef ref, Cycle cycle) async {
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: '사이클 완료',
+      message: '이 사이클을 완료 처리하시겠습니까?\n거래내역 탭에서 확인할 수 있습니다.',
+      confirmText: '완료',
+      isDanger: false,
+    );
+    if (confirmed && context.mounted) {
+      cycle.status = CycleStatus.completed;
+      await ref.read(cycleListProvider.notifier).saveCycle(cycle);
+      if (context.mounted) {
+        context.go('/history');
+      }
+    }
   }
 
   // ═══════════════════════════════════════════════════════════════
