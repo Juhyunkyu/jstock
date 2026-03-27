@@ -12,6 +12,7 @@ import '../../../widgets/shared/confirm_dialog.dart';
 import '../../../widgets/shared/info_row.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
 import 'cycle_trade_record_sheet.dart';
+import 'steady_combined_trade_sheet.dart';
 
 /// 사이클 거래 내역 카드
 ///
@@ -402,19 +403,15 @@ class CycleTradeCard extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 개별 거래 수정
-              for (final t in trades)
-                ListTile(
-                  leading: Icon(Icons.edit_outlined, color: context.appTextSecondary),
-                  title: Text(
-                    '${SignalBadgeConfig.fromSignal(t.signal).label} 수정 (\$${t.price.toStringAsFixed(2)})',
-                    style: TextStyle(fontSize: 14, color: context.appTextPrimary),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showEditTradeSheet(context, ref, specificTrade: t);
-                  },
-                ),
+              // 전체 수정 (SteadyCombinedTradeSheet 편집 모드)
+              ListTile(
+                leading: Icon(Icons.edit_outlined, color: context.appAccent),
+                title: Text('전체 수정', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showGroupedEditSheet(context, ref, trades);
+                },
+              ),
               const Divider(height: 1),
               // 전체 삭제
               ListTile(
@@ -438,6 +435,38 @@ class CycleTradeCard extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showGroupedEditSheet(BuildContext context, WidgetRef ref, List<Trade> trades) {
+    final groupId = trades.first.groupId;
+    if (groupId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(),
+      builder: (ctx) => SizedBox(
+        height: MediaQuery.sizeOf(ctx).height,
+        child: SteadyCombinedTradeSheet(
+          cycle: cycle,
+          currentExchangeRate: trades.first.exchangeRate,
+          currentPrice: null,
+          editingTrades: trades,
+          editGroupId: groupId,
+          onRecordBuy: ({required signal, required price, required shares, required exchangeRate, required date, memo, groupId}) async {},
+          onRecordSell: ({required signal, required price, required shares, required exchangeRate, required date, memo, groupId}) async {},
+          onReplaceTrades: ({required groupId, required newTrades}) async {
+            await ref.read(tradeListProvider(cycle.id).notifier).replaceGroupedTrades(
+              groupId: groupId,
+              newTrades: newTrades,
+            );
+          },
         ),
       ),
     );

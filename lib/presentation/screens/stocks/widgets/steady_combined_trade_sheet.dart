@@ -42,6 +42,15 @@ class SteadyCombinedTradeSheet extends ConsumerStatefulWidget {
     String? groupId,
   }) onRecordSell;
 
+  /// 편집 모드: 기존 거래 그룹
+  final List<Trade>? editingTrades;
+  final String? editGroupId;
+  /// 편집 모드: 교체 저장 콜백
+  final Future<void> Function({
+    required String groupId,
+    required List<Trade> newTrades,
+  })? onReplaceTrades;
+
   const SteadyCombinedTradeSheet({
     super.key,
     required this.cycle,
@@ -50,6 +59,9 @@ class SteadyCombinedTradeSheet extends ConsumerStatefulWidget {
     this.changePercent,
     required this.onRecordBuy,
     required this.onRecordSell,
+    this.editingTrades,
+    this.editGroupId,
+    this.onReplaceTrades,
   });
 
   @override
@@ -97,10 +109,48 @@ class _SteadyCombinedTradeSheetState
   double get _sellLimitShares =>
       double.tryParse(_sellLimitSharesCtrl.text) ?? 0;
 
+  bool get _isEditMode => widget.editingTrades != null && widget.editingTrades!.isNotEmpty;
+
+  // 편집 모드에서 원래 거래의 섹션 타입 판별
+  bool get _editHasLocAB => _isEditMode && widget.editingTrades!.any(
+      (t) => t.signal == TradeSignal.locA || t.signal == TradeSignal.locB);
+  bool get _editHasSingle => _isEditMode && widget.editingTrades!.any(
+      (t) => t.signal == TradeSignal.buySingle || t.signal == TradeSignal.initial);
+
   @override
   void initState() {
     super.initState();
     _selectedDate = DateTime.now();
+    _prefillIfEditing();
+  }
+
+  void _prefillIfEditing() {
+    if (!_isEditMode) return;
+    final trades = widget.editingTrades!;
+    _selectedDate = trades.first.tradedAt;
+    _memoController.text = trades.firstWhere((t) => t.memo != null, orElse: () => trades.first).memo ?? '';
+
+    for (final t in trades) {
+      switch (t.signal) {
+        case TradeSignal.locA:
+          _buyAPriceCtrl.text = t.price.toString();
+          _buyASharesCtrl.text = t.shares.toString();
+        case TradeSignal.locB:
+          _buyBPriceCtrl.text = t.price.toString();
+          _buyBSharesCtrl.text = t.shares.toString();
+        case TradeSignal.buySingle || TradeSignal.initial:
+          _buySinglePriceCtrl.text = t.price.toString();
+          _buySingleSharesCtrl.text = t.shares.toString();
+        case TradeSignal.sellLocQuarter:
+          _sellLocPriceCtrl.text = t.price.toString();
+          _sellLocSharesCtrl.text = t.shares.toString();
+        case TradeSignal.sellLimitThreeQ:
+          _sellLimitPriceCtrl.text = t.price.toString();
+          _sellLimitSharesCtrl.text = t.shares.toString();
+        default:
+          break;
+      }
+    }
   }
 
   @override
@@ -148,7 +198,9 @@ class _SteadyCombinedTradeSheetState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${widget.cycle.ticker} 오늘의 거래 기록',
+              _isEditMode
+                  ? '${widget.cycle.ticker} 거래 기록 수정'
+                  : '${widget.cycle.ticker} 오늘의 거래 기록',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -188,20 +240,20 @@ class _SteadyCombinedTradeSheetState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // T값 요약
-            if (guide != null) _buildGuideSummary(context, guide),
+            // T값 요약 (편집 모드에서는 숨김)
+            if (!_isEditMode && guide != null) _buildGuideSummary(context, guide),
             const SizedBox(height: 16),
 
             // === 매수 체결 결과 ===
             _buildSectionHeader(context, '매수 체결 결과', AppColors.blue500),
             const SizedBox(height: 8),
-            _buildBuySection(context, guide),
+            _buildBuySection(context, _isEditMode ? null : guide),
             const SizedBox(height: 20),
 
             // === 매도 체결 결과 ===
             _buildSectionHeader(context, '매도 체결 결과', AppColors.green500),
             const SizedBox(height: 8),
-            _buildSellSection(context, guide),
+            _buildSellSection(context, _isEditMode ? null : guide),
             const SizedBox(height: 20),
 
             // === 요약 ===
@@ -235,9 +287,9 @@ class _SteadyCombinedTradeSheetState
                           color: Colors.white,
                         ),
                       )
-                    : const Text(
-                        '기록 저장',
-                        style: TextStyle(
+                    : Text(
+                        _isEditMode ? '수정 완료' : '기록 저장',
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -337,6 +389,26 @@ class _SteadyCombinedTradeSheetState
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildBuySection(BuildContext context, SteadyOrderGuide? guide) {
+    // ─── 편집 모드: 원래 거래 signal 기준으로 섹션 표시 ───
+    if (_isEditMode) {
+      if (_editHasLocAB) {
+        // 전반전 A+B
+        return Column(children: [
+          _buildOrderInput(context: context, label: 'LOC A', labelColor: AppColors.blue500,
+              priceCtrl: _buyAPriceCtrl, sharesCtrl: _buyASharesCtrl),
+          const SizedBox(height: 12),
+          _buildOrderInput(context: context, label: 'LOC B', labelColor: AppColors.blue500,
+              priceCtrl: _buyBPriceCtrl, sharesCtrl: _buyBSharesCtrl),
+        ]);
+      } else if (_editHasSingle) {
+        return _buildOrderInput(context: context, label: '매수', labelColor: AppColors.blue500,
+            priceCtrl: _buySinglePriceCtrl, sharesCtrl: _buySingleSharesCtrl);
+      }
+      // 매수 거래 없는 경우 (매도만 수정)
+      return const SizedBox.shrink();
+    }
+
+    // ─── 신규 기록 모드: 가이드 기반 ───
     // 첫 매수 or 쿼터모드 → 단일 입력
     if (guide != null && (guide.isFirstBuy || guide.isQuarterMode)) {
       if (guide.isQuarterMode && !guide.canBuy) {
@@ -418,6 +490,23 @@ class _SteadyCombinedTradeSheetState
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildSellSection(BuildContext context, SteadyOrderGuide? guide) {
+    // ─── 편집 모드: 매도 입력란 항상 표시 ───
+    if (_isEditMode) {
+      final hasSellLoc = widget.editingTrades!.any((t) => t.signal == TradeSignal.sellLocQuarter);
+      final hasSellLimit = widget.editingTrades!.any((t) => t.signal == TradeSignal.sellLimitThreeQ);
+      if (!hasSellLoc && !hasSellLimit) return const SizedBox.shrink();
+      return Column(children: [
+        if (hasSellLoc)
+          _buildOrderInput(context: context, label: 'LOC 매도', labelColor: AppColors.green500,
+              priceCtrl: _sellLocPriceCtrl, sharesCtrl: _sellLocSharesCtrl, isSell: true),
+        if (hasSellLoc && hasSellLimit) const SizedBox(height: 12),
+        if (hasSellLimit)
+          _buildOrderInput(context: context, label: '지정가 매도', labelColor: AppColors.green500,
+              priceCtrl: _sellLimitPriceCtrl, sharesCtrl: _sellLimitSharesCtrl, isSell: true),
+      ]);
+    }
+
+    // ─── 신규 기록 모드 ───
     // 첫 매수이면 아직 매도 없음
     if (guide != null && guide.isFirstBuy) {
       return _buildInfoChip(context, '첫 매수 전 -- 매도 없음');
@@ -908,6 +997,64 @@ class _SteadyCombinedTradeSheetState
     final exchangeRate = widget.currentExchangeRate;
     final date = _selectedDate;
     final memo = _memoController.text.isEmpty ? null : _memoController.text;
+
+    // ─── 편집 모드: 기존 거래 교체 ───
+    if (_isEditMode && widget.onReplaceTrades != null && widget.editGroupId != null) {
+      try {
+        final newTrades = <Trade>[];
+        final gid = widget.editGroupId!;
+
+        if (_buyAPrice > 0 && _buyAShares > 0) {
+          newTrades.add(Trade(id: const Uuid().v4(), cycleId: widget.cycle.id,
+            action: TradeAction.buy, signal: TradeSignal.locA,
+            price: _buyAPrice, shares: _buyAShares,
+            amountKrw: _buyAShares * _buyAPrice * exchangeRate,
+            exchangeRate: exchangeRate, tradedAt: date, memo: memo, groupId: gid));
+        }
+        if (_buyBPrice > 0 && _buyBShares > 0) {
+          newTrades.add(Trade(id: const Uuid().v4(), cycleId: widget.cycle.id,
+            action: TradeAction.buy, signal: TradeSignal.locB,
+            price: _buyBPrice, shares: _buyBShares,
+            amountKrw: _buyBShares * _buyBPrice * exchangeRate,
+            exchangeRate: exchangeRate, tradedAt: date, groupId: gid));
+        }
+        if (_buySinglePrice > 0 && _buySingleShares > 0) {
+          newTrades.add(Trade(id: const Uuid().v4(), cycleId: widget.cycle.id,
+            action: TradeAction.buy, signal: TradeSignal.buySingle,
+            price: _buySinglePrice, shares: _buySingleShares,
+            amountKrw: _buySingleShares * _buySinglePrice * exchangeRate,
+            exchangeRate: exchangeRate, tradedAt: date, memo: memo, groupId: gid));
+        }
+        if (_sellLocPrice > 0 && _sellLocShares > 0) {
+          newTrades.add(Trade(id: const Uuid().v4(), cycleId: widget.cycle.id,
+            action: TradeAction.sell, signal: TradeSignal.sellLocQuarter,
+            price: _sellLocPrice, shares: _sellLocShares,
+            amountKrw: _sellLocShares * _sellLocPrice * exchangeRate,
+            exchangeRate: exchangeRate, tradedAt: date, groupId: gid));
+        }
+        if (_sellLimitPrice > 0 && _sellLimitShares > 0) {
+          newTrades.add(Trade(id: const Uuid().v4(), cycleId: widget.cycle.id,
+            action: TradeAction.sell, signal: TradeSignal.sellLimitThreeQ,
+            price: _sellLimitPrice, shares: _sellLimitShares,
+            amountKrw: _sellLimitShares * _sellLimitPrice * exchangeRate,
+            exchangeRate: exchangeRate, tradedAt: date, groupId: gid));
+        }
+
+        await widget.onReplaceTrades!(groupId: gid, newTrades: newTrades);
+        if (mounted) Navigator.pop(context);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('수정 실패: $e')),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
+    // ─── 신규 기록 모드 ───
     // 같은 세션의 모든 거래를 하나의 그룹으로 묶음
     final sessionGroupId = const Uuid().v4();
 

@@ -150,6 +150,28 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     await _recalculateCycleState();
   }
 
+  /// 그룹 거래 교체 (편집 모드): 기존 삭제 → 새로 생성 → 1회 재계산
+  Future<void> replaceGroupedTrades({
+    required String groupId,
+    required List<Trade> newTrades,
+  }) async {
+    // 1. 기존 그룹 거래 삭제
+    final existingTrades = state.where((t) => t.groupId == groupId).toList();
+    for (final t in existingTrades) {
+      await _repository.delete(t.id);
+    }
+
+    // 2. 새 거래 저장
+    for (final t in newTrades) {
+      await _repository.save(t);
+    }
+
+    // 3. 1회만 재계산
+    _ref.invalidate(allTradesProvider);
+    state = _repository.getByCycleId(_cycleId);
+    await _recalculateCycleState();
+  }
+
   /// 남은 거래 내역으로 사이클 상태 재계산
   Future<void> _recalculateCycleState() async {
     final cycles = _ref.read(cycleListProvider);
