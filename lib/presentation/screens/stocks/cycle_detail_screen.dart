@@ -801,30 +801,37 @@ class _TradeRoundSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          // 회차 라벨
+          // 테두리 카드 (상단 여백으로 라벨 공간 확보)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6, left: 2),
-            child: Text(
-              '$roundNumber회차 · $dateStr',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: context.appTextHint,
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: context.appBorder),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: child,
               ),
             ),
           ),
-          // 테두리 카드
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: context.appBorder),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: child,
+          // 회차 라벨 (테두리 상단 선 위에 겹침)
+          Positioned(
+            left: 14,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              color: context.appBackground, // 테두리 선을 가리는 배경
+              child: Text(
+                '$roundNumber회차 · $dateStr',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: context.appTextHint,
+                ),
+              ),
             ),
           ),
         ],
