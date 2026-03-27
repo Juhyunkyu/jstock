@@ -122,7 +122,10 @@ class CycleTradeCard extends ConsumerWidget {
                     children: [
                       Text(dateFormat.format(trade.tradedAt), style: TextStyle(fontSize: 12, color: context.appTextHint)),
                       const SizedBox(height: 2),
-                      Text(signalConfig.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent)),
+                      Text(
+                        '${signalConfig.label}  \$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
+                      ),
                     ],
                   ),
                 ),
@@ -142,24 +145,6 @@ class CycleTradeCard extends ConsumerWidget {
                     ),
                   ),
               ],
-            ),
-            // 상세 박스
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: context.appBackground,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                children: [
-                  Text(signalConfig.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent)),
-                  const SizedBox(width: 8),
-                  Text('\$${trade.price.toStringAsFixed(2)} × ${formatShares(trade.shares)}주', style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
-                  const Spacer(),
-                  Text('\$${amountUsd.toStringAsFixed(2)}', style: TextStyle(fontSize: 11, color: context.appTextPrimary)),
-                ],
-              ),
             ),
           ],
         ),
