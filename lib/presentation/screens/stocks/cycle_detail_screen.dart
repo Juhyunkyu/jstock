@@ -139,67 +139,70 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // === 완료 대기 요약 카드 ===
-                  if (isPendingCompletion)
-                    _buildPendingCompletionCard(context, ref, cycle, trades, isMobile),
+                  // === 완료 대기: 요약 카드만 표시 (나머지 숨김) ===
+                  if (isPendingCompletion) ...[
+                    _buildPendingCompletionCard(context, ref, cycle, trades, isMobile, liveExchangeRate),
+                    SizedBox(height: isMobile ? 14 : 20),
+                  ]
+                  // === 활성: 포지션 있으면 시세 카드, 없으면 초기 매수 가이드 ===
+                  else ...[
+                    if (hasPosition)
+                      ProfitLossSummaryCard(
+                        currentPrice: currentPrice,
+                        currentExchangeRate: liveExchangeRate,
+                        usdPL: usdPL,
+                        usdReturnRate: usdReturnRate,
+                        investedAmount: investedAmount,
+                        currencyPL: currencyPL,
+                        quantity: cycle.totalShares.round(),
+                      )
+                    else
+                      CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
+                    SizedBox(height: isMobile ? 10 : 16),
 
-                  // === 현재 시세 카드 (맨 위) ===
-                  if (hasPosition && !isPendingCompletion)
-                    ProfitLossSummaryCard(
-                      currentPrice: currentPrice,
-                      currentExchangeRate: liveExchangeRate,
-                      usdPL: usdPL,
-                      usdReturnRate: usdReturnRate,
-                      investedAmount: investedAmount,
-                      currencyPL: currencyPL,
-                      quantity: cycle.totalShares.round(),
-                    )
-                  else
-                    CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
-                  SizedBox(height: isMobile ? 10 : 16),
-
-                  // === 신호 카드 (Smart Cycle만 — Steady는 주문 가이드가 대체) ===
-                  if (cycle.status == CycleStatus.active &&
-                      cycle.strategyType != StrategyType.infiniteBuy) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SignalDisplay(
-                        signal: signal,
-                        size: SignalDisplaySize.large,
-                        amount: signalAmount,
-                        lossRate: hasPosition ? usdReturnRate : null,
+                    // === 신호 카드 (Smart Cycle만) ===
+                    if (cycle.status == CycleStatus.active &&
+                        cycle.strategyType != StrategyType.infiniteBuy) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SignalDisplay(
+                          signal: signal,
+                          size: SignalDisplaySize.large,
+                          amount: signalAmount,
+                          lossRate: hasPosition ? usdReturnRate : null,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: isMobile ? 10 : 16),
-                  ],
+                      SizedBox(height: isMobile ? 10 : 16),
+                    ],
 
-                  // === Steady Cycle 주문 가이드 카드 (V1/V2.2/V3.0 통합) ===
-                  if (cycle.strategyType == StrategyType.infiniteBuy &&
-                      cycle.status == CycleStatus.active) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: SteadyOrderGuideCard(cycleId: widget.cycleId),
-                    ),
-                    SizedBox(height: isMobile ? 10 : 16),
-                  ],
+                    // === Steady Cycle 주문 가이드 ===
+                    if (cycle.strategyType == StrategyType.infiniteBuy &&
+                        cycle.status == CycleStatus.active) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SteadyOrderGuideCard(cycleId: widget.cycleId),
+                      ),
+                      SizedBox(height: isMobile ? 10 : 16),
+                    ],
 
-                  // === 정보 카드 (보유 상세 스타일 + 사이클 전용) ===
-                  CycleInfoCard(
-                    cycle: cycle,
-                    currentPrice: currentPrice,
-                    liveExchangeRate: liveExchangeRate,
-                    evaluatedAmountKrw: evaluatedAmountKrw,
-                    weightedAvgExchangeRate: weightedAvgExchangeRate,
-                    steadyTValue: steadyGuide?.tValue,
-                    onExchangeRateChanged: (newRate) async {
-                      cycle.exchangeRateAtEntry = newRate;
-                      await ref.read(cycleListProvider.notifier).saveCycle(cycle);
-                    },
-                    onEditSettings: cycle.isEmpty && cycle.status == CycleStatus.active
-                        ? () => _showSettingsSheet(cycle)
-                        : null,
-                  ),
-                  SizedBox(height: isMobile ? 14 : 20),
+                    // === 정보 카드 ===
+                    CycleInfoCard(
+                      cycle: cycle,
+                      currentPrice: currentPrice,
+                      liveExchangeRate: liveExchangeRate,
+                      evaluatedAmountKrw: evaluatedAmountKrw,
+                      weightedAvgExchangeRate: weightedAvgExchangeRate,
+                      steadyTValue: steadyGuide?.tValue,
+                      onExchangeRateChanged: (newRate) async {
+                        cycle.exchangeRateAtEntry = newRate;
+                        await ref.read(cycleListProvider.notifier).saveCycle(cycle);
+                      },
+                      onEditSettings: cycle.isEmpty && cycle.status == CycleStatus.active
+                          ? () => _showSettingsSheet(cycle)
+                          : null,
+                    ),
+                    SizedBox(height: isMobile ? 14 : 20),
+                  ],
 
                   // === 거래 내역 ===
                   _buildTradeHistorySection(
@@ -560,36 +563,39 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildPendingCompletionCard(
-    BuildContext context, WidgetRef ref, Cycle cycle, List<Trade> trades, bool isMobile,
+    BuildContext context, WidgetRef ref, Cycle cycle, List<Trade> trades, bool isMobile, double liveExchangeRate,
   ) {
+    final dateFormat = DateFormat('yyyy.MM.dd');
+    final buyTrades = trades.where((t) => t.action == TradeAction.buy).toList();
+    final sellTrades = trades.where((t) => t.action == TradeAction.sell).toList();
+
     // 총 투자금 (매수 총액)
-    final totalBuyKrw = trades
-        .where((t) => t.action == TradeAction.buy)
-        .fold<double>(0, (s, t) => s + t.amountKrw);
+    final totalBuyKrw = buyTrades.fold<double>(0, (s, t) => s + t.amountKrw);
     // 총 회수금 (매도 총액)
-    final totalSellKrw = trades
-        .where((t) => t.action == TradeAction.sell)
-        .fold<double>(0, (s, t) => s + t.amountKrw);
-    // 순수익
-    final netProfitKrw = totalSellKrw - totalBuyKrw + cycle.remainingCash;
+    final totalSellKrw = sellTrades.fold<double>(0, (s, t) => s + t.amountKrw);
+    // ★ 순수익 = 매도총액 - 매수총액 (이중 계산 버그 수정)
+    final netProfitKrw = totalSellKrw - totalBuyKrw;
     final profitRate = totalBuyKrw > 0 ? (netProfitKrw / totalBuyKrw * 100) : 0.0;
     final isProfit = netProfitKrw >= 0;
 
-    // 회차 수
-    final groupIds = <String>{};
-    int roundCount = 0;
-    for (final t in trades) {
-      if (t.groupId != null) {
-        if (groupIds.add(t.groupId!)) roundCount++;
-      } else {
-        roundCount++;
-      }
-    }
+    // 평균 매수가/매도가 (USD)
+    final totalBuyShares = buyTrades.fold<double>(0, (s, t) => s + t.shares);
+    final totalBuyUsd = buyTrades.fold<double>(0, (s, t) => s + t.price * t.shares);
+    final avgBuyPrice = totalBuyShares > 0 ? totalBuyUsd / totalBuyShares : 0.0;
+    final totalSellShares = sellTrades.fold<double>(0, (s, t) => s + t.shares);
+    final totalSellUsd = sellTrades.fold<double>(0, (s, t) => s + t.price * t.shares);
+    final avgSellPrice = totalSellShares > 0 ? totalSellUsd / totalSellShares : 0.0;
 
-    // 운용 기간
+    // 회차 수 (매수 거래만, cycle.roundsUsed 사용)
+    final roundCount = cycle.roundsUsed;
+
+    // 운용 기간 (첫 거래 ~ 마지막 거래)
     final firstDate = trades.map((t) => t.tradedAt).reduce((a, b) => a.isBefore(b) ? a : b);
     final lastDate = trades.map((t) => t.tradedAt).reduce((a, b) => a.isAfter(b) ? a : b);
     final durationDays = lastDate.difference(firstDate).inDays + 1;
+
+    // 평균 환율
+    final exchangeRate = cycle.exchangeRateAtEntry;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -600,10 +606,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              context.appGradientCardStart,
-              context.appGradientCardEnd,
-            ],
+            colors: [context.appGradientCardStart, context.appGradientCardEnd],
           ),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -613,16 +616,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             // 타이틀
             Row(
               children: [
-                const Text('🎉', style: TextStyle(fontSize: 20)),
+                Icon(Icons.check_circle_outline, size: 22, color: isProfit ? AppColors.overlayGreen : AppColors.overlayRed),
                 const SizedBox(width: 8),
-                Text(
-                  '전량 매도 완료',
-                  style: TextStyle(
-                    fontSize: isMobile ? 16 : 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
+                Text('전량 매도 완료', style: TextStyle(fontSize: isMobile ? 16 : 18, fontWeight: FontWeight.w700, color: Colors.white)),
               ],
             ),
             SizedBox(height: isMobile ? 14 : 18),
@@ -634,35 +630,92 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             const SizedBox(height: 6),
             _pendingRow(
               '순수익',
-              '${formatKrw(netProfitKrw)}  (${isProfit ? "+" : ""}${profitRate.toStringAsFixed(1)}%)',
+              '${isProfit ? "+" : ""}${formatKrw(netProfitKrw)}  (${isProfit ? "+" : ""}${profitRate.toStringAsFixed(1)}%)',
               isMobile,
               valueColor: isProfit ? AppColors.overlayGreen : AppColors.overlayRed,
             ),
+            SizedBox(height: isMobile ? 10 : 14),
+
+            // 거래 상세
+            _pendingRow('평균 매수가', '\$${avgBuyPrice.toStringAsFixed(2)}', isMobile),
             const SizedBox(height: 6),
-            _pendingRow('운용 기간', '$durationDays일 · $roundCount회차', isMobile),
+            _pendingRow('평균 매도가', '\$${avgSellPrice.toStringAsFixed(2)}', isMobile),
+            const SizedBox(height: 6),
+            // 평균 환율 (수정 가능)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('평균 환율', style: TextStyle(fontSize: isMobile ? 12 : 13, color: Colors.white.withAlpha(180))),
+                GestureDetector(
+                  onTap: () async {
+                    final controller = TextEditingController(text: exchangeRate.toStringAsFixed(0));
+                    final result = await showDialog<double>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: context.appSurface,
+                        title: Text('평균 환율 수정', style: TextStyle(fontSize: 16, color: context.appTextPrimary)),
+                        content: TextField(
+                          controller: controller,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            hintText: '예: 1380',
+                            suffixText: '원',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('취소')),
+                          TextButton(
+                            onPressed: () {
+                              final val = double.tryParse(controller.text);
+                              if (val != null && val > 0) Navigator.pop(ctx, val);
+                            },
+                            child: const Text('확인'),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (result != null) {
+                      cycle.exchangeRateAtEntry = result;
+                      await ref.read(cycleListProvider.notifier).saveCycle(cycle);
+                    }
+                  },
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '₩${exchangeRate.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: isMobile ? 13 : 14, fontWeight: FontWeight.w600, color: Colors.white),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(Icons.edit_outlined, size: 14, color: Colors.white.withAlpha(180)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: isMobile ? 10 : 14),
+
+            // 운용 기간
+            _pendingRow('운용 기간', '${dateFormat.format(firstDate)} ~ ${dateFormat.format(lastDate)} ($durationDays일)', isMobile),
+            const SizedBox(height: 6),
+            _pendingRow('총 회차', '$roundCount회차', isMobile),
 
             SizedBox(height: isMobile ? 16 : 20),
 
             // 구분선
             Container(height: 0.5, color: Colors.white.withAlpha(40)),
-            SizedBox(height: isMobile ? 14 : 18),
+            SizedBox(height: isMobile ? 12 : 16),
 
             // 안내 문구
             Text(
               '거래 내역을 확인 후 완료하세요',
-              style: TextStyle(
-                fontSize: isMobile ? 13 : 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.white.withAlpha(220),
-              ),
+              style: TextStyle(fontSize: isMobile ? 13 : 14, fontWeight: FontWeight.w600, color: Colors.white.withAlpha(220)),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
-              '잘못 기록했다면 아래에서 수정 가능합니다.',
-              style: TextStyle(
-                fontSize: isMobile ? 11 : 12,
-                color: Colors.white.withAlpha(150),
-              ),
+              '환율이나 거래가 잘못되었다면 아래에서 수정 가능합니다.',
+              style: TextStyle(fontSize: isMobile ? 11 : 12, color: Colors.white.withAlpha(150)),
             ),
             SizedBox(height: isMobile ? 14 : 18),
 
@@ -672,18 +725,15 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               child: ElevatedButton(
                 onPressed: () => _confirmCycleCompletion(context, ref, cycle),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: context.appGradientCardStart,
+                  backgroundColor: context.appAccent,
+                  foregroundColor: Colors.white,
                   padding: EdgeInsets.symmetric(vertical: isMobile ? 12 : 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   elevation: 0,
                 ),
                 child: Text(
-                  '✅ 사이클 완료 및 정산',
-                  style: TextStyle(
-                    fontSize: isMobile ? 14 : 15,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  '사이클 완료 및 정산',
+                  style: TextStyle(fontSize: isMobile ? 14 : 15, fontWeight: FontWeight.w700),
                 ),
               ),
             ),
@@ -691,10 +741,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             Center(
               child: Text(
                 '완료 시 거래내역 탭으로 이동되며 되돌릴 수 없습니다.',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.white.withAlpha(120),
-                ),
+                style: TextStyle(fontSize: 10, color: Colors.white.withAlpha(120)),
               ),
             ),
           ],
@@ -708,11 +755,13 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(fontSize: isMobile ? 12 : 13, color: Colors.white.withAlpha(180))),
-        Text(value, style: TextStyle(
-          fontSize: isMobile ? 13 : 14,
-          fontWeight: FontWeight.w600,
-          color: valueColor ?? Colors.white,
-        )),
+        Flexible(
+          child: Text(value, textAlign: TextAlign.right, style: TextStyle(
+            fontSize: isMobile ? 13 : 14,
+            fontWeight: FontWeight.w600,
+            color: valueColor ?? Colors.white,
+          )),
+        ),
       ],
     );
   }
