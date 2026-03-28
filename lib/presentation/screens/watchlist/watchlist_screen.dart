@@ -390,10 +390,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       if (item == null) return;
     }
 
-    if (!WebNotificationService.isPermissionGranted) {
-      await WebNotificationService.requestPermission();
-    }
-
+    // 알림 권한은 시트 안에서 처리 (여기서 await하면 mounted 문제 발생 가능)
     if (!mounted) return;
     showModalBottomSheet(
       context: context,
