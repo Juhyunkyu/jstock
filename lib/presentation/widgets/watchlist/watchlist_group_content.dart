@@ -150,10 +150,11 @@ class WatchlistGroupContent extends ConsumerWidget {
       return _SimpleTickerTile(
         ticker: item.ticker,
         inGrid: grid,
-        showAlert: false, // WatchlistItem 없으면 알림 불가 → 숨김
+        showAlert: canAlert,
         showDelete: canDelete,
         onTap: () => onTickerTap(item.ticker),
         onStarTap: () => onStarTap(item.ticker),
+        onAlertTap: canAlert ? (price) => onAlertTap(item.ticker, price) : null,
         onDelete: canDelete ? () => handleRemove(item.ticker) : null,
       );
     }
@@ -278,6 +279,7 @@ class _SimpleTickerTile extends ConsumerStatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onStarTap;
   final VoidCallback? onDelete;
+  final void Function(double? currentPrice)? onAlertTap;
 
   const _SimpleTickerTile({
     super.key,
@@ -288,6 +290,7 @@ class _SimpleTickerTile extends ConsumerStatefulWidget {
     required this.onTap,
     this.onStarTap,
     this.onDelete,
+    this.onAlertTap,
   });
 
   @override
@@ -405,14 +408,19 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
                     ),
                     Container(width: 1, height: 16, color: context.appDivider),
                   ],
-                  // Alert area (Expanded, center-aligned) — disabled placeholder
+                  // Alert area (탭하면 알림 설정 시트 열기)
                   if (widget.showAlert)
                     Expanded(
-                      child: Center(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          final price = ref.read(stockQuoteProvider).quotes[widget.ticker]?.currentPrice;
+                          widget.onAlertTap?.call(price);
+                        },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 7),
                           child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.notifications_none,
