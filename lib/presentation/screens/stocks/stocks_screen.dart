@@ -71,16 +71,20 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                   : '/stocks/setup',
             );
 
-    return FloatingActionButton.extended(
-      onPressed: onPressed,
-      backgroundColor: context.appAccent,
-      foregroundColor: Colors.white,
-      icon: Icon(Icons.add, size: isMobile ? 18 : 20),
-      label: Text(
-        label,
-        style: TextStyle(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.w600),
+    return SizedBox(
+      height: isMobile ? 40 : 44,
+      child: FloatingActionButton.extended(
+        onPressed: onPressed,
+        backgroundColor: context.appAccent,
+        foregroundColor: Colors.white,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        icon: Icon(Icons.add, size: isMobile ? 18 : 20),
+        label: Text(
+          label,
+          style: TextStyle(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.w600),
+        ),
+        extendedPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
       ),
-      extendedPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
     );
   }
 
