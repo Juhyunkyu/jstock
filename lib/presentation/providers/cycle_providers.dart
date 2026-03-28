@@ -36,8 +36,34 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
   void _loadCycles() {
     state = _repository.getAll();
     _migrateWeightedBuyParam();
+    _migrateAggregateFields();
     // 기존 사이클의 잘못된 entryPrice 교정 (비동기 → 완료 후 state 갱신)
     _fixEntryPrices();
+  }
+
+  /// 집계 필드 마이그레이션: totalBuyAmountKrw==0이지만 거래 있는 사이클 재계산
+  void _migrateAggregateFields() {
+    for (final cycle in state) {
+      if (cycle.totalBuyAmountKrw == 0 && cycle.seedAmount != cycle.remainingCash) {
+        final trades = _tradeRepository.getByCycleId(cycle.id);
+        if (trades.isNotEmpty) {
+          final sorted = [...trades]..sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
+          double totalBuyKrw = 0, totalSellKrw = 0;
+          for (final t in sorted) {
+            if (t.action == TradeAction.buy) {
+              totalBuyKrw += t.amountKrw;
+            } else {
+              totalSellKrw += t.amountKrw;
+            }
+          }
+          cycle.totalBuyAmountKrw = totalBuyKrw;
+          cycle.totalSellAmountKrw = totalSellKrw;
+          cycle.firstTradeDate = sorted.first.tradedAt;
+          cycle.lastTradeDate = sorted.last.tradedAt;
+          _repository.save(cycle);
+        }
+      }
+    }
   }
 
   /// v7.0 마이그레이션: 기존 weightedBuyDivisor 값(500~2000) → 0.0 리셋
