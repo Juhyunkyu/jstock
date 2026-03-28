@@ -72,18 +72,19 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
             );
 
     return SizedBox(
-      height: isMobile ? 40 : 44,
+      height: isMobile ? 36 : 40,
       child: FloatingActionButton.extended(
         onPressed: onPressed,
-        backgroundColor: context.appAccent,
+        backgroundColor: context.appAccent.withValues(alpha: 0.85),
         foregroundColor: Colors.white,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        icon: Icon(Icons.add, size: isMobile ? 18 : 20),
+        elevation: 2,
+        icon: Icon(Icons.add, size: isMobile ? 16 : 18),
         label: Text(
           label,
           style: TextStyle(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.w600),
         ),
-        extendedPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
+        extendedPadding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18),
       ),
     );
   }
