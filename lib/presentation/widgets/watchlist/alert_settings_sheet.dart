@@ -85,57 +85,49 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     final item = widget.item;
 
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
-      ),
-      padding: EdgeInsets.only(bottom: bottomInset),
-      decoration: BoxDecoration(
-        color: context.appCardBackground,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 핸들
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: context.appBorder,
-              borderRadius: BorderRadius.circular(2),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + bottomInset),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 핸들
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: context.appBorder,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
 
-          // 헤더
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '알림 설정 - ${item.ticker}',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: context.appTextPrimary,
+            // 헤더
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '알림 설정 - ${item.ticker}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: context.appTextPrimary,
+                      ),
                     ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // 현재가
-          if (price != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Align(
+            // 현재가
+            if (price != null)
+              Align(
                 alignment: Alignment.centerLeft,
                 child: Text(
                   '현재가: \$${price.toStringAsFixed(2)}',
@@ -145,14 +137,11 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
                   ),
                 ),
               ),
-            ),
 
-          const SizedBox(height: 16),
+            const SizedBox(height: 16),
 
-          // 토글 버튼 (활성 알림 표시)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+            // 토글 버튼 (활성 알림 표시)
+            Row(
               children: [
                 Expanded(
                   child: AlertTabToggle(
@@ -173,68 +162,58 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
                 ),
               ],
             ),
-          ),
 
-          const SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-          // 설정 내용
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _selectedTab == 0
-                  ? _buildPercentForm(price)
-                  : _buildTargetPriceForm(price),
+            // 설정 내용
+            _selectedTab == 0
+                ? _buildPercentForm(price)
+                : _buildTargetPriceForm(price),
+
+            const SizedBox(height: 20),
+
+            // 하단 버튼
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _onSave,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  '저장',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ),
-          ),
-
-          // 하단 버튼
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _onSave,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      '저장',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+            // 현재 탭의 알림이 있으면 해제 버튼
+            if ((_selectedTab == 0 && item.hasPercentAlert) ||
+                (_selectedTab == 1 && item.hasTargetAlert)) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: _onClearCurrentAlert,
+                  child: Text(
+                    _selectedTab == 0 ? '변동률 알림 해제' : '목표가 알림 해제',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: context.appTextSecondary,
                     ),
                   ),
                 ),
-                // 현재 탭의 알림이 있으면 해제 버튼
-                if ((_selectedTab == 0 && item.hasPercentAlert) ||
-                    (_selectedTab == 1 && item.hasTargetAlert)) ...[
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: _onClearCurrentAlert,
-                      child: Text(
-                        _selectedTab == 0 ? '변동률 알림 해제' : '목표가 알림 해제',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: context.appTextSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
