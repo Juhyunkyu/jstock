@@ -53,7 +53,9 @@ void main() async {
       final resolved = themeType == AppThemeType.system ? AppThemeType.dark : themeType;
       setCurrentAppTheme(resolved);
     }
-  } catch (_) {}
+  } catch (e) {
+    debugPrint('Theme pre-load failed: $e');
+  }
 
   // 로고 캐시 초기화
   final logoCache = LogoCacheService();

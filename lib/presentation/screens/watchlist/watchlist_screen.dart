@@ -249,27 +249,26 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
     context.go('/index/${Uri.encodeComponent(ticker)}?from=watchlist');
   }
 
+  /// 알림 적격성 확인 (공통 헬퍼): 삭제 후 알림 대상에서 빠지는지 판별
+  bool _willLoseAlert(String ticker) {
+    final item = ref.read(watchlistProvider).items
+        .where((i) => i.ticker == ticker).firstOrNull;
+    if (item == null || !item.hasAlert) return false;
+    final inOwned = ref.read(userTickersProvider).contains(ticker);
+    final groupCount = ref.read(watchlistGroupProvider)
+        .groups.where((g) => g.containsTicker(ticker)).length;
+    return !inOwned && groupCount <= 1;
+  }
+
   Future<void> _onRemove(String ticker) async {
-    final watchlistState = ref.read(watchlistProvider);
-    final item = watchlistState.items
-        .where((i) => i.ticker == ticker)
-        .firstOrNull;
+    final willLose = _willLoseAlert(ticker);
+    final item = ref.read(watchlistProvider).items
+        .where((i) => i.ticker == ticker).firstOrNull;
 
-    // 알림이 있는 종목: 삭제 후에도 알림 대상인지 확인
     String message = '$ticker을(를) 삭제하시겠습니까?';
-    if (item != null && item.hasAlert) {
-      final ownedTickers = ref.read(userTickersProvider);
-      final groupState = ref.read(watchlistGroupProvider);
-      final inOwned = ownedTickers.contains(ticker);
-      final groupCount = groupState.groups
-          .where((g) => g.containsTicker(ticker))
-          .length;
-      final remainsEligible = inOwned || groupCount > 1;
-
-      if (!remainsEligible) {
-        message = '$ticker에 ${item.alertSummary} 알림이 설정되어 있습니다.\n'
-            '삭제하면 알림도 함께 삭제됩니다.';
-      }
+    if (willLose && item != null) {
+      message = '$ticker에 ${item.alertSummary} 알림이 설정되어 있습니다.\n'
+          '삭제하면 알림도 함께 삭제됩니다.';
     }
 
     final confirmed = await ConfirmDialog.show(
@@ -280,24 +279,12 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       isDanger: true,
     );
     if (confirmed && mounted) {
-      if (item != null && item.hasAlert) {
-        final ownedTickers = ref.read(userTickersProvider);
-        final groupState = ref.read(watchlistGroupProvider);
-        final inOwned = ownedTickers.contains(ticker);
-        final groupCount = groupState.groups
-            .where((g) => g.containsTicker(ticker))
-            .length;
-        if (!inOwned && groupCount <= 1) {
-          await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
-        }
+      if (_willLoseAlert(ticker)) {
+        await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
       }
-
       ref.read(watchlistProvider.notifier).remove(ticker);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$ticker 삭제됨'),
-          duration: const Duration(seconds: 2),
-        ),
+        SnackBar(content: Text('$ticker 삭제됨'), duration: const Duration(seconds: 2)),
       );
     }
   }
@@ -307,28 +294,14 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   }
 
   Future<void> _onRemoveFromGroup(String groupId, String ticker) async {
-    final watchlistState = ref.read(watchlistProvider);
-    final item = watchlistState.items
-        .where((i) => i.ticker == ticker)
-        .firstOrNull;
+    final willLose = _willLoseAlert(ticker);
+    final item = ref.read(watchlistProvider).items
+        .where((i) => i.ticker == ticker).firstOrNull;
 
-    // 알림이 있는 종목: 이 그룹 제거 후에도 알림 대상인지 확인
     String message = '$ticker을(를) 이 그룹에서 제거하시겠습니까?';
-    bool willLoseAlert = false;
-    if (item != null && item.hasAlert) {
-      final ownedTickers = ref.read(userTickersProvider);
-      final groupState = ref.read(watchlistGroupProvider);
-      final inOwned = ownedTickers.contains(ticker);
-      // 현재 그룹 포함해서 카운트 → 1이면 이 그룹에만 있음
-      final groupCount = groupState.groups
-          .where((g) => g.containsTicker(ticker))
-          .length;
-      willLoseAlert = !inOwned && groupCount <= 1;
-
-      if (willLoseAlert) {
-        message = '$ticker에 ${item.alertSummary} 알림이 설정되어 있습니다.\n'
-            '이 그룹에서 제거하면 알림도 함께 삭제됩니다.';
-      }
+    if (willLose && item != null) {
+      message = '$ticker에 ${item.alertSummary} 알림이 설정되어 있습니다.\n'
+          '이 그룹에서 제거하면 알림도 함께 삭제됩니다.';
     }
 
     final confirmed = await ConfirmDialog.show(
@@ -339,17 +312,13 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       isDanger: true,
     );
     if (confirmed && mounted) {
-      // 알림 정리 (마지막 그룹이었으면 알림 삭제)
-      if (willLoseAlert) {
+      if (willLose) {
         await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
       }
-
       ref.read(watchlistGroupProvider.notifier).removeTicker(groupId, ticker);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(willLoseAlert
-              ? '$ticker 그룹에서 제거됨 (알림도 삭제됨)'
-              : '$ticker 그룹에서 제거됨'),
+          content: Text(willLose ? '$ticker 그룹에서 제거됨 (알림도 삭제됨)' : '$ticker 그룹에서 제거됨'),
           duration: const Duration(seconds: 2),
         ),
       );
@@ -377,9 +346,10 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
 
     // WatchlistItem이 없으면 자동 생성 (보유 종목이지만 관심종목에 미등록인 경우)
     if (item == null) {
+      final quote = ref.read(stockQuoteProvider).quotes[ticker];
       final newItem = WatchlistItem(
         ticker: ticker,
-        name: ticker,
+        name: quote?.symbol ?? ticker, // 시세 데이터에서 가져오기
         exchange: '',
         type: 'stock',
       );
