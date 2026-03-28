@@ -44,7 +44,7 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
   /// 집계 필드 마이그레이션: totalBuyAmountKrw==0이지만 거래 있는 사이클 재계산
   void _migrateAggregateFields() {
     for (final cycle in state) {
-      if (cycle.totalBuyAmountKrw == 0 && cycle.seedAmount != cycle.remainingCash) {
+      if ((cycle.totalBuyAmountKrw == 0 || cycle.totalBuyUsd == 0) && cycle.seedAmount != cycle.remainingCash) {
         final trades = _tradeRepository.getByCycleId(cycle.id);
         if (trades.isNotEmpty) {
           final sorted = [...trades]..sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
