@@ -169,6 +169,12 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(40)
   DateTime? lastTradeDate;
 
+  @HiveField(41, defaultValue: 0.0)
+  double totalBuyUsd;
+
+  @HiveField(42, defaultValue: 0.0)
+  double totalSellUsd;
+
   // === 생성자 ===
 
   Cycle({
@@ -206,6 +212,8 @@ class Cycle extends HiveObject implements TradingPosition {
     this.totalSellAmountKrw = 0.0,
     this.firstTradeDate,
     this.lastTradeDate,
+    this.totalBuyUsd = 0.0,
+    this.totalSellUsd = 0.0,
     this.completedReturnRate,
     DateTime? startDate,
   })  : averagePrice = 0,
@@ -357,6 +365,8 @@ class Cycle extends HiveObject implements TradingPosition {
     'totalSellAmountKrw': totalSellAmountKrw,
     'firstTradeDate': firstTradeDate?.toIso8601String(),
     'lastTradeDate': lastTradeDate?.toIso8601String(),
+    'totalBuyUsd': totalBuyUsd,
+    'totalSellUsd': totalSellUsd,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -395,6 +405,8 @@ class Cycle extends HiveObject implements TradingPosition {
       totalSellAmountKrw: (json['totalSellAmountKrw'] as num?)?.toDouble() ?? 0.0,
       firstTradeDate: json['firstTradeDate'] != null ? DateTime.parse(json['firstTradeDate'] as String) : null,
       lastTradeDate: json['lastTradeDate'] != null ? DateTime.parse(json['lastTradeDate'] as String) : null,
+      totalBuyUsd: (json['totalBuyUsd'] as num?)?.toDouble() ?? 0.0,
+      totalSellUsd: (json['totalSellUsd'] as num?)?.toDouble() ?? 0.0,
     );
     // 저장된 상태 복원 (생성자 기본값 덮어쓰기)
     cycle.averagePrice = (json['averagePrice'] as num?)?.toDouble() ?? 0;
@@ -459,6 +471,8 @@ class Cycle extends HiveObject implements TradingPosition {
     double? totalSellAmountKrw,
     DateTime? firstTradeDate,
     DateTime? lastTradeDate,
+    double? totalBuyUsd,
+    double? totalSellUsd,
   }) {
     final cycle = Cycle(
       id: id ?? this.id,
@@ -492,6 +506,8 @@ class Cycle extends HiveObject implements TradingPosition {
       isQuarterStopLossMode: isQuarterStopLossMode ?? this.isQuarterStopLossMode,
       quarterStopLossRoundsUsed: quarterStopLossRoundsUsed ?? this.quarterStopLossRoundsUsed,
       totalBuyAmountKrw: totalBuyAmountKrw ?? this.totalBuyAmountKrw,
+      totalBuyUsd: totalBuyUsd ?? this.totalBuyUsd,
+      totalSellUsd: totalSellUsd ?? this.totalSellUsd,
       totalSellAmountKrw: totalSellAmountKrw ?? this.totalSellAmountKrw,
       firstTradeDate: firstTradeDate ?? this.firstTradeDate,
       lastTradeDate: lastTradeDate ?? this.lastTradeDate,

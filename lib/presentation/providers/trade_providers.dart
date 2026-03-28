@@ -184,7 +184,8 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     // 순수 USD VWAP 재계산
     double totalBuyShares = 0;
     double totalSellShares = 0;
-    double weightedPriceSum = 0; // shares * price (USD)
+    double weightedPriceSum = 0; // shares * price (USD) — 매수
+    double totalSellUsd = 0; // shares * price (USD) — 매도
     double totalBuyAmountKrw = 0;
     double totalSellAmountKrw = 0;
     bool panicBuyUsed = false;
@@ -225,6 +226,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
         }
       } else {
         totalSellShares += trade.shares;
+        totalSellUsd += trade.shares * trade.price;
         totalSellAmountKrw += trade.amountKrw;
       }
     }
@@ -242,6 +244,8 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     // 집계 필드 저장 (카드/상세에서 trades 없이 접근 가능)
     cycle.totalBuyAmountKrw = totalBuyAmountKrw;
     cycle.totalSellAmountKrw = totalSellAmountKrw;
+    cycle.totalBuyUsd = weightedPriceSum; // shares × price 합계
+    cycle.totalSellUsd = totalSellUsd;
     cycle.firstTradeDate = trades.isNotEmpty ? trades.first.tradedAt : null;
     cycle.lastTradeDate = trades.isNotEmpty ? trades.last.tradedAt : null;
 

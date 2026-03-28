@@ -62,13 +62,15 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..totalBuyAmountKrw = fields[37] == null ? 0.0 : fields[37] as double
       ..totalSellAmountKrw = fields[38] == null ? 0.0 : fields[38] as double
       ..firstTradeDate = fields[39] as DateTime?
-      ..lastTradeDate = fields[40] as DateTime?;
+      ..lastTradeDate = fields[40] as DateTime?
+      ..totalBuyUsd = fields[41] == null ? 0.0 : fields[41] as double
+      ..totalSellUsd = fields[42] == null ? 0.0 : fields[42] as double;
   }
 
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(41)
+      ..writeByte(43)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -150,7 +152,11 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(39)
       ..write(obj.firstTradeDate)
       ..writeByte(40)
-      ..write(obj.lastTradeDate);
+      ..write(obj.lastTradeDate)
+      ..writeByte(41)
+      ..write(obj.totalBuyUsd)
+      ..writeByte(42)
+      ..write(obj.totalSellUsd);
   }
 
   @override

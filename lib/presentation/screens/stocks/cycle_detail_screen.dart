@@ -36,6 +36,8 @@ class CycleDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
+  bool _includeFxPnl = false; // 환차손익 포함 토글
+
   @override
   Widget build(BuildContext context) {
     // cycleListProvider를 직접 watch — Hive 객체는 같은 참조를 반환하므로
@@ -626,16 +628,76 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             // 수익 요약
             _pendingRow('설정시드', formatKrw(cycle.seedAmount), isMobile),
             const SizedBox(height: 6),
-            _pendingRow('총 투자금', formatKrw(totalBuyKrw), isMobile),
+            _pendingRow('총 투자금', '${formatKrw(totalBuyKrw)}  (\$${cycle.totalBuyUsd.toStringAsFixed(2)})', isMobile),
             const SizedBox(height: 6),
-            _pendingRow('총 회수금', formatKrw(totalSellKrw), isMobile),
+            _pendingRow('총 회수금', '${formatKrw(totalSellKrw)}  (\$${cycle.totalSellUsd.toStringAsFixed(2)})', isMobile),
             const SizedBox(height: 6),
-            _pendingRow(
-              '순수익',
-              '${isProfit ? "+" : ""}${formatKrw(netProfitKrw)}  (${isProfit ? "+" : ""}${profitRate.toStringAsFixed(1)}%)',
-              isMobile,
-              valueColor: isProfit ? AppColors.overlayGreen : AppColors.overlayRed,
-            ),
+
+            // 외화 손익 (USD — 환율 무관, 고정)
+            () {
+              final fxProfitUsd = cycle.totalSellUsd - cycle.totalBuyUsd;
+              final avgBuyRate = cycle.exchangeRateAtEntry;
+              // 환차손익 = 보유달러 × (현재환율 - 매입환율)
+              final fxPnl = fxProfitUsd * (liveExchangeRate - avgBuyRate);
+              // 수익 (환차 미포함) = 외화손익 × 매입환율
+              final profitWithoutFx = fxProfitUsd * avgBuyRate;
+              // 수익 (환차 포함) = 외화손익 × 현재환율
+              final profitWithFx = fxProfitUsd * liveExchangeRate;
+              final displayProfit = _includeFxPnl ? profitWithFx : profitWithoutFx;
+              final displayRate = totalBuyKrw > 0 ? (displayProfit / totalBuyKrw * 100) : 0.0;
+              final isProfitDisplay = displayProfit >= 0;
+
+              return Column(
+                children: [
+                  _pendingRow('외화 손익', '${fxProfitUsd >= 0 ? "+" : ""}\$${fxProfitUsd.toStringAsFixed(2)}', isMobile),
+                  const SizedBox(height: 6),
+                  // 수익 + 환차 체크박스
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('수익', style: TextStyle(fontSize: isMobile ? 12 : 13, color: Colors.white.withAlpha(180))),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${isProfitDisplay ? "+" : ""}${formatKrw(displayProfit)}  (${isProfitDisplay ? "+" : ""}${displayRate.toStringAsFixed(1)}%)',
+                            style: TextStyle(
+                              fontSize: isMobile ? 13 : 14,
+                              fontWeight: FontWeight.w700,
+                              color: isProfitDisplay ? AppColors.overlayGreen : AppColors.overlayRed,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => setState(() => _includeFxPnl = !_includeFxPnl),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _includeFxPnl ? Icons.check_box : Icons.check_box_outline_blank,
+                                  size: 16,
+                                  color: Colors.white.withAlpha(180),
+                                ),
+                                const SizedBox(width: 3),
+                                Text('환차', style: TextStyle(fontSize: 10, color: Colors.white.withAlpha(180))),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // 환차 상세 (체크 시만 표시)
+                  if (_includeFxPnl) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '매입환율 ₩${avgBuyRate.toStringAsFixed(0)} · 현재 ₩${liveExchangeRate.toStringAsFixed(0)} · 환차 ${fxPnl >= 0 ? "+" : ""}${formatKrw(fxPnl)}',
+                      style: TextStyle(fontSize: 10, color: Colors.white.withAlpha(140)),
+                    ),
+                  ],
+                ],
+              );
+            }(),
             SizedBox(height: isMobile ? 10 : 14),
 
             // 거래 상세

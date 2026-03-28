@@ -49,15 +49,20 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
         if (trades.isNotEmpty) {
           final sorted = [...trades]..sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
           double totalBuyKrw = 0, totalSellKrw = 0;
+          double totalBuyUsd = 0, totalSellUsd = 0;
           for (final t in sorted) {
             if (t.action == TradeAction.buy) {
               totalBuyKrw += t.amountKrw;
+              totalBuyUsd += t.shares * t.price;
             } else {
               totalSellKrw += t.amountKrw;
+              totalSellUsd += t.shares * t.price;
             }
           }
           cycle.totalBuyAmountKrw = totalBuyKrw;
           cycle.totalSellAmountKrw = totalSellKrw;
+          cycle.totalBuyUsd = totalBuyUsd;
+          cycle.totalSellUsd = totalSellUsd;
           cycle.firstTradeDate = sorted.first.tradedAt;
           cycle.lastTradeDate = sorted.last.tradedAt;
           _repository.save(cycle);
