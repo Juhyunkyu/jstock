@@ -11,6 +11,7 @@ import '../../widgets/watchlist/alert_settings_sheet.dart';
 import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
 import '../../widgets/common/notification_bell_button.dart';
+import '../../widgets/common/top_toast.dart';
 
 /// 관심종목 화면 (탭 기반 그룹 지원 + 스와이프 전환)
 class WatchlistScreen extends ConsumerStatefulWidget {
@@ -282,9 +283,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
       }
       ref.read(watchlistProvider.notifier).remove(ticker);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$ticker 삭제됨'), duration: const Duration(seconds: 2)),
-      );
+      showTopToast(context, '$ticker 삭제됨');
     }
   }
 
@@ -315,12 +314,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
       }
       ref.read(watchlistGroupProvider.notifier).removeTicker(groupId, ticker);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(willLose ? '$ticker 그룹에서 제거됨 (알림도 삭제됨)' : '$ticker 그룹에서 제거됨'),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      showTopToast(context, willLose ? '$ticker 그룹에서 제거됨 (알림도 삭제됨)' : '$ticker 그룹에서 제거됨');
     }
   }
 

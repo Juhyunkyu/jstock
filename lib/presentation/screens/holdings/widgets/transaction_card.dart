@@ -7,6 +7,7 @@ import '../../../../data/models/holding.dart';
 import '../../../../data/models/holding_transaction.dart';
 import '../../../providers/holding_providers.dart';
 import '../../../providers/providers.dart';
+import '../../../widgets/common/top_toast.dart';
 import '../../../widgets/shared/confirm_dialog.dart';
 import '../../../widgets/shared/info_row.dart';
 import '../../../../core/utils/krw_formatter.dart';
@@ -411,12 +412,7 @@ class TransactionCard extends ConsumerWidget {
                   await ref.read(holdingListProvider.notifier).deleteTransaction(transaction.id);
                   refreshTransactions(ref);
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('거래 내역이 삭제되었습니다'),
-                        backgroundColor: AppColors.secondary,
-                      ),
-                    );
+                    showSuccessToast(context, '거래 내역이 삭제되었습니다');
                   }
                 }
               },

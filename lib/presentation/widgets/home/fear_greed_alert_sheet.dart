@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/settings_providers.dart';
+import '../common/top_toast.dart';
 
 /// Zone color constants for Fear & Greed Index
 const _kExtremeFearColor = Color(0xFFDC2626);
@@ -105,12 +106,7 @@ class _FearGreedAlertSheetState extends ConsumerState<FearGreedAlertSheet> {
     await WebNotificationService.requestPermission();
     if (!mounted) return;
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('공포탐욕지수 알림이 저장되었습니다'),
-        backgroundColor: AppColors.green500,
-      ),
-    );
+    showSuccessToast(context, '공포탐욕지수 알림이 저장되었습니다');
   }
 
   @override

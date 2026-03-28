@@ -9,6 +9,7 @@ import '../../../../data/models/cycle.dart';
 import '../../../../data/models/trade.dart';
 import '../../../../domain/trading/steady_order_guide.dart';
 import '../../../providers/providers.dart';
+import '../../../widgets/common/top_toast.dart';
 
 /// V2.2/V3.0 Steady Cycle 전용 -- 매수+매도 통합 거래 기록 시트
 ///
@@ -974,13 +975,7 @@ class _SteadyCombinedTradeSheetState
     final totalHeld = widget.cycle.totalShares.floor();
     final sellTotal = (_sellLocShares + _sellLimitShares).toInt();
     if (sellTotal > totalHeld) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('매도 합계 $sellTotal주가 보유 수량 $totalHeld주를 초과합니다'),
-          backgroundColor: AppColors.red500,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      showErrorToast(context, '매도 합계 $sellTotal주가 보유 수량 $totalHeld주를 초과합니다');
       return false;
     }
     return true;
@@ -1039,9 +1034,7 @@ class _SteadyCombinedTradeSheetState
         if (mounted) Navigator.pop(context);
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('수정 실패: $e')),
-          );
+          showErrorToast(context, '수정 실패: $e');
         }
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
@@ -1113,13 +1106,7 @@ class _SteadyCombinedTradeSheetState
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('거래 기록 실패: $e'),
-            backgroundColor: AppColors.red500,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        showErrorToast(context, '거래 기록 실패: $e');
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);

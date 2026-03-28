@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/watchlist_item.dart';
+import '../../../data/models/recent_view_item.dart';
 import '../../../data/services/api/finnhub_service.dart';
-import '../../providers/api_providers.dart';
-import '../../providers/holding_providers.dart';
-import '../../providers/stock_providers.dart';
 import '../../widgets/stocks/popular_etf_list.dart';
 import '../../widgets/stocks/search_result_tile.dart';
 import '../../widgets/stocks/watchlist_suggestion_tile.dart';
@@ -30,20 +27,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _searchController = TextEditingController();
   final Map<String, StockQuote> _searchQuotes = {};
   final Set<String> _fetchingQuotes = {};
-
-  @override
-  void initState() {
-    super.initState();
-
-    // 관심종목 로드 (아직 로드되지 않은 경우)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final watchlistState = ref.read(watchlistProvider);
-      if (watchlistState.items.isEmpty && !watchlistState.isLoading) {
-        ref.read(watchlistProvider.notifier).load();
-      }
-    });
-  }
 
   @override
   void dispose() {
@@ -82,12 +65,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     final activeHoldings = ref.watch(activeHoldingsProvider);
     final activeTickers = activeHoldings.map((h) => h.ticker).toSet();
     final searchState = ref.watch(searchProvider);
-    // 관심종목 상태 - 직접 watch (단순화)
-    final watchlistState = ref.watch(watchlistProvider);
-    // 여러 ticker 사용 — select 적용 불가 (관심종목 + ETF 목록 순회)
+    // 최근 조회 종목
+    final recentItems = ref.watch(recentViewProvider);
+    // 여러 ticker 사용 — select 적용 불가
     final stockQuoteState = ref.watch(stockQuoteProvider);
-    // 인기 ETF 가격 정보
-    final stockPriceState = ref.watch(stockPriceProvider);
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -108,7 +89,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             child: TextField(
               controller: _searchController,
               onChanged: (value) {
-                if (value.length >= 1) {
+                if (value.isNotEmpty) {
                   ref.read(searchProvider.notifier).search(value);
                 } else {
                   ref.read(searchProvider.notifier).clear();
@@ -144,7 +125,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           // 검색 결과 또는 기본 목록
           Expanded(
             child: searchState.query.isEmpty
-                ? _buildDefaultList(activeTickers, watchlistState, stockQuoteState, stockPriceState)
+                ? _buildDefaultList(activeTickers, recentItems, stockQuoteState)
                 : searchState.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _buildSearchResults(searchState.results, activeTickers),
@@ -156,69 +137,71 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Widget _buildDefaultList(
     Set<String> activeTickers,
-    WatchlistState watchlistState,
+    List<RecentViewItem> recentItems,
     StockQuoteState stockQuoteState,
-    Map<String, StockPrice> stockPrices,
   ) {
-    final watchlistItems = watchlistState.items;
-    // 인기 ETF 가격 정보를 Map으로 변환
-    final etfQuotes = <String, StockPrice?>{};
-    for (final etf in PopularEtf.leveraged3x) {
-      etfQuotes[etf.ticker] = stockPrices[etf.ticker];
+    if (recentItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 48, color: context.appTextHint),
+            const SizedBox(height: 16),
+            Text(
+              '최근 조회한 종목이 없습니다',
+              style: TextStyle(fontSize: 14, color: context.appTextSecondary),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '티커 또는 종목명을 검색해주세요',
+              style: TextStyle(fontSize: 12, color: context.appTextHint),
+            ),
+          ],
+        ),
+      );
     }
 
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 관심종목 섹션 (있을 때만 표시)
-          if (watchlistItems.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                '내 관심종목',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: context.appTextPrimary,
-                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '최근 조회',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: context.appTextPrimary,
               ),
             ),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: watchlistItems.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final item = watchlistItems[index];
-                final isDisabled = activeTickers.contains(item.ticker);
-                // stockQuoteProvider에서 실시간 시세 조회
-                final quote = stockQuoteState.quotes[item.ticker];
+          ),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: recentItems.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = recentItems[index];
+              final isDisabled = activeTickers.contains(item.ticker);
+              final quote = stockQuoteState.quotes[item.ticker];
 
-                return WatchlistSuggestionTile(
-                  ticker: item.ticker,
-                  name: item.name,
-                  quote: quote,
-                  isDisabled: isDisabled,
-                  onTap: isDisabled ? null : () => _onWatchlistItemSelected(item),
-                );
-              },
-            ),
-            const SizedBox(height: 24),
-          ],
-          // 인기 ETF 섹션
-          PopularEtfList(
-            onEtfSelected: _onEtfSelected,
-            disabledTickers: activeTickers,
-            quotes: etfQuotes,
+              return WatchlistSuggestionTile(
+                ticker: item.ticker,
+                name: item.name,
+                quote: quote,
+                isDisabled: isDisabled,
+                onTap: isDisabled ? null : () => _onRecentItemSelected(item),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  void _onWatchlistItemSelected(WatchlistItem item) {
+  void _onRecentItemSelected(RecentViewItem item) {
     if (widget.forDetail) {
       context.push('/index/${Uri.encodeComponent(item.ticker)}?from=watchlist');
       return;
@@ -227,7 +210,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       ticker: item.ticker,
       name: item.name,
       description: item.name,
-      category: 'WATCHLIST',
+      category: item.type.isNotEmpty ? item.type : 'RECENT',
     );
     context.push('/holdings/setup/${item.ticker}', extra: etf);
   }
@@ -288,14 +271,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         );
       },
     );
-  }
-
-  void _onEtfSelected(PopularEtf etf) {
-    if (widget.forDetail) {
-      context.push('/index/${Uri.encodeComponent(etf.ticker)}?from=watchlist');
-      return;
-    }
-    context.push('/holdings/setup/${etf.ticker}', extra: etf);
   }
 
   void _onSearchResultSelected(SearchResult result) {

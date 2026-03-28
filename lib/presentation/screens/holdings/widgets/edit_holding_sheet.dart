@@ -6,6 +6,7 @@ import '../../../../data/models/holding.dart';
 import '../../../providers/providers.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import '../../../widgets/common/date_picker_field.dart';
+import '../../../widgets/common/top_toast.dart';
 
 /// 보유 정보 수정 바텀시트
 class EditHoldingSheet extends ConsumerStatefulWidget {
@@ -199,21 +200,11 @@ class EditHoldingSheetState extends ConsumerState<EditHoldingSheet> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('정보가 수정되었습니다'),
-            backgroundColor: AppColors.secondary,
-          ),
-        );
+        showSuccessToast(context, '정보가 수정되었습니다');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류: ${e.toString()}'),
-            backgroundColor: AppColors.red500,
-          ),
-        );
+        showErrorToast(context, '오류: ${e.toString()}');
       }
     }
   }

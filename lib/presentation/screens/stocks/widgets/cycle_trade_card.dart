@@ -11,6 +11,7 @@ import '../../../../data/models/trade.dart';
 import '../../../providers/providers.dart';
 import '../../../widgets/shared/confirm_dialog.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
+import '../../../widgets/common/top_toast.dart';
 import 'cycle_trade_record_sheet.dart';
 import 'steady_combined_trade_sheet.dart';
 
@@ -531,12 +532,7 @@ class CycleTradeCard extends ConsumerWidget {
           .read(tradeListProvider(cycle.id).notifier)
           .deleteTradeAndRecalculate(trade.id);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('거래 내역이 삭제되었습니다'),
-            backgroundColor: AppColors.secondary,
-          ),
-        );
+        showSuccessToast(context, '거래 내역이 삭제되었습니다');
       }
     }
   }

@@ -12,6 +12,7 @@ import '../../widgets/common/responsive_grid.dart';
 import '../../widgets/cycle/strategy_badge.dart';
 import '../../widgets/history/archived_holding_card.dart';
 import '../../widgets/shared/ticker_logo.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/return_badge.dart';
 
 /// 거래내역 화면 — 과거 거래기록 (아카이브된 일반보유)
@@ -187,9 +188,7 @@ class HistoryScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.pop(ctx);
               ref.read(holdingListProvider.notifier).deleteHolding(holding.id);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${holding.ticker} 거래기록이 삭제되었습니다')),
-              );
+              showTopToast(context, '${holding.ticker} 거래기록이 삭제되었습니다');
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.red500),
             child: const Text('삭제'),
@@ -308,9 +307,7 @@ class HistoryScreen extends ConsumerWidget {
             onPressed: () {
               Navigator.pop(ctx);
               ref.read(cycleListProvider.notifier).deleteCycle(cycle.id);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('${cycle.ticker} 사이클 기록이 삭제되었습니다')),
-              );
+              showTopToast(context, '${cycle.ticker} 사이클 기록이 삭제되었습니다');
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.red500),
             child: const Text('삭제'),

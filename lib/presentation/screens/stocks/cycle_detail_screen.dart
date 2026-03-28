@@ -10,6 +10,7 @@ import '../../../domain/trading/trading_math.dart';
 import '../../providers/providers.dart';
 import '../../widgets/cycle/strategy_badge.dart';
 import '../../widgets/cycle/signal_display.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../holdings/widgets/profit_loss_section.dart';
 import 'widgets/cycle_completed_view.dart';
@@ -996,9 +997,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
         if (mounted) context.pop();
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('익절 처리 실패: $e')),
-          );
+          showErrorToast(context, '익절 처리 실패: $e');
         }
       }
     }

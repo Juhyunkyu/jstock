@@ -8,6 +8,7 @@ import '../../widgets/settings/settings_dialogs.dart';
 import '../../widgets/settings/backup_restore.dart';
 import '../../widgets/settings/guide_sheet.dart';
 import '../../widgets/common/app_title_logo.dart';
+import '../../widgets/common/top_toast.dart';
 
 /// 설정 화면
 class SettingsScreen extends ConsumerWidget {
@@ -175,18 +176,11 @@ class SettingsScreen extends ConsumerWidget {
       WebFileService.downloadJson(backup, WebFileService.backupFilename());
       await ref.read(settingsProvider.notifier).updateLastBackupDate();
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('백업 파일이 다운로드되었습니다'),
-            backgroundColor: AppColors.green500,
-          ),
-        );
+        showSuccessToast(context, '백업 파일이 다운로드되었습니다');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('백업 실패: $e')),
-        );
+        showErrorToast(context, '백업 실패: $e');
       }
     }
   }
@@ -200,9 +194,7 @@ class SettingsScreen extends ConsumerWidget {
 
       // 버전 확인
       if (json['version'] == null || json['data'] == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('올바른 백업 파일이 아닙니다')),
-        );
+        showErrorToast(context, '올바른 백업 파일이 아닙니다');
         return;
       }
 
@@ -211,18 +203,11 @@ class SettingsScreen extends ConsumerWidget {
       _refreshAllProviders(ref);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('데이터가 복원되었습니다'),
-            backgroundColor: AppColors.green500,
-          ),
-        );
+        showSuccessToast(context, '데이터가 복원되었습니다');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('복원 실패: $e')),
-        );
+        showErrorToast(context, '복원 실패: $e');
       }
     }
   }
@@ -233,18 +218,11 @@ class SettingsScreen extends ConsumerWidget {
       final csv = service.exportToCsv();
       WebFileService.downloadCsv(csv, WebFileService.csvFilename());
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('CSV 파일이 다운로드되었습니다'),
-            backgroundColor: AppColors.green500,
-          ),
-        );
+        showSuccessToast(context, 'CSV 파일이 다운로드되었습니다');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('내보내기 실패: $e')),
-        );
+        showErrorToast(context, '내보내기 실패: $e');
       }
     }
   }
@@ -256,18 +234,11 @@ class SettingsScreen extends ConsumerWidget {
       _refreshAllProviders(ref);
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('모든 데이터가 삭제되었습니다'),
-            backgroundColor: AppColors.red500,
-          ),
-        );
+        showSuccessToast(context, '모든 데이터가 삭제되었습니다');
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('초기화 실패: $e')),
-        );
+        showErrorToast(context, '초기화 실패: $e');
       }
     }
   }
@@ -287,9 +258,7 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   void _showComingSoon(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    showTopToast(context, message);
   }
 
   void _showGuide(BuildContext context) {

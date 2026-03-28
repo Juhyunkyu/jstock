@@ -13,6 +13,7 @@ import '../../../../domain/trading/alpha_cycle_service.dart';
 import '../../../../domain/trading/steady_order_guide.dart';
 import '../../../../domain/trading/trading_math.dart';
 import '../../../providers/providers.dart';
+import '../../../widgets/common/top_toast.dart';
 import '../../../widgets/shared/return_badge.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
 import 'cycle_trade_card.dart';
@@ -1644,12 +1645,7 @@ class _CycleTradeRecordSheetState
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    showErrorToast(context, message);
   }
 }
 

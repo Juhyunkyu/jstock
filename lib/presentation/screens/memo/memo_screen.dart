@@ -9,6 +9,7 @@ import '../../../data/models/memo.dart';
 import '../../providers/providers.dart';
 import '../../widgets/memo/memo_card.dart';
 import '../../widgets/memo/memo_category_chips.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 
 /// 메모 목록 화면
@@ -267,12 +268,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
             onTap: () => context.go('/memo/detail/${memo.id}'),
             onDismissed: () {
               ref.read(memoListProvider.notifier).delete(memo.id);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('"${memo.title}" 삭제됨'),
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              showTopToast(context, '"${memo.title}" 삭제됨');
             },
           ),
         );

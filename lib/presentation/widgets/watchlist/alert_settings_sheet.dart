@@ -6,6 +6,7 @@ import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import 'alert_form_widgets.dart';
 import '../../providers/providers.dart';
+import '../common/top_toast.dart';
 
 /// 알림 설정 Bottom Sheet
 class AlertSettingsSheet extends ConsumerStatefulWidget {
@@ -379,9 +380,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
       // 목표가 저장
       final price = double.tryParse(_targetPriceController.text);
       if (price == null || price <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('유효한 목표 가격을 입력해주세요')),
-        );
+        showErrorToast(context, '유효한 목표 가격을 입력해주세요');
         return;
       }
       await notifier.setTargetAlert(
@@ -394,9 +393,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
       final basePrice = double.tryParse(_basePriceController.text);
       final percent = double.tryParse(_percentController.text);
       if (basePrice == null || basePrice <= 0 || percent == null || percent <= 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('유효한 기준 가격과 변동률을 입력해주세요')),
-        );
+        showErrorToast(context, '유효한 기준 가격과 변동률을 입력해주세요');
         return;
       }
       await notifier.setPercentAlert(

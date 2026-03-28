@@ -7,7 +7,7 @@ import '../../../core/utils/korean_number_formatter.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../../providers/providers.dart';
-import '../../widgets/stocks/popular_etf_list.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/ticker_logo.dart';
 
 /// 새 사이클 생성 화면
@@ -838,20 +838,18 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
 
                 Divider(color: context.appDivider),
 
-                // 인기 ETF 목록
+                // 최근 조회 종목 목록
                 Expanded(
-                  child: SingleChildScrollView(
-                    controller: scrollController,
-                    child: PopularEtfList(
-                      onEtfSelected: (etf) {
-                        Navigator.pop(context);
-                        setState(() {
-                          _selectedTicker = etf.ticker;
-                          _selectedName = etf.name;
-                        });
-                        ref.read(stockQuoteProvider.notifier).fetchQuote(etf.ticker);
-                      },
-                    ),
+                  child: _RecentTickerList(
+                    scrollController: scrollController,
+                    onSelected: (ticker, name) {
+                      Navigator.pop(context);
+                      setState(() {
+                        _selectedTicker = ticker;
+                        _selectedName = name;
+                      });
+                      ref.read(stockQuoteProvider.notifier).fetchQuote(ticker);
+                    },
                   ),
                 ),
               ],
@@ -1401,32 +1399,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '${_selectedTicker!} 사이클이 시작되었습니다',
-            ),
-            backgroundColor: AppColors.green600,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        showSuccessToast(context, '${_selectedTicker!} 사이클이 시작되었습니다');
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('사이클 생성 실패: $e'),
-            backgroundColor: AppColors.red500,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        );
+        showErrorToast(context, '사이클 생성 실패: $e');
       }
     } finally {
       if (mounted) {
@@ -1564,6 +1542,106 @@ class _ManualTickerInputState extends State<_ManualTickerInput> {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// KRW 입력 포맷터 (쉼표 자동 삽입)
+// 최근 조회 종목 목록 (티커 선택 모달용)
 // ═══════════════════════════════════════════════════════════════
+
+class _RecentTickerList extends ConsumerWidget {
+  final ScrollController scrollController;
+  final void Function(String ticker, String name) onSelected;
+
+  const _RecentTickerList({
+    required this.scrollController,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recentItems = ref.watch(recentViewProvider);
+
+    if (recentItems.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 40, color: context.appTextHint),
+            const SizedBox(height: 12),
+            Text(
+              '최근 조회한 종목이 없습니다',
+              style: TextStyle(fontSize: 13, color: context.appTextSecondary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '위 입력란에 티커를 직접 입력해주세요',
+              style: TextStyle(fontSize: 12, color: context.appTextHint),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      controller: scrollController,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              '최근 조회',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: context.appTextSecondary,
+              ),
+            ),
+          ),
+          ...recentItems.map((item) => ListTile(
+                onTap: () => onSelected(item.ticker, item.name),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: Text(
+                      item.ticker.substring(0, item.ticker.length > 2 ? 2 : item.ticker.length),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+                title: Text(
+                  item.ticker,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                subtitle: Text(
+                  item.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.appTextSecondary,
+                  ),
+                ),
+                trailing: Icon(
+                  Icons.arrow_forward_ios,
+                  size: 14,
+                  color: context.appTextHint,
+                ),
+              )),
+        ],
+      ),
+    );
+  }
+}
 

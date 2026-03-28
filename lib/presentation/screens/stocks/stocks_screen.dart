@@ -61,6 +61,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
   Widget _buildFab(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
     final isHoldingTab = _tabController.index == 2;
+    final label = isHoldingTab ? '종목 추가' : '사이클 생성';
 
     final onPressed = isHoldingTab
         ? () => context.push('/stocks/search?forHolding=true')
@@ -70,23 +71,16 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                   : '/stocks/setup',
             );
 
-    if (isMobile) {
-      return FloatingActionButton.small(
-        onPressed: onPressed,
-        backgroundColor: context.appAccent,
-        child: const Icon(Icons.add, color: Colors.white),
-      );
-    }
-
     return FloatingActionButton.extended(
       onPressed: onPressed,
       backgroundColor: context.appAccent,
       foregroundColor: Colors.white,
-      icon: const Icon(Icons.add),
+      icon: Icon(Icons.add, size: isMobile ? 18 : 20),
       label: Text(
-        isHoldingTab ? '종목 추가' : '새 사이클',
-        style: const TextStyle(fontWeight: FontWeight.w600),
+        label,
+        style: TextStyle(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.w600),
       ),
+      extendedPadding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16),
     );
   }
 

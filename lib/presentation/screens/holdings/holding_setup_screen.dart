@@ -10,6 +10,7 @@ import '../../providers/api_providers.dart';
 import '../../providers/providers.dart';
 import '../../widgets/common/date_picker_field.dart';
 import '../../widgets/stocks/popular_etf_list.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/ticker_logo.dart';
 
 /// 나의 주식 등록 화면
@@ -324,23 +325,13 @@ class _HoldingSetupScreenState extends ConsumerState<HoldingSetupScreen> {
           );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${widget.ticker} 주식이 등록되었습니다'),
-            backgroundColor: AppColors.secondary,
-          ),
-        );
+        showSuccessToast(context, '${widget.ticker} 주식이 등록되었습니다');
         // My 탭으로 이동
         context.go(AppRouter.stocks);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류: ${e.toString()}'),
-            backgroundColor: AppColors.red500,
-          ),
-        );
+        showErrorToast(context, '오류: ${e.toString()}');
       }
     }
   }

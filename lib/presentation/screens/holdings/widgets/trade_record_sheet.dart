@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/holding.dart';
 import '../../../providers/providers.dart';
 import '../../../widgets/common/date_picker_field.dart';
+import '../../../widgets/common/top_toast.dart';
 import '../../../widgets/shared/return_badge.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import 'holding_input_field.dart';
@@ -420,21 +421,11 @@ class TradeRecordSheetState extends ConsumerState<TradeRecordSheet> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isBuy ? '매수 기록이 저장되었습니다' : '매도 기록이 저장되었습니다'),
-            backgroundColor: _isBuy ? AppColors.buyAction : AppColors.sellAction,
-          ),
-        );
+        showSuccessToast(context, _isBuy ? '매수 기록이 저장되었습니다' : '매도 기록이 저장되었습니다');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류: ${e.toString()}'),
-            backgroundColor: AppColors.red500,
-          ),
-        );
+        showErrorToast(context, '오류: ${e.toString()}');
       }
     }
   }

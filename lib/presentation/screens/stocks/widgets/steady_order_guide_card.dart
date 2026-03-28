@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/cycle.dart';
 import '../../../../domain/trading/steady_order_guide.dart';
 import '../../../providers/providers.dart';
+import '../../../widgets/common/top_toast.dart';
 
 class SteadyOrderGuideCard extends ConsumerWidget {
   final String cycleId;
@@ -212,11 +213,7 @@ class SteadyOrderGuideCard extends ConsumerWidget {
                   Clipboard.setData(ClipboardData(
                     text: '\$${order.price.toStringAsFixed(2)} / ${order.shares.floor()}주',
                   ));
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text('복사됨: \$${order.price.toStringAsFixed(2)} / ${order.shares.floor()}주'),
-                    duration: const Duration(seconds: 1),
-                    behavior: SnackBarBehavior.floating,
-                  ));
+                  showTopToast(context, '복사됨: \$${order.price.toStringAsFixed(2)} / ${order.shares.floor()}주');
                 },
                 child: Icon(Icons.copy, size: 14, color: context.appTextHint),
               ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/settings_providers.dart';
+import '../common/top_toast.dart';
 
 /// 알림 설정 위젯
 class NotificationSettings extends StatefulWidget {
@@ -239,12 +240,7 @@ class _NotificationSettingsSheetState
                     notifyDailySummary: _dailySummaryEnabled,
                   );
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('알림 설정이 저장되었습니다'),
-                      backgroundColor: AppColors.green500,
-                    ),
-                  );
+                  showSuccessToast(context, '알림 설정이 저장되었습니다');
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,

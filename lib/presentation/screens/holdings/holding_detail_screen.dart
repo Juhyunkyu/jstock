@@ -10,6 +10,7 @@ import 'widgets/holding_info_card.dart';
 import 'widgets/transaction_list.dart';
 import 'widgets/edit_holding_sheet.dart';
 import 'widgets/trade_record_sheet.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 
 /// 보유 상세 화면
@@ -230,12 +231,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
       await ref.read(holdingListProvider.notifier).recalculateHoldingFromTransactions(holding.id);
       refreshTransactions(ref);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('거래 내역 기준으로 재계산되었습니다'),
-            backgroundColor: AppColors.blue500,
-          ),
-        );
+        showSuccessToast(context, '거래 내역 기준으로 재계산되었습니다');
       }
     }
   }

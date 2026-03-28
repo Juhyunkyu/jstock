@@ -12,6 +12,7 @@ import '../../../data/services/image/image_compress_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/memo/memo_category_chips.dart';
 import '../../widgets/memo/memo_image_viewer.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 
 // ---------------------------------------------------------------------------
@@ -391,9 +392,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('제목을 입력하세요')),
-      );
+      showErrorToast(context, '제목을 입력하세요');
       _titleFocusNode.requestFocus();
       return;
     }

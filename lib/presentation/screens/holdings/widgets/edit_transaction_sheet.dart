@@ -7,6 +7,7 @@ import '../../../../data/models/holding_transaction.dart';
 import '../../../providers/providers.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import '../../../widgets/common/date_picker_field.dart';
+import '../../../widgets/common/top_toast.dart';
 
 /// 거래 내역 수정 바텀시트
 class EditTransactionSheet extends ConsumerStatefulWidget {
@@ -336,21 +337,11 @@ class EditTransactionSheetState extends ConsumerState<EditTransactionSheet> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('거래 내역이 수정되었습니다'),
-            backgroundColor: AppColors.secondary,
-          ),
-        );
+        showSuccessToast(context, '거래 내역이 수정되었습니다');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('오류: ${e.toString()}'),
-            backgroundColor: AppColors.red500,
-          ),
-        );
+        showErrorToast(context, '오류: ${e.toString()}');
       }
     }
   }
