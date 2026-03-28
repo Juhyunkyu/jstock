@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/models/watchlist_item.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
@@ -370,10 +371,24 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
 
   void _onAlertTap(String ticker, double? currentPrice) async {
     final watchlistState = ref.read(watchlistProvider);
-    final item = watchlistState.items
+    var item = watchlistState.items
         .where((i) => i.ticker == ticker)
         .firstOrNull;
-    if (item == null) return;
+
+    // WatchlistItem이 없으면 자동 생성 (보유 종목이지만 관심종목에 미등록인 경우)
+    if (item == null) {
+      final newItem = WatchlistItem(
+        ticker: ticker,
+        name: ticker,
+        exchange: '',
+        type: 'stock',
+      );
+      await ref.read(watchlistProvider.notifier).add(newItem);
+      item = ref.read(watchlistProvider).items
+          .where((i) => i.ticker == ticker)
+          .firstOrNull;
+      if (item == null) return;
+    }
 
     if (!WebNotificationService.isPermissionGranted) {
       await WebNotificationService.requestPermission();
@@ -386,7 +401,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
       isScrollControlled: true,
       backgroundColor: context.appSurface,
       builder: (context) => AlertSettingsSheet(
-        item: item,
+        item: item!,
         currentPrice: currentPrice,
       ),
     );
