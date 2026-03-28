@@ -1,7 +1,7 @@
 # Steady Cycle (무한매수법) 설계서
 
-**문서 버전**: 2.3
-**작성일**: 2026-03-13 (v1.0) → 2026-03-17 (v2.0~2.2) → 2026-03-18 (v2.3 아키텍처 리뷰 반영)
+**문서 버전**: 2.4
+**작성일**: 2026-03-13 (v1.0) → 2026-03-17 (v2.0~2.2) → 2026-03-18 (v2.3 아키텍처 리뷰 반영) → 2026-03-28 (v2.4 구현 반영)
 **앱 표시명**: Steady Cycle (내부 enum: `CycleStrategy.steadyCycle`)
 **원본 전략**: 라오어의 무한매수법 (V1/V2.2/V3.0)
 
@@ -40,6 +40,15 @@
 - T값 올림 기준 정밀화: 소수점 둘째 자리에서 올림 (int → double)
 - 오프셋 프리셋 시스템: TQQQ형/SOXL형/커스텀 (a-b×T 일반 공식)
 - Cycle 모델 필드 추가: offsetA(32), offsetB(33), quarterModeOffset(34)
+
+### v2.4 구현 반영사항 (2026-03-28)
+- Trade groupId 추가: `@HiveField(10) String? groupId` — 동일 세션 거래 그룹핑, roundsUsed groupId 기준 카운팅
+- SteadyCombinedTradeSheet 수정 모드: editingTrades/editGroupId/onReplaceTrades 파라미터, 컨트롤러 프리필, batch replace
+- Trade Card UI 리디자인: 단일 카드(1줄), 그룹 카드(badge+detail box), 회차 섹션 fieldset border, formatShares()
+- Pending Completion: isPendingCompletion 조건, summary card(시드/투자금/회수금/외화손익/FX toggle), "사이클 완료 및 정산"
+- LOC A 추천: currentPrice > averagePrice → "LOC B만 매수 추천" 텍스트
+- Cycle 집계 필드: HiveField 37~42 (totalBuyAmountKrw, totalSellAmountKrw, firstTradeDate, lastTradeDate, totalBuyUsd, totalSellUsd)
+- realizedProfitKrw / realizedProfitRate 파생 계산
 
 ### v2.3 아키텍처 리뷰 반영사항
 - V2.2 + V3.0 서비스 통합: `steady_v22_service.dart` + `steady_v30_service.dart` → **`steady_service.dart` 1개** (공통 80% + private 메서드 분기)
@@ -1962,3 +1971,189 @@ class SteadyService implements StrategyEngine {
 | `lib/domain/trading/steady_order_guide.dart` | SteadyOrderGuide + OrderItem DTO (신규) |
 | `lib/presentation/providers/steady_providers.dart` | V2.2/V3.0 주문 가이드 Provider (신규) |
 | `lib/data/models/cycle.dart` | Cycle 데이터 모델 |
+
+---
+
+## 14. Trade Grouping (groupId)
+
+### 14.1 개요
+
+동일 세션(LOC A + LOC B + 매도)에서 발생한 거래를 하나의 그룹으로 묶어 **1회차**로 카운팅한다.
+
+### 14.2 Trade 모델 필드
+
+```dart
+@HiveField(10)
+String? groupId;  // 동일 세션 거래 그룹 식별자 (UUID)
+```
+
+- 같은 세션에서 기록한 거래(예: LOC A 매수 + LOC B 매수 + 매도)가 동일한 `groupId`를 공유
+- `SteadyCombinedTradeSheet`에서 거래 저장 시 UUID를 생성하여 모든 거래에 동일하게 할당
+
+### 14.3 roundsUsed 카운팅
+
+`_recalculateCycleState()`에서 `roundsUsed`는 **groupId 기준으로 중복 제거**하여 카운팅한다:
+
+```
+같은 groupId를 가진 거래들 = 1 round
+groupId가 null인 개별 거래 = 각각 1 round
+```
+
+- VWAP 계산은 변경 없음 (개별 거래 단위로 정확도 유지)
+
+---
+
+## 15. SteadyCombinedTradeSheet 수정 모드
+
+### 15.1 수정 모드 파라미터
+
+```dart
+SteadyCombinedTradeSheet({
+  // ... 기존 파라미터 ...
+  List<Trade>? editingTrades,     // 수정 대상 거래 목록
+  String? editGroupId,            // 수정 대상 groupId
+  Function(List<Trade>)? onReplaceTrades,  // 수정 완료 콜백
+})
+```
+
+### 15.2 수정 모드 동작
+
+- **컨트롤러 프리필**: 기존 거래의 signal → 해당 컨트롤러에 가격/수량 매핑
+- **가이드 추천 숨김**: 수정 모드에서는 guide 추천 텍스트 비표시
+- **매수/매도 섹션 표시**: 원래 거래의 signal 종류에 따라 해당 섹션만 표시
+- **매도 섹션**: 수정 모드에서는 항상 표시 (매도 추가 가능)
+- **제목/버튼**: "거래 기록 수정" / "수정 완료"
+
+### 15.3 replaceGroupedTrades()
+
+수정 완료 시 batch 처리: 기존 groupId 거래 전체 삭제 → 새 거래 생성 → `_recalculateCycleState()` 1회 호출
+
+### 15.4 Unified Edit Flow
+
+- Steady 거래는 항상 `SteadyCombinedTradeSheet`로 수정 (Smart 에디터 사용 안 함)
+- groupId가 없는 단일 거래: 수정 진입 시 groupId 자동 할당
+- 수정 모드에서 매도 섹션은 항상 visible (기존 매도 없어도 매도 추가 가능)
+
+---
+
+## 16. Trade Card UI 리디자인
+
+### 16.1 단일 거래 카드 (groupId 없거나 1개)
+
+```
+[LOC B] $45.20 × 5주                        ← badge + signal+price×shares (1줄, detail box 없음)
+```
+
+### 16.2 그룹 거래 카드 (동일 groupId, 2개 이상)
+
+```
+[LOC A+B]  [LOC매도¼]                        ← badge 나열
+┌─────────────────────────────────┐
+│ LOC A  $45.20 × 3주            │           ← per-trade rows
+│ LOC B  $46.10 × 2주            │
+│ LOC매도 $47.50 × 4주           │
+└─────────────────────────────────┘
+```
+
+### 16.3 매도 섹션
+
+매수와 동일한 구조 (header + detail box). 매수/매도가 같은 그룹에 있으면 하나의 카드에 통합 표시.
+
+### 16.4 회차 섹션
+
+```
+── N회차 · YYYY.MM.DD ──────────────         ← fieldset-style border
+[카드들...]
+```
+
+### 16.5 formatShares()
+
+정수일 때 소수점 미표시: `5.0` → `5`, `3.5` → `3.5`
+
+---
+
+## 17. Pending Completion (전량 매도 완료 대기)
+
+### 17.1 진입 조건
+
+```dart
+bool get isPendingCompletion =>
+    totalShares == 0 &&
+    status == CycleStatus.active &&
+    seedAmount != remainingCash;  // 거래 이력이 존재
+```
+
+### 17.2 Summary Card 표시
+
+| 항목 | 내용 |
+|------|------|
+| 설정시드 | `cycle.seedAmount` (KRW) |
+| 총투자금 | KRW (`totalBuyAmountKrw`) + USD (`totalBuyUsd`) |
+| 총회수금 | KRW (`totalSellAmountKrw`) + USD (`totalSellUsd`) |
+| 외화손익 | `totalSellUsd - totalBuyUsd` (USD 기준 실현 P&L) |
+| FX P&L | 환차손익 toggle (체크박스 "환차") |
+| 평균환율 | 수정 가능 → 즉시 KRW 손익 재계산 |
+
+### 17.3 "사이클 완료 및 정산" 버튼
+
+- Pending 상태에서만 표시
+- 탭 시 사이클 상태를 `completed`로 전환
+
+### 17.4 숨김 요소
+
+Pending 상태에서는 다음을 숨김: signal display, order guide, cycle info card
+
+### 17.5 My 탭 카드 표시
+
+- "완료 대기" 배지 표시
+- Compact 3-line layout: 종목 / 설정시드 · 총투자금(USD) / 총회수금(USD) · 손익
+
+---
+
+## 18. LOC A 매수 추천 조건
+
+현재가 > 평균단가일 때: "LOC B만 매수 추천" 텍스트 표시.
+
+- LOC A 입력 필드는 계속 visible (사용자가 override 가능)
+- 추천 텍스트만 표시하여 가이드 역할
+
+---
+
+## 19. Cycle Model 집계 필드 (HiveField 37~42)
+
+### 19.1 새 필드
+
+```dart
+@HiveField(37, defaultValue: 0.0)
+double totalBuyAmountKrw;      // 총 매수금액 (KRW)
+
+@HiveField(38, defaultValue: 0.0)
+double totalSellAmountKrw;     // 총 매도금액 (KRW)
+
+@HiveField(39)
+DateTime? firstTradeDate;      // 첫 거래일
+
+@HiveField(40)
+DateTime? lastTradeDate;       // 마지막 거래일
+
+@HiveField(41, defaultValue: 0.0)
+double totalBuyUsd;            // 총 매수금액 (USD)
+
+@HiveField(42, defaultValue: 0.0)
+double totalSellUsd;           // 총 매도금액 (USD)
+```
+
+### 19.2 파생 계산
+
+```dart
+// 실현 손익 (KRW)
+double get realizedProfitKrw => totalSellAmountKrw - totalBuyAmountKrw;
+
+// 실현 수익률 (%)
+double get realizedProfitRate =>
+    totalBuyAmountKrw == 0 ? 0 : realizedProfitKrw / totalBuyAmountKrw * 100;
+```
+
+### 19.3 갱신 시점
+
+`_recalculateCycleState()`에서 전체 거래 이력 순회 시 함께 집계. `firstTradeDate`/`lastTradeDate`는 거래 추가/삭제 시 min/max로 재계산.

@@ -1,6 +1,6 @@
 # 트러블슈팅 & 알려진 이슈
 
-> **최종 업데이트**: 2026-03-05
+> **최종 업데이트**: 2026-03-28
 
 ---
 
@@ -225,6 +225,74 @@
 | `@JS('functionName')` | index.html에 정의된 JS 함수 호출 | `_jsShowNotification()`, `_jsClearCachesAndReload()` |
 | `@JS('variableName')` | window 전역 변수 읽기 | `_jsPwaUpdateAvailable` |
 | `.toDart` / `.toJS` | Dart ↔ JS 타입 변환 | `JSString`, `JSBoolean` |
+
+---
+
+### 13. Recent Fixes (2026-03-25 ~ 2026-03-28)
+
+#### 13-1. 관심종목 그룹 삭제 버그
+
+**증상**: 사용자 그룹 탭에서 종목 삭제 시 메인 관심목록에서도 삭제됨
+
+**원인**: 그룹 탭의 삭제 버튼이 `watchlistProvider.remove()` (메인 관심목록 삭제)를 호출. 실제로는 `watchlistGroupProvider.removeTicker()`를 호출해야 함.
+
+**수정**: `onRemoveFromGroup` 콜백 추가, 그룹 탭에서는 그룹 전용 삭제 로직 사용
+
+#### 13-2. 검색→상세 뒤로가기 네비게이션
+
+**증상**: 검색 화면에서 종목 상세 진입 후 뒤로가기 → 관심종목이 아닌 홈으로 이동
+
+**원인**: 검색 화면의 `forDetail` 네비게이션에 `?from=watchlist` 파라미터 누락
+
+**수정**: 검색→상세 라우트에 `from` 파라미터 추가
+
+#### 13-3. 거래 날짜 미저장
+
+**증상**: 거래 수정 시 변경한 날짜가 저장되지 않음
+
+**원인**: `Trade.tradedAt`이 `final`로 선언되어 edit 콜백에서 date 파라미터를 할당 불가
+
+**수정**: `tradedAt`을 mutable로 변경 + edit 콜백에서 날짜 할당
+
+#### 13-4. 순손익 이중 계산
+
+**증상**: Pending completion 카드에서 순손익이 실제보다 큼
+
+**원인**: `totalSellKrw - totalBuyKrw + remainingCash` 공식에서 remainingCash가 이미 매도금액을 포함하므로 이중 계산
+
+**수정**: `totalSellKrw - totalBuyKrw`로 변경 (remainingCash 제거)
+
+#### 13-5. 인디케이터 드래그 무한 위젯 재귀
+
+**증상**: 차트 인디케이터 드래그 시 앱 프리즈 (무한 재귀)
+
+**원인**: `LongPressDraggable` + `DragTarget.builder` 클로저가 재할당된 `chip` 변수를 캡처 → 무한 루프
+
+**수정**: 재할당 전에 `final originalChip = chip`으로 고정 후 클로저에서 사용
+
+#### 13-6. Fear & Greed 게이지 하드코딩 색상
+
+**증상**: 다크 테마 변경 시 F&G 게이지 색상이 GitHub Dark에서만 정상 표시
+
+**원인**: `isDarkMode ? darkColor : lightColor` 하드코딩 — 다크 테마 팔레트 참조 없이 고정 색상 사용
+
+**수정**: `context` 기반 테마 색상 전달로 변경
+
+#### 13-7. USD 집계 필드 마이그레이션 누락
+
+**증상**: 기존 사이클에서 KRW 집계는 있으나 USD 집계가 0으로 표시
+
+**원인**: 최초 마이그레이션이 `totalBuyAmountKrw == 0` 조건만 체크하여 KRW만 채움. USD 필드는 조건에 걸리지 않아 스킵.
+
+**수정**: 조건을 `totalBuyAmountKrw == 0 || totalBuyUsd == 0`으로 변경하여 USD 누락 시에도 마이그레이션 실행
+
+#### 13-8. 다이얼로그 닫기 시 페이지 pop
+
+**증상**: RSI 도움말 다이얼로그 닫기 시 다이얼로그가 아닌 현재 페이지가 pop됨
+
+**원인**: `Navigator.pop(context)`의 `context`가 다이얼로그가 아닌 페이지의 context를 참조
+
+**수정**: `showDialog`의 `builder`에서 제공하는 `dialogContext` 사용
 
 ---
 

@@ -1,6 +1,6 @@
 # 알파 사이클 앱 설계 문서
 
-> **최종 업데이트**: 2026-02-20 (모바일 알림 수정, PWA 업데이트 시스템, 공포탐욕지수 알림)
+> **최종 업데이트**: 2026-03-28 (멀티 테마, 신규 보조지표, RSI 드로잉, Steady Cycle 거래 개선, 매도 완료 대기 상태, 집계 필드)
 
 ## 프로젝트 개요
 
@@ -20,8 +20,11 @@
 4. **거래 내역 관리** 및 완료된 사이클 통계
 5. **일반 보유 종목 관리** (비사이클 종목)
 6. **Fear & Greed Index** (CNN 공포탐욕지수)
-7. **보조 기술 지표** (VOL, BB, RSI, MACD, STOCH, 일목, OBV)
+7. **보조 기술 지표** (VOL, BB, RSI, MACD, STOCH, 일목, OBV, MFI, PVT)
 8. **뉴스** (MarketAux + MyMemory 한국어 번역)
+9. **멀티 테마 시스템** (8종 테마: Light, Dark, AMOLED Black, Midnight Blue, Dark Olive, Cream, Cool Gray, System)
+10. **RSI 드로잉 도구** (추세선 그리기, 심볼별 캐시)
+11. **매도 완료 대기** (Pending Completion — 전량 매도 후 정산 대기 상태)
 
 ---
 
@@ -175,15 +178,20 @@
 ```
 
 **기능**:
+- **탭 구조**: 보유(자동) | 최근(자동, FIFO 15개) | [사용자 그룹들...] | 관리
+  - 보유 탭: `userTickersProvider` 기반 자동 표시
+  - 최근 탭: 상세 페이지 방문 시 자동 기록 (지수 심볼 `^` 제외)
+  - 사용자 그룹: `WatchlistGroup` Hive 모델 (typeId: 22), 다대다 관계
+  - 관리 탭: 그룹 추가/삭제/순서 변경
 - **헤더**: "관심종목" | 🔄 새로고침 + ➕ 추가 버튼
 - **종목 카드 구성**:
   - ⠿ 드래그 핸들 (순서 변경)
   - 아바타 아이콘 (티커 이니셜)
   - 심볼, 거래소 배지 (NASDAQ/ETP), 회사명
   - 현재가, 등락률 (▲ 상승 / ▼ 하락)
-- **알림 설정**: 🔔 알림 없음 또는 목표가/변동률 알림 표시
-- **삭제 버튼**: 🗑️ 각 카드 하단
-- **드래그 정렬**: ⠿ 핸들로 순서 변경
+- **알림 설정**: 알림 없음 또는 목표가/변동률 알림 표시
+- **삭제 동작**: 탭별 분기 (그룹 탭에서는 그룹에서만 제거, 메인에서는 관심종목 삭제)
+- **드래그 정렬**: 모바일 `ReorderableListView` (250ms), 데스크톱 `LongPressDraggable` 그리드 (150ms)
 - **빈 상태**: "관심종목이 없습니다" + "관심종목 추가" 버튼
 
 ---
@@ -220,7 +228,7 @@
 │  │  일반 보유  100.0%   3026만원  │  │
 │  └────────────────────────────────┘  │
 │                                      │
-│  [ 알파 사이클 (0) ] [ 일반 보유 (3) ]│
+│  [Smart (0)] [Steady (0)] [보유 (3)] │
 │                                      │
 │  ┌────────────────────────────────┐  │
 │  │         📋                     │  │
@@ -244,8 +252,17 @@
 - **자산 배분**: 도넛 차트 (중앙에 "총 자산" 텍스트)
   - 알파 사이클 비율/금액
   - 일반 보유 비율/금액
-- **탭 전환**: [알파 사이클 (N)] [일반 보유 (N)]
+- **3탭 전환**: [Smart (N)] [Steady (N)] [보유 (N)]
+  - Smart Cycle (구 Alpha Cycle V3): `CycleStrategy.alphaCycleV3`
+  - Steady Cycle (구 순정 무한매수법): `CycleStrategy.steadyCycle`
+  - 보유: 일반 보유 종목
 - **빈 상태**: "활성 사이클이 없습니다" + "종목 추가하기" 버튼
+- **매도 완료 대기 (Pending Completion)**:
+  - `cycle.isPendingCompletion` 계산 속성 (전량 매도 후 정산 대기)
+  - 그라데이션 요약 카드: 수익/손실 표시, 환율 수정 가능
+  - FX P&L 토글: 체크박스로 환차손익 표시/숨김
+  - 불필요 섹션 숨김 (신호, 가이드, 인포 카드)
+  - "사이클 완료 및 정산" 버튼 → 거래내역 탭으로 이동
 
 ---
 
@@ -321,7 +338,7 @@
 │                                      │
 │  ┌────────────────────────────────┐  │
 │  │ 🎨 테마                      → │  │
-│  │    라이트 모드                  │  │
+│  │    8종 테마 (색상 미리보기)      │  │
 │  ├────────────────────────────────┤  │
 │  │ 🌐 언어                      → │  │
 │  │    한국어                       │  │
@@ -386,7 +403,7 @@
 ```
 
 **기능**:
-- **일반**: 테마 (라이트 모드), 언어 (한국어)
+- **일반**: 테마 (8종 멀티 테마, 색상 미리보기 원형), 언어 (한국어)
 - **매매 설정**: 환율 (1350원/$), 기본 매매 조건 (매수 -20%, 익절 +20%)
 - **알림**: 알림 설정 (매수 신호, 익절 신호 외)
 - **데이터 관리**:
@@ -430,8 +447,8 @@
 │  ━━━ 보조지표 ━━━━━━━━━━━━━━━━━━   │
 │                                      │
 │  [VOL] [BB] [RSI] [MACD]           │
-│  [STOCH] [일목] [OBV]              │
-│  (각 지표에 ⓘ 도움말 버튼)          │
+│  [STOCH] [일목] [OBV] [MFI] [PVT] │
+│  (드래그 순서 변경, 헤더에 ⓘ 도움말)  │
 │                                      │
 │  ━━━ 기술적 지표 ━━━━━━━  ⓘ 차트표시│
 │                                      │
@@ -477,7 +494,21 @@
 - **차트**: 일봉/주봉/월봉 탭, 확대/축소/스크롤 지원
 - **MA 범례**: 5일(빨강), 20일(노랑), 60일(초록), 120일(파랑)
 - **볼륨 바**: 차트 하단 거래량 표시
-- **보조지표 칩**: VOL, BB, RSI, MACD, STOCH, 일목, OBV (각 ⓘ 도움말)
+- **보조지표 칩**: VOL, BB, RSI, MACD, STOCH, 일목, OBV, MFI, PVT (드래그 순서 변경, 헤더에 ⓘ 도움말)
+  - **MFI** (Money Flow Index): RSI + 거래량 결합, 14일 기간, 20/80 과매도/과매수 존
+  - **PVT** (Price Volume Trend): OBV 업그레이드, 가격 변동률 x 거래량
+  - **드래그 정렬**: 활성 지표 칩을 LongPressDraggable로 순서 변경 (활성화 순서 보존)
+  - **반응형 차트 높이**: `ChartSizes` 클래스 (mobile/tablet/desktop 분기점별 최적 높이)
+  - **서브차트 헤더 통일**: ⓘ 도움말 아이콘이 칩에서 서브차트 헤더로 이동
+  - **컴팩트 모바일 높이**: RSI/MFI 90px, MACD/STOCH 80px, VOL 40px
+  - **신호 배지**: 모든 신호 배지가 스크롤 반응형 (표시 데이터 기반)
+- **RSI 드로잉 도구**:
+  - 추세선 아이콘 + badge 스타일 버튼 (그리기/Clear)
+  - fullData 인덱스 저장 (줌/스크롤 안전)
+  - 메인 차트 long-press로 RSI 포인트 배치
+  - 심볼별 static line 캐시
+  - 양 끝점에 RSI 값 라벨 표시
+  - Canvas clipping으로 차트 영역 내 렌더링
 - **기술적 지표**: ⓘ 도움말 + 차트 표시 토글
   - 피봇 포인트: R2, R1, Pivot, 현재가, S1, S2
 - **소개 섹션**: 지수 설명 (펼치기/접기)
@@ -616,6 +647,7 @@
 ```
 
 **기능**:
+- **전략 선택**: SegmentedButton (Smart Cycle / Steady Cycle)
 - **시드 금액 설정**:
   - 슬라이더로 금액 조절
   - 프리셋 버튼 (1천만 ~ 10억)
@@ -625,7 +657,7 @@
   - 초기 진입금 (시드 x 20%)
   - 잔여 현금 (시드 x 80%)
 - **초기 진입가**: 현재가 자동 입력, 수정 가능
-- **매매 조건**:
+- **매매 조건** (고급 설정 슬라이더):
   - 매수 시작점: -20% (기본값)
   - 익절 목표: +20% (기본값)
   - 승부수 발동: -50% (기본값)
@@ -747,6 +779,17 @@ class Cycle {
   double buyTrigger;         // -20
   double sellTrigger;        // +20
   double panicTrigger;       // -50
+
+  // 집계 필드 (@HiveField 37-42, _recalculateCycleState에서 자동 계산)
+  double totalBuyAmountKrw;  // 총 매수 금액 (KRW)
+  double totalSellAmountKrw; // 총 매도 금액 (KRW)
+  DateTime? firstTradeDate;  // 첫 거래일
+  DateTime? lastTradeDate;   // 마지막 거래일
+  double totalBuyUsd;        // 총 매수 금액 (USD)
+  double totalSellUsd;       // 총 매도 금액 (USD)
+
+  // 계산 속성
+  bool get isPendingCompletion; // totalShares == 0 && totalSellUsd > 0 && status == active
 }
 ```
 
@@ -766,6 +809,7 @@ class Trade {
   double lossFromEntry;      // 초기진입가 대비 손실률
   double returnFromAvg;      // 평균단가 대비 수익률
   String note;
+  String? groupId;           // 동일 세션 거래 묶음 ID @HiveField(10)
 }
 ```
 
@@ -809,7 +853,7 @@ class NotificationRecord {
 ```dart
 class Settings {
   // 일반
-  String theme;              // "light", "dark"
+  int themeType;             // AppThemeType index (0=light, 1=dark, ... 7=system) @HiveField(21)
   String language;           // "ko", "en"
 
   // 매매 설정
@@ -840,7 +884,7 @@ class Settings {
 | **상태관리** | Riverpod | 실시간 데이터 처리에 적합 |
 | **로컬 DB** | Hive (Web: IndexedDB) | 빠른 NoSQL, 오프라인 지원 |
 | **주가 API** | Finnhub (실시간 WebSocket+REST) + Twelve Data (차트 OHLC) | 무료, 안정적 |
-| **환율 API** | open.er-api.com (Primary) + Frankfurter (Fallback) | CORS 지원, 프록시 불필요 |
+| **환율 API** | Twelve Data Forex (Primary) + open.er-api.com + Frankfurter (Fallback) | 폴백 체인, CORS 지원 |
 | **뉴스 API** | MarketAux (뉴스) + MyMemory (번역) | 무료, 키 불필요(번역) |
 | **공포탐욕** | CNN Fear & Greed Index | 실시간 시장 심리 |
 | **차트** | CustomPainter (캔들스틱, 게이지 직접 구현) | Flutter 네이티브 커스텀 렌더링 |
@@ -855,18 +899,31 @@ class Settings {
 | `^NDX` | `QQQ` | Twelve Data (차트), MarketAux (뉴스) |
 | `^GSPC` | `SPY` | Twelve Data (차트), MarketAux (뉴스) |
 
-### 다크 모드
+### 멀티 테마 시스템
 
-- **라이트 모드**: 기본 (흰색 배경)
-- **다크 모드**: GitHub Dark 팔레트 (#0D1117, #161B22, #1C2128), accent `#58A6FF`
-- **전환**: 설정 > 테마에서 라이트/다크 전환
+- **8종 테마** (`AppThemeType` enum, `app_colors.dart`):
+  | 테마 | 설명 | 계열 |
+  |------|------|------|
+  | Light | 기본 라이트 | 라이트 |
+  | Dark | GitHub Dark (#0D1117, #161B22, #1C2128) | 다크 |
+  | AMOLED Black | 순수 블랙 OLED 최적화 | 다크 |
+  | Midnight Blue | 짙은 남색 계열 | 다크 |
+  | Dark Olive | 올리브/그린 다크 계열 | 다크 |
+  | Cream | Solarized 크림 계열 | 라이트 |
+  | Cool Gray | 차분한 회색 계열 | 라이트 |
+  | System | OS 설정 자동 추종 | 자동 |
+- **`ThemeColorSet` 클래스**: 테마당 33개 색상 토큰 정의
+- **설정 다이얼로그**: 색상 미리보기 원형 (각 테마 대표색 표시)
+- **저장**: Settings `@HiveField(21)` int 타입으로 Hive 저장
+- **전환**: 설정 > 테마에서 8종 중 선택
 - **구현**: `ThemeAwareColors` extension on BuildContext (`context.app*` 패턴)
   - `context.appBackground`, `appSurface`, `appCardBackground`
   - `context.appTextPrimary`, `appTextSecondary`, `appTextHint`
   - `context.appDivider`, `appBorder`, `appIconBg`, `isDarkMode`
-  - `context.appAccent` → Light: `AppColors.primary`, Dark: `AppColors.darkAccent` (#58A6FF)
+  - `context.appAccent` → 테마별 accent color
 - **규칙**: 색상 하드코딩 금지, 항상 `context.app*` 또는 `isDarkMode` 조건부 사용
 - **CustomPainter**: `isDarkMode` 파라미터로 전달 (context 접근 불가)
+- **Fear & Greed 게이지**: `isDarkMode` 하드코딩 대신 테마 색상 사용으로 수정
 
 ### 공용 위젯
 
@@ -904,6 +961,15 @@ class Settings {
   - `StockInfoCard` — 종목 정보 카드 (실시간 시세 + ReturnBadge)
   - `SectionCard`, `ConditionRow`, `SummaryRow` — 설정 폼 위젯
   - `ThousandsSeparatorInputFormatter`, `formatKrw` — 입력/포맷 유틸리티
+  - `StrategyBadge` — 전략명 배지 (Smart/Steady)
+  - `SignalDisplay` — 매매 신호 표시
+  - `ActiveCycleCard` — 활성 사이클 카드 (Pending Completion 포함)
+  - `CycleInfoCard` — 보유 정보 + 전략별 섹션 인포 카드
+  - `CycleTradeCard` — 단일/그룹 통합 거래 카드 (회차 fieldset 보더)
+  - `SteadyCombinedTradeSheet` — Steady Cycle 일괄 거래 입력 + 편집 모드
+  - `ProfitLossSummaryCard` — 외화/원화/환차 손익 분해 공유 위젯
+- **공유 위젯** (`widgets/shared/`):
+  - `InfoRow` — holding + cycle 공통 정보 행 위젯
 
 ### 반응형 레이아웃 (2026-02-17)
 
@@ -1021,6 +1087,47 @@ class Settings {
 - [x] 반응형 2열 그리드 (≥700px)
 - [x] 데스크톱 폰트/사이즈 반응형 개선
 
+### Phase 8: 멀티 테마 및 보조지표 확장 (완료)
+- [x] 멀티 테마 시스템 (8종: Light, Dark, AMOLED Black, Midnight Blue, Dark Olive, Cream, Cool Gray, System)
+- [x] `AppThemeType` enum + `ThemeColorSet` (33 tokens/theme) in `app_colors.dart`
+- [x] 테마 선택 다이얼로그 (색상 미리보기 원형)
+- [x] 테마 Hive 저장 (`@HiveField(21)` int)
+- [x] MFI (Money Flow Index) 보조지표 추가 (14일, 20/80 zone)
+- [x] PVT (Price Volume Trend) 보조지표 추가 (OBV 업그레이드)
+- [x] 보조지표 드래그 순서 변경 (LongPressDraggable, 활성화 순서 보존)
+- [x] 반응형 차트 높이 (`ChartSizes` 클래스, mobile/tablet/desktop)
+- [x] 서브차트 헤더 통일 (도움말 아이콘 → 헤더 이동, 신호 배지 스크롤 반응형)
+- [x] 컴팩트 모바일 서브차트 높이 (RSI/MFI 90, MACD/STOCH 80, VOL 40)
+
+### Phase 9: RSI 드로잉 및 Steady Cycle 거래 개선 (완료)
+- [x] RSI 추세선 드로잉 도구 (그리기/Clear badge 버튼)
+- [x] fullData 인덱스 저장 (줌/스크롤 안전)
+- [x] 메인 차트 long-press → RSI 포인트 배치
+- [x] 심볼별 static line 캐시 + RSI 값 라벨 + Canvas clipping
+- [x] Trade `groupId` 필드 (`@HiveField(10)`) — 동일 세션 거래 묶음
+- [x] `SteadyCombinedTradeSheet` 편집 모드 (pre-fill, batch replace)
+- [x] `CycleTradeCard`: 단일/그룹 통합 카드 스타일
+- [x] 회차 섹션: "N회차 . YYYY.MM.DD" fieldset 스타일 보더
+- [x] LOC A 추천 텍스트 (가격 > 평균단가 시)
+- [x] 날짜 버그 수정 (사용자 선택 날짜 → tradedAt 저장)
+
+### Phase 10: 매도 완료 대기 및 집계 필드 (완료)
+- [x] `cycle.isPendingCompletion` 계산 속성 (전량 매도 + active 상태)
+- [x] Pending Completion 요약 카드 (그라데이션, 수익/손실, 환율 편집)
+- [x] FX P&L 토글 (체크박스로 환차손익 표시/숨김)
+- [x] Pending 상태에서 불필요 섹션 숨김 (신호, 가이드, 인포 카드)
+- [x] "사이클 완료 및 정산" 버튼 → history 탭 이동
+- [x] USD 합계 + FX P&L 토글 Pending 카드 표시
+- [x] Cycle 집계 필드 (`@HiveField 37-42`): totalBuyAmountKrw, totalSellAmountKrw, firstTradeDate, lastTradeDate, totalBuyUsd, totalSellUsd
+- [x] `_recalculateCycleState()`에서 집계 필드 자동 계산
+- [x] 앱 시작 시 기존 데이터 마이그레이션 (aggregate fields)
+
+### Phase 11: 버그 수정 및 UI 개선 (완료)
+- [x] 관심종목 그룹 삭제 버그 수정 (메인 목록에서 삭제 → 그룹에서만 제거)
+- [x] 검색 → 상세 뒤로가기 네비게이션 (`?from=watchlist` 파라미터)
+- [x] Fear & Greed 게이지 테마 색상 적용 (isDarkMode 하드코딩 제거)
+- [x] 설정 화면 모바일 컴팩트 레이아웃
+
 ---
 
 ## 버전 히스토리
@@ -1035,6 +1142,11 @@ class Settings {
 - **v1.4** (2026.02): 알림 시스템 완성 — 전역 WebSocket 구독 (MainShell), 알림 내역 Hive 저장 (NotificationRecord), NotificationBellButton 벨 배지 (3화면 공통), NotificationHistorySheet 알림 내역 BottomSheet, 알림 설정 실제 영속화
 - **v1.5** (2026.02): PWA 업데이트 시스템 + 커스텀 앱 아이콘/스플래시 + 공포탐욕지수 알림 + 목표가 방향 선택 + GitHub Actions CI/CD
 - **v1.6** (2026.02): 모바일 알림 5단계 수정 — 권한 타이밍, async race condition, SW 캐시, 방어적 에러 처리, ServiceWorker showNotification
+- **v1.7** (2026.02): 데이터 관리 4기능 (백업/복원/내보내기/초기화), 차트 드로잉 Phase 2
+- **v1.8** (2026.03): Alpha Cycle V3 (Smart/Steady Cycle), 차트 색상 Hive 영속화, 거래내역 합계 카드, 관심종목 그룹 탭
+- **v1.9** (2026.03): Cycle Detail 리디자인 (gradient PnL 카드 + info 카드 + FAB), 손익색상 통일 (수익=red, 손실=blue)
+- **v2.0** (2026.03): 멀티 테마 시스템 (8종), MFI/PVT 보조지표, RSI 드로잉 도구, Steady Cycle 거래 개선 (groupId, 편집 모드, 회차 섹션)
+- **v2.1** (2026.03): Pending Completion (매도 완료 대기), Cycle 집계 필드 (HiveField 37-42), FX P&L 토글, 버그 수정 (그룹 삭제, 네비게이션, 게이지 테마)
 
 ---
 
@@ -1048,4 +1160,5 @@ class Settings {
 
 ## 미구현 (Pending)
 
-1. **Drawing tools on chart**: 차트 위 그리기 도구 (향후 세션으로 연기)
+1. **백그라운드 푸시 알림**: FCM 서버 필요 (현재 서버리스 아키텍처)
+2. **차트 메인 드로잉 도구 확장**: 수평선, 피보나치, 지지/저항, 측정 도구 (RSI 추세선은 구현 완료)
