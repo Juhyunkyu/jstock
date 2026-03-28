@@ -135,7 +135,7 @@ class Settings extends HiveObject {
     this.defaultBuyTrigger = FormulaConstants.buyTriggerPercent,
     this.defaultSellTrigger = FormulaConstants.sellTriggerPercent,
     this.defaultPanicTrigger = FormulaConstants.panicTriggerPercent,
-    this.useDarkMode = false,
+    this.useDarkMode = true, // themeType=1(dark)과 일치
     this.lastBackupDate,
     this.fearGreedAlertEnabled = false,
     this.fearGreedAlertValue = 25,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'app.dart';
+import 'core/theme/app_colors.dart';
 import 'data/models/models.dart';
 import 'data/services/background/background_task_handler.dart';
 import 'data/services/cache/logo_cache_service.dart';
@@ -40,6 +41,19 @@ void main() async {
   Hive.registerAdapter(CycleStatusAdapter());
   Hive.registerAdapter(TradeActionAdapter());
   Hive.registerAdapter(SteadyVersionAdapter());
+
+  // 테마 설정 선행 로드 (앱 시작 전 올바른 테마 적용)
+  try {
+    final settingsBox = await Hive.openBox<Settings>('settings');
+    final settings = settingsBox.get('settings');
+    if (settings != null) {
+      final themeIndex = settings.themeType.clamp(0, AppThemeType.values.length - 1);
+      final themeType = AppThemeType.values[themeIndex];
+      final resolved = themeType == AppThemeType.system ? AppThemeType.dark : themeType;
+      setCurrentAppTheme(resolved);
+    }
+    await settingsBox.close();
+  } catch (_) {}
 
   // 로고 캐시 초기화
   final logoCache = LogoCacheService();
