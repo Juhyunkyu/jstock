@@ -286,16 +286,6 @@ final sp500IndexProvider =
   return SP500IndexNotifier(finnhubService, twelveDataService);
 });
 
-/// 시장 지수 초기화 Provider
-final marketIndexInitProvider = FutureProvider<void>((ref) async {
-  final nasdaqNotifier = ref.read(marketIndexProvider.notifier);
-  final sp500Notifier = ref.read(sp500IndexProvider.notifier);
-  await Future.wait([
-    nasdaqNotifier.loadNasdaqData(),
-    sp500Notifier.loadSp500Data(),
-  ]);
-});
-
 /// 나스닥 현재가 Provider
 final nasdaqPriceProvider = Provider<double>((ref) {
   return ref.watch(marketIndexProvider).price;

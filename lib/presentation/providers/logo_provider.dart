@@ -8,12 +8,6 @@ final logoCacheServiceProvider = Provider<LogoCacheService>((ref) {
   return LogoCacheService();
 });
 
-/// 로고 캐시 초기화 Provider
-final logoCacheInitProvider = FutureProvider<void>((ref) async {
-  final service = ref.read(logoCacheServiceProvider);
-  await service.initialize();
-});
-
 /// 티커 로고 URL 상태 관리
 class TickerLogoNotifier extends StateNotifier<Map<String, String?>> {
   final FinnhubService _finnhubService;

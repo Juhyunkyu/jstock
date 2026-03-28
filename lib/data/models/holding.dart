@@ -183,11 +183,6 @@ class Holding extends HiveObject implements TradingPosition {
     return ((currentPrice - averagePrice) / averagePrice) * 100;
   }
 
-  /// 원화 매입금액
-  double krwInvestedAmount() {
-    return totalInvestedAmount;
-  }
-
   /// 원화 현재가치 (현재 환율 기준)
   double krwCurrentValue(double currentPrice, double currentExchangeRate) {
     return currentPrice * totalShares * currentExchangeRate;
@@ -196,12 +191,6 @@ class Holding extends HiveObject implements TradingPosition {
   /// 원화 총손익
   double krwTotalProfitLoss(double currentPrice, double currentExchangeRate) {
     return krwCurrentValue(currentPrice, currentExchangeRate) - totalInvestedAmount;
-  }
-
-  /// 원화 수익률 (%)
-  double krwReturnRate(double currentPrice, double currentExchangeRate) {
-    if (totalInvestedAmount == 0) return 0;
-    return (krwTotalProfitLoss(currentPrice, currentExchangeRate) / totalInvestedAmount) * 100;
   }
 
   /// 환차 손익 (환율 변동에 의한 손익)

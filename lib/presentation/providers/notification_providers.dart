@@ -156,12 +156,6 @@ final notificationStateProvider =
   );
 });
 
-/// 알림 초기화 Provider
-final notificationInitProvider = FutureProvider<void>((ref) async {
-  final notifier = ref.read(notificationStateProvider.notifier);
-  await notifier.initialize();
-});
-
 /// 알림 권한 여부 Provider
 final hasNotificationPermissionProvider = Provider<bool>((ref) {
   return ref.watch(notificationStateProvider).hasPermission;
