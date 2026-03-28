@@ -43,16 +43,16 @@ void main() async {
   Hive.registerAdapter(SteadyVersionAdapter());
 
   // 테마 설정 선행 로드 (앱 시작 전 올바른 테마 적용)
+  // 박스를 열어두면 SettingsRepository.init()이 재활용함 (Hive.openBox는 이미 열린 박스 반환)
   try {
     final settingsBox = await Hive.openBox<Settings>('settings');
-    final settings = settingsBox.get('settings');
+    final settings = settingsBox.get('app_settings');
     if (settings != null) {
       final themeIndex = settings.themeType.clamp(0, AppThemeType.values.length - 1);
       final themeType = AppThemeType.values[themeIndex];
       final resolved = themeType == AppThemeType.system ? AppThemeType.dark : themeType;
       setCurrentAppTheme(resolved);
     }
-    await settingsBox.close();
   } catch (_) {}
 
   // 로고 캐시 초기화
