@@ -562,18 +562,19 @@ class _ActiveCycleCard extends ConsumerWidget {
               const SizedBox(height: 10),
               // 1줄: ✅ 전량 매도 + 기간 + 회차
               Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Icon(Icons.check_circle, size: 14, color: AppColors.green500),
                   const SizedBox(width: 5),
-                  Text('전량 매도', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                  Text('전량 매도', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary, height: 1.0)),
                   const SizedBox(width: 8),
                   if (cycle.firstTradeDate != null && cycle.lastTradeDate != null)
                     Expanded(
                       child: Text(
                         '${DateFormat('MM.dd').format(cycle.firstTradeDate!)}~${DateFormat('MM.dd').format(cycle.lastTradeDate!)}'
                         ' (${cycle.lastTradeDate!.difference(cycle.firstTradeDate!).inDays + 1}일)'
-                        ' ${cycle.roundsUsed}회차',
-                        style: TextStyle(fontSize: 10, color: context.appTextHint),
+                        ' · ${cycle.roundsUsed}회차',
+                        style: TextStyle(fontSize: 11, color: context.appTextSecondary, height: 1.0),
                         textAlign: TextAlign.right,
                       ),
                     ),
@@ -582,9 +583,9 @@ class _ActiveCycleCard extends ConsumerWidget {
               const SizedBox(height: 8),
               // 2줄: 순수익
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text('순수익', style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
-                  const SizedBox(width: 8),
                   Text(
                     '${cycle.realizedProfitKrw >= 0 ? "+" : ""}${formatKrwWithComma(cycle.realizedProfitKrw)}원'
                     ' (${cycle.realizedProfitKrw >= 0 ? "+" : ""}${cycle.realizedProfitRate.toStringAsFixed(1)}%)',
@@ -597,10 +598,16 @@ class _ActiveCycleCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              // 3줄: 투자금 → 회수금
-              Text(
-                '${formatKrwWithComma(cycle.totalBuyAmountKrw)}원 → ${formatKrwWithComma(cycle.totalSellAmountKrw)}원',
-                style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+              // 3줄: 투자금 → 회수금 (라벨 포함)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('투자 ${formatKrwWithComma(cycle.totalBuyAmountKrw)}원',
+                      style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                  Text('→', style: TextStyle(fontSize: 11, color: context.appTextHint)),
+                  Text('회수 ${formatKrwWithComma(cycle.totalSellAmountKrw)}원',
+                      style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                ],
               ),
             ] else if (isWaiting) ...[
               const SizedBox(height: 12),
