@@ -540,7 +540,17 @@ class _ActiveCycleCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (signal != TradeSignal.hold) ...[
+                if (isPendingCompletion) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.green500.withAlpha(context.isDarkMode ? 30 : 20),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text('완료 대기', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.green500)),
+                  ),
+                ] else if (signal != TradeSignal.hold) ...[
                   const SizedBox(width: 6),
                   SignalDisplay(signal: signal),
                 ],
@@ -549,46 +559,48 @@ class _ActiveCycleCard extends ConsumerWidget {
 
             // 중단: 전량매도 완료 / 대기중 / 실제 평가금+손익
             if (isPendingCompletion) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: (cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500).withAlpha(context.isDarkMode ? 20 : 12),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: (cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500).withAlpha(40),
+              const SizedBox(height: 10),
+              // 1줄: ✅ 전량 매도 + 기간 + 회차
+              Row(
+                children: [
+                  Icon(Icons.check_circle, size: 14, color: AppColors.green500),
+                  const SizedBox(width: 5),
+                  Text('전량 매도', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                  const SizedBox(width: 8),
+                  if (cycle.firstTradeDate != null && cycle.lastTradeDate != null)
+                    Expanded(
+                      child: Text(
+                        '${DateFormat('MM.dd').format(cycle.firstTradeDate!)}~${DateFormat('MM.dd').format(cycle.lastTradeDate!)}'
+                        ' (${cycle.lastTradeDate!.difference(cycle.firstTradeDate!).inDays + 1}일)'
+                        ' ${cycle.roundsUsed}회차',
+                        style: TextStyle(fontSize: 10, color: context.appTextHint),
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // 2줄: 순수익
+              Row(
+                children: [
+                  Text('순수익', style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${cycle.realizedProfitKrw >= 0 ? "+" : ""}${formatKrwWithComma(cycle.realizedProfitKrw)}원'
+                    ' (${cycle.realizedProfitKrw >= 0 ? "+" : ""}${cycle.realizedProfitRate.toStringAsFixed(1)}%)',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500,
+                    ),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.check_circle_outline, size: 16,
-                            color: cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500),
-                        const SizedBox(width: 6),
-                        Text('전량 매도 — 완료 대기',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('순수익', style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
-                        Text(
-                          '${cycle.realizedProfitKrw >= 0 ? "+" : ""}${formatKrwWithComma(cycle.realizedProfitKrw)}원'
-                          ' (${cycle.realizedProfitKrw >= 0 ? "+" : ""}${cycle.realizedProfitRate.toStringAsFixed(1)}%)',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              // 3줄: 투자금 → 회수금
+              Text(
+                '${formatKrwWithComma(cycle.totalBuyAmountKrw)}원 → ${formatKrwWithComma(cycle.totalSellAmountKrw)}원',
+                style: TextStyle(fontSize: 11, color: context.appTextSecondary),
               ),
             ] else if (isWaiting) ...[
               const SizedBox(height: 12),
@@ -678,45 +690,8 @@ class _ActiveCycleCard extends ConsumerWidget {
             const SizedBox(height: 10),
 
             // 하단: 상세 정보
-            // 하단 정보: 전량 매도 → 투자금/회수금/기간, 그 외 → 설정시드/잔여현금/회차
-            if (isPendingCompletion)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: context.appBackground,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('투자금', style: TextStyle(fontSize: 10, color: context.appTextSecondary)),
-                        Text('→', style: TextStyle(fontSize: 10, color: context.appTextHint)),
-                        Text('회수금', style: TextStyle(fontSize: 10, color: context.appTextSecondary)),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('${formatKrwWithComma(cycle.totalBuyAmountKrw)}원',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
-                        Text('${formatKrwWithComma(cycle.totalSellAmountKrw)}원',
-                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    if (cycle.firstTradeDate != null && cycle.lastTradeDate != null)
-                      Text(
-                        '${DateFormat('yy.MM.dd').format(cycle.firstTradeDate!)} ~ ${DateFormat('yy.MM.dd').format(cycle.lastTradeDate!)}'
-                        ' (${cycle.lastTradeDate!.difference(cycle.firstTradeDate!).inDays + 1}일) · ${cycle.roundsUsed}회차',
-                        style: TextStyle(fontSize: 10, color: context.appTextHint),
-                      ),
-                  ],
-                ),
-              )
-            else
+            // 하단 정보: 전량매도는 위에서 다 표시 → 나머지만 설정시드/잔여현금/회차
+            if (!isPendingCompletion)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
