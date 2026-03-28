@@ -283,6 +283,19 @@ class Cycle extends HiveObject implements TradingPosition {
   @override
   bool get isEmpty => totalShares == 0;
 
+  /// 전량 매도 완료 대기 (shares==0, 거래 내역 있음, 아직 active)
+  bool get isPendingCompletion =>
+      totalShares == 0 && status == CycleStatus.active && seedAmount != remainingCash;
+
+  /// 전량 매도 후 실현 순수익 (remainingCash - seedAmount)
+  double get realizedProfitKrw => remainingCash - seedAmount;
+
+  /// 전량 매도 후 수익률 (시드 대비)
+  double get realizedProfitRate {
+    if (seedAmount <= 0) return 0;
+    return (realizedProfitKrw / seedAmount) * 100;
+  }
+
   // === 직렬화 ===
 
   Map<String, dynamic> toJson() => {

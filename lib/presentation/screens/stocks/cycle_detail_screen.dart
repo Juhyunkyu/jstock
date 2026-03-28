@@ -93,7 +93,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
 
     // === PnL 계산 (보유 상세와 동일한 분리 방식) ===
     final hasPosition = cycle.totalShares > 0 && cycle.averagePrice > 0;
-    final isPendingCompletion = !hasPosition && trades.isNotEmpty && cycle.status == CycleStatus.active;
+    final isPendingCompletion = cycle.isPendingCompletion;
     final evaluatedAmountKrw = TradingMath.evaluatedAmount(
       cycle.totalShares, currentPrice, liveExchangeRate,
     );

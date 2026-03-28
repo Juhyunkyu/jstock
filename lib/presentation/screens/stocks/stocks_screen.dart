@@ -455,7 +455,9 @@ class _ActiveCycleCard extends ConsumerWidget {
     final profit = evalAmount - investedAmount; // 실제 투입 대비 손익
     final returnRate =
         investedAmount > 0 ? (profit / investedAmount) * 100 : 0.0;
-    final isWaiting = cycle.totalShares == 0; // 대기중 여부
+    // 상태 판별
+    final isPendingCompletion = cycle.isPendingCompletion;
+    final isWaiting = cycle.totalShares == 0 && !isPendingCompletion;
     final isProfit = profit >= 0;
     final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
 
@@ -544,8 +546,50 @@ class _ActiveCycleCard extends ConsumerWidget {
               ],
             ),
 
-            // 중단: 실제 평가금 + 손익 (또는 대기중)
-            if (isWaiting) ...[
+            // 중단: 전량매도 완료 / 대기중 / 실제 평가금+손익
+            if (isPendingCompletion) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: (cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500).withAlpha(context.isDarkMode ? 20 : 12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: (cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500).withAlpha(40),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 16,
+                            color: cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500),
+                        const SizedBox(width: 6),
+                        Text('전량 매도 — 완료 대기',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('순수익', style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
+                        Text(
+                          '${cycle.realizedProfitKrw >= 0 ? "+" : ""}${formatKrwWithComma(cycle.realizedProfitKrw)}원'
+                          ' (${cycle.realizedProfitKrw >= 0 ? "+" : ""}${cycle.realizedProfitRate.toStringAsFixed(1)}%)',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: cycle.realizedProfitKrw >= 0 ? AppColors.red500 : AppColors.blue500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (isWaiting) ...[
               const SizedBox(height: 12),
               Center(
                 child: Container(
