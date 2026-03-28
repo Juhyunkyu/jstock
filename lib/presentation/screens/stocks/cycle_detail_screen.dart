@@ -716,7 +716,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             ),
             const SizedBox(height: 3),
             Text(
-              '환율이나 거래가 잘못되었다면 아래에서 수정 가능합니다.',
+              '잘못 기록했다면 아래 거래 내역에서 수정 가능합니다.',
               style: TextStyle(fontSize: isMobile ? 11 : 12, color: Colors.white.withAlpha(150)),
             ),
             SizedBox(height: isMobile ? 14 : 18),
