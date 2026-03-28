@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../../data/models/memo.dart';
 import '../../providers/providers.dart';
 import '../../widgets/memo/memo_category_chips.dart';
 import '../../widgets/memo/memo_content_renderer.dart';

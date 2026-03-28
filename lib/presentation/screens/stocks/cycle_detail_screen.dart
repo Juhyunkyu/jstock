@@ -577,7 +577,6 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     final totalSellKrw = sellTrades.fold<double>(0, (s, t) => s + t.amountKrw);
     // ★ 순수익 = 매도총액 - 매수총액 (이중 계산 버그 수정)
     final netProfitKrw = totalSellKrw - totalBuyKrw;
-    final profitRate = totalBuyKrw > 0 ? (netProfitKrw / totalBuyKrw * 100) : 0.0;
     final isProfit = netProfitKrw >= 0;
 
     // 평균 매수가/매도가 (USD)

@@ -10,7 +10,6 @@ import '../../../../data/models/cycle.dart';
 import '../../../../data/models/trade.dart';
 import '../../../providers/providers.dart';
 import '../../../widgets/shared/confirm_dialog.dart';
-import '../../../widgets/shared/info_row.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
 import 'cycle_trade_record_sheet.dart';
 import 'steady_combined_trade_sheet.dart';
@@ -50,7 +49,6 @@ class CycleTradeCard extends ConsumerWidget {
     final isBuy = trade.action == TradeAction.buy;
     final isInitial = isBuy && trade.signal == TradeSignal.initial;
     final amountUsd = trade.price * trade.shares;
-    final dateFormat = DateFormat('yyyy.MM.dd');
     final signalConfig = SignalBadgeConfig.fromSignal(trade.signal);
 
     final Color typeColor;
@@ -142,7 +140,6 @@ class CycleTradeCard extends ConsumerWidget {
     final trades = groupedTrades!;
     final buyTrades = trades.where((t) => t.action == TradeAction.buy).toList();
     final sellTrades = trades.where((t) => t.action == TradeAction.sell).toList();
-    final dateFormat = DateFormat('yyyy.MM.dd');
 
     // 매수 합계
     final totalBuyShares = buyTrades.fold<double>(0, (s, t) => s + t.shares);

@@ -25,7 +25,6 @@ import 'drawing_overlay_painter.dart';
 import 'drawing_selection_buttons.dart';
 import 'drawing_settings_sheet.dart';
 import 'drawing_toolbar.dart';
-import 'indicator_help_dialog.dart';
 import '../../providers/providers.dart';
 
 part 'chart_drawing_gesture_handler.dart';

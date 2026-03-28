@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/watchlist_item.dart';
-import '../../../data/services/notification/web_notification_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/watchlist/watchlist_tab_bar.dart';

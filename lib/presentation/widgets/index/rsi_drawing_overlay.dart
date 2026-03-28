@@ -157,9 +157,6 @@ class RsiDrawingOverlayState extends State<RsiDrawingOverlay> {
   double _toY(double rsiValue) =>
       _topPadding + (1 - rsiValue / 100) * _drawableHeight;
 
-  double _fromY(double y) =>
-      ((1 - (y - _topPadding) / _drawableHeight) * 100).clamp(0.0, 100.0);
-
   /// Convert fullData index to screen X (may be offscreen)
   double _fullIndexToX(int fullIndex) {
     final displayIndex = fullIndex - widget.scrollOffset;

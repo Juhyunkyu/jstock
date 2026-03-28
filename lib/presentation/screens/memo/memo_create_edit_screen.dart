@@ -209,31 +209,6 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   // Serialize (segments -> content string)
   // -------------------------------------------------------------------------
 
-  /// Serialize segments back to content string with [IMG:N] markers.
-  /// Re-indexes images sequentially.
-  String _serializeContent() {
-    final buffer = StringBuffer();
-    int imgCounter = 0;
-
-    for (int i = 0; i < _segments.length; i++) {
-      final seg = _segments[i];
-      if (seg is _TextSegment) {
-        buffer.write(seg.controller.text);
-      } else if (seg is _ImageSegment) {
-        // Ensure newline separation around markers
-        final current = buffer.toString();
-        if (current.isNotEmpty && !current.endsWith('\n')) {
-          buffer.write('\n');
-        }
-        buffer.write('[IMG:$imgCounter]');
-        buffer.write('\n');
-        imgCounter++;
-      }
-    }
-
-    return buffer.toString();
-  }
-
   /// Build the re-ordered image list matching the serialized order.
   List<String> _serializeImages() {
     final result = <String>[];
@@ -297,7 +272,6 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _segments.insert(targetSegIndex + 2, newTextSeg);
 
     // Update focus listener index for the new text segment
-    final newSegIndex = targetSegIndex + 2;
     newTextSeg.focusNode.addListener(() {
       if (newTextSeg.focusNode.hasFocus) {
         _lastFocusedTextIndex = _segments.indexOf(newTextSeg);

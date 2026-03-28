@@ -443,11 +443,4 @@ class TransactionCard extends ConsumerWidget {
     );
   }
 
-  String _getTypeLabel(HoldingTransaction transaction) {
-    return transaction.isBuy ? '매수' : '매도';
-  }
-
-  Color _getTypeColor(HoldingTransaction transaction) {
-    return transaction.isBuy ? AppColors.buyAction : AppColors.sellAction;
-  }
 }
