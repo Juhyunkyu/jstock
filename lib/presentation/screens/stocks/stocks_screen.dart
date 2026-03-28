@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
@@ -677,50 +678,89 @@ class _ActiveCycleCard extends ConsumerWidget {
             const SizedBox(height: 10),
 
             // 하단: 상세 정보
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: context.appBackground,
-                borderRadius: BorderRadius.circular(8),
+            // 하단 정보: 전량 매도 → 투자금/회수금/기간, 그 외 → 설정시드/잔여현금/회차
+            if (isPendingCompletion)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: context.appBackground,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('투자금', style: TextStyle(fontSize: 10, color: context.appTextSecondary)),
+                        Text('→', style: TextStyle(fontSize: 10, color: context.appTextHint)),
+                        Text('회수금', style: TextStyle(fontSize: 10, color: context.appTextSecondary)),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('${formatKrwWithComma(cycle.totalBuyAmountKrw)}원',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                        Text('${formatKrwWithComma(cycle.totalSellAmountKrw)}원',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: context.appTextPrimary)),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    if (cycle.firstTradeDate != null && cycle.lastTradeDate != null)
+                      Text(
+                        '${DateFormat('yy.MM.dd').format(cycle.firstTradeDate!)} ~ ${DateFormat('yy.MM.dd').format(cycle.lastTradeDate!)}'
+                        ' (${cycle.lastTradeDate!.difference(cycle.firstTradeDate!).inDays + 1}일) · ${cycle.roundsUsed}회차',
+                        style: TextStyle(fontSize: 10, color: context.appTextHint),
+                      ),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: context.appBackground,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _CycleInfoColumn(
+                        label: '설정시드',
+                        value: '${formatKrwWithComma(cycle.seedAmount)}\u2009원',
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: context.appDivider,
+                    ),
+                    Expanded(
+                      child: _CycleInfoColumn(
+                        label: '잔여현금',
+                        value:
+                            '${formatKrwWithComma(cycle.remainingCash)}\u2009원',
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 24,
+                      color: context.appDivider,
+                    ),
+                    Expanded(
+                      child: _CycleInfoColumn(
+                        label: cycle.strategyType == StrategyType.alphaCycleV3
+                            ? '익절 목표'
+                            : '진행 회차',
+                        value: cycle.strategyType == StrategyType.alphaCycleV3
+                            ? '+${cycle.currentSellTarget.toStringAsFixed(0)}%'
+                            : '${cycle.roundsUsed}/${cycle.totalRounds}회',
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _CycleInfoColumn(
-                      label: '설정시드',
-                      value: '${formatKrwWithComma(cycle.seedAmount)}\u2009원',
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 24,
-                    color: context.appDivider,
-                  ),
-                  Expanded(
-                    child: _CycleInfoColumn(
-                      label: '잔여현금',
-                      value:
-                          '${formatKrwWithComma(cycle.remainingCash)}\u2009원',
-                    ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 24,
-                    color: context.appDivider,
-                  ),
-                  Expanded(
-                    child: _CycleInfoColumn(
-                      label: cycle.strategyType == StrategyType.alphaCycleV3
-                          ? '익절 목표'
-                          : '진행 회차',
-                      value: cycle.strategyType == StrategyType.alphaCycleV3
-                          ? '+${cycle.currentSellTarget.toStringAsFixed(0)}%'
-                          : '${cycle.roundsUsed}/${cycle.totalRounds}회',
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ],
         ),
       ),

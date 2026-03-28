@@ -239,6 +239,12 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     cycle.panicBuyUsed = panicBuyUsed;
     cycle.roundsUsed = roundsUsed;
 
+    // 집계 필드 저장 (카드/상세에서 trades 없이 접근 가능)
+    cycle.totalBuyAmountKrw = totalBuyAmountKrw;
+    cycle.totalSellAmountKrw = totalSellAmountKrw;
+    cycle.firstTradeDate = trades.isNotEmpty ? trades.first.tradedAt : null;
+    cycle.lastTradeDate = trades.isNotEmpty ? trades.last.tradedAt : null;
+
     // 평균매입환율(exchangeRateAtEntry)은 사용자가 독립 관리 — 자동 재계산 안 함
 
     await _ref.read(cycleListProvider.notifier).saveCycle(cycle);

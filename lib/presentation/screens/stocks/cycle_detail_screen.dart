@@ -624,6 +624,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             SizedBox(height: isMobile ? 14 : 18),
 
             // 수익 요약
+            _pendingRow('설정시드', formatKrw(cycle.seedAmount), isMobile),
+            const SizedBox(height: 6),
             _pendingRow('총 투자금', formatKrw(totalBuyKrw), isMobile),
             const SizedBox(height: 6),
             _pendingRow('총 회수금', formatKrw(totalSellKrw), isMobile),

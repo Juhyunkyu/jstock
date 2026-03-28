@@ -156,6 +156,19 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(36, defaultValue: 0)
   int quarterStopLossRoundsUsed;
 
+  // === 집계 필드 (거래 재계산 시 자동 업데이트) ===
+  @HiveField(37, defaultValue: 0.0)
+  double totalBuyAmountKrw;
+
+  @HiveField(38, defaultValue: 0.0)
+  double totalSellAmountKrw;
+
+  @HiveField(39)
+  DateTime? firstTradeDate;
+
+  @HiveField(40)
+  DateTime? lastTradeDate;
+
   // === 생성자 ===
 
   Cycle({
@@ -189,6 +202,10 @@ class Cycle extends HiveObject implements TradingPosition {
     this.quarterModeOffset = -15.0,
     this.isQuarterStopLossMode = false,
     this.quarterStopLossRoundsUsed = 0,
+    this.totalBuyAmountKrw = 0.0,
+    this.totalSellAmountKrw = 0.0,
+    this.firstTradeDate,
+    this.lastTradeDate,
     this.completedReturnRate,
     DateTime? startDate,
   })  : averagePrice = 0,
@@ -287,13 +304,13 @@ class Cycle extends HiveObject implements TradingPosition {
   bool get isPendingCompletion =>
       totalShares == 0 && status == CycleStatus.active && seedAmount != remainingCash;
 
-  /// 전량 매도 후 실현 순수익 (remainingCash - seedAmount)
-  double get realizedProfitKrw => remainingCash - seedAmount;
+  /// 전량 매도 후 실현 순수익 (매도총액 - 매수총액)
+  double get realizedProfitKrw => totalSellAmountKrw - totalBuyAmountKrw;
 
-  /// 전량 매도 후 수익률 (시드 대비)
+  /// 전량 매도 후 수익률 (매수총액 대비)
   double get realizedProfitRate {
-    if (seedAmount <= 0) return 0;
-    return (realizedProfitKrw / seedAmount) * 100;
+    if (totalBuyAmountKrw <= 0) return 0;
+    return (realizedProfitKrw / totalBuyAmountKrw) * 100;
   }
 
   // === 직렬화 ===
@@ -336,6 +353,10 @@ class Cycle extends HiveObject implements TradingPosition {
     'quarterModeOffset': quarterModeOffset,
     'isQuarterStopLossMode': isQuarterStopLossMode,
     'quarterStopLossRoundsUsed': quarterStopLossRoundsUsed,
+    'totalBuyAmountKrw': totalBuyAmountKrw,
+    'totalSellAmountKrw': totalSellAmountKrw,
+    'firstTradeDate': firstTradeDate?.toIso8601String(),
+    'lastTradeDate': lastTradeDate?.toIso8601String(),
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -370,6 +391,10 @@ class Cycle extends HiveObject implements TradingPosition {
       quarterModeOffset: (json['quarterModeOffset'] as num?)?.toDouble() ?? -15.0,
       isQuarterStopLossMode: json['isQuarterStopLossMode'] as bool? ?? false,
       quarterStopLossRoundsUsed: json['quarterStopLossRoundsUsed'] as int? ?? 0,
+      totalBuyAmountKrw: (json['totalBuyAmountKrw'] as num?)?.toDouble() ?? 0.0,
+      totalSellAmountKrw: (json['totalSellAmountKrw'] as num?)?.toDouble() ?? 0.0,
+      firstTradeDate: json['firstTradeDate'] != null ? DateTime.parse(json['firstTradeDate'] as String) : null,
+      lastTradeDate: json['lastTradeDate'] != null ? DateTime.parse(json['lastTradeDate'] as String) : null,
     );
     // 저장된 상태 복원 (생성자 기본값 덮어쓰기)
     cycle.averagePrice = (json['averagePrice'] as num?)?.toDouble() ?? 0;
@@ -430,6 +455,10 @@ class Cycle extends HiveObject implements TradingPosition {
     double? quarterModeOffset,
     bool? isQuarterStopLossMode,
     int? quarterStopLossRoundsUsed,
+    double? totalBuyAmountKrw,
+    double? totalSellAmountKrw,
+    DateTime? firstTradeDate,
+    DateTime? lastTradeDate,
   }) {
     final cycle = Cycle(
       id: id ?? this.id,
@@ -462,6 +491,10 @@ class Cycle extends HiveObject implements TradingPosition {
       quarterModeOffset: quarterModeOffset ?? this.quarterModeOffset,
       isQuarterStopLossMode: isQuarterStopLossMode ?? this.isQuarterStopLossMode,
       quarterStopLossRoundsUsed: quarterStopLossRoundsUsed ?? this.quarterStopLossRoundsUsed,
+      totalBuyAmountKrw: totalBuyAmountKrw ?? this.totalBuyAmountKrw,
+      totalSellAmountKrw: totalSellAmountKrw ?? this.totalSellAmountKrw,
+      firstTradeDate: firstTradeDate ?? this.firstTradeDate,
+      lastTradeDate: lastTradeDate ?? this.lastTradeDate,
       completedReturnRate: completedReturnRate ?? this.completedReturnRate,
       startDate: startDate ?? this.startDate,
     );
