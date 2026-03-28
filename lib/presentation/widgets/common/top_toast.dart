@@ -3,6 +3,9 @@ import '../../../core/theme/app_colors.dart';
 
 /// 상단 토스트 알림 (업계 표준: 토스증권, 로빈후드 스타일)
 /// FAB이나 하단 네비를 가리지 않도록 앱바 아래에서 내려옴
+
+OverlayEntry? _activeToastEntry;
+
 void showTopToast(
   BuildContext context,
   String message, {
@@ -10,6 +13,10 @@ void showTopToast(
   Color? backgroundColor,
   IconData? icon,
 }) {
+  // 기존 토스트 제거 (중복 방지)
+  _activeToastEntry?.remove();
+  _activeToastEntry = null;
+
   final overlay = Overlay.of(context);
   late OverlayEntry entry;
 
@@ -19,11 +26,14 @@ void showTopToast(
       duration: duration,
       backgroundColor: backgroundColor,
       icon: icon,
-      onDismiss: () => entry.remove(),
+      onDismiss: () {
+        entry.remove();
+        if (_activeToastEntry == entry) _activeToastEntry = null;
+      },
     ),
   );
 
-  // 기존 토스트 제거 (중복 방지)
+  _activeToastEntry = entry;
   overlay.insert(entry);
 }
 
