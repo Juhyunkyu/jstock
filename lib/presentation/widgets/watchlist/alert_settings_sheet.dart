@@ -84,13 +84,18 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
     final price = widget.currentPrice;
     final item = widget.item;
 
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Container(
-      height: MediaQuery.sizeOf(context).height * 0.65,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+      ),
+      padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         color: context.appCardBackground,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // 핸들
           Container(
@@ -184,12 +189,7 @@ class _AlertSettingsSheetState extends ConsumerState<AlertSettingsSheet> {
 
           // 하단 버튼
           Padding(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              MediaQuery.of(context).viewInsets.bottom + 16,
-            ),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               children: [
                 SizedBox(
