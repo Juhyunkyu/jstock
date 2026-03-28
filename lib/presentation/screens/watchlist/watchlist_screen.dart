@@ -306,18 +306,49 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   }
 
   Future<void> _onRemoveFromGroup(String groupId, String ticker) async {
+    final watchlistState = ref.read(watchlistProvider);
+    final item = watchlistState.items
+        .where((i) => i.ticker == ticker)
+        .firstOrNull;
+
+    // 알림이 있는 종목: 이 그룹 제거 후에도 알림 대상인지 확인
+    String message = '$ticker을(를) 이 그룹에서 제거하시겠습니까?';
+    bool willLoseAlert = false;
+    if (item != null && item.hasAlert) {
+      final ownedTickers = ref.read(userTickersProvider);
+      final groupState = ref.read(watchlistGroupProvider);
+      final inOwned = ownedTickers.contains(ticker);
+      // 현재 그룹 포함해서 카운트 → 1이면 이 그룹에만 있음
+      final groupCount = groupState.groups
+          .where((g) => g.containsTicker(ticker))
+          .length;
+      willLoseAlert = !inOwned && groupCount <= 1;
+
+      if (willLoseAlert) {
+        message = '$ticker에 ${item.alertSummary} 알림이 설정되어 있습니다.\n'
+            '이 그룹에서 제거하면 알림도 함께 삭제됩니다.';
+      }
+    }
+
     final confirmed = await ConfirmDialog.show(
       context: context,
       title: '그룹에서 제거',
-      message: '$ticker을(를) 이 그룹에서 제거하시겠습니까?',
+      message: message,
       confirmText: '제거',
       isDanger: true,
     );
     if (confirmed && mounted) {
+      // 알림 정리 (마지막 그룹이었으면 알림 삭제)
+      if (willLoseAlert) {
+        await ref.read(watchlistProvider.notifier).clearAllAlerts(ticker);
+      }
+
       ref.read(watchlistGroupProvider.notifier).removeTicker(groupId, ticker);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$ticker 그룹에서 제거됨'),
+          content: Text(willLoseAlert
+              ? '$ticker 그룹에서 제거됨 (알림도 삭제됨)'
+              : '$ticker 그룹에서 제거됨'),
           duration: const Duration(seconds: 2),
         ),
       );

@@ -150,7 +150,7 @@ class WatchlistGroupContent extends ConsumerWidget {
       return _SimpleTickerTile(
         ticker: item.ticker,
         inGrid: grid,
-        showAlert: canAlert,
+        showAlert: false, // WatchlistItem 없으면 알림 불가 → 숨김
         showDelete: canDelete,
         onTap: () => onTickerTap(item.ticker),
         onStarTap: () => onStarTap(item.ticker),
