@@ -191,13 +191,7 @@ class LadderDetailBody extends ConsumerWidget {
                   _buildSingleExchangeRate(context, ref, cycle, weightedAvgExchangeRate),
                 if (hasPosition) SizedBox(height: isMobile ? 10 : 16),
 
-                // 6. Ladder Cycle 정보 카드
-                _buildLadderInfoCard(
-                  context, cycle, investedAmount, totalEvalKrw, isMobile,
-                ),
-                SizedBox(height: isMobile ? 14 : 20),
-
-                // 7. 거래 내역
+                // 6. 거래 내역
                 _buildTradeHistorySection(context, trades, cycle, isMobile),
                 SizedBox(height: isMobile ? 14 : 20),
 

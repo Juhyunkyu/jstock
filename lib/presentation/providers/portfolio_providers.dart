@@ -257,8 +257,11 @@ final unifiedPortfolioProvider =
       final holdings = buildTickerHoldings(trades, cycle.ticker, currentPrices, liveExchangeRate);
       evalAmt = holdings.fold<double>(0, (sum, h) => sum + h.evalAmount);
     } else {
-      // 공격형/초공격형 및 기존 Smart/Steady: 기존 TradingMath.evaluatedAmount() 그대로
-      final currentPrice = prices[cycle.ticker] ?? 0;
+      // 공격형 Ladder: buyTicker 가격으로 평가 / Smart/Steady: cycle.ticker 가격
+      final priceTicker = (cycle.strategyType == StrategyType.ladderCycle && cycle.buyTicker.isNotEmpty)
+          ? cycle.buyTicker
+          : cycle.ticker;
+      final currentPrice = prices[priceTicker] ?? 0;
       evalAmt = TradingMath.evaluatedAmount(
         cycle.totalShares,
         currentPrice,
