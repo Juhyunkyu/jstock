@@ -235,7 +235,10 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       }
     }
 
-    final netShares = totalBuyShares - totalSellShares;
+    final rawNetShares = totalBuyShares - totalSellShares;
+    // 부동소수점 오차 보정: 매수 shares는 amountKrw/(price*rate)로 계산되고
+    // 매도 shares는 사용자 직접 입력이므로 미세한 잔여값이 남을 수 있음
+    final netShares = rawNetShares.abs() < 1e-8 ? 0.0 : rawNetShares;
     final avgPrice = netShares > 0 ? weightedPriceSum / totalBuyShares : 0.0;
 
     cycle.totalShares = netShares > 0 ? netShares : 0;
