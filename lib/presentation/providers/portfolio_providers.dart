@@ -182,6 +182,12 @@ class UnifiedPortfolioSummary {
     return (steadyCycleActualInvested / totalActualInvested) * 100;
   }
 
+  /// Ladder 투입금 비율
+  double get ladderCycleInvestedRatio {
+    if (totalActualInvested == 0) return 0;
+    return (ladderCycleActualInvested / totalActualInvested) * 100;
+  }
+
   /// 보유 투입금 비율
   double get holdingInvestedRatio {
     if (totalActualInvested == 0) return 0;

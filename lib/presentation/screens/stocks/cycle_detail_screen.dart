@@ -570,6 +570,11 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               memo,
               ticker,
             }) {
+              // 공격형 Ladder: ticker가 null이면 cycle.buyTicker 사용
+              final effectiveTicker = ticker ??
+                  (cycle.ladderMode != 0 && cycle.buyTicker.isNotEmpty
+                      ? cycle.buyTicker
+                      : null);
               if (isBuy) {
                 final amountKrw = shares * price * exchangeRate;
                 ref.read(tradeListProvider(widget.cycleId).notifier).recordBuy(
@@ -579,7 +584,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                       amountKrw: amountKrw,
                       exchangeRate: exchangeRate,
                       memo: memo,
-                      ticker: ticker,
+                      ticker: effectiveTicker,
                     );
               } else {
                 ref.read(tradeListProvider(widget.cycleId).notifier).recordSell(
@@ -589,7 +594,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                       shares: shares,
                       exchangeRate: exchangeRate,
                       memo: memo,
-                      ticker: ticker,
+                      ticker: effectiveTicker,
                     );
               }
             },

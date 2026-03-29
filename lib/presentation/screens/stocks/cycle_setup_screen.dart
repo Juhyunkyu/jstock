@@ -2224,7 +2224,9 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
 
       await ref.read(cycleListProvider.notifier).addCycle(
             ticker: _selectedTicker!,
-            name: _selectedName ?? _selectedTicker!,
+            name: (_selectedStrategy == StrategyType.ladderCycle && _ladderMode != 0 && _buyTickerName != null)
+                ? _buyTickerName!
+                : (_selectedName ?? _selectedTicker!),
             seedAmount: _seedAmount,
             exchangeRate: exchangeRate,
             strategyType: _selectedStrategy,

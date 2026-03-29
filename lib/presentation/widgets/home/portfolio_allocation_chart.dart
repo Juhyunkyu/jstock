@@ -33,14 +33,16 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   /// 사용자 선택 색상 (null이면 기본값 사용)
   Color? _smartCycleColor;
   Color? _steadyCycleColor;
+  Color? _ladderCycleColor;
   Color? _holdingColor;
 
-  /// 현재 편집 중인 범례 인덱스 (0=Smart, 1=Steady, 2=일반 보유, null=없음)
+  /// 현재 편집 중인 범례 인덱스 (0=Smart, 1=Steady, 2=Ladder, 3=일반 보유, null=없음)
   int? _editingIndex;
 
   /// 기본 세그먼트 색상 (밝고 선명, 라이트/다크 모두에서 잘 보임)
   static const Color _defaultSmartColor = Color(0xFF58A6FF);  // bright blue
   static const Color _defaultSteadyColor = Color(0xFF4ADE80); // bright green
+  static const Color _defaultLadderColor = Color(0xFFFBBF24); // amber
   static const Color _defaultHoldingColor = Color(0xFFA78BFA); // purple
 
   /// 선택 가능한 색상 팔레트
@@ -72,6 +74,9 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     if (settings.steadyCycleChartColor != 0) {
       _steadyCycleColor = Color(settings.steadyCycleChartColor);
     }
+    if (settings.ladderCycleChartColor != 0) {
+      _ladderCycleColor = Color(settings.ladderCycleChartColor);
+    }
     if (settings.holdingChartColor != 0) {
       _holdingColor = Color(settings.holdingChartColor);
     }
@@ -79,6 +84,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
 
   Color _getSmartColor() => _smartCycleColor ?? _defaultSmartColor;
   Color _getSteadyColor() => _steadyCycleColor ?? _defaultSteadyColor;
+  Color _getLadderColor() => _ladderCycleColor ?? _defaultLadderColor;
   Color _getHoldingColor() => _holdingColor ?? _defaultHoldingColor;
 
   @override
@@ -86,9 +92,11 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     final summary = widget.summary;
     final hasData = summary.smartCycleCount > 0 ||
         summary.steadyCycleCount > 0 ||
+        summary.ladderCycleCount > 0 ||
         summary.holdingCount > 0;
     final smartColor = _getSmartColor();
     final steadyColor = _getSteadyColor();
+    final ladderColor = _getLadderColor();
     final holdingColor = _getHoldingColor();
 
     return Container(
@@ -136,6 +144,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                             (_editingIndex == 1 &&
                                 color.value == steadyColor.value) ||
                             (_editingIndex == 2 &&
+                                color.value == ladderColor.value) ||
+                            (_editingIndex == 3 &&
                                 color.value == holdingColor.value);
                         return GestureDetector(
                           onTap: () {
@@ -145,6 +155,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                               } else if (_editingIndex == 1) {
                                 _steadyCycleColor = color;
                               } else if (_editingIndex == 2) {
+                                _ladderCycleColor = color;
+                              } else if (_editingIndex == 3) {
                                 _holdingColor = color;
                               }
                               _editingIndex = null;
@@ -153,6 +165,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                             ref.read(settingsProvider.notifier).updateChartColors(
                               alphaColor: (_smartCycleColor?.value) ?? 0,
                               steadyColor: (_steadyCycleColor?.value) ?? 0,
+                              ladderColor: (_ladderCycleColor?.value) ?? 0,
                               holdingColor: (_holdingColor?.value) ?? 0,
                             );
                           },
@@ -224,6 +237,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                 summary: summary,
                 smartColor: smartColor,
                 steadyColor: steadyColor,
+                ladderColor: ladderColor,
                 holdingColor: holdingColor,
               );
 
@@ -241,7 +255,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                       children: [
                         Expanded(
                           child: _buildDonutChart(context, summary, chartSize,
-                              smartColor, steadyColor, holdingColor, hasData, false),
+                              smartColor, steadyColor, ladderColor, holdingColor, hasData, false),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -296,7 +310,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                         child: Row(
                           children: [
                             _buildDonutChart(context, summary, chartSize,
-                                smartColor, steadyColor, holdingColor, hasData, true),
+                                smartColor, steadyColor, ladderColor, holdingColor, hasData, true),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
@@ -338,13 +352,14 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     );
   }
 
-  /// 범례 아이템 목록 생성 (Smart + Steady + 일반 보유)
-  /// 투자금 기준으로 표시, 투자금 0이면 "대기중"
+  /// 범례 아이템 목록 생성 (Smart + Steady + Ladder + 일반 보유)
+  /// 평가금(value) 기준으로 표시, 투자금 0이면 "대기중"
   List<Widget> _buildLegendItems({
     required BuildContext context,
     required UnifiedPortfolioSummary summary,
     required Color smartColor,
     required Color steadyColor,
+    required Color ladderColor,
     required Color holdingColor,
   }) {
     final items = <Widget>[];
@@ -355,8 +370,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
         context: context,
         color: isWaiting ? context.appTextHint : smartColor,
         label: 'Smart (${summary.smartCycleCount}개)',
-        value: isWaiting ? '대기중' : formatKrw(summary.smartCycleActualInvested),
-        ratio: isWaiting ? 0 : summary.smartCycleInvestedRatio,
+        value: isWaiting ? '대기중' : formatKrw(summary.smartCycleValue),
+        ratio: isWaiting ? 0 : summary.smartCycleRatio,
         index: 0,
         isWaiting: isWaiting,
       ));
@@ -371,9 +386,25 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
         context: context,
         color: isWaiting ? context.appTextHint : steadyColor,
         label: 'Steady (${summary.steadyCycleCount}개)',
-        value: isWaiting ? '대기중' : formatKrw(summary.steadyCycleActualInvested),
-        ratio: isWaiting ? 0 : summary.steadyCycleInvestedRatio,
+        value: isWaiting ? '대기중' : formatKrw(summary.steadyCycleValue),
+        ratio: isWaiting ? 0 : summary.steadyCycleRatio,
         index: 1,
+        isWaiting: isWaiting,
+      ));
+    }
+
+    if (summary.ladderCycleCount > 0) {
+      if (items.isNotEmpty) {
+        items.add(const SizedBox(height: 8));
+      }
+      final isWaiting = summary.ladderCycleActualInvested == 0;
+      items.add(_buildLegendItem(
+        context: context,
+        color: isWaiting ? context.appTextHint : ladderColor,
+        label: 'Ladder (${summary.ladderCycleCount}개)',
+        value: isWaiting ? '대기중' : formatKrw(summary.ladderCycleValue),
+        ratio: isWaiting ? 0 : summary.ladderCycleRatio,
+        index: 2,
         isWaiting: isWaiting,
       ));
     }
@@ -387,9 +418,9 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
         context: context,
         color: isWaiting ? context.appTextHint : holdingColor,
         label: '일반 보유 (${summary.holdingCount}개)',
-        value: isWaiting ? '대기중' : formatKrw(summary.holdingInvested),
-        ratio: isWaiting ? 0 : summary.holdingInvestedRatio,
-        index: 2,
+        value: isWaiting ? '대기중' : formatKrw(summary.holdingValue),
+        ratio: isWaiting ? 0 : summary.holdingRatio,
+        index: 3,
         isWaiting: isWaiting,
       ));
     }
@@ -404,10 +435,16 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     double chartSize,
     Color smartColor,
     Color steadyColor,
+    Color ladderColor,
     Color holdingColor,
     bool hasData,
     bool isWide,
   ) {
+    final returnRate = summary.totalReturnRate;
+    final isProfit = returnRate >= 0;
+    final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
+    final sign = isProfit ? '+' : '';
+
     return SizedBox(
       width: chartSize,
       height: chartSize,
@@ -420,7 +457,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                     sectionsSpace: 3,
                     centerSpaceRadius: chartSize * 0.38,
                     sections: _buildSections(
-                        context, summary, smartColor, steadyColor, holdingColor),
+                        context, summary, smartColor, steadyColor, ladderColor, holdingColor),
                     pieTouchData: PieTouchData(enabled: false),
                   ),
                 ),
@@ -447,6 +484,15 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                           ),
                         ),
                       ),
+                      if (summary.totalActualInvested > 0)
+                        Text(
+                          '$sign${returnRate.toStringAsFixed(1)}%',
+                          style: TextStyle(
+                            fontSize: isWide ? 10 : 9,
+                            fontWeight: FontWeight.w600,
+                            color: profitColor,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -605,33 +651,43 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     UnifiedPortfolioSummary summary,
     Color smartColor,
     Color steadyColor,
+    Color ladderColor,
     Color holdingColor,
   ) {
     final sections = <PieChartSectionData>[];
 
-    // 실제 투자금이 있는 세그먼트만 도넛에 포함 (대기중은 범례에서만 표시)
-    if (summary.smartCycleCount > 0 && summary.smartCycleActualInvested > 0) {
+    // 평가금(value)이 있는 세그먼트만 도넛에 포함 (대기중은 범례에서만 표시)
+    if (summary.smartCycleCount > 0 && summary.smartCycleValue > 0) {
       sections.add(PieChartSectionData(
         color: smartColor,
-        value: summary.smartCycleActualInvested,
+        value: summary.smartCycleValue,
         title: '',
         radius: 15,
       ));
     }
 
-    if (summary.steadyCycleCount > 0 && summary.steadyCycleActualInvested > 0) {
+    if (summary.steadyCycleCount > 0 && summary.steadyCycleValue > 0) {
       sections.add(PieChartSectionData(
         color: steadyColor,
-        value: summary.steadyCycleActualInvested,
+        value: summary.steadyCycleValue,
         title: '',
         radius: 15,
       ));
     }
 
-    if (summary.holdingCount > 0 && summary.holdingInvested > 0) {
+    if (summary.ladderCycleCount > 0 && summary.ladderCycleValue > 0) {
+      sections.add(PieChartSectionData(
+        color: ladderColor,
+        value: summary.ladderCycleValue,
+        title: '',
+        radius: 15,
+      ));
+    }
+
+    if (summary.holdingCount > 0 && summary.holdingValue > 0) {
       sections.add(PieChartSectionData(
         color: holdingColor,
-        value: summary.holdingInvested,
+        value: summary.holdingValue,
         title: '',
         radius: 15,
       ));
