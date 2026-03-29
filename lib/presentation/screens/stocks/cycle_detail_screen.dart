@@ -683,8 +683,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     final totalSellUsd = sellTrades.fold<double>(0, (s, t) => s + t.price * t.shares);
     final avgSellPrice = totalSellShares > 0 ? totalSellUsd / totalSellShares : 0.0;
 
-    // 회차 수 (매수 거래만, cycle.roundsUsed 사용)
-    final roundCount = cycle.roundsUsed;
+    // 회차 수: Ladder는 currentStep, 나머지는 roundsUsed
+    final isLadder = cycle.strategyType == StrategyType.ladderCycle;
+    final roundCount = isLadder ? cycle.currentStep : cycle.roundsUsed;
 
     // 운용 기간 (첫 거래 ~ 마지막 거래)
     final firstDate = trades.map((t) => t.tradedAt).reduce((a, b) => a.isBefore(b) ? a : b);
@@ -795,11 +796,18 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             }(),
             SizedBox(height: isMobile ? 10 : 14),
 
-            // 거래 상세
-            _pendingRow('평균 매수가', '\$${avgBuyPrice.toStringAsFixed(2)}', isMobile),
-            const SizedBox(height: 6),
-            _pendingRow('평균 매도가', '\$${avgSellPrice.toStringAsFixed(2)}', isMobile),
-            const SizedBox(height: 6),
+            // 거래 상세 — Ladder 안정형은 멀티 티커이므로 평균가 대신 USD 합산 표시
+            if (isLadder && cycle.ladderMode == 0) ...[
+              _pendingRow('매수 합계', '\$${totalBuyUsd.toStringAsFixed(2)}', isMobile),
+              const SizedBox(height: 6),
+              _pendingRow('매도 합계', '\$${totalSellUsd.toStringAsFixed(2)}', isMobile),
+              const SizedBox(height: 6),
+            ] else ...[
+              _pendingRow('평균 매수가', '\$${avgBuyPrice.toStringAsFixed(2)}', isMobile),
+              const SizedBox(height: 6),
+              _pendingRow('평균 매도가', '\$${avgSellPrice.toStringAsFixed(2)}', isMobile),
+              const SizedBox(height: 6),
+            ],
             // 평균 환율 (수정 가능)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -858,7 +866,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             // 운용 기간
             _pendingRow('운용 기간', '${dateFormat.format(firstDate)} ~ ${dateFormat.format(lastDate)} ($durationDays일)', isMobile),
             const SizedBox(height: 6),
-            _pendingRow('총 회차', '$roundCount회차', isMobile),
+            _pendingRow(isLadder ? '진행 단계' : '총 회차', isLadder ? '$roundCount / ${cycle.ladderSteps}단계' : '$roundCount회차', isMobile),
 
             SizedBox(height: isMobile ? 16 : 20),
 

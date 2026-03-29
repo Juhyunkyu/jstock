@@ -643,7 +643,7 @@ class _ActiveCycleCard extends ConsumerWidget {
                       child: Text(
                         '${DateFormat('MM.dd').format(cycle.firstTradeDate!)}~${DateFormat('MM.dd').format(cycle.lastTradeDate!)}'
                         ' (${cycle.lastTradeDate!.difference(cycle.firstTradeDate!).inDays + 1}일)'
-                        ' · ${cycle.roundsUsed}회차',
+                        ' · ${cycle.strategyType == StrategyType.ladderCycle ? '${cycle.currentStep}/${cycle.ladderSteps}단계' : '${cycle.roundsUsed}회차'}',
                         style: TextStyle(fontSize: 11, color: context.appTextSecondary, height: 1.0),
                         textAlign: TextAlign.right,
                       ),
