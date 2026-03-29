@@ -209,10 +209,10 @@ final unifiedPortfolioProvider =
     final totalVal = evalAmt + cycle.remainingCash;
     final actualInvested = cycle.seedAmount - cycle.remainingCash;
 
-    // 전량매도 대기: 잔여현금이 자산, 시드가 투자금
-    // 진행 중: 주식평가금이 자산, 실제투입이 투자금
-    final cycleValue = cycle.isPendingCompletion ? cycle.remainingCash : evalAmt;
-    final cycleInvested = cycle.isPendingCompletion ? cycle.seedAmount : actualInvested;
+    // 전량매도 대기: 매수총액이 투자금, 매도총액이 자산
+    // 진행 중: 실제투입이 투자금, 주식평가금이 자산
+    final cycleValue = cycle.isPendingCompletion ? cycle.totalSellAmountKrw : evalAmt;
+    final cycleInvested = cycle.isPendingCompletion ? cycle.totalBuyAmountKrw : actualInvested;
 
     if (cycle.strategyType == StrategyType.alphaCycleV3) {
       smartValue += cycleValue;
