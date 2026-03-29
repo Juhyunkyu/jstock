@@ -265,7 +265,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                             Text('총 투자', style: TextStyle(fontSize: 11, color: context.appTextHint)),
                             const SizedBox(width: 6),
                             Text(
-                              formatKrw(summary.totalInvested),
+                              formatKrw(summary.totalActualInvested),
                               style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appTextPrimary),
                             ),
                             const SizedBox(width: 20),
@@ -476,7 +476,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
         Text('총 투자', style: TextStyle(fontSize: 11, color: context.appTextHint)),
         const SizedBox(height: 2),
         Text(
-          formatKrw(summary.totalInvested),
+          formatKrw(summary.totalActualInvested),
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: context.appTextPrimary),
         ),
         const SizedBox(height: 10),

@@ -103,10 +103,10 @@ class UnifiedPortfolioSummary {
   /// 전체 손익
   double get totalProfit => holdingProfit + smartCycleProfit + steadyCycleProfit;
 
-  /// 전체 수익률
+  /// 전체 수익률 (실제 투입금 기준)
   double get totalReturnRate {
-    if (totalInvested == 0) return 0;
-    return (totalProfit / totalInvested) * 100;
+    if (totalActualInvested == 0) return 0;
+    return (totalProfit / totalActualInvested) * 100;
   }
 
   // === 비율 getters ===
@@ -210,14 +210,14 @@ final unifiedPortfolioProvider =
     final actualInvested = cycle.seedAmount - cycle.remainingCash;
 
     if (cycle.strategyType == StrategyType.alphaCycleV3) {
-      smartValue += totalVal;
-      smartInvested += cycle.seedAmount;
+      smartValue += evalAmt;
+      smartInvested += actualInvested;
       smartActualInvested += actualInvested;
       smartEvalAmt += evalAmt;
       smartCount++;
     } else {
-      steadyValue += totalVal;
-      steadyInvested += cycle.seedAmount;
+      steadyValue += evalAmt;
+      steadyInvested += actualInvested;
       steadyActualInvested += actualInvested;
       steadyEvalAmt += evalAmt;
       steadyCount++;
