@@ -73,13 +73,17 @@ class CycleAdapter extends TypeAdapter<Cycle> {
           fields[47] == null ? '1,1,2,3,4,5' : fields[47] as String
       ..ladderTriggers = fields[48] == null
           ? '-10,-19,-28,-37,-46,-55'
-          : fields[48] as String;
+          : fields[48] as String
+      ..buyTicker = fields[49] == null ? '' : fields[49] as String
+      ..buyTicker1x = fields[50] == null ? '' : fields[50] as String
+      ..buyTicker2x = fields[51] == null ? '' : fields[51] as String
+      ..buyTicker3x = fields[52] == null ? '' : fields[52] as String;
   }
 
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(49)
+      ..writeByte(53)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -177,7 +181,15 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(47)
       ..write(obj.ladderWeights)
       ..writeByte(48)
-      ..write(obj.ladderTriggers);
+      ..write(obj.ladderTriggers)
+      ..writeByte(49)
+      ..write(obj.buyTicker)
+      ..writeByte(50)
+      ..write(obj.buyTicker1x)
+      ..writeByte(51)
+      ..write(obj.buyTicker2x)
+      ..writeByte(52)
+      ..write(obj.buyTicker3x);
   }
 
   @override

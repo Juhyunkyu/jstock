@@ -43,11 +43,11 @@ class _LadderBuyGuideCardState extends ConsumerState<LadderBuyGuideCard> {
     if (cycle.ladderMode == 0) {
       // 안정형: 추천 순서 첫 번째 티커 기본 선택
       final nextStep = cycle.currentStep + 1;
-      final recommended = recommendedTickers(cycle.ladderMode, nextStep);
+      final recommended = recommendedTickers(cycle, nextStep);
       _selectedTicker = recommended.first;
     } else {
-      // 공격형(1) / 초공격형(2, 하위호환): 단일 티커
-      _selectedTicker = cycle.ladderMode == 1 ? 'TQQQ' : 'SOXL';
+      // 공격형: buyTicker에서 읽기 (하위호환: 빈 문자열이면 ticker 사용)
+      _selectedTicker = cycle.buyTicker.isNotEmpty ? cycle.buyTicker : cycle.ticker;
     }
   }
 
@@ -162,7 +162,7 @@ class _LadderBuyGuideCardState extends ConsumerState<LadderBuyGuideCard> {
   }
 
   Widget _buildTickerSelector(BuildContext context, Cycle cycle, int step) {
-    final recommended = recommendedTickers(cycle.ladderMode, step);
+    final recommended = recommendedTickers(cycle, step);
 
     return Wrap(
       spacing: 8,
@@ -363,6 +363,11 @@ class _LadderBuyGuideCardState extends ConsumerState<LadderBuyGuideCard> {
             '• 1단계: QQQ (1배) 매수\n'
             '• 2단계: QLD (2배) 매수\n'
             '• 3~6단계: TQQQ (3배) 매수\n\n'
+            '추천 조합 (기준 → 1배 → 2배 → 3배):\n'
+            '• QQQ → QQQ → QLD → TQQQ (나스닥 100)\n'
+            '• SPY → SPY → SSO → UPRO (S&P 500)\n'
+            '• IWM → IWM → UWM → TNA (러셀 2000)\n'
+            '• DIA → DIA → DDM → UDOW (다우존스)\n\n'
             '── 공격형 ──\n'
             '처음부터 3배 레버리지 ETF를 모든 단계에서 매수합니다.\n\n'
             '사이클 종료:\n'

@@ -1,8 +1,9 @@
-# Ladder Cycle 설계서 v3.1
+# Ladder Cycle 설계서 v3.2
 
 > **변경 이력**
 > - v2.1 → v3.0: 디자인 리뷰 15건 반영 (C-1~C-7, I-1~I-6, M-1~M-2)
 > - v3.0 → v3.1: 아키텍처 감사 11건 반영 (F-1~F-20 중 Critical 5건, Important 6건)
+> - v3.1 → v3.2: 종목 선택 분리 (기준 티커 + 매수 티커), 전략 설명 간결화, 상세/가이드/거래 시트 연동
 
 ## 1. 개요
 
@@ -14,7 +15,7 @@ MDD(최대낙폭) 기반 N단계 가속 분할매수법. ATH(역사적 신고가
 - **enum 값**: `StrategyType.ladderCycle` (HiveField: 2)
 - **아이콘**: `Icons.stacked_bar_chart`
 - **색상**: `AppColors.amber500` / Dark: `AppColors.amber400`
-- **StrategyBadge 표시**: `⧈ Ladder 안정형` / `⧈ Ladder 공격형` / `⧈ Ladder 초공격형`
+- **StrategyBadge 표시**: `⧈ Ladder 안정형` / `⧈ Ladder 공격형`
 
 ### 1.3 기존 전략과의 비교
 
@@ -25,6 +26,19 @@ MDD(최대낙폭) 기반 N단계 가속 분할매수법. ATH(역사적 신고가
 | 매수 대상 | 단일 티커 | 단일 티커 | **단계별 복수 티커 추천 (안정형)** |
 | 매도 | 동적 익절 목표 | LOC/지정가 | **가이드만 제공 (수동)** |
 | 사이클 종료 | 익절 달성 | 전량 매도 | **신고점 도달 시** |
+
+### 1.4 기준 티커 vs 매수 티커 (v3.2)
+
+Ladder Cycle은 **기준 티커**와 **매수 티커**를 분리한다.
+
+- **`cycle.ticker`** = **기준 티커** (MDD 계산용, ATH 비교용). 예: SOXX, QQQ, SPY
+- **`cycle.buyTicker`** = **공격형 매수 티커** (1개). 예: SOXL, TQQQ
+- **`cycle.buyTicker1x`** = **안정형 1배 매수 티커**. 예: QQQ
+- **`cycle.buyTicker2x`** = **안정형 2배 매수 티커**. 예: QLD
+- **`cycle.buyTicker3x`** = **안정형 3배 매수 티커**. 예: TQQQ
+
+**공격형:** `cycle.ticker`(기준)로 MDD 계산 → `cycle.buyTicker`로 매수
+**안정형:** `cycle.ticker`(기준)로 MDD 계산 → `cycle.buyTicker1x/2x/3x`로 단계별 매수
 
 ---
 
@@ -40,16 +54,20 @@ ladderCycle,
 
 ### 2.2 Cycle 모델 신규 필드
 
-기존 HiveField 마지막 번호: **42**
+기존 HiveField 마지막 번호: **48**
 
 | HiveField | 필드명 | 타입 | 기본값 | 설명 |
 |-----------|--------|------|--------|------|
 | 43 | `athPrice` | double | 0.0 | ATH 가격 (USD, 수동 입력) |
-| 44 | `ladderMode` | int | 1 | 모드 (0=안정형, 1=공격형, 2=초공격형) |
+| 44 | `ladderMode` | int | 1 | 모드 (0=안정형, 1=공격형) |
 | 45 | `currentStep` | int | 0 | 현재 진행 단계 (0=대기, 1~N) |
 | 46 | `ladderSteps` | int | 6 | 분할 단계 수 (3~6) |
 | 47 | `ladderWeights` | String | '1,1,2,3,4,5' | 쉼표로 구분된 비중 |
 | 48 | `ladderTriggers` | String | '-10,-19,-28,-37,-46,-55' | 쉼표로 구분된 MDD 트리거 |
+| 49 | `buyTicker` | String | '' | 공격형 매수 티커 (예: SOXL) |
+| 50 | `buyTicker1x` | String | '' | 안정형 1배 매수 티커 (예: QQQ) |
+| 51 | `buyTicker2x` | String | '' | 안정형 2배 매수 티커 (예: QLD) |
+| 52 | `buyTicker3x` | String | '' | 안정형 3배 매수 티커 (예: TQQQ) |
 
 **설계 근거:**
 - `athPrice`: 사용자 수동 입력. API 자동화는 향후 확장.
@@ -58,6 +76,8 @@ ladderCycle,
 - `ladderSteps`: 3~6 단계 가변 지원. 기본값 6으로 기존 호환.
 - `ladderWeights`: String으로 저장하여 유연한 커스텀 비중 지원. 파싱은 `parseLadderWeights()` 헬퍼 사용 (**C-1** 방어적 파싱).
 - `ladderTriggers`: String으로 저장하여 단계 수에 따른 가변 트리거 지원. 파싱은 `parseLadderTriggers()` 헬퍼 사용 (**C-1** 방어적 파싱).
+- `buyTicker`: 공격형 매수 티커. 빈 문자열이면 cycle.ticker를 매수 티커로 사용 (하위호환).
+- `buyTicker1x/2x/3x`: 안정형 1배/2배/3배 매수 티커. 빈 문자열이면 기본 추천 조합 사용 (하위호환).
 
 #### 2.2.1 ladderWeights/ladderTriggers 방어적 파싱 헬퍼 (C-1, I-1)
 
@@ -119,7 +139,7 @@ List<double> _defaultTriggers(int steps) => switch (steps) {
 
 ### 2.3 Cycle 직렬화 — toJson/fromJson 확장 (C-2)
 
-**기존 Cycle.toJson에 6개 필드 추가:**
+**기존 Cycle.toJson에 10개 필드 추가 (기존 6개 + buyTicker 4개):**
 
 ```dart
 // Cycle.toJson() — 기존 필드 뒤에 추가
@@ -132,10 +152,15 @@ Map<String, dynamic> toJson() => {
   'ladderSteps': ladderSteps,
   'ladderWeights': ladderWeights,
   'ladderTriggers': ladderTriggers,
+  // (v3.2) 매수 티커 필드
+  'buyTicker': buyTicker,
+  'buyTicker1x': buyTicker1x,
+  'buyTicker2x': buyTicker2x,
+  'buyTicker3x': buyTicker3x,
 };
 ```
 
-**기존 Cycle.fromJson에 6개 필드 추가 (기존 패턴 준수: `(json['field'] as num?)?.toDouble() ?? default`):**
+**기존 Cycle.fromJson에 10개 필드 추가 (기존 패턴 준수: `(json['field'] as num?)?.toDouble() ?? default`):**
 
 ```dart
 factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -154,6 +179,11 @@ factory Cycle.fromJson(Map<String, dynamic> json) {
   cycle.ladderSteps = (json['ladderSteps'] as num?)?.toInt() ?? 6;
   cycle.ladderWeights = json['ladderWeights'] as String? ?? '1,1,2,3,4,5';
   cycle.ladderTriggers = json['ladderTriggers'] as String? ?? '-10,-19,-28,-37,-46,-55';
+  // (v3.2) 매수 티커 필드 복원
+  cycle.buyTicker = json['buyTicker'] as String? ?? '';
+  cycle.buyTicker1x = json['buyTicker1x'] as String? ?? '';
+  cycle.buyTicker2x = json['buyTicker2x'] as String? ?? '';
+  cycle.buyTicker3x = json['buyTicker3x'] as String? ?? '';
   return cycle;
 }
 ```
@@ -188,7 +218,7 @@ static StrategyType _parseStrategyType(String? value) {
 | 11 | `ticker` | String? | null | 거래 티커 (null이면 cycle.ticker 사용) |
 
 **설계 근거:**
-- Ladder Cycle 안정형에서 QQQ/QLD/TQQQ 중 선택한 티커를 Trade에 직접 기록.
+- Ladder Cycle 안정형에서 buyTicker1x/2x/3x 중 선택한 티커를 Trade에 직접 기록.
 - 기존 Smart/Steady는 null 유지 → 하위호환 완벽.
 
 #### 2.4.1 Trade 직렬화 — toJson/fromJson 확장 (C-2)
@@ -248,7 +278,7 @@ factory Trade.fromJson(Map<String, dynamic> json) => Trade(
 | 대상 | 변경 | 번호 |
 |------|------|------|
 | StrategyType | 새 enum 값 | HiveField 2 |
-| Cycle | 6개 필드 추가 | HiveField 43~48 |
+| Cycle | 10개 필드 추가 | HiveField 43~52 |
 | Trade | 1개 필드 추가 | HiveField 11 |
 | TradeSignal | 6개 enum 값 추가 | HiveField 15~20 |
 | Settings | 1개 필드 추가 (ladderCycleChartColor) | **HiveField 22** |
@@ -365,6 +395,77 @@ writer
 ```
 
 > **(F-16) .g.dart 수동 수정 패턴:** 이 프로젝트는 `build_runner`를 사용하지 않고 `.g.dart` 파일을 수동으로 관리한다. `settings.g.dart`, `cycle.g.dart`, `trade.g.dart` 모두 동일한 수동 수정 관례를 따른다.
+
+### 2.10 Cycle 모델 — buyTicker 필드 (v3.2)
+
+**cycle.dart 변경:**
+
+```dart
+// === Strategy C: Ladder Cycle 전용 (매수 티커) ===
+@HiveField(49, defaultValue: '')
+String buyTicker;         // 공격형 매수 티커 (예: SOXL)
+
+@HiveField(50, defaultValue: '')
+String buyTicker1x;       // 안정형 1배 매수 티커 (예: QQQ)
+
+@HiveField(51, defaultValue: '')
+String buyTicker2x;       // 안정형 2배 매수 티커 (예: QLD)
+
+@HiveField(52, defaultValue: '')
+String buyTicker3x;       // 안정형 3배 매수 티커 (예: TQQQ)
+```
+
+**생성자 기본값 추가:**
+```dart
+Cycle({
+  // ... 기존 파라미터들 ...
+  this.buyTicker = '',
+  this.buyTicker1x = '',
+  this.buyTicker2x = '',
+  this.buyTicker3x = '',
+});
+```
+
+**copyWith 확장:**
+```dart
+Cycle copyWith({
+  // ... 기존 파라미터들 ...
+  String? buyTicker,
+  String? buyTicker1x,
+  String? buyTicker2x,
+  String? buyTicker3x,
+}) {
+  final cycle = Cycle(
+    // ... 기존 필드들 ...
+    buyTicker: buyTicker ?? this.buyTicker,
+    buyTicker1x: buyTicker1x ?? this.buyTicker1x,
+    buyTicker2x: buyTicker2x ?? this.buyTicker2x,
+    buyTicker3x: buyTicker3x ?? this.buyTicker3x,
+  );
+  // ... 기존 mutable 필드 복원 ...
+  return cycle;
+}
+```
+
+**cycle.g.dart 수동 수정 (F-16):**
+
+```dart
+// read() — fields[49~52] 추가
+buyTicker: fields[49] == null ? '' : fields[49] as String,
+buyTicker1x: fields[50] == null ? '' : fields[50] as String,
+buyTicker2x: fields[51] == null ? '' : fields[51] as String,
+buyTicker3x: fields[52] == null ? '' : fields[52] as String,
+
+// write() — writeByte 카운트 증가, field 49~52 추가
+..writeByte(49)
+..write(obj.buyTicker)
+..writeByte(50)
+..write(obj.buyTicker1x)
+..writeByte(51)
+..write(obj.buyTicker2x)
+..writeByte(52)
+..write(obj.buyTicker3x);
+```
 
 ---
 
@@ -490,29 +591,33 @@ double stepAmount(double seedAmount, int step, Cycle cycle) {
 }
 ```
 
-### 3.6 모드별 티커 추천
+### 3.6 모드별 티커 추천 (v3.2 — Cycle 필드 기반)
 
 **파일 배치: `lib/domain/trading/ladder_cycle_service.dart`** (top-level function)
 
-| 모드 | 단계 1 | 단계 2 | 단계 3-6 |
-|------|---------|---------|---------|
-| 안정형 (0) | QQQ 강조 | QLD 강조 | TQQQ 강조 |
-| 공격형 (1) | TQQQ | TQQQ | TQQQ |
-| 초공격형 (2) | SOXL | SOXL | SOXL |
-
-안정형은 항상 3개 뱃지 표시 (QQQ, QLD, TQQQ), 단계에 따라 강조 순서만 변경.
+**변경 전 (v3.1):** 하드코딩 QQQ/QLD/TQQQ/SOXL
+**변경 후 (v3.2):** `cycle.buyTicker`, `cycle.buyTicker1x/2x/3x` 필드에서 읽기
 
 ```dart
-List<String> recommendedTickers(int ladderMode, int step) {
-  if (ladderMode == 0) {
-    if (step <= 1) return ['QQQ', 'QLD', 'TQQQ'];  // 1단계: QQQ 강조
-    if (step <= 2) return ['QLD', 'QQQ', 'TQQQ'];  // 2단계: QLD 강조
-    return ['TQQQ', 'QQQ', 'QLD'];                  // 3~6단계: TQQQ 강조
+/// (v3.2) Cycle의 buyTicker 필드에서 추천 티커를 읽는다.
+/// 빈 문자열이면 cycle.ticker를 폴백으로 사용.
+List<String> recommendedTickers(Cycle cycle, int step) {
+  if (cycle.ladderMode == 0) {
+    // 안정형: buyTicker1x/2x/3x에서 읽기
+    final t1x = cycle.buyTicker1x.isNotEmpty ? cycle.buyTicker1x : cycle.ticker;
+    final t2x = cycle.buyTicker2x.isNotEmpty ? cycle.buyTicker2x : cycle.ticker;
+    final t3x = cycle.buyTicker3x.isNotEmpty ? cycle.buyTicker3x : cycle.ticker;
+    if (step <= 1) return [t1x, t2x, t3x];  // 1단계: 1배 강조
+    if (step <= 2) return [t2x, t1x, t3x];  // 2단계: 2배 강조
+    return [t3x, t1x, t2x];                  // 3~6단계: 3배 강조
   }
-  if (ladderMode == 1) return ['TQQQ'];
-  return ['SOXL'];
+  // 공격형: buyTicker에서 읽기
+  final bt = cycle.buyTicker.isNotEmpty ? cycle.buyTicker : cycle.ticker;
+  return [bt];
 }
 ```
+
+**호출부 변경:** 기존 `recommendedTickers(cycle.ladderMode, step)` → `recommendedTickers(cycle, step)`
 
 ### 3.7 갭 하락 처리
 
@@ -530,7 +635,7 @@ double gapAmount(double seedAmount, int fromStep, int toStep, Cycle cycle) {
 
 ### 3.8 안정형 멀티 티커 계산
 
-안정형에서 QQQ, QLD, TQQQ 3개 티커를 동시 보유할 수 있으므로:
+안정형에서 buyTicker1x, buyTicker2x, buyTicker3x 3개 티커를 동시 보유할 수 있으므로:
 
 **티커별 그룹핑:**
 ```dart
@@ -571,7 +676,7 @@ double tickerEvalAmount(double shares, double currentPrice, double exchangeRate)
 
 ### 3.9 안정형 멀티 티커 데이터 전략 (C-5)
 
-안정형에서 QQQ, QLD, TQQQ를 동시 보유할 수 있으므로 `Cycle.averagePrice`와 `Cycle.totalShares`의 의미를 명확히 정의한다.
+안정형에서 buyTicker1x/2x/3x를 동시 보유할 수 있으므로 `Cycle.averagePrice`와 `Cycle.totalShares`의 의미를 명확히 정의한다.
 
 #### Cycle.averagePrice (안정형)
 - **안정형에서는 UI에서 사용하지 않음**: 서로 다른 티커(QQQ $450, QLD $72, TQQQ $68)의 가격을 가중평균하는 것은 의미 없음
@@ -585,7 +690,7 @@ double tickerEvalAmount(double shares, double currentPrice, double exchangeRate)
     cycle.averagePrice = 0;
   }
   ```
-- **공격형/초공격형은 기존대로** 단일 티커 VWAP으로 표시
+- **공격형은 기존대로** 단일 티커 VWAP으로 표시
 
 #### Cycle.totalShares (안정형)
 - **전체 합산 유지**: QQQ 2주 + QLD 14주 + TQQQ 9주 = totalShares 25
@@ -804,6 +909,11 @@ Future<Cycle> addCycle({
   int ladderSteps = 6,
   String ladderWeights = '1,1,2,3,4,5',
   String ladderTriggers = '-10,-19,-28,-37,-46,-55',
+  // (v3.2) 매수 티커 파라미터
+  String buyTicker = '',
+  String buyTicker1x = '',
+  String buyTicker2x = '',
+  String buyTicker3x = '',
 }) async {
   // (M-1) weights 합계 0 방어
   final parsedWeights = parseLadderWeights(ladderWeights, steps: ladderSteps);
@@ -823,14 +933,28 @@ Future<Cycle> addCycle({
   cycle.ladderSteps = ladderSteps;
   cycle.ladderWeights = safeWeights;
   cycle.ladderTriggers = ladderTriggers;
+  // (v3.2) 매수 티커 설정
+  cycle.buyTicker = buyTicker;
+  cycle.buyTicker1x = buyTicker1x;
+  cycle.buyTicker2x = buyTicker2x;
+  cycle.buyTicker3x = buyTicker3x;
 
   await _repository.save(cycle);
   state = [...state, cycle];
 
-  // (C-6) WebSocket 티커 등록 — 기준 티커만 (안정형: QQQ)
-  // 안정형의 QLD/TQQQ는 상세 화면 진입 시 lazy 구독
+  // (C-6, v3.2) WebSocket 티커 등록 — 기준 티커 + 매수 티커 모두 구독
   try {
-    _ref.read(stockPriceProvider.notifier).loadSymbols([ticker]);
+    final tickersToSubscribe = <String>{ticker}; // 기준 티커
+    if (ladderMode == 0) {
+      // 안정형: 1배/2배/3배 매수 티커도 구독
+      if (buyTicker1x.isNotEmpty) tickersToSubscribe.add(buyTicker1x);
+      if (buyTicker2x.isNotEmpty) tickersToSubscribe.add(buyTicker2x);
+      if (buyTicker3x.isNotEmpty) tickersToSubscribe.add(buyTicker3x);
+    } else {
+      // 공격형: 매수 티커 구독
+      if (buyTicker.isNotEmpty) tickersToSubscribe.add(buyTicker);
+    }
+    _ref.read(stockPriceProvider.notifier).loadSymbols(tickersToSubscribe.toList());
   } catch (_) {}
 
   return cycle;
@@ -914,11 +1038,11 @@ if (cycle.strategyType == StrategyType.alphaCycleV3) {
 
 cycleSignalAmountProvider도 동일 분기.
 
-### 5.3 WebSocket 멀티 티커 구독 (C-6)
+### 5.3 WebSocket 멀티 티커 구독 (C-6, v3.2)
 
-#### 5.3.1 addCycle() 시 — 기준 티커만 등록 (기존 패턴)
+#### 5.3.1 addCycle() 시 — 기준 티커 + 매수 티커 모두 등록
 
-안정형에서 기준 티커(QQQ)만 WebSocket 구독. QLD/TQQQ는 초기 생성 시 아직 매수하지 않았으므로 구독 불필요.
+**(v3.2 변경)** 기존에는 기준 티커만 구독했으나, 이제 addCycle() 시 매수 티커도 함께 구독한다. 5.2.1의 addCycle() 코드 참조.
 
 #### 5.3.2 상세 화면 진입 시 — Trade에서 사용된 티커 lazy 구독
 
@@ -943,8 +1067,9 @@ if (cycle.strategyType == StrategyType.ladderCycle && cycle.ladderMode == 0) {
 
 ```dart
 // ladder_buy_guide_card.dart
-// 안정형 매수 가이드: 추천 3개 티커의 현재가를 stockQuoteProvider에서 조회
-final recommended = recommendedTickers(cycle.ladderMode, nextStep);
+// 안정형 매수 가이드: 추천 티커의 현재가를 stockQuoteProvider에서 조회
+// (v3.2) cycle 필드에서 읽기 — 하드코딩 제거
+final recommended = recommendedTickers(cycle, nextStep);
 for (final ticker in recommended) {
   // stockQuoteProvider는 이미 구독된 티커면 캐시 반환,
   // 미구독이면 REST 호출 후 WS 등록
@@ -1015,7 +1140,7 @@ for (final cycle in activeCycles) {
     // (F-15) 안정형: Trade 기반 buildTickerHoldings()로 티커별 평가금 합산
     final trades = ref.read(tradesByCycleProvider(cycle.id));
     final currentPrices = <String, double>{};
-    // 안정형 사용 티커: QQQ, QLD, TQQQ — 각각 현재가 조회
+    // 안정형 사용 티커: cycle.buyTicker1x/2x/3x — 각각 현재가 조회
     final usedTickers = trades.map((t) => t.ticker ?? cycle.ticker).toSet();
     for (final ticker in usedTickers) {
       final quote = ref.read(stockQuoteProvider(ticker));
@@ -1025,7 +1150,7 @@ for (final cycle in activeCycles) {
     evalAmount = holdings.fold<double>(0, (sum, h) => sum + h.evalAmount);
     actualInvested = cycle.seedAmount - cycle.remainingCash;
   } else {
-    // 공격형/초공격형 및 기존 Smart/Steady: 기존 TradingMath.evaluatedAmount() 그대로
+    // 공격형 및 기존 Smart/Steady: 기존 TradingMath.evaluatedAmount() 그대로
     evalAmount = TradingMath.evaluatedAmount(
       shares: cycle.totalShares,
       currentPrice: prices[cycle.ticker]?.currentPrice ?? 0,
@@ -1038,7 +1163,7 @@ for (final cycle in activeCycles) {
 }
 ```
 
-**성능 고려:** 안정형만 Trade를 읽으므로 대부분의 사이클(Smart/Steady/공격형/초공격형)에 영향 없음. 안정형 사이클 수가 소수일 것이므로 성능 문제 없음.
+**성능 고려:** 안정형만 Trade를 읽으므로 대부분의 사이클(Smart/Steady/공격형)에 영향 없음. 안정형 사이클 수가 소수일 것이므로 성능 문제 없음.
 
 ---
 
@@ -1089,7 +1214,6 @@ class StrategyBadge extends StatelessWidget {
     final modeLabel = switch (ladderMode) {
       0 => 'Ladder 안정형',
       1 => 'Ladder 공격형',
-      2 => 'Ladder 초공격형',
       _ => 'Ladder',
     };
     return _StrategyConfig(
@@ -1154,20 +1278,51 @@ ref.read(settingsProvider.notifier).updateChartColors(
 │                                          │
 │ ┌──────────────────────────────────────┐ │
 │ │ ⧈  MDD 기반 가속 분할매수형       [?] │ │
-│ │ ATH 대비 하락률에 따라                │ │
-│ │ 6단계 가속 비중(1-1-2-3-4-5)으로     │ │
-│ │ 하락할수록 공격적으로 매집합니다.      │ │
+│ │ ATH 대비 하락률에 따라 단계별로      │ │
+│ │ 비중을 높여 하락할수록 공격적으로     │ │
+│ │ 매집합니다.                          │ │
+│ │ 고급 설정에서 단계 수, 비율을         │ │
+│ │ 커스텀할 수 있습니다.                │ │
+│ │                                      │ │
+│ │ 추천 조합 (기준 → 1배 → 2배 → 3배): │ │
+│ │ • QQQ → QQQ → QLD → TQQQ (나스닥)   │ │
+│ │ • SPY → SPY → SSO → UPRO (S&P 500)  │ │
+│ │ • IWM → IWM → UWM → TNA (러셀 2000) │ │
+│ │ • DIA → DIA → DDM → UDOW (다우존스)  │ │
 │ └──────────────────────────────────────┘ │
 │                                          │
 │ 매수 모드                                │
-│ [ 안정형 | 공격형 | 초공격형 ]             │
+│ [ 안정형 | 공격형 ]                       │
 │                                          │
-│ 종목 선택                                │
+│ ── 공격형 ──────────────────────────── │
+│                                          │
+│ 기준 티커 (MDD 계산용)                    │
+│ ┌──────────────────────────────────────┐ │
+│ │ SOXX  Semiconductor ETF          >   │ │
+│ └──────────────────────────────────────┘ │
+│                                          │
+│ 매수 티커                                │
+│ ┌──────────────────────────────────────┐ │
+│ │ SOXL  3x Semiconductor            >   │ │
+│ └──────────────────────────────────────┘ │
+│                                          │
+│ ── 안정형 ──────────────────────────── │
+│                                          │
+│ 기준 티커 (MDD 계산용)                    │
 │ ┌──────────────────────────────────────┐ │
 │ │ QQQ  Invesco QQQ Trust           >   │ │
 │ └──────────────────────────────────────┘ │
-│ ※ MDD 기준 지수 — 안정형: QQQ/QLD/TQQQ  │
-│   공격형: TQQQ 매수 / 초공격형: SOXL 매수│
+│                                          │
+│ 매수 티커 (1배 / 2배 / 3배)              │
+│ 1배 ┌─────────────────────────────────┐ │
+│     │ QQQ  Invesco QQQ Trust       >  │ │
+│     └─────────────────────────────────┘ │
+│ 2배 ┌─────────────────────────────────┐ │
+│     │ QLD  ProShares Ultra QQQ     >  │ │
+│     └─────────────────────────────────┘ │
+│ 3배 ┌─────────────────────────────────┐ │
+│     │ TQQQ  ProShares UltraPro QQQ >  │ │
+│     └─────────────────────────────────┘ │
 │                                          │
 │ ATH 가격 (USD)                           │
 │ ┌──────────────────────────────────────┐ │
@@ -1203,6 +1358,24 @@ ref.read(settingsProvider.notifier).updateChartColors(
 │                                          │
 └──────────────────────────────────────────┘
 ```
+
+**종목 선택 섹션 동작 규칙 (v3.2):**
+
+1. **매수 모드에 따라 종목 선택 UI 분기:**
+   - **공격형:** 기준 티커 1개 + 매수 티커 1개 = 2개 선택
+   - **안정형:** 기준 티커 1개 + 매수 티커 3개 (1배/2배/3배) = 4개 선택
+
+2. **각 티커 선택은 기존 종목 검색 화면 재사용** (탭 → 검색 → 선택 → 돌아오기)
+
+3. **저장 시 Cycle 모델 반영:**
+   - `cycle.ticker` = 기준 티커
+   - `cycle.buyTicker` = 공격형 매수 티커 (안정형이면 빈 문자열)
+   - `cycle.buyTicker1x/2x/3x` = 안정형 매수 티커 (공격형이면 빈 문자열)
+
+4. **검증:**
+   - 기준 티커 필수
+   - 공격형: 매수 티커 필수
+   - 안정형: 1배/2배/3배 모두 필수
 
 #### 6.3.1 고급 설정 (ExpansionTile 펼친 상태)
 
@@ -1279,8 +1452,8 @@ ref.read(settingsProvider.notifier).updateChartColors(
 
 ```
 ┌──────────────────────────────────────────┐
-│ ◀  TQQQ  닉네임        [⧈ Ladder 안정형] [⋮] │
-│    ProShares UltraPro QQQ                │
+│ ◀  QQQ  닉네임         [⧈ Ladder 안정형] [⋮] │
+│    Invesco QQQ Trust                      │
 ├══════════════════════════════════════════╡
 │                                          │
 │ ┌──────────────────────────────────────┐ │
@@ -1380,6 +1553,13 @@ ref.read(settingsProvider.notifier).updateChartColors(
 └──────────────────────────────────────────┘
 ```
 
+**안정형 PnL 카드 (v3.2):**
+- 기준 시세: `cycle.ticker` (기준 티커) 현재가 + ATH + MDD
+- 보유 합산 주석: `cycle.buyTicker1x` + `cycle.buyTicker2x` + `cycle.buyTicker3x` 표시
+
+**안정형 매수 가이드 뱃지 (v3.2):**
+- `[cycle.buyTicker1x]` `[cycle.buyTicker2x]` `[cycle.buyTicker3x]` (Cycle 필드에서 읽기, 하드코딩 아님)
+
 **⋮ 메뉴 항목 (F-13):** Ladder 사이클일 때 PopupMenu 항목:
 - 시드 수정 (`editSeed`)
 - ATH 수정 (`editAth`) — Ladder 전용
@@ -1388,23 +1568,23 @@ ref.read(settingsProvider.notifier).updateChartColors(
 
 > **"익절 처리" 항목 없음 (F-13):** Ladder는 자동 재시작 개념이 없으며, 매도는 FAB를 통해 수동으로 기록한다. Smart Cycle의 `completeTakeProfit()` (전량 매도 + 새 사이클 자동 생성)은 Ladder에 적용되지 않는다.
 
-### 6.6 사이클 상세 — 공격형/초공격형 (단일 티커)
+### 6.6 사이클 상세 — 공격형 (단일 티커)
 
 ```
 ┌──────────────────────────────────────────┐
-│ ◀  TQQQ  닉네임        [⧈ Ladder 공격형] [⋮] │
-│    ProShares UltraPro QQQ                │
+│ ◀  SOXX  닉네임        [⧈ Ladder 공격형] [⋮] │
+│    Semiconductor ETF                      │
 ├══════════════════════════════════════════╡
 │                                          │
 │ ┌──────────────────────────────────────┐ │
 │ │ ▓▓▓▓▓▓ PnL 그라데이션 카드 ▓▓▓▓▓▓▓ │ │
 │ │                                      │ │
-│ │ 기준 시세 (QQQ)          ATH $542.85 │ │
+│ │ 기준 시세 (SOXX)         ATH $542.85 │ │
 │ │ 현재 시세       $452.30 (MDD -16.7%) │ │
 │ │                       환율: ₩1,350   │ │
 │ │ ─────────────────────────────────── │ │
 │ │                                      │ │
-│ │ TQQQ 현재 시세                $68.40 │ │
+│ │ SOXL 현재 시세                $68.40 │ │
 │ │ ─────────────────────────────────── │ │
 │ │ 외화손익   [+500 USD]        +8.5%   │ │
 │ │ 원화손익   [+675,000원]      +8.5%   │ │
@@ -1421,7 +1601,7 @@ ref.read(settingsProvider.notifier).updateChartColors(
 │ │ 3단계 매수 (MDD: -28.5%)             │ │
 │ │                                      │ │
 │ │ 매수 주문              ₩1,250,000    │ │
-│ │ • TQQQ: $68.40 × 13주 (13.5)  [📋]  │ │
+│ │ • SOXL: $68.40 × 13주 (13.5)  [📋]  │ │
 │ └──────────────────────────────────────┘ │
 │                                          │
 │ ┌──────────────────────────────────────┐ │
@@ -1449,21 +1629,21 @@ ref.read(settingsProvider.notifier).updateChartColors(
 │                                          │
 │ ┌─ 3회차 · 2026.03.28 ──────────────┐   │
 │ │                                    │   │
-│ │ [매수] TQQQ 매수 $58.00 × 16주 $928.00│
+│ │ [매수] SOXL 매수 $58.00 × 16주 $928.00│
 │ │                            ₩1,250,000│
 │ │                                    │   │
 │ └────────────────────────────────────┘   │
 │                                          │
 │ ┌─ 2회차 · 2026.03.20 ──────────────┐   │
 │ │                                    │   │
-│ │ [매수] TQQQ 매수 $60.50 × 7주 $423.50│
+│ │ [매수] SOXL 매수 $60.50 × 7주 $423.50│
 │ │                              ₩625,000│
 │ │                                    │   │
 │ └────────────────────────────────────┘   │
 │                                          │
 │ ┌─ 1회차 · 2026.03.15 ──────────────┐   │
 │ │                                    │   │
-│ │ [매수] TQQQ 매수 $65.00 × 7주 $455.00│
+│ │ [매수] SOXL 매수 $65.00 × 7주 $455.00│
 │ │                              ₩625,000│
 │ │                                    │   │
 │ └────────────────────────────────────┘   │
@@ -1476,12 +1656,19 @@ ref.read(settingsProvider.notifier).updateChartColors(
 └──────────────────────────────────────────┘
 ```
 
+**공격형 PnL 카드 (v3.2):**
+- 기준 시세: `cycle.ticker` (기준 티커, 예: SOXX) 현재가 + ATH + MDD
+- 공격형 매수 티커: `cycle.buyTicker` (예: SOXL) 현재가 추가 줄
+
+**공격형 매수 가이드 (v3.2):**
+- `cycle.buyTicker` 현재가로 수량 추천 (하드코딩 제거)
+
 **공격형과 안정형 차이:**
-- PnL 카드: 공격형은 기준 시세(QQQ) + 매수 티커(TQQQ) 현재가 두 줄 표시
+- PnL 카드: 공격형은 기준 시세(cycle.ticker) + 매수 티커(cycle.buyTicker) 현재가 두 줄 표시
 - 보유 정보: 공격형은 기존 CycleInfoCard 패턴 (단일 티커), 안정형은 보유 현황 테이블
 - 매입환율: 공격형은 기존 패턴 (한 줄), 안정형은 편집 클릭 시 티커별 확장
 
-**⋮ 메뉴 (공격형/초공격형도 동일 — F-13):** 시드 수정 / ATH 수정 / 사이클 완료 / 삭제 ("익절 처리" 없음)
+**⋮ 메뉴 (공격형도 동일 — F-13):** 시드 수정 / ATH 수정 / 사이클 완료 / 삭제 ("익절 처리" 없음)
 
 ### 6.7 거래 기록 시트 (FAB → LadderTradeRecordSheet)
 
@@ -1490,7 +1677,7 @@ ref.read(settingsProvider.notifier).updateChartColors(
 ```
 ┌─────────────────────────────────────────────────────┐
 │ [AppBar]                                            │
-│ TQQQ 거래 기록                                      │
+│ SOXL 거래 기록                                      │
 │ $68.40  +3.5%                                       │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
@@ -1508,6 +1695,7 @@ ref.read(settingsProvider.notifier).updateChartColors(
 │ 4. [종목 선택] (안정형만, 매수 시)                  │
 │    종목 선택                                        │
 │    [QQQ $452.30]  [QLD✓ $72.50]  [TQQQ $68.40]   │
+│    ※ cycle.buyTicker1x/2x/3x 필드에서 읽기         │
 │                                                     │
 │ 5. [매수 추천 가이드] (매수 시)                     │
 │    💡 3단계 매수 추천                               │
@@ -1549,12 +1737,12 @@ ref.read(settingsProvider.notifier).updateChartColors(
 ```
 
 **기존 CycleTradeRecordSheet와의 차이:**
-- 종목 선택 추가 (안정형만): 3개 뱃지 중 선택, 현재가 표시
+- 종목 선택 추가 (안정형만): cycle.buyTicker1x/2x/3x 뱃지 중 선택, 현재가 표시 (하드코딩 제거)
 - 신호: ladderStep1~6 + manual (Smart의 initial/weightedBuy 대신)
 - 매도 시 종목 선택: 보유 중인 티커만 표시 (수량 함께)
 - 추천 가이드: 단계별 금액 + 추천 수량
 
-**공격형/초공격형:** 종목 선택 섹션이 숨겨짐 (단일 티커니까). 나머지 동일.
+**공격형:** 종목 선택 섹션이 숨겨짐 (cycle.buyTicker 단일 티커). 나머지 동일.
 
 **onSubmit 콜백:**
 ```dart
@@ -1566,7 +1754,7 @@ onSubmit({
   required double exchangeRate,
   required DateTime date,
   String? memo,
-  String? ticker,  // 안정형: 선택한 티커 (QQQ/QLD/TQQQ)
+  String? ticker,  // 안정형: 선택한 티커 (cycle.buyTicker1x/2x/3x 중 하나)
 })
 ```
 
@@ -1578,7 +1766,7 @@ onSubmit({
 ```
 ┌─────────────────────────────────────────────────────┐
 │ [AppBar]                                            │
-│ TQQQ 매수 기록 수정                                  │
+│ SOXL 매수 기록 수정                                  │
 ├─────────────────────────────────────────────────────┤
 │                                                     │
 │ 1. [거래일]                                         │
@@ -1799,8 +1987,8 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 
 | 파일 | 변경 |
 |------|------|
-| `lib/data/models/cycle.dart` | StrategyType.ladderCycle, HiveField 43~48, ladderMode 헬퍼, toJson/fromJson 확장 (C-2), _parseStrategyType (I-2) |
-| `lib/data/models/cycle.g.dart` | 수동 수정 (field 43~48 read/write) — (F-16) 프로젝트 기존 관례대로 수동 수정 |
+| `lib/data/models/cycle.dart` | StrategyType.ladderCycle, HiveField 43~48, **(v3.2) HiveField 49~52 buyTicker 4개**, ladderMode 헬퍼, toJson/fromJson 확장 (C-2), _parseStrategyType (I-2) |
+| `lib/data/models/cycle.g.dart` | 수동 수정 (field 43~52 read/write) — (F-16) 프로젝트 기존 관례대로 수동 수정 |
 | `lib/data/models/trade.dart` | HiveField 11 ticker, TradeSignal ladderStep1~6, toJson/fromJson ticker 추가 (C-2) |
 | `lib/data/models/trade.g.dart` | 수동 수정 (field 11 read/write, signal 15~20) — (F-16) 프로젝트 기존 관례대로 수동 수정 |
 | `lib/data/models/settings.dart` | **(F-7)** HiveField 22 `ladderCycleChartColor`, 생성자/copyWith/toJson/fromJson 확장 |
@@ -1810,13 +1998,13 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 
 | 파일 | 설명 |
 |------|------|
-| `lib/domain/trading/ladder_cycle_service.dart` | **신규** — LadderCycleService (StrategyEngine 구현), parseLadderWeights/Triggers 헬퍼, calculateMDD, stepAmount, gapAmount, recommendedTickers (F-4), groupByTicker, tickerVwap, tickerEvalAmount, TickerHolding 클래스, buildTickerHoldings (F-5) |
+| `lib/domain/trading/ladder_cycle_service.dart` | **신규** — LadderCycleService (StrategyEngine 구현), parseLadderWeights/Triggers 헬퍼, calculateMDD, stepAmount, gapAmount, **(v3.2) recommendedTickers(Cycle, int) — Cycle 필드 기반**, groupByTicker, tickerVwap, tickerEvalAmount, TickerHolding 클래스, buildTickerHoldings (F-5) |
 
 ### 9.3 Provider 수정 (4파일)
 
 | 파일 | 변경 |
 |------|------|
-| `lib/presentation/providers/cycle_providers.dart` | ladderCyclesProvider, signal 분기, addCycle Ladder 파라미터, _recalculateCycleState currentStep 갱신 + 안정형 averagePrice=0 (F-20) |
+| `lib/presentation/providers/cycle_providers.dart` | ladderCyclesProvider, signal 분기, addCycle Ladder 파라미터 + **(v3.2) buyTicker 4개 파라미터**, _recalculateCycleState currentStep 갱신 + 안정형 averagePrice=0 (F-20) |
 | `lib/presentation/providers/trade_providers.dart` | recordBuy ticker, currentStep 갱신 |
 | `lib/presentation/providers/portfolio_providers.dart` | Ladder 집계 필드, 안정형 평가금 계산 경로 (F-15) |
 | `lib/presentation/providers/settings_providers.dart` | **(F-7)** updateChartColors에 `ladderColor` 파라미터 추가 |
@@ -1832,8 +2020,8 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 | 파일 | 변경 |
 |------|------|
 | `lib/presentation/screens/stocks/stocks_screen.dart` | 4탭 구조, Ladder 탭 |
-| `lib/presentation/screens/stocks/cycle_setup_screen.dart` | Ladder 설정 UI + 고급 설정 (단계/프리셋/커스텀) |
-| `lib/presentation/screens/stocks/cycle_detail_screen.dart` | (F-2) 전략별 body 위젯 라우팅, (F-13) PopupMenu Ladder 분기 (익절 처리 숨김, ATH 수정 추가), WS lazy 구독 (C-6) |
+| `lib/presentation/screens/stocks/cycle_setup_screen.dart` | **(v3.2)** Ladder 설정 UI — 기준 티커/매수 티커 분리 + 전략 설명 간결화 + 추천 조합 4개 + 고급 설정 |
+| `lib/presentation/screens/stocks/cycle_detail_screen.dart` | (F-2) 전략별 body 위젯 라우팅, (F-13) PopupMenu Ladder 분기, WS lazy 구독 (C-6) |
 | `lib/presentation/screens/stocks/widgets/cycle_trade_card.dart` | Ladder 신호라벨 분기 |
 | `lib/presentation/widgets/home/portfolio_allocation_chart.dart` | 4분할 세그먼트 (I-5) |
 | `lib/routes/app_router.dart` | strategy=ladderCycle 파싱 (C-7) |
@@ -1842,12 +2030,12 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 
 | 파일 | 설명 |
 |------|------|
-| `lib/presentation/screens/stocks/widgets/ladder_buy_guide_card.dart` | **신규** — 매수 가이드 + 티커 뱃지 + 수량 추천 |
+| `lib/presentation/screens/stocks/widgets/ladder_buy_guide_card.dart` | **신규** — 매수 가이드 + 티커 뱃지 **(v3.2: cycle.buyTicker 필드 기반)** + 수량 추천 |
 | `lib/presentation/screens/stocks/widgets/ladder_progress_bar.dart` | **신규** — N단계 진행도 바 |
-| `lib/presentation/screens/stocks/widgets/ladder_detail_body.dart` | **(F-2) 신규** — Ladder 전용 상세 화면 body (PnL 카드 + 진행도 바 + 매수 가이드 + 보유현황 테이블 + 환율 편집 + 정보카드 + 거래내역) |
+| `lib/presentation/screens/stocks/widgets/ladder_detail_body.dart` | **(F-2) 신규** — Ladder 전용 상세 화면 body (PnL 카드 **(v3.2: 기준 시세 + 매수 티커 시세)** + 진행도 바 + 매수 가이드 + 보유현황 테이블 + 환율 편집 + 정보카드 + 거래내역) |
 | `lib/presentation/screens/stocks/widgets/ladder_ticker_holdings.dart` | **(F-2) 신규** — 안정형 보유 현황 테이블 위젯 (TickerHolding 리스트 → DataTable/ListView) |
 | `lib/presentation/screens/stocks/widgets/ladder_exchange_rate_editor.dart` | **(F-2) 신규** — 안정형 티커별 환율 편집 위젯 (펼침/접힘, 티커별 평균 매입환율 표시 및 수정) |
-| `lib/presentation/screens/stocks/widgets/ladder_trade_record_sheet.dart` | **(F-3) 신규** — Ladder 전용 거래 기록 시트 (종목 선택, 단계 신호, 추천 가이드) |
+| `lib/presentation/screens/stocks/widgets/ladder_trade_record_sheet.dart` | **(F-3) 신규** — Ladder 전용 거래 기록 시트 (종목 선택 **(v3.2: cycle.buyTicker 필드 기반)**, 단계 신호, 추천 가이드) |
 | `lib/presentation/screens/stocks/widgets/ladder_advanced_settings.dart` | **(F-18) 신규** — Ladder 고급 설정 위젯 (분할 단계/비율 프리셋/커스텀 슬라이더) — cycle_setup_screen에서 분리 |
 
 ### 9.7 공유 위젯 수정 (2파일)
@@ -1862,8 +2050,8 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 ## 10. 구현 순서 (Phase)
 
 ### Phase 1: 데이터 모델 (cycle.dart, trade.dart, settings.dart, *.g.dart)
-- StrategyType.ladderCycle, Cycle 필드 43~48, Trade 필드 11, TradeSignal 15~20
-- Cycle.toJson/fromJson 확장 (C-2), _parseStrategyType (I-2)
+- StrategyType.ladderCycle, Cycle 필드 43~48, **(v3.2) 필드 49~52 buyTicker 4개**, Trade 필드 11, TradeSignal 15~20
+- Cycle.toJson/fromJson 확장 (C-2, v3.2 buyTicker 포함), _parseStrategyType (I-2)
 - Trade.toJson/fromJson ticker 추가 (C-2)
 - **(F-7)** Settings.ladderCycleChartColor (HiveField 22), toJson/fromJson
 - **(F-16)** .g.dart 수동 수정 (프로젝트 기존 관례)
@@ -1872,13 +2060,14 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 - LadderCycleService: detectSignal (C-3 named params), calculateAmount, MDD 계산
 - parseLadderWeights/Triggers 방어적 파싱 (C-1, I-1)
 - stepAmount 범위 검증 (C-4), totalWeight 0 방어 (M-1)
-- 단계별 금액 (가변 N단계/비율), 티커 추천
+- 단계별 금액 (가변 N단계/비율), **(v3.2) recommendedTickers(Cycle, int) — Cycle 필드 기반**
 - **(F-4)** 모든 헬퍼 함수 → ladder_cycle_service.dart top-level
 - **(F-5)** TickerHolding, buildTickerHoldings → 같은 파일 배치
 
 ### Phase 3: Provider (cycle_providers, trade_providers, portfolio_providers, settings_providers)
 - ladderCyclesProvider, signal 분기, recordBuy ticker, currentStep 갱신
-- addCycle Ladder 파라미터, weights 합계 0 방어 (M-1)
+- addCycle Ladder 파라미터 + **(v3.2) buyTicker 4개**, weights 합계 0 방어 (M-1)
+- **(v3.2) addCycle WebSocket: 기준 티커 + 매수 티커 모두 구독**
 - 포트폴리오 집계 (Ladder 필드)
 - **(F-15)** 안정형 평가금 계산 경로 (buildTickerHoldings 기반)
 - **(F-7)** settings_providers.dart updateChartColors에 ladderColor 추가
@@ -1889,7 +2078,7 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 - CSV "종목" 컬럼 추가 (I-4)
 
 ### Phase 5: UI — 생성 & 목록 (setup_screen, stocks_screen, router, strategy_badge, signal_badge_config)
-- 3전략 SegmentedButton, Ladder 설정 UI + 고급 설정 (분할 단계/비율 프리셋/커스텀)
+- 3전략 SegmentedButton, **(v3.2) Ladder 설정 UI — 기준 티커/매수 티커 분리 + 전략 설명 간결화 + 추천 조합 4개** + 고급 설정 (분할 단계/비율 프리셋/커스텀)
 - **(F-18)** 고급 설정 → `ladder_advanced_settings.dart` 위젯 분리
 - 4탭 구조, FAB, 뱃지
 - 라우터 ladderCycle 파싱 (C-7)
@@ -1898,9 +2087,9 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 
 ### Phase 6: UI — 상세 (detail_screen, ladder_detail_body, ladder_progress_bar, ladder_buy_guide_card, ladder_ticker_holdings, ladder_exchange_rate_editor)
 - **(F-2)** cycle_detail_screen → 전략별 body 위젯 라우팅
-- **(F-2)** LadderDetailBody: PnL 카드 (기준시세+ATH+MDD), 진행도 바 (N단계 동적)
-- 매수 가이드 카드, 추천 티커 현재가 조회 (C-6)
-- **(F-2)** LadderTickerHoldings: 보유현황 테이블 (안정형 멀티 티커 — C-5, I-6)
+- **(F-2)** LadderDetailBody: PnL 카드 **(v3.2: 기준 시세 cycle.ticker + 공격형 매수 티커 cycle.buyTicker 현재가)**, 진행도 바 (N단계 동적)
+- 매수 가이드 카드, **(v3.2) cycle.buyTicker 필드 기반 추천 티커** 현재가 조회 (C-6)
+- **(F-2)** LadderTickerHoldings: 보유현황 테이블 **(v3.2: cycle.buyTicker1x/2x/3x 표시)** (안정형 멀티 티커 — C-5, I-6)
 - CycleInfoCard (공격형), **(F-2)** LadderExchangeRateEditor: 매입환율 편집 (안정형 3개 확장)
 - 매도 가이드 텍스트
 - WS lazy 구독 (C-6)
@@ -1908,7 +2097,7 @@ if (cycle.strategyType == StrategyType.ladderCycle) {
 
 ### Phase 7: UI — 거래 기록 시트 & 거래 카드 (cycle_trade_card, detail_screen FAB)
 - **(F-3)** LadderTradeRecordSheet 신규 파일 생성
-- 종목 선택 (안정형), 신호 선택 (ladderStep)
+- 종목 선택 **(v3.2: cycle.buyTicker 필드 기반, 하드코딩 제거)** (안정형), 신호 선택 (ladderStep)
 - 거래 카드 신호라벨 분기
 
 ---
@@ -1923,14 +2112,14 @@ bool get isPendingCompletion =>
     totalShares == 0 && status == CycleStatus.active && seedAmount != remainingCash;
 ```
 
-**안정형 특이사항:** QQQ, QLD, TQQQ 3개 보유 시 → 3개 **모두** 매도해야 `totalShares == 0`. 일부만 매도하면 나머지는 여전히 활성 상태. 기존 로직이 자동으로 처리 (C-5: totalShares는 전체 합산 유지).
+**안정형 특이사항:** buyTicker1x, buyTicker2x, buyTicker3x 3개 보유 시 → 3개 **모두** 매도해야 `totalShares == 0`. 일부만 매도하면 나머지는 여전히 활성 상태. 기존 로직이 자동으로 처리 (C-5: totalShares는 전체 합산 유지).
 
 #### My 탭 카드 (isPendingCompletion) — 기존 패턴 그대로
 
 ```
 ┌──────────────────────────────────────┐
-│ [TL] TQQQ  닉네임         ✅ 전량매도 │
-│      ProShares UltraPro              │
+│ [TL] SOXL  닉네임        ✅ 전량매도 │
+│      3x Semiconductor                │
 │                                      │
 │  ✅ 전량 매도 · 35일 · 3회차          │
 │  순수익 +₩200,000 (+8.0%)           │
@@ -1946,7 +2135,7 @@ bool get isPendingCompletion =>
 
 ```
 ┌──────────────────────────────────────────┐
-│ ◀  TQQQ  닉네임        [⧈ Ladder 안정형] │
+│ ◀  SOXX  닉네임        [⧈ Ladder 공격형] │
 ├══════════════════════════════════════════╡
 │                                          │
 │ ┌──────────────────────────────────────┐ │
@@ -1974,7 +2163,7 @@ bool get isPendingCompletion =>
 │                                          │
 │ 거래 내역 (5건)                           │
 │ ┌─ 5회차 · 2026.04.20 ──────────────┐   │
-│ │ [매도] QLD 매도 $80.00 × 12주 ...  │   │
+│ │ [매도] SOXL 매도 $80.00 × 12주 ... │   │
 │ └────────────────────────────────────┘   │
 │ ...                                      │
 └──────────────────────────────────────────┘
@@ -2039,6 +2228,8 @@ for (final cycle in activeCycles) {
 | weights 합계 0 | stepAmount → seed / weights.length 균등 분배 (M-1) |
 | Cycle 생성 시 weights 합 0 | 기본값 폴백 (M-1) |
 | 알 수 없는 StrategyType 복원 | _parseStrategyType → alphaCycleV3 폴백 (I-2) |
+| buyTicker 빈 문자열 (기존 사이클 복원) | recommendedTickers에서 cycle.ticker 폴백 (v3.2 하위호환) |
+| 안정형 buyTicker1x/2x/3x 미설정 | cycle.ticker를 폴백으로 사용 (v3.2 하위호환) |
 
 ---
 
@@ -2048,11 +2239,10 @@ for (final cycle in activeCycles) {
 - RSI/20MA 기반 자동 매도 신호
 - 과거 대입 시뮬레이션 ("2008년 이 전략이면 X% 수익")
 - 진행도 바 인터랙티브 (탭하면 해당 단계 상세)
-- SOXX 기준 지수 지원 (초공격형 전용)
 
 ### Tech Debt (F-1)
 
-- **Cycle HiveField 48개 문제**: 현재 Cycle 모델은 HiveField 0~48까지 49개 필드를 보유한다. 전략 공통 필드와 전략 전용 필드가 단일 모델에 혼합되어 있어, 향후 전략이 추가될수록 모델이 비대해진다. 장기적으로 전략별 설정을 별도 Hive 모델(또는 JSON String 필드)로 분리하는 리팩터링을 고려해야 한다. 현재는 Hive의 `@HiveField(N, defaultValue: ...)` 마이그레이션 패턴으로 하위호환이 보장되므로 즉시 조치 불필요.
+- **Cycle HiveField 52개 문제**: 현재 Cycle 모델은 HiveField 0~52까지 53개 필드를 보유한다. 전략 공통 필드와 전략 전용 필드가 단일 모델에 혼합되어 있어, 향후 전략이 추가될수록 모델이 비대해진다. 장기적으로 전략별 설정을 별도 Hive 모델(또는 JSON String 필드)로 분리하는 리팩터링을 고려해야 한다. 현재는 Hive의 `@HiveField(N, defaultValue: ...)` 마이그레이션 패턴으로 하위호환이 보장되므로 즉시 조치 불필요.
 
 ---
 
@@ -2061,7 +2251,7 @@ for (final cycle in activeCycles) {
 | 이슈 | 심각도 | 설명 | 반영 위치 |
 |------|--------|------|-----------|
 | C-1 | Critical | String 파싱 무방어 → tryParse + 기본값 폴백 | 2.2.1, 3.5, 4.1 |
-| C-2 | Critical | toJson/fromJson 누락 → 6+1 필드 추가, 백업 v6 | 2.3, 2.4.1, 2.7 |
+| C-2 | Critical | toJson/fromJson 누락 → 10+1 필드 추가, 백업 v6 | 2.3, 2.4.1, 2.7 |
 | C-3 | Critical | detectSignal 시그니처 불일치 → named parameter | 4.1 |
 | C-4 | Critical | stepAmount 범위 미검증 → 방어 코드 | 3.5 |
 | C-5 | Critical | 안정형 멀티 티커 averagePrice/totalShares 정의 | 3.9 |
@@ -2080,7 +2270,7 @@ for (final cycle in activeCycles) {
 
 | 이슈 | 심각도 | 설명 | 반영 위치 |
 |------|--------|------|-----------|
-| F-1 | Important | Cycle 48 HiveField Tech Debt 기록 | 13절 (향후 확장) |
+| F-1 | Important | Cycle 52 HiveField Tech Debt 기록 | 13절 (향후 확장) |
 | F-2 | Critical | cycle_detail_screen Ladder body 위젯 분리 | 6.8, 9.6 |
 | F-3 | Important | LadderTradeRecordSheet 신규 확정 | 6.7, 9.6 |
 | F-4 | Critical | 헬퍼 함수 파일 배치 명시 | 2.2.1, 3.4~3.7 |
@@ -2091,3 +2281,17 @@ for (final cycle in activeCycles) {
 | F-16 | Important | .g.dart 수동 수정 관례 명시 | 2.9, 9.1 |
 | F-18 | Important | Ladder 고급 설정 위젯 분리 | 9.6, Phase 5 |
 | F-20 | Important | 안정형 averagePrice = 0 처리 | 3.9, 5.2.3 |
+
+### v3.2 변경 요약
+
+| 변경 | 설명 | 반영 위치 |
+|------|------|-----------|
+| 종목 선택 분리 | 기준 티커(cycle.ticker) + 매수 티커(buyTicker/1x/2x/3x) | 1.4, 2.2, 2.3, 2.10, 5.2.1 |
+| Cycle 모델 4필드 | HiveField 49~52: buyTicker, buyTicker1x, buyTicker2x, buyTicker3x | 2.2, 2.10 |
+| recommendedTickers 변경 | `(int, int)` → `(Cycle, int)` — Cycle 필드 기반, 하드코딩 제거 | 3.6 |
+| 전략 설명 간결화 | 긴 설명 → 2줄 요약 + 고급 설정 안내 + 추천 조합 4개 | 6.3 |
+| 사이클 생성 UI | 기준 티커/매수 티커 분리 선택 (공격형 2개, 안정형 4개) | 6.3 |
+| 상세 화면 연동 | PnL 카드, 매수 가이드, 보유현황 — cycle.buyTicker 필드 사용 | 6.5, 6.6 |
+| 거래 시트 연동 | 종목 선택 뱃지 — cycle.buyTicker 필드에서 읽기 | 6.7 |
+| WebSocket 구독 | addCycle 시 기준 티커 + 매수 티커 모두 구독 | 5.2.1, 5.3.1 |
+| 하위호환 | buyTicker 빈 문자열 → cycle.ticker 폴백 | 3.6, 12절 |

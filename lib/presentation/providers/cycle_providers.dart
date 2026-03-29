@@ -163,6 +163,11 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
     int ladderSteps = 6,
     String ladderWeights = '1,1,2,3,4,5',
     String ladderTriggers = '-10,-19,-28,-37,-46,-55',
+    // Ladder 매수 티커 (v3.2)
+    String buyTicker = '',
+    String buyTicker1x = '',
+    String buyTicker2x = '',
+    String buyTicker3x = '',
   }) async {
     // (M-1) weights 합계 0 방어
     final parsedWeights = parseLadderWeights(ladderWeights, steps: ladderSteps);
@@ -205,13 +210,22 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
     cycle.ladderSteps = ladderSteps;
     cycle.ladderWeights = safeWeights;
     cycle.ladderTriggers = ladderTriggers;
+    cycle.buyTicker = buyTicker;
+    cycle.buyTicker1x = buyTicker1x;
+    cycle.buyTicker2x = buyTicker2x;
+    cycle.buyTicker3x = buyTicker3x;
 
     await _repository.save(cycle);
     state = [...state, cycle];
 
-    // WebSocket 티커 등록
+    // WebSocket 티커 등록 (기준 티커 + 매수 티커 모두 구독)
     try {
-      _ref.read(stockPriceProvider.notifier).loadSymbols([ticker]);
+      final tickersToSubscribe = <String>{ticker};
+      if (buyTicker.isNotEmpty) tickersToSubscribe.add(buyTicker);
+      if (buyTicker1x.isNotEmpty) tickersToSubscribe.add(buyTicker1x);
+      if (buyTicker2x.isNotEmpty) tickersToSubscribe.add(buyTicker2x);
+      if (buyTicker3x.isNotEmpty) tickersToSubscribe.add(buyTicker3x);
+      _ref.read(stockPriceProvider.notifier).loadSymbols(tickersToSubscribe.toList());
     } catch (_) {}
 
     return cycle;

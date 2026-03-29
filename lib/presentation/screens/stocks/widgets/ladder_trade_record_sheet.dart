@@ -160,7 +160,7 @@ class _LadderTradeRecordSheetState
       // 안정형: 추천 티커의 첫 번째를 기본 선택
       if (_isConservative) {
         final tickers = recommendedTickers(
-          widget.cycle.ladderMode,
+          widget.cycle,
           _nextStep,
         );
         _selectedTicker = tickers.isNotEmpty ? tickers.first : null;
@@ -455,7 +455,7 @@ class _LadderTradeRecordSheetState
                       if (_isConservative) {
                         final step = _signalToStep(_selectedSignal);
                         final tickers = recommendedTickers(
-                          widget.cycle.ladderMode,
+                          widget.cycle,
                           step > 0 ? step : _nextStep,
                         );
                         _selectedTicker = tickers.isNotEmpty ? tickers.first : null;
@@ -638,7 +638,7 @@ class _LadderTradeRecordSheetState
                         final step = _signalToStep(signal);
                         if (step > 0) {
                           final tickers = recommendedTickers(
-                            widget.cycle.ladderMode,
+                            widget.cycle,
                             step,
                           );
                           _selectedTicker = tickers.isNotEmpty ? tickers.first : null;
@@ -697,7 +697,7 @@ class _LadderTradeRecordSheetState
   ) {
     final step = _signalToStep(_selectedSignal);
     final tickers = recommendedTickers(
-      widget.cycle.ladderMode,
+      widget.cycle,
       step > 0 ? step : _nextStep,
     );
 

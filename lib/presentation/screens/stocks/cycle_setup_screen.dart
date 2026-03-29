@@ -66,6 +66,16 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   List<double> _customWeightPercents = [6.25, 6.25, 12.5, 18.75, 25.0, 31.25];
   final _athController = TextEditingController();
 
+  // === Ladder 매수 티커 (v3.2) ===
+  String? _buyTicker;
+  String? _buyTickerName;
+  String? _buyTicker1x;
+  String? _buyTicker1xName;
+  String? _buyTicker2x;
+  String? _buyTicker2xName;
+  String? _buyTicker3x;
+  String? _buyTicker3xName;
+
   // === 고급 설정 ===
   bool _showAdvanced = false;
 
@@ -123,6 +133,10 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     }
     if (_selectedStrategy == StrategyType.ladderCycle) {
       if (_athPrice <= 0) return false;
+      // 공격형: 매수 티커 필수
+      if (_ladderMode == 1 && _buyTicker == null) return false;
+      // 안정형: 1배/2배/3배 모두 필수
+      if (_ladderMode == 0 && (_buyTicker1x == null || _buyTicker2x == null || _buyTicker3x == null)) return false;
       // 커스텀 비율일 때 합계 100% 검증
       if (_ladderPreset == 3) {
         final sum = _customWeightPercents
@@ -184,14 +198,14 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             const SizedBox(height: 24),
 
             // 2. 종목 선택
-            _buildSectionLabel('종목 선택'),
-            const SizedBox(height: 8),
-            _buildTickerSelector(),
-            if (_selectedStrategy == StrategyType.ladderCycle)
+            if (_selectedStrategy == StrategyType.ladderCycle) ...[
+              _buildSectionLabel('기준 티커 (MDD 계산용)'),
+              const SizedBox(height: 8),
+              _buildTickerSelector(),
               Padding(
                 padding: const EdgeInsets.only(left: 2, top: 6),
                 child: Text(
-                  '※ MDD 기준 지수 — 안정형: QQQ/QLD/TQQQ 매수 / 공격형: 3배 레버리지 매수',
+                  '※ ATH 대비 하락률(MDD) 계산에 사용되는 지수/ETF',
                   style: TextStyle(
                     fontSize: 11,
                     color: context.appTextHint,
@@ -199,6 +213,13 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              _buildLadderBuyTickerSection(),
+            ] else ...[
+              _buildSectionLabel('종목 선택'),
+              const SizedBox(height: 8),
+              _buildTickerSelector(),
+            ],
 
             // Ladder ATH 가격 입력
             if (_selectedStrategy == StrategyType.ladderCycle) ...[
@@ -390,7 +411,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         : isLadder
             ? (
                 'MDD 기반 가속 분할매수형',
-                'ATH 대비 하락률에 따라\n$_ladderSteps단계 가속 비중(${_ladderWeights.replaceAll(',', '-')})으로\n하락할수록 공격적으로 매집합니다.',
+                'ATH 대비 하락률에 따라 단계별로 비중을 높여\n하락할수록 공격적으로 매집합니다.\n고급 설정에서 단계 수, 비율을 커스텀할 수 있습니다.\n\n'
+                '추천 조합 (기준 → 1배 → 2배 → 3배):\n'
+                '• QQQ → QQQ → QLD → TQQQ (나스닥 100)\n'
+                '• SPY → SPY → SSO → UPRO (S&P 500)\n'
+                '• IWM → IWM → UWM → TNA (러셀 2000)\n'
+                '• DIA → DIA → DDM → UDOW (다우존스)',
                 Icons.stacked_bar_chart,
               )
             : (
@@ -665,13 +691,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           '• 1단계: QQQ (1배) 매수\n'
           '• 2단계: QLD (2배) 매수\n'
           '• 3~6단계: TQQQ (3배) 매수\n\n'
-          '추천 조합:\n'
-          '• QQQ → QLD → TQQQ (나스닥 100)\n'
-          '• SOXX → USD → SOXL (반도체)\n'
-          '• SPY → SSO → UPRO (S&P 500)\n'
-          '• IWM → UWM → TNA (러셀 2000)\n'
-          '• DIA → DDM → UDOW (다우존스)\n\n'
-          '※ 위 조합은 추천이며, 원하는 티커를 자유롭게 매수해도 됩니다.\n\n'
+          '추천 조합 (기준 → 1배 → 2배 → 3배):\n'
+          '• QQQ → QQQ → QLD → TQQQ (나스닥 100)\n'
+          '• SPY → SPY → SSO → UPRO (S&P 500)\n'
+          '• IWM → IWM → UWM → TNA (러셀 2000)\n'
+          '• DIA → DIA → DDM → UDOW (다우존스)\n\n'
+          '※ 위 조합은 추천이며, 원하는 티커를 자유롭게 선택할 수 있습니다.\n\n'
           '── 공격형 ──\n'
           '처음부터 3배 레버리지 ETF를 모든 단계에서 매수합니다. '
           '기준 지수의 하락률(MDD)로 매수 시점을 판단하되, '
@@ -982,6 +1007,274 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                         _selectedName = name;
                       });
                       ref.read(stockQuoteProvider.notifier).fetchQuote(ticker);
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 2-1. Ladder 매수 티커 선택 (v3.2)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildLadderBuyTickerSection() {
+    if (_ladderMode == 1) {
+      // 공격형: 매수 티커 1개
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSectionLabel('매수 티커'),
+          const SizedBox(height: 8),
+          _buildBuyTickerPicker(
+            ticker: _buyTicker,
+            name: _buyTickerName,
+            hint: '매수할 종목 선택 (예: TQQQ, SOXL)',
+            onSelected: (ticker, name) {
+              setState(() {
+                _buyTicker = ticker;
+                _buyTickerName = name;
+              });
+              ref.read(stockQuoteProvider.notifier).fetchQuote(ticker);
+            },
+            onClear: () => setState(() {
+              _buyTicker = null;
+              _buyTickerName = null;
+            }),
+          ),
+        ],
+      );
+    }
+
+    // 안정형: 1배/2배/3배 매수 티커 3개
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('매수 티커 (1배 / 2배 / 3배)'),
+        const SizedBox(height: 8),
+        _buildLabeledBuyTickerPicker(
+          label: '1배',
+          ticker: _buyTicker1x,
+          name: _buyTicker1xName,
+          hint: '1배 ETF (예: QQQ)',
+          onSelected: (ticker, name) {
+            setState(() {
+              _buyTicker1x = ticker;
+              _buyTicker1xName = name;
+            });
+            ref.read(stockQuoteProvider.notifier).fetchQuote(ticker);
+          },
+          onClear: () => setState(() {
+            _buyTicker1x = null;
+            _buyTicker1xName = null;
+          }),
+        ),
+        const SizedBox(height: 8),
+        _buildLabeledBuyTickerPicker(
+          label: '2배',
+          ticker: _buyTicker2x,
+          name: _buyTicker2xName,
+          hint: '2배 ETF (예: QLD)',
+          onSelected: (ticker, name) {
+            setState(() {
+              _buyTicker2x = ticker;
+              _buyTicker2xName = name;
+            });
+            ref.read(stockQuoteProvider.notifier).fetchQuote(ticker);
+          },
+          onClear: () => setState(() {
+            _buyTicker2x = null;
+            _buyTicker2xName = null;
+          }),
+        ),
+        const SizedBox(height: 8),
+        _buildLabeledBuyTickerPicker(
+          label: '3배',
+          ticker: _buyTicker3x,
+          name: _buyTicker3xName,
+          hint: '3배 ETF (예: TQQQ)',
+          onSelected: (ticker, name) {
+            setState(() {
+              _buyTicker3x = ticker;
+              _buyTicker3xName = name;
+            });
+            ref.read(stockQuoteProvider.notifier).fetchQuote(ticker);
+          },
+          onClear: () => setState(() {
+            _buyTicker3x = null;
+            _buyTicker3xName = null;
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLabeledBuyTickerPicker({
+    required String label,
+    required String? ticker,
+    required String? name,
+    required String hint,
+    required void Function(String, String?) onSelected,
+    required VoidCallback onClear,
+  }) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 32,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: context.appTextSecondary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildBuyTickerPicker(
+            ticker: ticker,
+            name: name,
+            hint: hint,
+            onSelected: onSelected,
+            onClear: onClear,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBuyTickerPicker({
+    required String? ticker,
+    required String? name,
+    required String hint,
+    required void Function(String, String?) onSelected,
+    required VoidCallback onClear,
+  }) {
+    if (ticker != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: context.appAccent, width: 1),
+        ),
+        child: Row(
+          children: [
+            TickerLogo(ticker: ticker, size: 24, borderRadius: 6),
+            const SizedBox(width: 8),
+            Text(
+              ticker,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: context.appTickerColor,
+              ),
+            ),
+            if (name != null) ...[
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  name,
+                  style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ] else
+              const Spacer(),
+            GestureDetector(
+              onTap: onClear,
+              child: Icon(Icons.close, color: context.appTextHint, size: 18),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => _showTickerPickerFor(onSelected),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: context.appSurface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: context.appBorder),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.search, color: context.appTextHint, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                hint,
+                style: TextStyle(fontSize: 13, color: context.appTextHint),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: context.appTextHint, size: 18),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTickerPickerFor(void Function(String, String?) onSelected) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetContext) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.9,
+          minChildSize: 0.4,
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: context.appDivider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    '종목 선택',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: context.appTextPrimary,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: _ManualTickerInput(
+                    onSubmitted: (ticker, name) {
+                      Navigator.pop(context);
+                      onSelected(ticker.toUpperCase(), name);
+                    },
+                  ),
+                ),
+                Divider(color: context.appDivider),
+                Expanded(
+                  child: _RecentTickerList(
+                    scrollController: scrollController,
+                    onSelected: (ticker, name) {
+                      Navigator.pop(context);
+                      onSelected(ticker, name);
                     },
                   ),
                 ),
@@ -1962,6 +2255,10 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             ladderSteps: _ladderSteps,
             ladderWeights: _ladderWeights,
             ladderTriggers: _ladderTriggers,
+            buyTicker: _buyTicker ?? '',
+            buyTicker1x: _buyTicker1x ?? '',
+            buyTicker2x: _buyTicker2x ?? '',
+            buyTicker3x: _buyTicker3x ?? '',
           );
 
       if (mounted) {

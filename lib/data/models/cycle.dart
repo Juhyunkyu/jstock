@@ -177,6 +177,18 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(48, defaultValue: '-10,-19,-28,-37,-46,-55')
   String ladderTriggers;   // 쉼표 구분 MDD 트리거
 
+  @HiveField(49, defaultValue: '')
+  String buyTicker;        // 공격형 매수 티커 (예: SOXL)
+
+  @HiveField(50, defaultValue: '')
+  String buyTicker1x;      // 안정형 1배 매수 티커 (예: QQQ)
+
+  @HiveField(51, defaultValue: '')
+  String buyTicker2x;      // 안정형 2배 매수 티커 (예: QLD)
+
+  @HiveField(52, defaultValue: '')
+  String buyTicker3x;      // 안정형 3배 매수 티커 (예: TQQQ)
+
   // === 집계 필드 (거래 재계산 시 자동 업데이트) ===
   @HiveField(37, defaultValue: 0.0)
   double totalBuyAmountKrw;
@@ -235,6 +247,10 @@ class Cycle extends HiveObject implements TradingPosition {
     this.ladderSteps = 6,
     this.ladderWeights = '1,1,2,3,4,5',
     this.ladderTriggers = '-10,-19,-28,-37,-46,-55',
+    this.buyTicker = '',
+    this.buyTicker1x = '',
+    this.buyTicker2x = '',
+    this.buyTicker3x = '',
     this.totalBuyAmountKrw = 0.0,
     this.totalSellAmountKrw = 0.0,
     this.firstTradeDate,
@@ -400,6 +416,10 @@ class Cycle extends HiveObject implements TradingPosition {
     'ladderSteps': ladderSteps,
     'ladderWeights': ladderWeights,
     'ladderTriggers': ladderTriggers,
+    'buyTicker': buyTicker,
+    'buyTicker1x': buyTicker1x,
+    'buyTicker2x': buyTicker2x,
+    'buyTicker3x': buyTicker3x,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -457,6 +477,10 @@ class Cycle extends HiveObject implements TradingPosition {
     cycle.ladderSteps = (json['ladderSteps'] as num?)?.toInt() ?? 6;
     cycle.ladderWeights = json['ladderWeights'] as String? ?? '1,1,2,3,4,5';
     cycle.ladderTriggers = json['ladderTriggers'] as String? ?? '-10,-19,-28,-37,-46,-55';
+    cycle.buyTicker = json['buyTicker'] as String? ?? '';
+    cycle.buyTicker1x = json['buyTicker1x'] as String? ?? '';
+    cycle.buyTicker2x = json['buyTicker2x'] as String? ?? '';
+    cycle.buyTicker3x = json['buyTicker3x'] as String? ?? '';
     return cycle;
   }
 
@@ -522,6 +546,10 @@ class Cycle extends HiveObject implements TradingPosition {
     int? ladderSteps,
     String? ladderWeights,
     String? ladderTriggers,
+    String? buyTicker,
+    String? buyTicker1x,
+    String? buyTicker2x,
+    String? buyTicker3x,
     double? totalBuyAmountKrw,
     double? totalSellAmountKrw,
     DateTime? firstTradeDate,
@@ -566,6 +594,10 @@ class Cycle extends HiveObject implements TradingPosition {
       ladderSteps: ladderSteps ?? this.ladderSteps,
       ladderWeights: ladderWeights ?? this.ladderWeights,
       ladderTriggers: ladderTriggers ?? this.ladderTriggers,
+      buyTicker: buyTicker ?? this.buyTicker,
+      buyTicker1x: buyTicker1x ?? this.buyTicker1x,
+      buyTicker2x: buyTicker2x ?? this.buyTicker2x,
+      buyTicker3x: buyTicker3x ?? this.buyTicker3x,
       totalBuyAmountKrw: totalBuyAmountKrw ?? this.totalBuyAmountKrw,
       totalBuyUsd: totalBuyUsd ?? this.totalBuyUsd,
       totalSellUsd: totalSellUsd ?? this.totalSellUsd,

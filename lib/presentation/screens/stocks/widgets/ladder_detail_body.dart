@@ -103,8 +103,8 @@ class LadderDetailBody extends ConsumerWidget {
         return s + h.exchangePnl(cp, liveExchangeRate);
       });
     } else {
-      // 공격형/초공격형: 기존 단일 티커 패턴
-      final buyTicker = isStable ? cycle.ticker : (cycle.ladderMode == 1 ? 'TQQQ' : 'SOXL');
+      // 공격형: buyTicker에서 읽기 (하위호환: 빈 문자열이면 ticker 사용)
+      final buyTicker = isStable ? cycle.ticker : (cycle.buyTicker.isNotEmpty ? cycle.buyTicker : cycle.ticker);
       final buyTickerPrice = ref.watch(
         closingPricesProvider.select((prices) => prices[buyTicker] ?? 0.0),
       );
@@ -210,6 +210,16 @@ class LadderDetailBody extends ConsumerWidget {
     );
   }
 
+  /// 안정형 보유 합산 라벨 생성 (buyTicker1x+2x+3x)
+  String _stableTickerLabel(Cycle cycle) {
+    final tickers = <String>{};
+    if (cycle.buyTicker1x.isNotEmpty) tickers.add(cycle.buyTicker1x);
+    if (cycle.buyTicker2x.isNotEmpty) tickers.add(cycle.buyTicker2x);
+    if (cycle.buyTicker3x.isNotEmpty) tickers.add(cycle.buyTicker3x);
+    if (tickers.isEmpty) return cycle.ticker;
+    return tickers.join('+');
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // PnL 그라데이션 카드
   // ═══════════════════════════════════════════════════════════════
@@ -230,7 +240,7 @@ class LadderDetailBody extends ConsumerWidget {
     bool hasPosition,
     bool isMobile,
   ) {
-    final buyTicker = isStable ? null : (cycle.ladderMode == 1 ? 'TQQQ' : 'SOXL');
+    final buyTicker = isStable ? null : (cycle.buyTicker.isNotEmpty ? cycle.buyTicker : cycle.ticker);
     final buyTickerPrice = buyTicker != null ? (currentPrices[buyTicker] ?? 0.0) : 0.0;
 
     return Container(
@@ -383,11 +393,11 @@ class LadderDetailBody extends ConsumerWidget {
             // 안정형: 합산 표시
             if (isStable) ...[
               const SizedBox(height: 6),
-              const Align(
+              Align(
                 alignment: Alignment.centerRight,
                 child: Text(
-                  '※ QQQ+QLD+TQQQ 보유 합산',
-                  style: TextStyle(fontSize: 9, color: Colors.white54),
+                  '※ ${_stableTickerLabel(cycle)} 보유 합산',
+                  style: const TextStyle(fontSize: 9, color: Colors.white54),
                 ),
               ),
             ],
@@ -411,7 +421,7 @@ class LadderDetailBody extends ConsumerWidget {
     Map<String, double> currentPrices,
     bool isMobile,
   ) {
-    final buyTicker = cycle.ladderMode == 1 ? 'TQQQ' : 'SOXL';
+    final buyTicker = cycle.buyTicker.isNotEmpty ? cycle.buyTicker : cycle.ticker;
     final buyTickerPrice = currentPrices[buyTicker] ?? 0.0;
 
     return CycleInfoCard(

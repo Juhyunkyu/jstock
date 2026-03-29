@@ -90,14 +90,19 @@ double gapAmount(double seedAmount, int fromStep, int toStep, Cycle cycle) {
 
 // ─── 모드별 티커 추천 ───
 
-List<String> recommendedTickers(int ladderMode, int step) {
-  if (ladderMode == 0) {
-    if (step <= 1) return ['QQQ', 'QLD', 'TQQQ'];  // 1단계: QQQ 강조
-    if (step <= 2) return ['QLD', 'QQQ', 'TQQQ'];  // 2단계: QLD 강조
-    return ['TQQQ', 'QQQ', 'QLD'];                  // 3~6단계: TQQQ 강조
+List<String> recommendedTickers(Cycle cycle, int step) {
+  if (cycle.ladderMode == 0) {
+    // 안정형: Cycle의 buyTicker1x/2x/3x에서 읽기
+    final t1x = cycle.buyTicker1x.isNotEmpty ? cycle.buyTicker1x : cycle.ticker;
+    final t2x = cycle.buyTicker2x.isNotEmpty ? cycle.buyTicker2x : cycle.ticker;
+    final t3x = cycle.buyTicker3x.isNotEmpty ? cycle.buyTicker3x : cycle.ticker;
+    if (step <= 1) return [t1x, t2x, t3x];  // 1단계: 1배 강조
+    if (step <= 2) return [t2x, t1x, t3x];  // 2단계: 2배 강조
+    return [t3x, t1x, t2x];                  // 3~6단계: 3배 강조
   }
-  if (ladderMode == 1) return ['TQQQ'];
-  return ['SOXL'];
+  // 공격형: buyTicker에서 읽기
+  final buyT = cycle.buyTicker.isNotEmpty ? cycle.buyTicker : cycle.ticker;
+  return [buyT];
 }
 
 // ─── 안정형 멀티 티커 계산 ───
