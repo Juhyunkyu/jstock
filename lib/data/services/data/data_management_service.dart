@@ -45,7 +45,7 @@ class DataManagementService {
   /// 전체 데이터를 JSON Map으로 백업
   Map<String, dynamic> createBackup() {
     return {
-      'version': 5,
+      'version': 6,
       'createdAt': DateTime.now().toIso8601String(),
       'data': {
         'settings': settingsRepository.settings.toJson(),
@@ -65,7 +65,7 @@ class DataManagementService {
   /// JSON Map에서 데이터 복원 (기존 데이터 전체 삭제 후 삽입)
   Future<void> restoreFromBackup(Map<String, dynamic> backup) async {
     final version = backup['version'] as int? ?? 1;
-    if (version > 5) {
+    if (version > 6) {
       throw FormatException('지원하지 않는 백업 버전: $version');
     }
 
@@ -185,13 +185,16 @@ class DataManagementService {
     // 알파 사이클 거래내역
     buffer.writeln();
     buffer.writeln('=== 알파 사이클 거래내역 ===');
-    buffer.writeln('날짜,사이클ID,매매,신호,단가(USD),수량,금액(KRW),환율,메모');
+    buffer.writeln('날짜,사이클ID,종목,매매,신호,단가(USD),수량,금액(KRW),환율,메모');
 
     final trades = tradeRepository.getAll();
+    final cycles = {for (final c in cycleRepository.getAll()) c.id: c};
     for (final trade in trades) {
+      final tradeTicker = trade.ticker ?? cycles[trade.cycleId]?.ticker ?? '';
       buffer.writeln(
         '${_formatCsvDate(trade.tradedAt)},'
         '${trade.cycleId.substring(0, 8)},'
+        '${_escapeCsv(tradeTicker)},'
         '${trade.action == TradeAction.buy ? "매수" : "매도"},'
         '${trade.signal.name},'
         '${trade.price.toStringAsFixed(2)},'

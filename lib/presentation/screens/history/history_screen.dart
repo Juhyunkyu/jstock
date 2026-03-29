@@ -430,7 +430,12 @@ class _CompletedCycleCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 6),
-                    StrategyBadge(strategyType: cycle.strategyType),
+                    StrategyBadge(
+                      strategyType: cycle.strategyType,
+                      ladderMode: cycle.strategyType == StrategyType.ladderCycle
+                          ? cycle.ladderMode
+                          : null,
+                    ),
                     const Spacer(),
                     if (onDelete != null)
                       GestureDetector(

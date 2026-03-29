@@ -123,6 +123,10 @@ class Settings extends HiveObject {
   @HiveField(21, defaultValue: 1)
   int themeType;
 
+  /// Ladder Cycle 차트 색상 (0 = 기본색 사용, 양수 = Color.value)
+  @HiveField(22, defaultValue: 0)
+  int ladderCycleChartColor;
+
   Settings({
     this.exchangeRate = AppConstants.defaultExchangeRate,
     this.useRealtimeRate = false,
@@ -146,6 +150,7 @@ class Settings extends HiveObject {
     this.steadyCycleChartColor = 0,
     this.notificationMuted = false,
     this.themeType = 1,
+    this.ladderCycleChartColor = 0,
   });
 
   /// 기본 설정 생성
@@ -175,6 +180,7 @@ class Settings extends HiveObject {
     int? steadyCycleChartColor,
     bool? notificationMuted,
     int? themeType,
+    int? ladderCycleChartColor,
   }) {
     return Settings(
       exchangeRate: exchangeRate ?? this.exchangeRate,
@@ -199,6 +205,7 @@ class Settings extends HiveObject {
       steadyCycleChartColor: steadyCycleChartColor ?? this.steadyCycleChartColor,
       notificationMuted: notificationMuted ?? this.notificationMuted,
       themeType: themeType ?? this.themeType,
+      ladderCycleChartColor: ladderCycleChartColor ?? this.ladderCycleChartColor,
     );
   }
 
@@ -225,6 +232,7 @@ class Settings extends HiveObject {
         'steadyCycleChartColor': steadyCycleChartColor,
         'notificationMuted': notificationMuted,
         'themeType': themeType,
+        'ladderCycleChartColor': ladderCycleChartColor,
       };
 
   factory Settings.fromJson(Map<String, dynamic> json) => Settings(
@@ -250,6 +258,7 @@ class Settings extends HiveObject {
         steadyCycleChartColor: json['steadyCycleChartColor'] as int? ?? 0,
         notificationMuted: json['notificationMuted'] as bool? ?? false,
         themeType: json['themeType'] as int? ?? 1,
+        ladderCycleChartColor: json['ladderCycleChartColor'] as int? ?? 0,
       );
 
   @override

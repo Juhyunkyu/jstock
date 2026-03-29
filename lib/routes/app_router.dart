@@ -255,9 +255,11 @@ class AppRouter {
             builder: (context, state) {
               final strategy = state.uri.queryParameters['strategy'];
               return CycleSetupScreen(
-                initialStrategy: strategy == 'infiniteBuy'
-                    ? StrategyType.infiniteBuy
-                    : StrategyType.alphaCycleV3,
+                initialStrategy: switch (strategy) {
+                  'infiniteBuy' => StrategyType.infiniteBuy,
+                  'ladderCycle' => StrategyType.ladderCycle,
+                  _ => StrategyType.alphaCycleV3,
+                },
               );
             },
           ),

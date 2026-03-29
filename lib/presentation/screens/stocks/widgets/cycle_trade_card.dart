@@ -13,6 +13,7 @@ import '../../../widgets/shared/confirm_dialog.dart';
 import '../../../widgets/shared/signal_badge_config.dart';
 import '../../../widgets/common/top_toast.dart';
 import 'cycle_trade_record_sheet.dart';
+import 'ladder_trade_record_sheet.dart';
 import 'steady_combined_trade_sheet.dart';
 
 /// 사이클 거래 내역 카드
@@ -103,7 +104,7 @@ class CycleTradeCard extends ConsumerWidget {
           Expanded(
             child: Text.rich(TextSpan(children: [
               TextSpan(
-                text: signalConfig.label,
+                text: _signalLabel(trade, cycle, isBuy, signalConfig),
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: context.appAccent),
               ),
               TextSpan(
@@ -147,14 +148,14 @@ class CycleTradeCard extends ConsumerWidget {
     final totalBuyUsd = buyTrades.fold<double>(0, (s, t) => s + t.price * t.shares);
     final avgBuyPrice = totalBuyShares > 0 ? totalBuyUsd / totalBuyShares : 0.0;
     final totalBuyKrw = buyTrades.fold<double>(0, (s, t) => s + t.amountKrw);
-    final buySignals = buyTrades.map((t) => SignalBadgeConfig.fromSignal(t.signal).label).toSet().join(' + ');
+    final buySignals = buyTrades.map((t) => _signalLabel(t, cycle, true, SignalBadgeConfig.fromSignal(t.signal))).toSet().join(' + ');
 
     // 매도 합계
     final totalSellShares = sellTrades.fold<double>(0, (s, t) => s + t.shares);
     final totalSellUsd = sellTrades.fold<double>(0, (s, t) => s + t.price * t.shares);
     final avgSellPrice = totalSellShares > 0 ? totalSellUsd / totalSellShares : 0.0;
     final totalSellKrw = sellTrades.fold<double>(0, (s, t) => s + t.amountKrw);
-    final sellSignals = sellTrades.map((t) => SignalBadgeConfig.fromSignal(t.signal).label).toSet().join(' + ');
+    final sellSignals = sellTrades.map((t) => _signalLabel(t, cycle, false, SignalBadgeConfig.fromSignal(t.signal))).toSet().join(' + ');
 
     // 주 헤더 = 매수 있으면 매수, 없으면 매도
     final hasBuy = buyTrades.isNotEmpty;
@@ -180,7 +181,7 @@ class CycleTradeCard extends ConsumerWidget {
             for (final t in items) ...[
               Row(
                 children: [
-                  Text(SignalBadgeConfig.fromSignal(t.signal).label,
+                  Text(_signalLabel(t, cycle, t.action == TradeAction.buy, SignalBadgeConfig.fromSignal(t.signal)),
                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: accentColor)),
                   const SizedBox(width: 8),
                   Expanded(
@@ -292,6 +293,15 @@ class CycleTradeCard extends ConsumerWidget {
           ],
         ),
     );
+  }
+
+  /// Ladder Cycle: 'QLD 매수' / 'TQQQ 매도' 형식, 기존: SignalBadgeConfig.label
+  static String _signalLabel(Trade trade, Cycle cycle, bool isBuy, SignalBadgeConfig config) {
+    if (cycle.strategyType == StrategyType.ladderCycle) {
+      final tradeTicker = trade.ticker ?? cycle.ticker;
+      return '$tradeTicker ${isBuy ? "매수" : "매도"}';
+    }
+    return config.label;
   }
 
   void _showGroupedTradeOptions(BuildContext context, WidgetRef ref, List<Trade> trades) {
@@ -429,6 +439,8 @@ class CycleTradeCard extends ConsumerWidget {
                 // Steady Cycle → SteadyCombinedTradeSheet 편집 모드
                 if (cycle.strategyType == StrategyType.infiniteBuy) {
                   _showSteadyEditSheet(parentContext, ref, [trade]);
+                } else if (cycle.strategyType == StrategyType.ladderCycle) {
+                  _showLadderEditSheet(parentContext, ref);
                 } else {
                   _showEditTradeSheet(parentContext, ref);
                 }
@@ -498,6 +510,57 @@ class CycleTradeCard extends ConsumerWidget {
             editTarget.exchangeRate = exchangeRate;
             editTarget.tradedAt = date;
             editTarget.memo = memo;
+
+            editTarget.amountKrw = price * shares * exchangeRate;
+
+            ref
+                .read(tradeListProvider(cycle.id).notifier)
+                .updateTrade(editTarget);
+          },
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Ladder Cycle 수정 시트
+  // ═══════════════════════════════════════════════════════════════
+
+  void _showLadderEditSheet(BuildContext context, WidgetRef ref, {Trade? specificTrade}) {
+    final editTarget = specificTrade ?? trade;
+    final isBuy = editTarget.action == TradeAction.buy;
+
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: context.appSurface,
+      shape: const RoundedRectangleBorder(),
+      builder: (context) => SizedBox(
+        height: MediaQuery.sizeOf(context).height,
+        child: LadderTradeRecordSheet(
+          cycle: cycle,
+          currentExchangeRate: editTarget.exchangeRate,
+          editingTrade: editTarget,
+          editTitle: isBuy ? '매수 기록 수정' : '매도 기록 수정',
+          onSubmit: ({
+            required bool isBuy,
+            required TradeSignal signal,
+            required double price,
+            required double shares,
+            required double exchangeRate,
+            required DateTime date,
+            String? memo,
+            String? ticker,
+          }) {
+            editTarget.signal = signal;
+            editTarget.price = price;
+            editTarget.shares = shares;
+            editTarget.exchangeRate = exchangeRate;
+            editTarget.tradedAt = date;
+            editTarget.memo = memo;
+            editTarget.ticker = ticker;
 
             editTarget.amountKrw = price * shares * exchangeRate;
 

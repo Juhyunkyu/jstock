@@ -6,6 +6,7 @@ import '../../data/repositories/cycle_repository.dart';
 import '../../data/repositories/trade_repository.dart';
 import '../../domain/trading/alpha_cycle_service.dart';
 import '../../domain/trading/infinite_buy_service.dart';
+import '../../domain/trading/ladder_cycle_service.dart';
 import '../../domain/trading/steady_service.dart';
 import '../../domain/trading/strategy_engine.dart';
 import '../../domain/trading/trading_math.dart';
@@ -156,7 +157,20 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
     double offsetA = 15.0,
     double offsetB = 1.5,
     double quarterModeOffset = -15.0,
+    // Ladder 파라미터 (신규, 모두 선택적)
+    double athPrice = 0.0,
+    int ladderMode = 1,
+    int ladderSteps = 6,
+    String ladderWeights = '1,1,2,3,4,5',
+    String ladderTriggers = '-10,-19,-28,-37,-46,-55',
   }) async {
+    // (M-1) weights 합계 0 방어
+    final parsedWeights = parseLadderWeights(ladderWeights, steps: ladderSteps);
+    final totalWeight = parsedWeights.fold<int>(0, (s, w) => s + w);
+    final safeWeights = totalWeight == 0
+        ? parseLadderWeights('', steps: ladderSteps).join(',')
+        : ladderWeights;
+
     final cycle = Cycle(
       id: const Uuid().v4(),
       ticker: ticker,
@@ -183,6 +197,14 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
       offsetB: offsetB,
       quarterModeOffset: quarterModeOffset,
     );
+
+    // Ladder 필드 설정
+    cycle.athPrice = athPrice;
+    cycle.ladderMode = ladderMode;
+    cycle.currentStep = 0;
+    cycle.ladderSteps = ladderSteps;
+    cycle.ladderWeights = safeWeights;
+    cycle.ladderTriggers = ladderTriggers;
 
     await _repository.save(cycle);
     state = [...state, cycle];
@@ -315,6 +337,13 @@ final infiniteBuyCyclesProvider = Provider<List<Cycle>>((ref) {
       .toList();
 });
 
+final ladderCyclesProvider = Provider<List<Cycle>>((ref) {
+  return ref
+      .watch(activeCyclesProvider)
+      .where((c) => c.strategyType == StrategyType.ladderCycle)
+      .toList();
+});
+
 final completedCyclesProvider = Provider<List<Cycle>>((ref) {
   return ref
       .watch(cycleListProvider)
@@ -340,6 +369,8 @@ final cycleSignalProvider =
   final StrategyEngine service;
   if (cycle.strategyType == StrategyType.alphaCycleV3) {
     service = const AlphaCycleService();
+  } else if (cycle.strategyType == StrategyType.ladderCycle) {
+    service = const LadderCycleService();
   } else if (cycle.steadyVersion != SteadyVersion.v1) {
     service = const SteadyService();
   } else {
@@ -372,6 +403,8 @@ final cycleSignalAmountProvider =
   final StrategyEngine service;
   if (cycle.strategyType == StrategyType.alphaCycleV3) {
     service = const AlphaCycleService();
+  } else if (cycle.strategyType == StrategyType.ladderCycle) {
+    service = const LadderCycleService();
   } else if (cycle.steadyVersion != SteadyVersion.v1) {
     service = const SteadyService();
   } else {

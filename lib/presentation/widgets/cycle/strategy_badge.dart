@@ -9,11 +9,13 @@ import '../../../data/models/cycle.dart';
 class StrategyBadge extends StatelessWidget {
   final StrategyType strategyType;
   final SteadyVersion? steadyVersion;
+  final int? ladderMode;
 
   const StrategyBadge({
     super.key,
     required this.strategyType,
     this.steadyVersion,
+    this.ladderMode,
   });
 
   @override
@@ -72,6 +74,18 @@ class StrategyBadge extends StatelessWidget {
           label: versionLabel,
           icon: Icons.all_inclusive,
           color: isDark ? AppColors.green400 : AppColors.green600,
+        );
+      case StrategyType.ladderCycle:
+        final modeLabel = switch (ladderMode) {
+          0 => 'Ladder 안정형',
+          1 => 'Ladder 공격형',
+          2 => 'Ladder 초공격형',
+          _ => 'Ladder',
+        };
+        return _StrategyConfig(
+          label: modeLabel,
+          icon: Icons.stacked_bar_chart,
+          color: isDark ? AppColors.amber400 : AppColors.amber500,
         );
     }
   }

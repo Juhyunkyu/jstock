@@ -44,6 +44,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     String? groupId,
     DateTime? tradedAt,
     double extraFundingAmount = 0,
+    String? ticker,
   }) async {
     if (price <= 0 || exchangeRate <= 0) {
       throw ArgumentError('Invalid price or exchange rate');
@@ -78,6 +79,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       tradedAt: tradedAt,
       memo: memo,
       groupId: groupId,
+      ticker: ticker,
     );
 
     await _repository.save(trade);
@@ -99,6 +101,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     String? memo,
     String? groupId,
     DateTime? tradedAt,
+    String? ticker,
   }) async {
     if (price <= 0 || exchangeRate <= 0) {
       throw ArgumentError('Invalid price or exchange rate');
@@ -123,6 +126,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       tradedAt: tradedAt,
       memo: memo,
       groupId: groupId,
+      ticker: ticker,
     );
 
     await _repository.save(trade);
@@ -250,6 +254,26 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
     cycle.lastTradeDate = trades.isNotEmpty ? trades.last.tradedAt : null;
 
     // 평균매입환율(exchangeRateAtEntry)은 사용자가 독립 관리 — 자동 재계산 안 함
+
+    // Ladder Cycle: 거래 내역에서 최대 진행 단계 재계산
+    if (cycle.strategyType == StrategyType.ladderCycle) {
+      int maxStep = 0;
+      for (final trade in trades) {
+        if (trade.action == TradeAction.buy &&
+            trade.signal.name.startsWith('ladderStep')) {
+          final step = int.tryParse(
+            trade.signal.name.replaceAll('ladderStep', ''),
+          ) ?? 0;
+          if (step > maxStep) maxStep = step;
+        }
+      }
+      cycle.currentStep = maxStep;
+
+      // (F-20) Ladder 안정형: 멀티 티커 VWAP 혼합은 무의미 → 0으로 고정
+      if (cycle.ladderMode == 0) {
+        cycle.averagePrice = 0;
+      }
+    }
 
     await _ref.read(cycleListProvider.notifier).saveCycle(cycle);
   }

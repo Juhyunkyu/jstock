@@ -121,7 +121,12 @@ class ActiveCycleCard extends ConsumerWidget {
             const SizedBox(height: 6),
 
             // === 전략 배지 ===
-            StrategyBadge(strategyType: cycle.strategyType),
+            StrategyBadge(
+              strategyType: cycle.strategyType,
+              ladderMode: cycle.strategyType == StrategyType.ladderCycle
+                  ? cycle.ladderMode
+                  : null,
+            ),
 
             if (cycle.totalShares > 0) ...[
               const SizedBox(height: 10),

@@ -45,6 +45,18 @@ class SignalBadgeConfig {
         return SignalBadgeConfig(label: '단일매수', color: AppColors.blue500);
       case TradeSignal.noFill:
         return SignalBadgeConfig(label: '미체결', color: AppColors.gray400);
+      case TradeSignal.ladderStep1:
+        return SignalBadgeConfig(label: 'MDD 1단계', color: AppColors.amber500);
+      case TradeSignal.ladderStep2:
+        return SignalBadgeConfig(label: 'MDD 2단계', color: AppColors.amber500);
+      case TradeSignal.ladderStep3:
+        return SignalBadgeConfig(label: 'MDD 3단계', color: AppColors.amber500);
+      case TradeSignal.ladderStep4:
+        return SignalBadgeConfig(label: 'MDD 4단계', color: AppColors.amber500);
+      case TradeSignal.ladderStep5:
+        return SignalBadgeConfig(label: 'MDD 5단계', color: AppColors.amber500);
+      case TradeSignal.ladderStep6:
+        return SignalBadgeConfig(label: 'MDD 6단계', color: AppColors.amber500);
     }
   }
 }

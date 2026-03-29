@@ -64,13 +64,22 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..firstTradeDate = fields[39] as DateTime?
       ..lastTradeDate = fields[40] as DateTime?
       ..totalBuyUsd = fields[41] == null ? 0.0 : fields[41] as double
-      ..totalSellUsd = fields[42] == null ? 0.0 : fields[42] as double;
+      ..totalSellUsd = fields[42] == null ? 0.0 : fields[42] as double
+      ..athPrice = fields[43] == null ? 0.0 : fields[43] as double
+      ..ladderMode = fields[44] == null ? 1 : fields[44] as int
+      ..currentStep = fields[45] == null ? 0 : fields[45] as int
+      ..ladderSteps = fields[46] == null ? 6 : fields[46] as int
+      ..ladderWeights =
+          fields[47] == null ? '1,1,2,3,4,5' : fields[47] as String
+      ..ladderTriggers = fields[48] == null
+          ? '-10,-19,-28,-37,-46,-55'
+          : fields[48] as String;
   }
 
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(43)
+      ..writeByte(49)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -156,7 +165,19 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(41)
       ..write(obj.totalBuyUsd)
       ..writeByte(42)
-      ..write(obj.totalSellUsd);
+      ..write(obj.totalSellUsd)
+      ..writeByte(43)
+      ..write(obj.athPrice)
+      ..writeByte(44)
+      ..write(obj.ladderMode)
+      ..writeByte(45)
+      ..write(obj.currentStep)
+      ..writeByte(46)
+      ..write(obj.ladderSteps)
+      ..writeByte(47)
+      ..write(obj.ladderWeights)
+      ..writeByte(48)
+      ..write(obj.ladderTriggers);
   }
 
   @override
@@ -181,6 +202,8 @@ class StrategyTypeAdapter extends TypeAdapter<StrategyType> {
         return StrategyType.alphaCycleV3;
       case 1:
         return StrategyType.infiniteBuy;
+      case 2:
+        return StrategyType.ladderCycle;
       default:
         return StrategyType.alphaCycleV3;
     }
@@ -194,6 +217,9 @@ class StrategyTypeAdapter extends TypeAdapter<StrategyType> {
         break;
       case StrategyType.infiniteBuy:
         writer.writeByte(1);
+        break;
+      case StrategyType.ladderCycle:
+        writer.writeByte(2);
         break;
     }
   }

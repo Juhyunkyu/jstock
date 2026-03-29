@@ -28,13 +28,14 @@ class TradeAdapter extends TypeAdapter<Trade> {
       tradedAt: fields[8] as DateTime?,
       memo: fields[9] as String?,
       groupId: fields[10] as String?,
+      ticker: fields[11] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Trade obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class TradeAdapter extends TypeAdapter<Trade> {
       ..writeByte(9)
       ..write(obj.memo)
       ..writeByte(10)
-      ..write(obj.groupId);
+      ..write(obj.groupId)
+      ..writeByte(11)
+      ..write(obj.ticker);
   }
 
   @override
@@ -107,6 +110,18 @@ class TradeSignalAdapter extends TypeAdapter<TradeSignal> {
         return TradeSignal.buySingle;
       case 14:
         return TradeSignal.noFill;
+      case 15:
+        return TradeSignal.ladderStep1;
+      case 16:
+        return TradeSignal.ladderStep2;
+      case 17:
+        return TradeSignal.ladderStep3;
+      case 18:
+        return TradeSignal.ladderStep4;
+      case 19:
+        return TradeSignal.ladderStep5;
+      case 20:
+        return TradeSignal.ladderStep6;
       default:
         return TradeSignal.initial;
     }
@@ -159,6 +174,24 @@ class TradeSignalAdapter extends TypeAdapter<TradeSignal> {
         break;
       case TradeSignal.noFill:
         writer.writeByte(14);
+        break;
+      case TradeSignal.ladderStep1:
+        writer.writeByte(15);
+        break;
+      case TradeSignal.ladderStep2:
+        writer.writeByte(16);
+        break;
+      case TradeSignal.ladderStep3:
+        writer.writeByte(17);
+        break;
+      case TradeSignal.ladderStep4:
+        writer.writeByte(18);
+        break;
+      case TradeSignal.ladderStep5:
+        writer.writeByte(19);
+        break;
+      case TradeSignal.ladderStep6:
+        writer.writeByte(20);
         break;
     }
   }

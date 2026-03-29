@@ -41,6 +41,20 @@ enum TradeSignal {
   buySingle,
   @HiveField(14)
   noFill,
+
+  // Strategy C: Ladder Cycle
+  @HiveField(15)
+  ladderStep1,
+  @HiveField(16)
+  ladderStep2,
+  @HiveField(17)
+  ladderStep3,
+  @HiveField(18)
+  ladderStep4,
+  @HiveField(19)
+  ladderStep5,
+  @HiveField(20)
+  ladderStep6,
 }
 
 @HiveType(typeId: 11)
@@ -87,6 +101,10 @@ class Trade extends HiveObject {
   @HiveField(10)
   String? groupId;
 
+  /// 거래 티커 (Ladder 안정형 멀티 티커용, null이면 cycle.ticker 사용)
+  @HiveField(11)
+  String? ticker;
+
   Trade({
     required this.id,
     required this.cycleId,
@@ -99,6 +117,7 @@ class Trade extends HiveObject {
     DateTime? tradedAt,
     this.memo,
     this.groupId,
+    this.ticker,
   }) : tradedAt = tradedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -113,6 +132,7 @@ class Trade extends HiveObject {
     'tradedAt': tradedAt.toIso8601String(),
     'memo': memo,
     'groupId': groupId,
+    'ticker': ticker,
   };
 
   static TradeSignal _parseTradeSignal(String value) {
@@ -135,6 +155,7 @@ class Trade extends HiveObject {
     tradedAt: DateTime.parse(json['tradedAt'] as String),
     memo: json['memo'] as String?,
     groupId: json['groupId'] as String?,
+    ticker: json['ticker'] as String?,
   );
 
   @override

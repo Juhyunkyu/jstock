@@ -9,6 +9,8 @@ enum StrategyType {
   alphaCycleV3,
   @HiveField(1)
   infiniteBuy,
+  @HiveField(2)
+  ladderCycle,
 }
 
 @HiveType(typeId: 10)
@@ -156,6 +158,25 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(36, defaultValue: 0)
   int quarterStopLossRoundsUsed;
 
+  // === Strategy C: Ladder Cycle 전용 ===
+  @HiveField(43, defaultValue: 0.0)
+  double athPrice;
+
+  @HiveField(44, defaultValue: 1)
+  int ladderMode;          // 0=안정형, 1=공격형, 2=초공격형
+
+  @HiveField(45, defaultValue: 0)
+  int currentStep;         // 현재 진행 단계 (0=대기, 1~N)
+
+  @HiveField(46, defaultValue: 6)
+  int ladderSteps;         // 분할 단계 수 (3~6)
+
+  @HiveField(47, defaultValue: '1,1,2,3,4,5')
+  String ladderWeights;    // 쉼표 구분 비중
+
+  @HiveField(48, defaultValue: '-10,-19,-28,-37,-46,-55')
+  String ladderTriggers;   // 쉼표 구분 MDD 트리거
+
   // === 집계 필드 (거래 재계산 시 자동 업데이트) ===
   @HiveField(37, defaultValue: 0.0)
   double totalBuyAmountKrw;
@@ -208,6 +229,12 @@ class Cycle extends HiveObject implements TradingPosition {
     this.quarterModeOffset = -15.0,
     this.isQuarterStopLossMode = false,
     this.quarterStopLossRoundsUsed = 0,
+    this.athPrice = 0.0,
+    this.ladderMode = 1,
+    this.currentStep = 0,
+    this.ladderSteps = 6,
+    this.ladderWeights = '1,1,2,3,4,5',
+    this.ladderTriggers = '-10,-19,-28,-37,-46,-55',
     this.totalBuyAmountKrw = 0.0,
     this.totalSellAmountKrw = 0.0,
     this.firstTradeDate,
@@ -367,6 +394,12 @@ class Cycle extends HiveObject implements TradingPosition {
     'lastTradeDate': lastTradeDate?.toIso8601String(),
     'totalBuyUsd': totalBuyUsd,
     'totalSellUsd': totalSellUsd,
+    'athPrice': athPrice,
+    'ladderMode': ladderMode,
+    'currentStep': currentStep,
+    'ladderSteps': ladderSteps,
+    'ladderWeights': ladderWeights,
+    'ladderTriggers': ladderTriggers,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -376,7 +409,7 @@ class Cycle extends HiveObject implements TradingPosition {
       name: json['name'] as String,
       seedAmount: (json['seedAmount'] as num).toDouble(),
       exchangeRateAtEntry: (json['exchangeRateAtEntry'] as num).toDouble(),
-      strategyType: StrategyType.values.byName(json['strategyType'] as String),
+      strategyType: _parseStrategyType(json['strategyType'] as String?),
       entryPrice: (json['entryPrice'] as num?)?.toDouble(),
       consecutiveProfitCount: json['consecutiveProfitCount'] as int? ?? 0,
       panicBuyUsed: json['panicBuyUsed'] as bool? ?? false,
@@ -417,7 +450,23 @@ class Cycle extends HiveObject implements TradingPosition {
         ? DateTime.parse(json['updatedAt'] as String)
         : DateTime.now();
     cycle.completedReturnRate = (json['completedReturnRate'] as num?)?.toDouble();
+    // Ladder Cycle 필드 복원
+    cycle.athPrice = (json['athPrice'] as num?)?.toDouble() ?? 0.0;
+    cycle.ladderMode = (json['ladderMode'] as num?)?.toInt() ?? 1;
+    cycle.currentStep = (json['currentStep'] as num?)?.toInt() ?? 0;
+    cycle.ladderSteps = (json['ladderSteps'] as num?)?.toInt() ?? 6;
+    cycle.ladderWeights = json['ladderWeights'] as String? ?? '1,1,2,3,4,5';
+    cycle.ladderTriggers = json['ladderTriggers'] as String? ?? '-10,-19,-28,-37,-46,-55';
     return cycle;
+  }
+
+  static StrategyType _parseStrategyType(String? value) {
+    if (value == null) return StrategyType.alphaCycleV3;
+    try {
+      return StrategyType.values.byName(value);
+    } catch (_) {
+      return StrategyType.alphaCycleV3;
+    }
   }
 
   static SteadyVersion _parseSteadyVersion(String? value) {
@@ -467,6 +516,12 @@ class Cycle extends HiveObject implements TradingPosition {
     double? quarterModeOffset,
     bool? isQuarterStopLossMode,
     int? quarterStopLossRoundsUsed,
+    double? athPrice,
+    int? ladderMode,
+    int? currentStep,
+    int? ladderSteps,
+    String? ladderWeights,
+    String? ladderTriggers,
     double? totalBuyAmountKrw,
     double? totalSellAmountKrw,
     DateTime? firstTradeDate,
@@ -505,6 +560,12 @@ class Cycle extends HiveObject implements TradingPosition {
       quarterModeOffset: quarterModeOffset ?? this.quarterModeOffset,
       isQuarterStopLossMode: isQuarterStopLossMode ?? this.isQuarterStopLossMode,
       quarterStopLossRoundsUsed: quarterStopLossRoundsUsed ?? this.quarterStopLossRoundsUsed,
+      athPrice: athPrice ?? this.athPrice,
+      ladderMode: ladderMode ?? this.ladderMode,
+      currentStep: currentStep ?? this.currentStep,
+      ladderSteps: ladderSteps ?? this.ladderSteps,
+      ladderWeights: ladderWeights ?? this.ladderWeights,
+      ladderTriggers: ladderTriggers ?? this.ladderTriggers,
       totalBuyAmountKrw: totalBuyAmountKrw ?? this.totalBuyAmountKrw,
       totalBuyUsd: totalBuyUsd ?? this.totalBuyUsd,
       totalSellUsd: totalSellUsd ?? this.totalSellUsd,

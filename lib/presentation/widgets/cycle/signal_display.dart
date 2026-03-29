@@ -259,6 +259,18 @@ class SignalDisplay extends StatelessWidget {
           icon: Icons.block,
           color: context.appTextHint,
         );
+      case TradeSignal.ladderStep1:
+      case TradeSignal.ladderStep2:
+      case TradeSignal.ladderStep3:
+      case TradeSignal.ladderStep4:
+      case TradeSignal.ladderStep5:
+      case TradeSignal.ladderStep6:
+        final step = signal.index - TradeSignal.ladderStep1.index + 1;
+        return _SignalConfig(
+          label: 'MDD $step단계',
+          icon: Icons.stacked_bar_chart,
+          color: AppColors.amber500,
+        );
     }
   }
 }

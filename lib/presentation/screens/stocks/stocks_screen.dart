@@ -30,7 +30,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         setState(() {});
@@ -52,23 +52,30 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
     final steadyColor = settings.steadyCycleChartColor != 0
         ? Color(settings.steadyCycleChartColor)
         : const Color(0xFF4ADE80);
+    final ladderColor = settings.ladderCycleChartColor != 0
+        ? Color(settings.ladderCycleChartColor)
+        : AppColors.amber500;
     final holdingColor = settings.holdingChartColor != 0
         ? Color(settings.holdingChartColor)
         : const Color(0xFFA78BFA);
-    return [smartColor, steadyColor, holdingColor];
+    return [smartColor, steadyColor, ladderColor, holdingColor];
   }
 
   Widget _buildFab(BuildContext context) {
     final isMobile = MediaQuery.sizeOf(context).width < 600;
-    final isHoldingTab = _tabController.index == 2;
+    final isHoldingTab = _tabController.index == 3;
+    final isLadderTab = _tabController.index == 2;
+    final isSteadyTab = _tabController.index == 1;
     final label = isHoldingTab ? '종목 추가' : '사이클 생성';
 
     final onPressed = isHoldingTab
         ? () => context.push('/stocks/search?forHolding=true')
         : () => context.push(
-              _tabController.index == 1
-                  ? '/stocks/setup?strategy=infiniteBuy'
-                  : '/stocks/setup',
+              isLadderTab
+                  ? '/stocks/setup?strategy=ladderCycle'
+                  : isSteadyTab
+                      ? '/stocks/setup?strategy=infiniteBuy'
+                      : '/stocks/setup',
             );
 
     return SizedBox(
@@ -96,6 +103,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
     final summary = ref.watch(unifiedPortfolioProvider(prices));
     final alphaCycles = ref.watch(alphaCyclesProvider);
     final infiniteBuyCycles = ref.watch(infiniteBuyCyclesProvider);
+    final ladderCycles = ref.watch(ladderCyclesProvider);
     final activeHoldings = ref.watch(activeHoldingsProvider);
     final exchangeRate = ref.watch(currentExchangeRateProvider);
 
@@ -155,6 +163,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                 tabController: _tabController,
                 alphaCount: alphaCycles.length,
                 infiniteBuyCount: infiniteBuyCycles.length,
+                ladderCount: ladderCycles.length,
                 holdingCount: activeHoldings.length,
                 tabColors: _getTabColors(ref),
               ),
@@ -177,7 +186,14 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                 emptyMessage: 'Steady Cycle로\n꾸준한 복리 수익을 추구해보세요',
               ),
 
-              // Tab 2: 일반 보유
+              // Tab 2: Ladder Cycle
+              _CycleListTab(
+                cycles: ladderCycles,
+                emptyIcon: Icons.stacked_bar_chart,
+                emptyMessage: 'Ladder Cycle로\nMDD 기반 가속 매수를 시작해보세요',
+              ),
+
+              // Tab 3: 일반 보유
               _HoldingListTab(
                 holdings: activeHoldings,
                 prices: prices,
@@ -200,6 +216,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   final TabController tabController;
   final int alphaCount;
   final int infiniteBuyCount;
+  final int ladderCount;
   final int holdingCount;
   final List<Color> tabColors;
 
@@ -207,6 +224,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
     required this.tabController,
     required this.alphaCount,
     required this.infiniteBuyCount,
+    required this.ladderCount,
     required this.holdingCount,
     required this.tabColors,
   });
@@ -251,9 +269,18 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
           ),
           _buildTab(
             context: context,
-            label: '일반 ($holdingCount)',
+            label: 'Ladder ($ladderCount)',
             color: selectedIndex == 2 ? tabColors[2] : hintColor,
             isSelected: selectedIndex == 2,
+            helpColor: tabColors[2],
+            helpContent: _ladderCycleHelp,
+            helpTitle: 'Ladder Cycle',
+          ),
+          _buildTab(
+            context: context,
+            label: '일반 ($holdingCount)',
+            color: selectedIndex == 3 ? tabColors[3] : hintColor,
+            isSelected: selectedIndex == 3,
           ),
         ],
       ),
@@ -348,6 +375,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant _TabBarDelegate oldDelegate) {
     return alphaCount != oldDelegate.alphaCount ||
         infiniteBuyCount != oldDelegate.infiniteBuyCount ||
+        ladderCount != oldDelegate.ladderCount ||
         holdingCount != oldDelegate.holdingCount ||
         tabColors != oldDelegate.tabColors;
   }
@@ -365,6 +393,24 @@ const _smartCycleHelp = '스마트 방어형 매매법\n\n'
     '• 적응형 익절: 연속 익절 시 목표가 자동 상향\n'
     '• 현금 보존: 익절 시 원금 회수로 현금 확보\n\n'
     '추천 대상: 안전지향형 투자자, 규칙기반 매매, 단일 종목 집중';
+
+const _ladderCycleHelp = 'MDD 기반 가속 분할매수 전략\n\n'
+    '핵심 메커니즘:\n'
+    '• ATH(역사적 신고가) 대비 하락률로 매수 시점 판단\n'
+    '• 6단계 가속 비중: 1-1-2-3-4-5 (기본)\n'
+    '• 하락할수록 공격적으로 매집하여 평단가 극적 하락\n'
+    '• 신고점 도달 시 사이클 종료\n\n'
+    '3가지 모드:\n\n'
+    '── 안정형 ──\n'
+    '• 단계별 복수 티커 분산 매수\n'
+    '• QQQ/QLD/TQQQ 등 레버리지 혼합\n\n'
+    '── 공격형 ──\n'
+    '• 단일 티커 집중 매수\n'
+    '• 기본 MDD 트리거 사용\n\n'
+    '── 초공격형 ──\n'
+    '• 단일 티커 + 좁은 트리거 간격\n'
+    '• 고위험 고수익 추구\n\n'
+    '추천 대상: 마틴게일 전략 선호, 큰 하락장 대비, 장기 투자';
 
 const _steadyCycleHelp = '라오어의 무한매수법 기반 분할매수 전략\n\n'
     '3가지 버전을 지원하며, 사이클 생성 시 선택합니다.\n\n'
@@ -733,10 +779,14 @@ class _ActiveCycleCard extends ConsumerWidget {
                       child: _CycleInfoColumn(
                         label: cycle.strategyType == StrategyType.alphaCycleV3
                             ? '익절 목표'
-                            : '진행 회차',
+                            : cycle.strategyType == StrategyType.ladderCycle
+                                ? '진행단계'
+                                : '진행 회차',
                         value: cycle.strategyType == StrategyType.alphaCycleV3
                             ? '+${cycle.currentSellTarget.toStringAsFixed(0)}%'
-                            : '${cycle.roundsUsed}/${cycle.totalRounds}회',
+                            : cycle.strategyType == StrategyType.ladderCycle
+                                ? '${cycle.currentStep}/${cycle.ladderSteps}단계'
+                                : '${cycle.roundsUsed}/${cycle.totalRounds}회',
                       ),
                     ),
                   ],

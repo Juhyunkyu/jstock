@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/korean_number_formatter.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
+import '../../../domain/trading/ladder_cycle_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/ticker_logo.dart';
@@ -55,6 +56,16 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   double _offsetB = 1.5;
   double _quarterModeOffset = -15.0;
 
+  // === Strategy C: Ladder Cycle 파라미터 ===
+  int _ladderMode = 1; // 0=안정형, 1=공격형, 2=초공격형
+  double _athPrice = 0;
+  int _ladderSteps = 6;
+  String _ladderWeights = '1,1,2,3,4,5';
+  String _ladderTriggers = '-10,-19,-28,-37,-46,-55';
+  int _ladderPreset = 1; // 0=균등, 1=가속, 2=피보나치, 3=커스텀
+  List<double> _customWeightPercents = [6.25, 6.25, 12.5, 18.75, 25.0, 31.25];
+  final _athController = TextEditingController();
+
   // === 고급 설정 ===
   bool _showAdvanced = false;
 
@@ -72,6 +83,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     _seedFocusNode.dispose();
     _seedController.dispose();
     _nicknameController.dispose();
+    _athController.dispose();
     super.dispose();
   }
 
@@ -105,8 +117,22 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   double get _effectivePerPercent =>
       _weightedBuyPerPercent > 0 ? _weightedBuyPerPercent : _seedAmount * 0.00007;
 
-  bool get _canCreate =>
-      _selectedTicker != null && _seedAmount >= 10000 && !_isCreating;
+  bool get _canCreate {
+    if (_selectedTicker == null || _seedAmount < 10000 || _isCreating) {
+      return false;
+    }
+    if (_selectedStrategy == StrategyType.ladderCycle) {
+      if (_athPrice <= 0) return false;
+      // 커스텀 비율일 때 합계 100% 검증
+      if (_ladderPreset == 3) {
+        final sum = _customWeightPercents
+            .take(_ladderSteps)
+            .fold<double>(0, (s, v) => s + v);
+        if ((sum - 100.0).abs() > 0.5) return false;
+      }
+    }
+    return true;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,12 +175,38 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               _buildSteadyVersionSelector(),
             ],
 
+            // Ladder 매수 모드 선택 (Ladder 선택 시에만)
+            if (_selectedStrategy == StrategyType.ladderCycle) ...[
+              const SizedBox(height: 16),
+              _buildLadderModeSelector(),
+            ],
+
             const SizedBox(height: 24),
 
             // 2. 종목 선택
             _buildSectionLabel('종목 선택'),
             const SizedBox(height: 8),
             _buildTickerSelector(),
+            if (_selectedStrategy == StrategyType.ladderCycle)
+              Padding(
+                padding: const EdgeInsets.only(left: 2, top: 6),
+                child: Text(
+                  '※ MDD 기준 지수 — 안정형: QQQ/QLD/TQQQ 매수 / 공격형: TQQQ 매수 / 초공격형: SOXL 매수',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: context.appTextHint,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+
+            // Ladder ATH 가격 입력
+            if (_selectedStrategy == StrategyType.ladderCycle) ...[
+              const SizedBox(height: 24),
+              _buildSectionLabel('ATH 가격 (USD)'),
+              const SizedBox(height: 8),
+              _buildAthPriceInput(),
+            ],
 
             const SizedBox(height: 24),
 
@@ -255,11 +307,37 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Steady Cycle',
+                  'Steady',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: _selectedStrategy == StrategyType.infiniteBuy
+                        ? Colors.white
+                        : context.appTextSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ButtonSegment<StrategyType>(
+            value: StrategyType.ladderCycle,
+            label: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.stacked_bar_chart,
+                  size: 16,
+                  color: _selectedStrategy == StrategyType.ladderCycle
+                      ? Colors.white
+                      : context.appTextSecondary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Ladder',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _selectedStrategy == StrategyType.ladderCycle
                         ? Colors.white
                         : context.appTextSecondary,
                   ),
@@ -296,7 +374,38 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
 
   Widget _buildStrategyDescription() {
     final isAlpha = _selectedStrategy == StrategyType.alphaCycleV3;
-    final color = isAlpha ? AppColors.blue500 : AppColors.green500;
+    final isLadder = _selectedStrategy == StrategyType.ladderCycle;
+    final color = isAlpha
+        ? AppColors.blue500
+        : isLadder
+            ? AppColors.amber500
+            : AppColors.green500;
+
+    final (title, desc, icon) = isAlpha
+        ? (
+            '스마트 방어형',
+            '하락장에서도 현금을 보존하며\n가중매수와 승부수로 저점 매수 기회를 포착합니다.\n연속 익절 시 목표가 자동 조절됩니다.',
+            Icons.shield_outlined,
+          )
+        : isLadder
+            ? (
+                'MDD 기반 가속 분할매수형',
+                'ATH 대비 하락률에 따라\n$_ladderSteps단계 가속 비중(${_ladderWeights.replaceAll(',', '-')})으로\n하락할수록 공격적으로 매집합니다.',
+                Icons.stacked_bar_chart,
+              )
+            : (
+                _steadyVersion == SteadyVersion.v1
+                    ? '꾸준한 분할매수형'
+                    : _steadyVersion == SteadyVersion.v2_2
+                        ? '라오어 정통 LOC형'
+                        : '공격적 복리형',
+                _steadyVersion == SteadyVersion.v1
+                    ? '40회 분할 매수로\n기계적으로 평균단가를 낮추며\n+10% 익절 시 복리 효과를 극대화합니다.'
+                    : _steadyVersion == SteadyVersion.v2_2
+                        ? 'T값 기반 LOC 주문으로\n매일 매수+매도를 동시에 걸며\n하락장에서 현금을 보존합니다.'
+                        : '20분할 공격적 LOC와\n사이클 내 반복리로\n고변동성 종목에서 빠른 사이클 회전.',
+                Icons.all_inclusive,
+              );
 
     return Container(
       width: double.infinity,
@@ -312,21 +421,14 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            isAlpha ? Icons.shield_outlined : Icons.all_inclusive,
-            size: 20,
-            color: color,
-          ),
+          Icon(icon, size: 20, color: color),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  isAlpha ? '스마트 방어형'
-                      : _steadyVersion == SteadyVersion.v1 ? '꾸준한 분할매수형'
-                      : _steadyVersion == SteadyVersion.v2_2 ? '라오어 정통 LOC형'
-                      : '공격적 복리형',
+                  title,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -335,13 +437,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isAlpha
-                      ? '하락장에서도 현금을 보존하며\n가중매수와 승부수로 저점 매수 기회를 포착합니다.\n연속 익절 시 목표가 자동 조절됩니다.'
-                      : _steadyVersion == SteadyVersion.v1
-                          ? '40회 분할 매수로\n기계적으로 평균단가를 낮추며\n+10% 익절 시 복리 효과를 극대화합니다.'
-                          : _steadyVersion == SteadyVersion.v2_2
-                              ? 'T값 기반 LOC 주문으로\n매일 매수+매도를 동시에 걸며\n하락장에서 현금을 보존합니다.'
-                              : '20분할 공격적 LOC와\n사이클 내 반복리로\n고변동성 종목에서 빠른 사이클 회전.',
+                  desc,
                   style: TextStyle(
                     fontSize: 12,
                     color: context.appTextSecondary,
@@ -352,7 +448,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             ),
           ),
           GestureDetector(
-            onTap: () => _showStrategyHelp(isAlpha),
+            onTap: () => _showStrategyHelp(isAlpha, isLadder: isLadder),
             child: Padding(
               padding: const EdgeInsets.only(left: 4),
               child: Icon(
@@ -547,9 +643,33 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     );
   }
 
-  void _showStrategyHelp(bool isAlpha) {
-    final title = isAlpha ? 'Smart Cycle' : 'Steady Cycle';
-    final description = isAlpha
+  void _showStrategyHelp(bool isAlpha, {bool isLadder = false}) {
+    final title = isLadder ? 'Ladder Cycle' : isAlpha ? 'Smart Cycle' : 'Steady Cycle';
+    final description = isLadder
+        ? 'MDD(최대낙폭) 기반 N단계 가속 분할매수법입니다.\n'
+          'ATH(역사적 신고가) 대비 하락률에 따라 투입 비중을 높여 평단가를 극적으로 낮춥니다.\n\n'
+          '— 작동 방식\n\n'
+          '1. ATH 가격 설정\n'
+          '기준이 되는 역사적 신고가를 입력합니다.\n\n'
+          '2. 단계별 매수\n'
+          'ATH 대비 하락률이 각 단계의 트리거에 도달하면\n'
+          '해당 단계의 비중만큼 매수합니다.\n'
+          '기본 6단계: -10%, -19%, -28%, -37%, -46%, -55%\n\n'
+          '3. 가속 비중\n'
+          '기본 비중 1-1-2-3-4-5 (16분할)\n'
+          '하락이 깊어질수록 더 많이 매수하여\n'
+          '평단가를 극적으로 낮춥니다.\n\n'
+          '4. 매수 모드\n'
+          '• 안정형: QQQ/QLD/TQQQ 중 선택 매수\n'
+          '• 공격형: TQQQ 매수\n'
+          '• 초공격형: SOXL 매수\n\n'
+          '5. 사이클 종료\n'
+          '신고점 도달 시 수동으로 종료합니다.\n\n'
+          '— 추천 대상\n'
+          '• 대형 하락장에서 공격적으로 매집하고 싶은 분\n'
+          '• 마틴게일 기반의 가속 매수 전략을 원하는 분\n'
+          '• MDD 기반의 체계적 분할매수를 원하는 분'
+        : isAlpha
         ? '시장 하락 시 가중매수로 저점을 잡고, 연속 익절하면 목표가를 높이는 적응형 전략입니다.\n\n'
           '— 작동 방식\n\n'
           '1. 시드의 20%로 첫 매수\n'
@@ -969,6 +1089,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     if (seed <= 0) return const SizedBox.shrink();
 
     final isAlpha = _selectedStrategy == StrategyType.alphaCycleV3;
+    final isLadder = _selectedStrategy == StrategyType.ladderCycle;
 
     return Container(
       width: double.infinity,
@@ -981,7 +1102,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '자동 계산',
+            isLadder ? '자동 계산 — $_ladderSteps단계 투입 계획' : '자동 계산',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
@@ -1007,6 +1128,8 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               label: '익절 목표',
               value: '+${_firstProfitTarget.toStringAsFixed(0)}%',
             ),
+          ] else if (isLadder) ...[
+            _buildLadderCalcRows(seed),
           ] else ...[
             _buildInfiniteBuyCalcRows(seed),
           ],
@@ -1099,6 +1222,8 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           children: [
             if (_selectedStrategy == StrategyType.alphaCycleV3)
               _buildAlphaAdvanced()
+            else if (_selectedStrategy == StrategyType.ladderCycle)
+              _buildLadderAdvanced()
             else
               _buildInfiniteBuyAdvanced(),
           ],
@@ -1240,6 +1365,428 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           _buildCompoundToggle(),
       ],
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Ladder Cycle 전용 UI
+  // ═══════════════════════════════════════════════════════════════
+
+  static const _ladderModeLabels = ['안정형', '공격형', '초공격형'];
+
+  // 프리셋별 비중 데이터 (steps → weights)
+  static const _presetNames = ['균등형', '가속형', '피보나치형', '커스텀'];
+
+  static List<int> _presetWeights(int preset, int steps) {
+    switch (preset) {
+      case 0: // 균등형
+        return List.filled(steps, 1);
+      case 2: // 피보나치형
+        return switch (steps) {
+          3 => [1, 2, 3],
+          4 => [1, 1, 2, 3],
+          5 => [1, 1, 2, 3, 5],
+          _ => [1, 1, 2, 3, 5, 8],
+        };
+      default: // 가속형 (1) — ladder_cycle_service 기본값
+        return switch (steps) {
+          3 => [2, 3, 5],
+          4 => [1, 2, 3, 4],
+          5 => [1, 1, 2, 3, 3],
+          _ => [1, 1, 2, 3, 4, 5],
+        };
+    }
+  }
+
+  void _updateLadderWeightsFromPreset() {
+    if (_ladderPreset == 3) return; // 커스텀은 직접 관리
+    final weights = _presetWeights(_ladderPreset, _ladderSteps);
+    _ladderWeights = weights.join(',');
+    // 커스텀 퍼센트도 동기화
+    final total = weights.fold<int>(0, (s, w) => s + w);
+    _customWeightPercents = weights
+        .map((w) => total > 0 ? (w / total * 100) : 0.0)
+        .toList();
+  }
+
+  void _updateLadderTriggersFromSteps() {
+    final triggers = parseLadderTriggers('', steps: _ladderSteps);
+    _ladderTriggers = triggers.map((t) => t.toStringAsFixed(0)).join(',');
+  }
+
+  Widget _buildLadderModeSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('매수 모드'),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<int>(
+            segments: List.generate(3, (i) => ButtonSegment<int>(
+              value: i,
+              label: Text(
+                _ladderModeLabels[i],
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _ladderMode == i
+                      ? Colors.white
+                      : context.appTextSecondary,
+                ),
+              ),
+            )),
+            selected: {_ladderMode},
+            onSelectionChanged: (selected) {
+              setState(() => _ladderMode = selected.first);
+            },
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.amber600;
+                }
+                return context.appSurface;
+              }),
+              side: WidgetStateProperty.all(
+                BorderSide(color: context.appBorder, width: 0.5),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAthPriceInput() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(
+        color: context.appSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: context.appBorder),
+      ),
+      child: Row(
+        children: [
+          Text(
+            '\$ ',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: context.appTextSecondary,
+            ),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _athController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+              ],
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: context.appTextPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: '542.85',
+                hintStyle: TextStyle(
+                  color: context.appTextHint,
+                  fontWeight: FontWeight.w400,
+                ),
+                border: InputBorder.none,
+              ),
+              onChanged: (v) {
+                setState(() {
+                  _athPrice = double.tryParse(v) ?? 0;
+                });
+              },
+            ),
+          ),
+          Text(
+            'USD',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: context.appTextSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLadderCalcRows(double seed) {
+    final weights = parseLadderWeights(_ladderWeights, steps: _ladderSteps);
+    final triggers = parseLadderTriggers(_ladderTriggers, steps: _ladderSteps);
+    final totalWeight = weights.fold<int>(0, (s, w) => s + w);
+
+    if (totalWeight == 0) return const SizedBox.shrink();
+
+    return Column(
+      children: List.generate(weights.length.clamp(0, _ladderSteps), (i) {
+        final amount = seed * weights[i] / totalWeight;
+        final pct = weights[i] / totalWeight * 100;
+        final triggerStr = i < triggers.length
+            ? triggers[i].toStringAsFixed(0)
+            : '?';
+        return Padding(
+          padding: EdgeInsets.only(bottom: i < _ladderSteps - 1 ? 6 : 0),
+          child: _CalcRow(
+            label: '${i + 1}단계 ($triggerStr%)',
+            value: '${formatKrwWithComma(amount)}\u2009원',
+            subLabel: '(${pct.toStringAsFixed(2)}%)',
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildLadderAdvanced() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 분할 단계
+        Text(
+          '분할 단계',
+          style: TextStyle(fontSize: 12, color: context.appTextSecondary),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<int>(
+            segments: [3, 4, 5, 6].map((n) => ButtonSegment<int>(
+              value: n,
+              label: Text(
+                '$n',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _ladderSteps == n
+                      ? Colors.white
+                      : context.appTextSecondary,
+                ),
+              ),
+            )).toList(),
+            selected: {_ladderSteps},
+            onSelectionChanged: (selected) {
+              setState(() {
+                _ladderSteps = selected.first;
+                _updateLadderTriggersFromSteps();
+                _updateLadderWeightsFromPreset();
+              });
+            },
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.amber600;
+                }
+                return context.appSurface;
+              }),
+              side: WidgetStateProperty.all(
+                BorderSide(color: context.appBorder, width: 0.5),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 비율 프리셋
+        Text(
+          '비율 프리셋',
+          style: TextStyle(fontSize: 12, color: context.appTextSecondary),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<int>(
+            segments: List.generate(4, (i) => ButtonSegment<int>(
+              value: i,
+              label: Text(
+                _presetNames[i],
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: _ladderPreset == i
+                      ? Colors.white
+                      : context.appTextSecondary,
+                ),
+              ),
+            )),
+            selected: {_ladderPreset},
+            onSelectionChanged: (selected) {
+              setState(() {
+                _ladderPreset = selected.first;
+                _updateLadderWeightsFromPreset();
+              });
+            },
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.amber600;
+                }
+                return context.appSurface;
+              }),
+              side: WidgetStateProperty.all(
+                BorderSide(color: context.appBorder, width: 0.5),
+              ),
+              shape: WidgetStateProperty.all(
+                RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 투입 계획 미리보기
+        if (_seedAmount > 0) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: context.appBackground,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '투입 계획 미리보기',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: context.appTextHint,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _buildLadderCalcRows(_seedAmount),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // 커스텀 슬라이더 (커스텀 프리셋 선택 시)
+        if (_ladderPreset == 3) ...[
+          _buildCustomWeightSliders(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCustomWeightSliders() {
+    // customWeightPercents 길이를 ladderSteps에 맞춤
+    while (_customWeightPercents.length < _ladderSteps) {
+      _customWeightPercents.add(0);
+    }
+    final sum = _customWeightPercents
+        .take(_ladderSteps)
+        .fold<double>(0, (s, v) => s + v);
+    final isValid = (sum - 100.0).abs() <= 0.5;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ...List.generate(_ladderSteps, (i) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 48,
+                  child: Text(
+                    '${i + 1}단계',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appTextSecondary,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      activeTrackColor: AppColors.amber500,
+                      inactiveTrackColor: context.appDivider,
+                      thumbColor: AppColors.amber500,
+                      overlayColor: AppColors.amber500.withValues(alpha: 0.12),
+                      trackHeight: 3,
+                      thumbShape: const RoundSliderThumbShape(
+                          enabledThumbRadius: 7),
+                    ),
+                    child: Slider(
+                      value: _customWeightPercents[i].clamp(0, 50),
+                      min: 0,
+                      max: 50,
+                      divisions: 50,
+                      onChanged: (v) {
+                        setState(() {
+                          _customWeightPercents[i] = v;
+                          _applyCustomWeightsToLadder();
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    '${_customWeightPercents[i].toStringAsFixed(0)}%',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: context.appTextPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              '합계: ${sum.toStringAsFixed(0)}%',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isValid ? context.appTextSecondary : AppColors.red500,
+              ),
+            ),
+          ],
+        ),
+        if (!isValid)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '⚠ 합계가 100%가 아닙니다 (현재 ${sum.toStringAsFixed(0)}%)',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.red500,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _applyCustomWeightsToLadder() {
+    // 퍼센트를 정수 비중으로 변환 (최소 1 단위)
+    final percents = _customWeightPercents.take(_ladderSteps).toList();
+    final weights = percents.map((p) => p.round().clamp(0, 50)).toList();
+    _ladderWeights = weights.join(',');
   }
 
   Widget _buildCompoundToggle() {
@@ -1396,6 +1943,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             offsetA: _offsetA,
             offsetB: _offsetB,
             quarterModeOffset: _quarterModeOffset,
+            // Strategy C: Ladder
+            athPrice: _athPrice,
+            ladderMode: _ladderMode,
+            ladderSteps: _ladderSteps,
+            ladderWeights: _ladderWeights,
+            ladderTriggers: _ladderTriggers,
           );
 
       if (mounted) {

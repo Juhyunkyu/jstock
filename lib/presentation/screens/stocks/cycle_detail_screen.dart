@@ -20,8 +20,10 @@ import 'widgets/steady_order_guide_card.dart';
 import 'widgets/cycle_seed_edit_dialog.dart';
 import 'widgets/cycle_trade_card.dart';
 import 'widgets/cycle_trade_record_sheet.dart';
+import 'widgets/ladder_trade_record_sheet.dart';
 import 'widgets/steady_combined_trade_sheet.dart';
 import 'widgets/cycle_settings_sheet.dart';
+import 'widgets/ladder_detail_body.dart';
 
 /// 사이클 상세 화면
 ///
@@ -126,6 +128,19 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
         backgroundColor: context.appBackground,
         appBar: _buildAppBar(context, cycle, allActive),
         body: CycleCompletedView(cycle: cycle, trades: trades, isMobile: isMobile),
+      );
+    }
+
+    // (F-2) Ladder Cycle: 별도 body 위젯 사용
+    if (cycle.strategyType == StrategyType.ladderCycle &&
+        !isPendingCompletion) {
+      return Scaffold(
+        backgroundColor: context.appBackground,
+        appBar: _buildAppBar(context, cycle, allActive),
+        body: LadderDetailBody(cycleId: widget.cycleId),
+        floatingActionButton: cycle.status == CycleStatus.active
+            ? _buildFAB(context, cycle, signal, signalAmount, liveExchangeRate, isMobile)
+            : null,
       );
     }
 
@@ -303,6 +318,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
             steadyVersion: cycle.strategyType == StrategyType.infiniteBuy
                 ? cycle.steadyVersion
                 : null,
+            ladderMode: cycle.strategyType == StrategyType.ladderCycle
+                ? cycle.ladderMode
+                : null,
           ),
         ),
         if (cycle.status == CycleStatus.active)
@@ -324,7 +342,21 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                   ],
                 ),
               ),
-              if (cycle.totalShares > 0)
+              // (F-13) Ladder 전용: ATH 수정
+              if (cycle.strategyType == StrategyType.ladderCycle)
+                PopupMenuItem(
+                  value: 'editAth',
+                  child: Row(
+                    children: [
+                      Icon(Icons.trending_up, size: 20, color: context.appTextSecondary),
+                      const SizedBox(width: 8),
+                      Text('ATH 수정', style: TextStyle(color: context.appTextPrimary)),
+                    ],
+                  ),
+                ),
+              // (F-13) 익절 처리: Ladder가 아닌 경우에만 표시
+              if (cycle.totalShares > 0 &&
+                  cycle.strategyType != StrategyType.ladderCycle)
                 PopupMenuItem(
                   value: 'takeProfit',
                   child: Row(
@@ -500,6 +532,61 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                     groupId: groupId,
                     tradedAt: date,
                   );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Ladder Cycle: LadderTradeRecordSheet (Phase 7)
+    if (cycle.strategyType == StrategyType.ladderCycle) {
+      showModalBottomSheet(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        useSafeArea: true,
+        backgroundColor: context.appSurface,
+        shape: const RoundedRectangleBorder(),
+        builder: (context) => SizedBox(
+          height: MediaQuery.sizeOf(context).height,
+          child: LadderTradeRecordSheet(
+            cycle: cycle,
+            currentExchangeRate: liveExchangeRate,
+            currentPrice: price,
+            changePercent: quote?.changePercent,
+            onSubmit: ({
+              required isBuy,
+              required signal,
+              required price,
+              required shares,
+              required exchangeRate,
+              required date,
+              memo,
+              ticker,
+            }) {
+              if (isBuy) {
+                final amountKrw = shares * price * exchangeRate;
+                ref.read(tradeListProvider(widget.cycleId).notifier).recordBuy(
+                      cycleId: widget.cycleId,
+                      signal: signal,
+                      price: price,
+                      amountKrw: amountKrw,
+                      exchangeRate: exchangeRate,
+                      memo: memo,
+                      ticker: ticker,
+                    );
+              } else {
+                ref.read(tradeListProvider(widget.cycleId).notifier).recordSell(
+                      cycleId: widget.cycleId,
+                      signal: signal,
+                      price: price,
+                      shares: shares,
+                      exchangeRate: exchangeRate,
+                      memo: memo,
+                      ticker: ticker,
+                    );
+              }
             },
           ),
         ),
@@ -946,6 +1033,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     switch (action) {
       case 'editSeed':
         _handleEditSeed(cycle);
+      case 'editAth':
+        _handleEditAth(cycle);
       case 'takeProfit':
         final prices = ref.read(closingPricesProvider);
         final price = prices[cycle.ticker] ?? 0.0;
@@ -970,6 +1059,53 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
       final investedAmount = cycle.seedAmount - cycle.remainingCash;
       cycle.seedAmount = newSeed;
       cycle.remainingCash = newSeed - investedAmount;
+      await ref.read(cycleListProvider.notifier).saveCycle(cycle);
+    }
+  }
+
+  Future<void> _handleEditAth(Cycle cycle) async {
+    final controller = TextEditingController(
+      text: cycle.athPrice > 0 ? cycle.athPrice.toStringAsFixed(2) : '',
+    );
+
+    final newAth = await showDialog<double>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.appSurface,
+        title: Text(
+          'ATH 가격 수정',
+          style: TextStyle(fontSize: 16, color: context.appTextPrimary),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          style: TextStyle(color: context.appTextPrimary),
+          decoration: InputDecoration(
+            prefixText: '\$ ',
+            prefixStyle: TextStyle(color: context.appTextPrimary),
+            hintText: '예: 542.85',
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('취소', style: TextStyle(color: context.appTextSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              final val = double.tryParse(controller.text);
+              if (val != null && val > 0) Navigator.pop(ctx, val);
+            },
+            child: Text('확인', style: TextStyle(color: context.appAccent)),
+          ),
+        ],
+      ),
+    );
+
+    if (newAth != null && mounted) {
+      cycle.athPrice = newAth;
       await ref.read(cycleListProvider.notifier).saveCycle(cycle);
     }
   }
