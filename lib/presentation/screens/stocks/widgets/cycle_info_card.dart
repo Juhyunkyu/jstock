@@ -250,7 +250,9 @@ class _CycleInfoCardState extends State<CycleInfoCard> {
             ),
             child: cycle.strategyType == StrategyType.alphaCycleV3
                 ? _buildAlphaCycleSection(context, cycle)
-                : _buildSteadyCycleSection(context, cycle),
+                : cycle.strategyType == StrategyType.ladderCycle
+                    ? _buildLadderCycleSection(context, cycle)
+                    : _buildSteadyCycleSection(context, cycle),
           ),
 
           // === 설정 변경 버튼 (대기중일 때만) ===
@@ -310,6 +312,29 @@ class _CycleInfoCardState extends State<CycleInfoCard> {
           label: '승부수',
           value: cycle.panicBuyUsed ? '사용' : '미사용',
           valueColor: cycle.panicBuyUsed ? AppColors.red500 : null,
+        ),
+      ],
+    );
+  }
+
+  /// Ladder Cycle 전용 섹션 (공격형/초공격형에서 CycleInfoCard 사용 시)
+  Widget _buildLadderCycleSection(BuildContext context, Cycle cycle) {
+    final cashRatio = cycle.seedAmount > 0
+        ? (cycle.remainingCash / cycle.seedAmount * 100)
+        : 0.0;
+
+    return Column(
+      children: [
+        InfoRow(fontSize: 12, label: '설정 시드', value: formatCashShort(cycle.seedAmount)),
+        const SizedBox(height: 6),
+        InfoRow(fontSize: 12, label: '잔여현금', value: formatCashShort(cycle.remainingCash)),
+        const SizedBox(height: 6),
+        InfoRow(fontSize: 12, label: '현금비율', value: '${cashRatio.toStringAsFixed(1)}%'),
+        const SizedBox(height: 6),
+        InfoRow(
+          fontSize: 12,
+          label: '진행 단계',
+          value: '${cycle.currentStep} / ${cycle.ladderSteps}',
         ),
       ],
     );

@@ -272,7 +272,9 @@ class _LadderTradeRecordSheetState
   Widget _buildHeader(BuildContext context) {
     final displayTicker = _isConservative && _selectedTicker != null
         ? _selectedTicker!
-        : widget.cycle.ticker;
+        : (widget.cycle.buyTicker.isNotEmpty
+            ? widget.cycle.buyTicker
+            : widget.cycle.ticker);
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
