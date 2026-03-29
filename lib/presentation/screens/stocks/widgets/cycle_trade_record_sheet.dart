@@ -932,12 +932,10 @@ class _CycleTradeRecordSheetState
           width: 80,
           child: TextField(
             controller: _sharesController,
-            keyboardType: const TextInputType.numberWithOptions(
-                decimal: true),
+            keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(
-                  RegExp(r'^\d*\.?\d*')),
+              FilteringTextInputFormatter.digitsOnly,
             ],
             onChanged: (_) {
               // 매도 시 보유 수량 초과 방지
@@ -1303,7 +1301,10 @@ class _CycleTradeRecordSheetState
               flex: 2,
               child: TextField(
                 controller: sharesController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                ],
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

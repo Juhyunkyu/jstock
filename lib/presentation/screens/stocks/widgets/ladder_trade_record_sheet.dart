@@ -1097,10 +1097,10 @@ class _LadderTradeRecordSheetState
           width: 80,
           child: TextField(
             controller: _sharesController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: TextInputType.number,
             textAlign: TextAlign.center,
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              FilteringTextInputFormatter.digitsOnly,
             ],
             onChanged: (_) {
               // 매도 시 보유 수량 초과 방지
