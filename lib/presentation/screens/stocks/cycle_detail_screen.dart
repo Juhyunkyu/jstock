@@ -444,24 +444,22 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     double liveExchangeRate,
     bool isMobile,
   ) {
-    if (isMobile) {
-      return FloatingActionButton.small(
+    return SizedBox(
+      height: isMobile ? 36 : 40,
+      child: FloatingActionButton.extended(
         onPressed: () => _showTradeDialog(
           context, cycle, signal, signalAmount, liveExchangeRate,
         ),
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: Colors.white, size: 20),
-      );
-    }
-    return FloatingActionButton.extended(
-      onPressed: () => _showTradeDialog(
-        context, cycle, signal, signalAmount, liveExchangeRate,
-      ),
-      backgroundColor: AppColors.primary,
-      icon: const Icon(Icons.add, color: Colors.white),
-      label: const Text(
-        '거래 기록',
-        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        backgroundColor: context.appAccent.withValues(alpha: 0.85),
+        foregroundColor: Colors.white,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        elevation: 2,
+        icon: Icon(Icons.add, size: isMobile ? 16 : 18),
+        label: Text(
+          '거래 기록',
+          style: TextStyle(fontSize: isMobile ? 12 : 14, fontWeight: FontWeight.w600),
+        ),
+        extendedPadding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18),
       ),
     );
   }
