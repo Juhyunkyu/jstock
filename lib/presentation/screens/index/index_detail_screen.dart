@@ -7,6 +7,7 @@ import '../../../data/models/ohlc_data.dart';
 import '../../../data/services/api/finnhub_service.dart';
 import '../../../data/services/technical_indicator_service.dart';
 import '../../providers/api_providers.dart';
+import '../../providers/stock_providers.dart';
 import '../../widgets/index/detail_chart_section.dart';
 import '../../widgets/index/period_returns_section.dart';
 import '../../widgets/index/pivot_point_section.dart';
@@ -278,6 +279,10 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
     final quote = ref.watch(
       stockQuoteProvider.select((s) => s.quotes[_chartSymbol]),
     );
+    // 종가 기반 가격 (프리/애프터/휴장 시 previousClose 사용)
+    final closingPrice = ref.watch(
+      closingPricesProvider.select((m) => m[_chartSymbol] ?? 0.0),
+    );
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -316,7 +321,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
           ],
         ),
         actions: [
-          if (quote != null) _buildAppBarPrice(quote, isDesktop),
+          if (quote != null) _buildAppBarPrice(quote, closingPrice, isDesktop),
           const SizedBox(width: 2),
           SizedBox(
             width: 36,
@@ -335,7 +340,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
           : _error != null
               ? Center(child: Text('에러: $_error'))
               : _isIndex
-                  ? _buildChartContent(quote, isDesktop)
+                  ? _buildChartContent(quote, closingPrice, isDesktop)
                   : Column(
                       children: [
                         _buildTabBar(),
@@ -344,7 +349,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
                             controller: _tabController,
                             physics: const NeverScrollableScrollPhysics(),
                             children: [
-                              _buildChartContent(quote, isDesktop),
+                              _buildChartContent(quote, closingPrice, isDesktop),
                               FinancialScreen(symbol: _chartSymbol),
                             ],
                           ),
@@ -402,7 +407,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
     );
   }
 
-  Widget _buildChartContent(StockQuote? quote, bool isDesktop) {
+  Widget _buildChartContent(StockQuote? quote, double closingPrice, bool isDesktop) {
     return RefreshIndicator(
       onRefresh: _loadData,
       child: SingleChildScrollView(
@@ -429,7 +434,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
                 showPivotLines: _showPivotLines,
                 pivotLevels: _calculatePivotLevels(),
                 indicatorService: _indicatorService,
-                currentPrice: quote?.currentPrice,
+                currentPrice: closingPrice,
                 previousClose: quote?.previousClose,
                 onDrawingActiveChanged: (active) {
                   if (_isDrawingActive != active) {
@@ -457,12 +462,12 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
     );
   }
 
-  Widget _buildAppBarPrice(StockQuote quote, bool isDesktop) {
+  Widget _buildAppBarPrice(StockQuote quote, double closingPrice, bool isDesktop) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          _formatPrice(quote.currentPrice),
+          _formatPrice(closingPrice),
           style: TextStyle(
             fontSize: isDesktop ? 17 : 15,
             fontWeight: FontWeight.w700,
