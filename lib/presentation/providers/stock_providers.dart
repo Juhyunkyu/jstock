@@ -205,15 +205,21 @@ final cachedMarketStateProvider = Provider<String>((ref) {
 /// 종가 기반 가격 Provider (사이클/보유용)
 ///
 /// 정규장: currentPrice (실시간)
-/// 프리/애프터/휴장: previousClose (종가)
+/// 프리/애프터: previousClose (전일 종가) — 시간외 거래가 혼입 방지
+/// 휴장(주말/공휴일): currentPrice (= 마지막 거래가 = 가장 최근 종가)
+///   ※ Finnhub API: 주말에 c=금요일종가, pc=목요일종가이므로 c 사용이 정확
 final closingPricesProvider = Provider<Map<String, double>>((ref) {
   final quoteState = ref.watch(stockQuoteProvider);
-  final isRegular = ref.watch(cachedMarketStateProvider) == 'REGULAR';
+  final marketState = ref.watch(cachedMarketStateProvider);
   return quoteState.quotes.map((key, quote) {
-    if (isRegular) {
+    if (marketState == 'REGULAR') {
       return MapEntry(key, quote.currentPrice);
     }
-    // 프리/애프터/휴장 → 종가 사용 (previousClose가 0이면 currentPrice 폴백)
+    if (marketState == 'CLOSED') {
+      // 휴장(주말/공휴일): currentPrice가 가장 최근 종가
+      return MapEntry(key, quote.currentPrice);
+    }
+    // 프리/애프터마켓: previousClose (전일 종가) 사용 — 시간외 거래가 방지
     return MapEntry(key, quote.previousClose > 0 ? quote.previousClose : quote.currentPrice);
   });
 });
