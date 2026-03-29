@@ -65,7 +65,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       throw StateError('No remaining cash for buy');
     }
 
-    final shares = actualAmount / (price * exchangeRate);
+    final shares = (actualAmount / (price * exchangeRate)).floorToDouble();
 
     final trade = Trade(
       id: const Uuid().v4(),
