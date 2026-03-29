@@ -46,7 +46,7 @@ class _LadderBuyGuideCardState extends ConsumerState<LadderBuyGuideCard> {
       final recommended = recommendedTickers(cycle.ladderMode, nextStep);
       _selectedTicker = recommended.first;
     } else {
-      // 공격형/초공격형: 단일 티커
+      // 공격형(1) / 초공격형(2, 하위호환): 단일 티커
       _selectedTicker = cycle.ladderMode == 1 ? 'TQQQ' : 'SOXL';
     }
   }
@@ -344,23 +344,30 @@ class _LadderBuyGuideCardState extends ConsumerState<LadderBuyGuideCard> {
         ),
         content: SingleChildScrollView(
           child: Text(
-            '── MDD 기반 단계 매수 ──\n\n'
-            'ATH(역대 고점) 대비 하락률(MDD)에 따라\n'
-            '단계별로 비중을 높이며 분할 매수합니다.\n\n'
-            '하락이 클수록 더 많은 금액을 투입하여\n'
-            '평균 매입가를 효과적으로 낮춥니다.\n\n'
-            '── 안정형 ──\n\n'
-            '1~2단계: QQQ 중심 (1배 레버리지)\n'
-            '3~4단계: QLD 중심 (2배 레버리지)\n'
-            '5~6단계: TQQQ 중심 (3배 레버리지)\n\n'
-            '── 공격형 ──\n\n'
-            '모든 단계에서 TQQQ 매수\n\n'
-            '── 초공격형 ──\n\n'
-            '모든 단계에서 SOXL 매수\n\n'
-            '── 매도 ──\n\n'
-            '자동 매도 신호는 없습니다.\n'
-            '상세 화면의 매도 가이드를 참고하여\n'
-            '수동으로 매도를 기록하세요.',
+            'Ladder Cycle — MDD 기반 가속 분할매수\n\n'
+            'ATH(역사적 신고가) 대비 하락률에 따라 단계별로 매수 비중을 높여가는 전략입니다. '
+            '하락이 깊어질수록 더 많은 금액을 투입하여 평균 매입가를 극적으로 낮춥니다.\n\n'
+            '6단계 기본 비중 (1-1-2-3-4-5):\n'
+            '• 1단계(-10%): 6.25% — 정찰대\n'
+            '• 2단계(-19%): 6.25% — 심리적 완충\n'
+            '• 3단계(-28%): 12.5% — 본격 매집\n'
+            '• 4단계(-37%): 18.75% — 공포 대응\n'
+            '• 5단계(-46%): 25% — 패닉 매집\n'
+            '• 6단계(-55%): 31.25% — 항복 전량 투입\n\n'
+            '고급 설정에서 단계 수(3~6)와 비율을 변경할 수 있습니다.\n\n'
+            '매수 모드:\n\n'
+            '── 안정형 ──\n'
+            '같은 지수를 추종하는 1배/2배/3배 ETF를 단계별로 나눠 매수합니다. '
+            '초반엔 안정적인 1배로 시작하고, 하락이 깊어지면 레버리지를 높여갑니다.\n\n'
+            '예시) QQQ 기준:\n'
+            '• 1단계: QQQ (1배) 매수\n'
+            '• 2단계: QLD (2배) 매수\n'
+            '• 3~6단계: TQQQ (3배) 매수\n\n'
+            '── 공격형 ──\n'
+            '처음부터 3배 레버리지 ETF를 모든 단계에서 매수합니다.\n\n'
+            '사이클 종료:\n'
+            '지수가 새로운 신고점에 도달하면 사이클 종료를 고려합니다. '
+            '매도 시점은 매도 가이드를 참고하여 직접 판단합니다.',
             style: TextStyle(
               fontSize: 13,
               color: ctx.appTextSecondary,

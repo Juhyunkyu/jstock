@@ -92,9 +92,9 @@ double gapAmount(double seedAmount, int fromStep, int toStep, Cycle cycle) {
 
 List<String> recommendedTickers(int ladderMode, int step) {
   if (ladderMode == 0) {
-    if (step <= 2) return ['QQQ', 'QLD', 'TQQQ'];
-    if (step <= 4) return ['QLD', 'QQQ', 'TQQQ'];
-    return ['TQQQ', 'QQQ', 'QLD'];
+    if (step <= 1) return ['QQQ', 'QLD', 'TQQQ'];  // 1단계: QQQ 강조
+    if (step <= 2) return ['QLD', 'QQQ', 'TQQQ'];  // 2단계: QLD 강조
+    return ['TQQQ', 'QQQ', 'QLD'];                  // 3~6단계: TQQQ 강조
   }
   if (ladderMode == 1) return ['TQQQ'];
   return ['SOXL'];

@@ -57,7 +57,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   double _quarterModeOffset = -15.0;
 
   // === Strategy C: Ladder Cycle 파라미터 ===
-  int _ladderMode = 1; // 0=안정형, 1=공격형, 2=초공격형
+  int _ladderMode = 1; // 0=안정형, 1=공격형
   double _athPrice = 0;
   int _ladderSteps = 6;
   String _ladderWeights = '1,1,2,3,4,5';
@@ -191,7 +191,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               Padding(
                 padding: const EdgeInsets.only(left: 2, top: 6),
                 child: Text(
-                  '※ MDD 기준 지수 — 안정형: QQQ/QLD/TQQQ 매수 / 공격형: TQQQ 매수 / 초공격형: SOXL 매수',
+                  '※ MDD 기준 지수 — 안정형: QQQ/QLD/TQQQ 매수 / 공격형: 3배 레버리지 매수',
                   style: TextStyle(
                     fontSize: 11,
                     color: context.appTextHint,
@@ -646,29 +646,42 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   void _showStrategyHelp(bool isAlpha, {bool isLadder = false}) {
     final title = isLadder ? 'Ladder Cycle' : isAlpha ? 'Smart Cycle' : 'Steady Cycle';
     final description = isLadder
-        ? 'MDD(최대낙폭) 기반 N단계 가속 분할매수법입니다.\n'
-          'ATH(역사적 신고가) 대비 하락률에 따라 투입 비중을 높여 평단가를 극적으로 낮춥니다.\n\n'
-          '— 작동 방식\n\n'
-          '1. ATH 가격 설정\n'
-          '기준이 되는 역사적 신고가를 입력합니다.\n\n'
-          '2. 단계별 매수\n'
-          'ATH 대비 하락률이 각 단계의 트리거에 도달하면\n'
-          '해당 단계의 비중만큼 매수합니다.\n'
-          '기본 6단계: -10%, -19%, -28%, -37%, -46%, -55%\n\n'
-          '3. 가속 비중\n'
-          '기본 비중 1-1-2-3-4-5 (16분할)\n'
-          '하락이 깊어질수록 더 많이 매수하여\n'
-          '평단가를 극적으로 낮춥니다.\n\n'
-          '4. 매수 모드\n'
-          '• 안정형: QQQ/QLD/TQQQ 중 선택 매수\n'
-          '• 공격형: TQQQ 매수\n'
-          '• 초공격형: SOXL 매수\n\n'
-          '5. 사이클 종료\n'
-          '신고점 도달 시 수동으로 종료합니다.\n\n'
-          '— 추천 대상\n'
-          '• 대형 하락장에서 공격적으로 매집하고 싶은 분\n'
-          '• 마틴게일 기반의 가속 매수 전략을 원하는 분\n'
-          '• MDD 기반의 체계적 분할매수를 원하는 분'
+        ? 'Ladder Cycle — MDD 기반 가속 분할매수\n\n'
+          'ATH(역사적 신고가) 대비 하락률에 따라 단계별로 매수 비중을 높여가는 전략입니다. '
+          '하락이 깊어질수록 더 많은 금액을 투입하여 평균 매입가를 극적으로 낮춥니다.\n\n'
+          '6단계 기본 비중 (1-1-2-3-4-5):\n'
+          '• 1단계(-10%): 6.25% — 정찰대\n'
+          '• 2단계(-19%): 6.25% — 심리적 완충\n'
+          '• 3단계(-28%): 12.5% — 본격 매집\n'
+          '• 4단계(-37%): 18.75% — 공포 대응\n'
+          '• 5단계(-46%): 25% — 패닉 매집\n'
+          '• 6단계(-55%): 31.25% — 항복 전량 투입\n\n'
+          '고급 설정에서 단계 수(3~6)와 비율을 변경할 수 있습니다.\n\n'
+          '매수 모드:\n\n'
+          '── 안정형 ──\n'
+          '같은 지수를 추종하는 1배/2배/3배 ETF를 단계별로 나눠 매수합니다. '
+          '초반엔 안정적인 1배로 시작하고, 하락이 깊어지면 레버리지를 높여갑니다.\n\n'
+          '예시) QQQ 기준:\n'
+          '• 1단계: QQQ (1배) 매수\n'
+          '• 2단계: QLD (2배) 매수\n'
+          '• 3~6단계: TQQQ (3배) 매수\n\n'
+          '추천 조합:\n'
+          '• QQQ → QLD → TQQQ (나스닥 100)\n'
+          '• SOXX → USD → SOXL (반도체)\n'
+          '• SPY → SSO → UPRO (S&P 500)\n'
+          '• IWM → UWM → TNA (러셀 2000)\n'
+          '• DIA → DDM → UDOW (다우존스)\n\n'
+          '※ 위 조합은 추천이며, 원하는 티커를 자유롭게 매수해도 됩니다.\n\n'
+          '── 공격형 ──\n'
+          '처음부터 3배 레버리지 ETF를 모든 단계에서 매수합니다. '
+          '기준 지수의 하락률(MDD)로 매수 시점을 판단하되, '
+          '실제 매수는 해당 지수의 3배 레버리지로 집중 투입합니다.\n\n'
+          '예시) SOXX 기준:\n'
+          '• 1~6단계: SOXL (3배) 매수\n\n'
+          '※ 기준 지수와 매수 티커는 자유롭게 선택 가능합니다.\n\n'
+          '사이클 종료:\n'
+          '지수가 새로운 신고점에 도달하면 사이클 종료를 고려합니다. '
+          '매도 시점은 매도 가이드를 참고하여 직접 판단합니다.'
         : isAlpha
         ? '시장 하락 시 가중매수로 저점을 잡고, 연속 익절하면 목표가를 높이는 적응형 전략입니다.\n\n'
           '— 작동 방식\n\n'
@@ -1371,7 +1384,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   // Ladder Cycle 전용 UI
   // ═══════════════════════════════════════════════════════════════
 
-  static const _ladderModeLabels = ['안정형', '공격형', '초공격형'];
+  static const _ladderModeLabels = ['안정형', '공격형'];
 
   // 프리셋별 비중 데이터 (steps → weights)
   static const _presetNames = ['균등형', '가속형', '피보나치형', '커스텀'];
@@ -1422,7 +1435,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         SizedBox(
           width: double.infinity,
           child: SegmentedButton<int>(
-            segments: List.generate(3, (i) => ButtonSegment<int>(
+            segments: List.generate(2, (i) => ButtonSegment<int>(
               value: i,
               label: Text(
                 _ladderModeLabels[i],

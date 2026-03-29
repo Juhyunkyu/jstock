@@ -494,7 +494,7 @@ double stepAmount(double seedAmount, int step, Cycle cycle) {
 
 **파일 배치: `lib/domain/trading/ladder_cycle_service.dart`** (top-level function)
 
-| 모드 | 단계 1-2 | 단계 3-4 | 단계 5-6 |
+| 모드 | 단계 1 | 단계 2 | 단계 3-6 |
 |------|---------|---------|---------|
 | 안정형 (0) | QQQ 강조 | QLD 강조 | TQQQ 강조 |
 | 공격형 (1) | TQQQ | TQQQ | TQQQ |
@@ -505,9 +505,9 @@ double stepAmount(double seedAmount, int step, Cycle cycle) {
 ```dart
 List<String> recommendedTickers(int ladderMode, int step) {
   if (ladderMode == 0) {
-    if (step <= 2) return ['QQQ', 'QLD', 'TQQQ'];
-    if (step <= 4) return ['QLD', 'QQQ', 'TQQQ'];
-    return ['TQQQ', 'QQQ', 'QLD'];
+    if (step <= 1) return ['QQQ', 'QLD', 'TQQQ'];  // 1단계: QQQ 강조
+    if (step <= 2) return ['QLD', 'QQQ', 'TQQQ'];  // 2단계: QLD 강조
+    return ['TQQQ', 'QQQ', 'QLD'];                  // 3~6단계: TQQQ 강조
   }
   if (ladderMode == 1) return ['TQQQ'];
   return ['SOXL'];
