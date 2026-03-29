@@ -209,16 +209,21 @@ final unifiedPortfolioProvider =
     final totalVal = evalAmt + cycle.remainingCash;
     final actualInvested = cycle.seedAmount - cycle.remainingCash;
 
+    // 전량매도 대기: 잔여현금이 자산, 시드가 투자금
+    // 진행 중: 주식평가금이 자산, 실제투입이 투자금
+    final cycleValue = cycle.isPendingCompletion ? cycle.remainingCash : evalAmt;
+    final cycleInvested = cycle.isPendingCompletion ? cycle.seedAmount : actualInvested;
+
     if (cycle.strategyType == StrategyType.alphaCycleV3) {
-      smartValue += evalAmt;
-      smartInvested += actualInvested;
-      smartActualInvested += actualInvested;
+      smartValue += cycleValue;
+      smartInvested += cycleInvested;
+      smartActualInvested += cycleInvested;
       smartEvalAmt += evalAmt;
       smartCount++;
     } else {
-      steadyValue += evalAmt;
-      steadyInvested += actualInvested;
-      steadyActualInvested += actualInvested;
+      steadyValue += cycleValue;
+      steadyInvested += cycleInvested;
+      steadyActualInvested += cycleInvested;
       steadyEvalAmt += evalAmt;
       steadyCount++;
     }
