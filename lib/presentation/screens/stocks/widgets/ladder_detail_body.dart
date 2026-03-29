@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/krw_formatter.dart';
 import '../../../../data/models/cycle.dart';
+import '../../../../data/models/trade.dart';
 import '../../../../domain/trading/ladder_cycle_service.dart';
 import '../../../../domain/trading/trading_math.dart';
 import '../../../providers/providers.dart';
 import '../../../widgets/shared/info_row.dart';
 import '../../holdings/widgets/profit_loss_section.dart';
 import 'cycle_info_card.dart';
+import 'cycle_trade_card.dart';
 import 'ladder_progress_bar.dart';
 import 'ladder_buy_guide_card.dart';
 import 'ladder_ticker_holdings.dart';
@@ -194,7 +197,11 @@ class LadderDetailBody extends ConsumerWidget {
                 ),
                 SizedBox(height: isMobile ? 14 : 20),
 
-                // 7. 사이클 완료 버튼
+                // 7. 거래 내역
+                _buildTradeHistorySection(context, trades, cycle, isMobile),
+                SizedBox(height: isMobile ? 14 : 20),
+
+                // 8. 사이클 완료 버튼
                 if (cycle.status == CycleStatus.active)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -646,6 +653,94 @@ class LadderDetailBody extends ConsumerWidget {
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // 거래 내역 섹션 (cycle_detail_screen 패턴 재사용)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildTradeHistorySection(
+    BuildContext context, List<Trade> trades, Cycle cycle, bool isMobile,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            '거래 내역 (${trades.length}건)',
+            style: TextStyle(
+              fontSize: isMobile ? 13 : 16,
+              fontWeight: FontWeight.bold,
+              color: context.appTextPrimary,
+            ),
+          ),
+        ),
+        SizedBox(height: isMobile ? 6 : 10),
+        if (trades.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: isMobile ? 24 : 32),
+              decoration: BoxDecoration(
+                color: context.appSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  '아직 거래 내역이 없습니다',
+                  style: TextStyle(
+                    fontSize: isMobile ? 12 : 14,
+                    color: context.appTextHint,
+                  ),
+                ),
+              ),
+            ),
+          )
+        else
+          ...() {
+            final grouped = <String, List<Trade>>{};
+            final ungrouped = <Trade>[];
+            for (final t in trades) {
+              if (t.groupId != null) {
+                grouped.putIfAbsent(t.groupId!, () => []).add(t);
+              } else {
+                ungrouped.add(t);
+              }
+            }
+            final allEntries = <List<Trade>>[];
+            final processedGroups = <String>{};
+            for (final t in trades) {
+              if (t.groupId != null) {
+                if (processedGroups.add(t.groupId!)) {
+                  allEntries.add(grouped[t.groupId!]!);
+                }
+              } else {
+                allEntries.add([t]);
+              }
+            }
+            final totalRounds = allEntries.length;
+            return allEntries.asMap().entries.map((entry) {
+              final roundNum = totalRounds - entry.key;
+              final firstTrade = entry.value.first;
+              final dateStr = DateFormat('yyyy.MM.dd').format(firstTrade.tradedAt);
+              return _LadderTradeRoundSection(
+                roundNumber: roundNum,
+                dateStr: dateStr,
+                child: CycleTradeCard(
+                  trade: firstTrade,
+                  groupedTrades: entry.value.length > 1 ? entry.value : null,
+                  cycle: cycle,
+                  isFirst: true,
+                  isLast: true,
+                  readOnly: cycle.status != CycleStatus.active,
+                ),
+              );
+            });
+          }(),
+      ],
+    );
+  }
+
   Future<void> _handleCompleteCycle(
     BuildContext context,
     WidgetRef ref,
@@ -687,5 +782,63 @@ class LadderDetailBody extends ConsumerWidget {
       cycle.completedReturnRate = returnRate;
       await ref.read(cycleListProvider.notifier).saveCycle(cycle);
     }
+  }
+}
+
+/// 회차별 테두리 섹션 (N회차 · 날짜 라벨 + 둥근 카드)
+/// cycle_detail_screen의 _TradeRoundSection과 동일한 패턴
+class _LadderTradeRoundSection extends StatelessWidget {
+  final int roundNumber;
+  final String dateStr;
+  final Widget child;
+
+  const _LadderTradeRoundSection({
+    required this.roundNumber,
+    required this.dateStr,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, bottom: 10),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: context.appBorder),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: child,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 14,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: context.appSurface,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: context.appBorder, width: 0.5),
+              ),
+              child: Text(
+                '$roundNumber회차 · $dateStr',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: context.appTextSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

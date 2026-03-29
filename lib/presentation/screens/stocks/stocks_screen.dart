@@ -507,8 +507,15 @@ class _ActiveCycleCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Ladder 공격형: buyTicker 기준 가격, 그 외: cycle.ticker
+    final isLadder = cycle.strategyType == StrategyType.ladderCycle;
+    final isLadderAggressive = isLadder && cycle.ladderMode != 0;
+    final displayTicker = isLadderAggressive && cycle.buyTicker.isNotEmpty
+        ? cycle.buyTicker
+        : cycle.ticker;
+
     final currentPrice = ref.watch(
-      closingPricesProvider.select((prices) => prices[cycle.ticker] ?? 0.0),
+      closingPricesProvider.select((prices) => prices[displayTicker] ?? 0.0),
     );
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(cycle.id));
@@ -541,13 +548,13 @@ class _ActiveCycleCard extends ConsumerWidget {
             Row(
               children: [
                 TickerLogo(
-                  ticker: cycle.ticker,
+                  ticker: displayTicker,
                   size: 32,
                   borderRadius: 8,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  cycle.ticker,
+                  displayTicker,
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

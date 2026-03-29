@@ -261,6 +261,11 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     List<Cycle> allActive,
   ) {
     final displayLabel = cycleDisplayLabel(cycle, allActive);
+    // Ladder 공격형: buyTicker를 AppBar에 표시
+    final isLadderAggressive = cycle.strategyType == StrategyType.ladderCycle &&
+        cycle.ladderMode != 0 &&
+        cycle.buyTicker.isNotEmpty;
+    final appBarTicker = isLadderAggressive ? cycle.buyTicker : cycle.ticker;
 
     return AppBar(
       backgroundColor: context.appSurface,
@@ -279,7 +284,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
           Row(
             children: [
               Text(
-                cycle.ticker,
+                appBarTicker,
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
