@@ -303,7 +303,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Smart Cycle',
+                  'Smart',
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

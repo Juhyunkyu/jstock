@@ -623,6 +623,24 @@ class _ActiveCycleCard extends ConsumerWidget {
                           ),
                         ),
                       ],
+                      if (cycle.strategyType == StrategyType.ladderCycle) ...[
+                        const SizedBox(width: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: AppColors.amber500.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            cycle.ladderMode == 0 ? '안정형' : '공격형',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: context.isDarkMode ? AppColors.amber400 : AppColors.amber500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
