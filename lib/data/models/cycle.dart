@@ -189,6 +189,13 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(52, defaultValue: '')
   String buyTicker3x;      // 안정형 3배 매수 티커 (예: TQQQ)
 
+  // === 환전 확정 필드 ===
+  @HiveField(53, defaultValue: false)
+  bool isExchangeSettled;   // 환전 확정 여부
+
+  @HiveField(54, defaultValue: 0.0)
+  double settledExchangeRate; // 환전 확정 환율
+
   // === 집계 필드 (거래 재계산 시 자동 업데이트) ===
   @HiveField(37, defaultValue: 0.0)
   double totalBuyAmountKrw;
@@ -251,6 +258,8 @@ class Cycle extends HiveObject implements TradingPosition {
     this.buyTicker1x = '',
     this.buyTicker2x = '',
     this.buyTicker3x = '',
+    this.isExchangeSettled = false,
+    this.settledExchangeRate = 0.0,
     this.totalBuyAmountKrw = 0.0,
     this.totalSellAmountKrw = 0.0,
     this.firstTradeDate,
@@ -420,6 +429,8 @@ class Cycle extends HiveObject implements TradingPosition {
     'buyTicker1x': buyTicker1x,
     'buyTicker2x': buyTicker2x,
     'buyTicker3x': buyTicker3x,
+    'isExchangeSettled': isExchangeSettled,
+    'settledExchangeRate': settledExchangeRate,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -481,6 +492,8 @@ class Cycle extends HiveObject implements TradingPosition {
     cycle.buyTicker1x = json['buyTicker1x'] as String? ?? '';
     cycle.buyTicker2x = json['buyTicker2x'] as String? ?? '';
     cycle.buyTicker3x = json['buyTicker3x'] as String? ?? '';
+    cycle.isExchangeSettled = json['isExchangeSettled'] as bool? ?? false;
+    cycle.settledExchangeRate = (json['settledExchangeRate'] as num?)?.toDouble() ?? 0.0;
     return cycle;
   }
 
@@ -550,6 +563,8 @@ class Cycle extends HiveObject implements TradingPosition {
     String? buyTicker1x,
     String? buyTicker2x,
     String? buyTicker3x,
+    bool? isExchangeSettled,
+    double? settledExchangeRate,
     double? totalBuyAmountKrw,
     double? totalSellAmountKrw,
     DateTime? firstTradeDate,
@@ -598,6 +613,8 @@ class Cycle extends HiveObject implements TradingPosition {
       buyTicker1x: buyTicker1x ?? this.buyTicker1x,
       buyTicker2x: buyTicker2x ?? this.buyTicker2x,
       buyTicker3x: buyTicker3x ?? this.buyTicker3x,
+      isExchangeSettled: isExchangeSettled ?? this.isExchangeSettled,
+      settledExchangeRate: settledExchangeRate ?? this.settledExchangeRate,
       totalBuyAmountKrw: totalBuyAmountKrw ?? this.totalBuyAmountKrw,
       totalBuyUsd: totalBuyUsd ?? this.totalBuyUsd,
       totalSellUsd: totalSellUsd ?? this.totalSellUsd,

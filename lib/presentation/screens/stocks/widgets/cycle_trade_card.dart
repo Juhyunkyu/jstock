@@ -29,6 +29,7 @@ class CycleTradeCard extends ConsumerWidget {
   final bool isFirst;
   final bool isLast;
   final bool readOnly;
+  final bool allowDelete;
 
   const CycleTradeCard({
     super.key,
@@ -38,6 +39,7 @@ class CycleTradeCard extends ConsumerWidget {
     this.isFirst = false,
     this.isLast = false,
     this.readOnly = false,
+    this.allowDelete = true,
   });
 
   @override
@@ -326,27 +328,29 @@ class CycleTradeCard extends ConsumerWidget {
                   _showSteadyEditSheet(context, ref, trades);
                 },
               ),
-              const Divider(height: 1),
-              // 전체 삭제
-              ListTile(
-                leading: const Icon(Icons.delete_outline, color: AppColors.red500),
-                title: const Text('전체 삭제', style: TextStyle(fontSize: 14, color: AppColors.red500)),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  final confirmed = await ConfirmDialog.show(
-                    context: context,
-                    title: '거래 삭제',
-                    message: '이 그룹의 거래 ${trades.length}건을 모두 삭제하시겠습니까?',
-                    confirmText: '삭제',
-                    isDanger: true,
-                  );
-                  if (confirmed) {
-                    for (final t in trades) {
-                      ref.read(tradeListProvider(cycle.id).notifier).deleteTradeAndRecalculate(t.id);
+              if (allowDelete) ...[
+                const Divider(height: 1),
+                // 전체 삭제
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: AppColors.red500),
+                  title: const Text('전체 삭제', style: TextStyle(fontSize: 14, color: AppColors.red500)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final confirmed = await ConfirmDialog.show(
+                      context: context,
+                      title: '거래 삭제',
+                      message: '이 그룹의 거래 ${trades.length}건을 모두 삭제하시겠습니까?',
+                      confirmText: '삭제',
+                      isDanger: true,
+                    );
+                    if (confirmed) {
+                      for (final t in trades) {
+                        ref.read(tradeListProvider(cycle.id).notifier).deleteTradeAndRecalculate(t.id);
+                      }
                     }
-                  }
-                },
-              ),
+                  },
+                ),
+              ],
             ],
           ),
         ),
@@ -446,24 +450,26 @@ class CycleTradeCard extends ConsumerWidget {
                 }
               },
             ),
-            const SizedBox(height: 8),
-            // 삭제
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.red50,
-                  borderRadius: BorderRadius.circular(10),
+            if (allowDelete) ...[
+              const SizedBox(height: 8),
+              // 삭제
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.red50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: AppColors.red500),
                 ),
-                child: const Icon(Icons.delete_outline, color: AppColors.red500),
+                title: const Text('삭제', style: TextStyle(color: AppColors.red500)),
+                subtitle: const Text('거래 내역을 삭제합니다'),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  await _handleDeleteTrade(parentContext, ref);
+                },
               ),
-              title: const Text('삭제', style: TextStyle(color: AppColors.red500)),
-              subtitle: const Text('거래 내역을 삭제합니다'),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                await _handleDeleteTrade(parentContext, ref);
-              },
-            ),
+            ],
             SizedBox(height: MediaQuery.of(sheetContext).padding.bottom + 8),
           ],
         ),

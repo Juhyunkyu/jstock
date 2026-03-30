@@ -315,6 +315,24 @@ class CycleListNotifier extends StateNotifier<List<Cycle>> {
     return newCycle;
   }
 
+  /// 환전 확정 처리
+  Future<void> settleExchange(String cycleId, double settledRate) async {
+    final cycle = getCycle(cycleId);
+    if (cycle == null) return;
+    cycle.isExchangeSettled = true;
+    cycle.settledExchangeRate = settledRate;
+    await saveCycle(cycle);
+  }
+
+  /// 환전 확정 해제
+  Future<void> unsettleExchange(String cycleId) async {
+    final cycle = getCycle(cycleId);
+    if (cycle == null) return;
+    cycle.isExchangeSettled = false;
+    cycle.settledExchangeRate = 0.0;
+    await saveCycle(cycle);
+  }
+
   /// 사이클 수동 완료 (손절/종료) — consecutiveProfitCount 리셋
   Future<void> completeCycle(String cycleId, {double? completedReturnRate}) async {
     final cycle = getCycle(cycleId);

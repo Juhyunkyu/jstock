@@ -130,6 +130,8 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
         startDate: startDate,
         notes: oldHolding.notes,
         isArchived: oldHolding.isArchived,
+        isExchangeSettled: oldHolding.isExchangeSettled,
+        settledExchangeRate: oldHolding.settledExchangeRate,
       );
     } else {
       holding = state[holdingIndex];
@@ -165,6 +167,8 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
       startDate: current.startDate,
       notes: current.notes,
       isArchived: current.isArchived,
+      isExchangeSettled: current.isExchangeSettled,
+      settledExchangeRate: current.settledExchangeRate,
     );
     updated.totalShares = current.totalShares;
     updated.averagePrice = current.averagePrice;
@@ -176,6 +180,30 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
       for (int i = 0; i < state.length; i++)
         if (i == holdingIndex) updated else state[i]
     ];
+  }
+
+  /// 환전 확정 처리
+  Future<void> settleExchange(String holdingId, double settledRate) async {
+    final holdingIndex = state.indexWhere((h) => h.id == holdingId);
+    if (holdingIndex == -1) return;
+    final holding = state[holdingIndex];
+    holding.isExchangeSettled = true;
+    holding.settledExchangeRate = settledRate;
+    holding.updatedAt = DateTime.now();
+    await _repository.save(holding);
+    state = [...state]; // 리빌드 트리거
+  }
+
+  /// 환전 확정 해제
+  Future<void> unsettleExchange(String holdingId) async {
+    final holdingIndex = state.indexWhere((h) => h.id == holdingId);
+    if (holdingIndex == -1) return;
+    final holding = state[holdingIndex];
+    holding.isExchangeSettled = false;
+    holding.settledExchangeRate = 0.0;
+    holding.updatedAt = DateTime.now();
+    await _repository.save(holding);
+    state = [...state]; // 리빌드 트리거
   }
 
   /// 보유 아카이브 (완료 처리)
@@ -359,6 +387,8 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
         startDate: currentHolding.startDate,
         notes: currentHolding.notes,
         isArchived: currentHolding.isArchived,
+        isExchangeSettled: currentHolding.isExchangeSettled,
+        settledExchangeRate: currentHolding.settledExchangeRate,
       );
       // Holding 생성자에서 totalShares=0, averagePrice=0, totalInvestedAmount=0 초기화
       updatedHolding.updatedAt = DateTime.now();
@@ -418,6 +448,8 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
       startDate: earliestDate ?? currentHolding.startDate,
       notes: currentHolding.notes,
       isArchived: currentHolding.isArchived,
+      isExchangeSettled: currentHolding.isExchangeSettled,
+      settledExchangeRate: currentHolding.settledExchangeRate,
     );
 
     // 계산된 값 설정 — totalInvestedAmount는 holding.exchangeRate로 일괄 계산

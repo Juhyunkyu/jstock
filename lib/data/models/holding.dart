@@ -60,6 +60,14 @@ class Holding extends HiveObject implements TradingPosition {
   @HiveField(10)
   bool? isArchived;
 
+  /// 환전 확정 여부
+  @HiveField(11, defaultValue: false)
+  bool isExchangeSettled;
+
+  /// 환전 확정 환율
+  @HiveField(12, defaultValue: 0.0)
+  double settledExchangeRate;
+
   Holding({
     required this.id,
     required this.ticker,
@@ -68,6 +76,8 @@ class Holding extends HiveObject implements TradingPosition {
     DateTime? startDate,
     this.notes,
     this.isArchived,
+    this.isExchangeSettled = false,
+    this.settledExchangeRate = 0.0,
   })  : totalShares = 0,
         averagePrice = 0,
         totalInvestedAmount = 0,
@@ -256,6 +266,8 @@ class Holding extends HiveObject implements TradingPosition {
         'exchangeRate': exchangeRate,
         'notes': notes,
         'isArchived': isArchived,
+        'isExchangeSettled': isExchangeSettled,
+        'settledExchangeRate': settledExchangeRate,
       };
 
   factory Holding.fromJson(Map<String, dynamic> json) {
@@ -267,6 +279,8 @@ class Holding extends HiveObject implements TradingPosition {
       startDate: json['startDate'] != null ? DateTime.parse(json['startDate'] as String) : null,
       notes: json['notes'] as String?,
       isArchived: json['isArchived'] as bool?,
+      isExchangeSettled: json['isExchangeSettled'] as bool? ?? false,
+      settledExchangeRate: (json['settledExchangeRate'] as num?)?.toDouble() ?? 0.0,
     );
     holding.totalShares = (json['totalShares'] as num?)?.toDouble() ?? 0;
     holding.averagePrice = (json['averagePrice'] as num?)?.toDouble() ?? 0;

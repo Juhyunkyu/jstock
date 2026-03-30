@@ -77,13 +77,15 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..buyTicker = fields[49] == null ? '' : fields[49] as String
       ..buyTicker1x = fields[50] == null ? '' : fields[50] as String
       ..buyTicker2x = fields[51] == null ? '' : fields[51] as String
-      ..buyTicker3x = fields[52] == null ? '' : fields[52] as String;
+      ..buyTicker3x = fields[52] == null ? '' : fields[52] as String
+      ..isExchangeSettled = fields[53] == null ? false : fields[53] as bool
+      ..settledExchangeRate = fields[54] == null ? 0.0 : fields[54] as double;
   }
 
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(53)
+      ..writeByte(55)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -189,7 +191,11 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(51)
       ..write(obj.buyTicker2x)
       ..writeByte(52)
-      ..write(obj.buyTicker3x);
+      ..write(obj.buyTicker3x)
+      ..writeByte(53)
+      ..write(obj.isExchangeSettled)
+      ..writeByte(54)
+      ..write(obj.settledExchangeRate);
   }
 
   @override

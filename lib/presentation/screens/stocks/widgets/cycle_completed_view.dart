@@ -307,7 +307,8 @@ class CycleCompletedView extends ConsumerWidget {
             cycle: cycle,
             isFirst: entry.key == 0,
             isLast: entry.key == trades.length - 1,
-            readOnly: true,
+            readOnly: false,
+            allowDelete: false,
           )),
       ],
     );

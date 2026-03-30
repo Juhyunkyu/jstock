@@ -24,6 +24,8 @@ class HoldingAdapter extends TypeAdapter<Holding> {
       startDate: fields[6] as DateTime?,
       notes: fields[9] as String?,
       isArchived: fields[10] as bool?,
+      isExchangeSettled: fields[11] == null ? false : fields[11] as bool,
+      settledExchangeRate: fields[12] == null ? 0.0 : fields[12] as double,
     )
       ..totalShares = fields[3] as double
       ..averagePrice = fields[4] as double
@@ -34,7 +36,7 @@ class HoldingAdapter extends TypeAdapter<Holding> {
   @override
   void write(BinaryWriter writer, Holding obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +58,11 @@ class HoldingAdapter extends TypeAdapter<Holding> {
       ..writeByte(9)
       ..write(obj.notes)
       ..writeByte(10)
-      ..write(obj.isArchived);
+      ..write(obj.isArchived)
+      ..writeByte(11)
+      ..write(obj.isExchangeSettled)
+      ..writeByte(12)
+      ..write(obj.settledExchangeRate);
   }
 
   @override
