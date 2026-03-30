@@ -640,6 +640,8 @@ class _ActiveCycleCard extends ConsumerWidget {
                             ),
                           ),
                         ),
+                        // 안정형: 추가 매수 티커 뱃지 (메인 티커 외)
+                        if (cycle.ladderMode == 0) ..._buildExtraTickerBadges(context, ref, cycle, displayTicker),
                       ],
                     ],
                   ),
@@ -855,6 +857,34 @@ class _ActiveCycleCard extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  /// 안정형 Ladder: 메인 티커 외 추가 매수된 티커를 뱃지로 표시
+  List<Widget> _buildExtraTickerBadges(
+    BuildContext context, WidgetRef ref, Cycle cycle, String mainTicker,
+  ) {
+    final trades = ref.watch(tradeListProvider(cycle.id));
+    // Trade에서 사용된 티커 중 메인 티커를 제외한 것만
+    final extraTickers = trades
+        .where((t) => t.action == TradeAction.buy)
+        .map((t) => t.ticker ?? cycle.ticker)
+        .toSet()
+        .where((t) => t != mainTicker)
+        .toList();
+
+    if (extraTickers.isEmpty) return [];
+
+    return [
+      const SizedBox(width: 4),
+      Text(
+        '+ ${extraTickers.join(' + ')}',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: context.appTextHint,
+        ),
+      ),
+    ];
   }
 }
 
