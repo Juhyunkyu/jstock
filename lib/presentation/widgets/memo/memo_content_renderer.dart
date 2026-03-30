@@ -101,21 +101,24 @@ class MemoContentRenderer extends StatelessWidget {
         onTap: () => MemoImageViewer.show(context, imageBase64List, index),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: Image.memory(
-            base64Decode(base64),
-            fit: BoxFit.fitWidth,
-            width: double.infinity,
-            errorBuilder: (_, __, ___) => Container(
-              height: 120,
-              decoration: BoxDecoration(
-                color: context.appIconBg,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: Icon(
-                  Icons.broken_image_outlined,
-                  size: 40,
-                  color: context.appTextHint,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxImageHeight),
+            child: Image.memory(
+              base64Decode(base64),
+              fit: BoxFit.cover,
+              width: double.infinity,
+              errorBuilder: (_, __, ___) => Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: context.appIconBg,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    size: 40,
+                    color: context.appTextHint,
+                  ),
                 ),
               ),
             ),

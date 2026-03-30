@@ -369,6 +369,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       items.add(_buildLegendItem(
         context: context,
         color: isWaiting ? context.appTextHint : smartColor,
+        icon: Icons.shield_outlined,
         label: 'Smart (${summary.smartCycleCount}개)',
         value: isWaiting ? '대기중' : formatKrw(summary.smartCycleValue),
         ratio: isWaiting ? 0 : summary.smartCycleRatio,
@@ -385,6 +386,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       items.add(_buildLegendItem(
         context: context,
         color: isWaiting ? context.appTextHint : steadyColor,
+        icon: Icons.all_inclusive,
         label: 'Steady (${summary.steadyCycleCount}개)',
         value: isWaiting ? '대기중' : formatKrw(summary.steadyCycleValue),
         ratio: isWaiting ? 0 : summary.steadyCycleRatio,
@@ -401,6 +403,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       items.add(_buildLegendItem(
         context: context,
         color: isWaiting ? context.appTextHint : ladderColor,
+        icon: Icons.stacked_bar_chart,
         label: 'Ladder (${summary.ladderCycleCount}개)',
         value: isWaiting ? '대기중' : formatKrw(summary.ladderCycleValue),
         ratio: isWaiting ? 0 : summary.ladderCycleRatio,
@@ -417,6 +420,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       items.add(_buildLegendItem(
         context: context,
         color: isWaiting ? context.appTextHint : holdingColor,
+        icon: Icons.account_balance_wallet_outlined,
         label: '일반 보유 (${summary.holdingCount}개)',
         value: isWaiting ? '대기중' : formatKrw(summary.holdingValue),
         ratio: isWaiting ? 0 : summary.holdingRatio,
@@ -552,6 +556,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   Widget _buildLegendItem({
     required BuildContext context,
     required Color color,
+    required IconData icon,
     required String label,
     required String value,
     required double ratio,
@@ -592,7 +597,14 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
               ),
             ),
           ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 5),
+        // 전략 아이콘
+        Icon(
+          icon,
+          size: 13,
+          color: isWaiting ? context.appTextHint : color,
+        ),
+        const SizedBox(width: 5),
         // 라벨 + 금액 + 퍼센테이지 (컴팩트)
         Flexible(
           child: Column(
