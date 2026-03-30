@@ -46,7 +46,7 @@ class CycleCompletedView extends ConsumerWidget {
                 SizedBox(height: isMobile ? 10 : 16),
 
                 // === 사이클 정보 ===
-                _buildCompletedInfoCard(context),
+                _buildCompletedInfoCard(context, ref),
                 SizedBox(height: isMobile ? 14 : 20),
 
                 // === 거래 내역 ===
@@ -189,7 +189,7 @@ class CycleCompletedView extends ConsumerWidget {
   // 완료 사이클 정보 카드
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildCompletedInfoCard(BuildContext context) {
+  Widget _buildCompletedInfoCard(BuildContext context, WidgetRef ref) {
     final isAlpha = cycle.strategyType == StrategyType.alphaCycleV3;
 
     // 운용 기간 포맷
@@ -219,7 +219,33 @@ class CycleCompletedView extends ConsumerWidget {
         children: [
           InfoRow(label: '설정 시드', value: formatCashShort(cycle.seedAmount)),
           const Divider(height: 16),
-          InfoRow(label: '평균 매입환율', value: '₩${cycle.exchangeRateAtEntry.toStringAsFixed(2)} / \$1'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '평균 매입환율',
+                style: TextStyle(fontSize: 13, color: context.appTextSecondary),
+              ),
+              GestureDetector(
+                onTap: () => _showExchangeRateEditDialog(context, ref, cycle),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '₩${cycle.exchangeRateAtEntry.toStringAsFixed(2)} / \$1',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.appTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.edit_outlined, size: 14, color: context.appTextHint),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const Divider(height: 16),
           InfoRow(label: '운용 기간', value: periodStr),
           const Divider(height: 16),
@@ -312,5 +338,45 @@ class CycleCompletedView extends ConsumerWidget {
           )),
       ],
     );
+  }
+
+  void _showExchangeRateEditDialog(BuildContext context, WidgetRef ref, Cycle cycle) {
+    final controller = TextEditingController(
+      text: cycle.exchangeRateAtEntry.toStringAsFixed(2),
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('평균 매입환율 수정'),
+        content: TextField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: '환율 (원/달러)',
+            hintText: '예: 1350.00',
+            prefixText: '₩ ',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              final newRate = double.tryParse(controller.text);
+              if (newRate != null && newRate > 0) {
+                cycle.exchangeRateAtEntry = newRate;
+                ref.read(cycleListProvider.notifier).saveCycle(cycle);
+                Navigator.pop(ctx);
+              }
+            },
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    // controller는 dialog가 닫힐 때 GC됨
   }
 }
