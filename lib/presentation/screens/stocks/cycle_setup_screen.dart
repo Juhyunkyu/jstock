@@ -197,8 +197,15 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
 
             const SizedBox(height: 24),
 
-            // 2. 종목 선택
+            // 2. Ladder: ATH 먼저 → 기준 티커 → 매수 티커
             if (_selectedStrategy == StrategyType.ladderCycle) ...[
+              // ATH 가격 (먼저 입력 — 전고점을 기억할 때 바로)
+              _buildSectionLabel('ATH 가격 (USD)'),
+              const SizedBox(height: 8),
+              _buildAthPriceInput(),
+              const SizedBox(height: 24),
+
+              // 기준 티커
               _buildSectionLabel('기준 티커 (MDD 계산용)'),
               const SizedBox(height: 8),
               _buildTickerSelector(),
@@ -214,19 +221,13 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 ),
               ),
               const SizedBox(height: 16),
+
+              // 매수 티커
               _buildLadderBuyTickerSection(),
             ] else ...[
               _buildSectionLabel('종목 선택'),
               const SizedBox(height: 8),
               _buildTickerSelector(),
-            ],
-
-            // Ladder ATH 가격 입력
-            if (_selectedStrategy == StrategyType.ladderCycle) ...[
-              const SizedBox(height: 24),
-              _buildSectionLabel('ATH 가격 (USD)'),
-              const SizedBox(height: 8),
-              _buildAthPriceInput(),
             ],
 
             const SizedBox(height: 24),
