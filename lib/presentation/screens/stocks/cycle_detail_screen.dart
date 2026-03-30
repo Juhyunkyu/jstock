@@ -476,8 +476,12 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     double liveExchangeRate,
   ) {
     final prices = ref.read(closingPricesProvider);
-    final price = prices[cycle.ticker];
-    final quote = ref.read(stockQuoteProvider).quotes[cycle.ticker];
+    // Ladder 공격형: buyTicker(SOXL) 가격 사용, 기타: cycle.ticker
+    final isLadderAggressive = cycle.strategyType == StrategyType.ladderCycle &&
+        cycle.ladderMode != 0 && cycle.buyTicker.isNotEmpty;
+    final priceTicker = isLadderAggressive ? cycle.buyTicker : cycle.ticker;
+    final price = prices[priceTicker];
+    final quote = ref.read(stockQuoteProvider).quotes[priceTicker];
 
     // Steady Cycle (V1/V2.2/V3.0): 매수+매도 통합 시트
     if (cycle.strategyType == StrategyType.infiniteBuy) {
