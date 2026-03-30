@@ -134,6 +134,11 @@ final stockPriceProvider = StateNotifierProvider<StockPriceNotifier, Map<String,
 });
 
 /// 사용자 등록 종목 (보유 종목 + 활성 사이클) 티커 목록 Provider
+///
+/// 활성 사이클의 경우:
+/// - Ladder 공격형 (ladderMode==1): buyTicker가 있으면 사용, 없으면 기준 티커(ticker) 사용
+/// - Ladder 안정형 (ladderMode==0): buyTicker1x/2x/3x 사용, 없으면 기준 티커(ticker) 사용
+/// - 기타 전략: 기준 티커(ticker) 사용
 final userTickersProvider = Provider<List<String>>((ref) {
   final activeHoldings = ref.watch(activeHoldingsProvider);
   final activeCycles = ref.watch(activeCyclesProvider);
@@ -145,9 +150,47 @@ final userTickersProvider = Provider<List<String>>((ref) {
     tickers.add(holding.ticker);
   }
 
-  // 활성 사이클의 티커들 추가
+  // 활성 사이클의 티커들 추가 (Ladder는 매수 티커 사용)
   for (final cycle in activeCycles) {
-    tickers.add(cycle.ticker);
+    final isLadder = cycle.strategyType.toString() == 'StrategyType.ladderCycle';
+    
+    if (isLadder) {
+      // Ladder 공격형 (ladderMode == 1)
+      if (cycle.ladderMode == 1) {
+        if (cycle.buyTicker.isNotEmpty) {
+          tickers.add(cycle.buyTicker);
+        } else {
+          tickers.add(cycle.ticker);
+        }
+      }
+      // Ladder 안정형 (ladderMode == 0)
+      else if (cycle.ladderMode == 0) {
+        bool hasAnyBuyTicker = false;
+        if (cycle.buyTicker1x.isNotEmpty) {
+          tickers.add(cycle.buyTicker1x);
+          hasAnyBuyTicker = true;
+        }
+        if (cycle.buyTicker2x.isNotEmpty) {
+          tickers.add(cycle.buyTicker2x);
+          hasAnyBuyTicker = true;
+        }
+        if (cycle.buyTicker3x.isNotEmpty) {
+          tickers.add(cycle.buyTicker3x);
+          hasAnyBuyTicker = true;
+        }
+        // 매수 티커가 하나도 없으면 기준 티커 사용
+        if (!hasAnyBuyTicker) {
+          tickers.add(cycle.ticker);
+        }
+      }
+      // Ladder 초공격형 (ladderMode == 2) 등 다른 모드
+      else {
+        tickers.add(cycle.ticker);
+      }
+    } else {
+      // 기타 전략 (Alpha Cycle, Infinite Buy, Steady): 기준 티커 사용
+      tickers.add(cycle.ticker);
+    }
   }
 
   return tickers.toList();

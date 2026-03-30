@@ -146,26 +146,48 @@ class NewsService {
     }
   }
 
+
   /// 국내 경제 뉴스 (Worker Korea RSS, 번역 불필요)
+  ///
+  /// 주의: 이 메서드는 Cloudflare Worker 프록시가 필수입니다.
+  /// Worker에서 제공하는 '/api/news/korea' 엔드포인트를 호출합니다.
+  ///
+  /// 프록시 미설정 시 빈 리스트 반환 (로컬 개발 환경)
   Future<List<NewsItem>> getKoreaNews({int limit = 10}) async {
     try {
       final baseUrl = AppConfig.proxyBaseUrl;
-      if (baseUrl.isEmpty) return []; // 프록시 필수
+      if (baseUrl.isEmpty) {
+        // 프록시 필수: 국내 뉴스는 공개 API가 없음
+        // 개발 환경에서는 조용히 빈 리스트 반환
+        return [];
+      }
 
       final response = await _dio.get('$baseUrl/api/news/korea');
+      
+      // 응답 데이터 검증
       final data = response.data;
-      final articles = data['articles'] as List? ?? [];
+      if (data == null) return [];
+      
+      // articles 배열 추출 (필수)
+      final articles = data['articles'] as List?;
+      if (articles == null) return [];
 
       // 국내 뉴스는 페이월 필터 + 번역 불필요
-      return articles.take(limit).map<NewsItem>((item) => NewsItem(
-        title: item['title'] ?? '',
-        publisher: item['publisher'] ?? '',
-        link: item['link'] ?? '',
-        publishedAt: DateTime.tryParse(item['publishedAt'] ?? '') ?? DateTime.now(),
-        thumbnail: item['thumbnail'] as String?,
-        summary: item['summary'] as String?,
-      )).toList();
-    } catch (_) {
+      return articles.take(limit).map<NewsItem>((item) {
+        return NewsItem(
+          title: item['title'] as String? ?? '',
+          publisher: item['publisher'] as String? ?? '',
+          link: item['link'] as String? ?? '',
+          publishedAt: DateTime.tryParse(item['publishedAt'] as String? ?? '') ?? DateTime.now(),
+          thumbnail: item['thumbnail'] as String?,
+          summary: item['summary'] as String?,
+        );
+      }).toList();
+    } on DioException catch (e) {
+      // 네트워크 에러, 타임아웃, HTTP 에러 등
+      return [];
+    } catch (e) {
+      // 기타 파싱 에러 등
       return [];
     }
   }
