@@ -152,6 +152,10 @@ const KOREA_RSS_FEEDS = [
     url: 'https://www.hankyung.com/feed/economy',
     publisher: '한국경제',
   },
+  {
+    url: 'https://www.sedaily.com/RSS/Economy',
+    publisher: '서울경제',
+  },
 ];
 
 const PAYWALL_DOMAINS = [
@@ -247,6 +251,63 @@ function stripHtml(text) {
     .trim();
 }
 
+/**
+ * 뉴스 기사 중복 제거
+ * 1단계: 완전 동일 제목 제거
+ * 2단계: 유사 제목 제거 (핵심 키워드 70% 이상 겹치면 중복)
+ *   - 같은 뉴스를 여러 언론사가 보도하는 경우 첫 번째만 유지
+ */
+function deduplicateArticles(articles) {
+  const seen = new Set();
+  const result = [];
+
+  for (const article of articles) {
+    // 제목 정규화: 특수문자/공백 제거, 소문자
+    const normalized = normalizeTitle(article.title);
+
+    // 1단계: 완전 동일 제목
+    if (seen.has(normalized)) continue;
+
+    // 2단계: 유사 제목 (키워드 70% 이상 겹침)
+    let isDuplicate = false;
+    for (const existing of seen) {
+      if (similarity(normalized, existing) > 0.7) {
+        isDuplicate = true;
+        break;
+      }
+    }
+    if (isDuplicate) continue;
+
+    seen.add(normalized);
+    result.push(article);
+  }
+
+  return result;
+}
+
+function normalizeTitle(title) {
+  return (title || '')
+    .replace(/\[.*?\]/g, '')       // [속보], [단독] 등 제거
+    .replace(/[^\w가-힣]/g, ' ')   // 특수문자 → 공백
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function similarity(a, b) {
+  const wordsA = new Set(a.split(' ').filter(w => w.length > 1));
+  const wordsB = new Set(b.split(' ').filter(w => w.length > 1));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+
+  let overlap = 0;
+  for (const word of wordsA) {
+    if (wordsB.has(word)) overlap++;
+  }
+
+  const smaller = Math.min(wordsA.size, wordsB.size);
+  return smaller > 0 ? overlap / smaller : 0;
+}
+
 async function handleMarketNews(request, feeds, limit = 20) {
   if (request.method !== 'GET') {
     return jsonError('GET only', 405, request);
@@ -280,6 +341,9 @@ async function handleMarketNews(request, feeds, limit = 20) {
       console.error(`[RSS] ${feedName} failed:`, result.reason?.message);
     }
   }
+
+  // 중복 제거: 같은 제목 또는 유사 제목 필터링
+  articles = deduplicateArticles(articles);
 
   // Sort by publishedAt (newest first), items without date go last
   articles.sort((a, b) => {
