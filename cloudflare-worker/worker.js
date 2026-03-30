@@ -141,8 +141,16 @@ const GLOBAL_RSS_FEEDS = [
 
 const KOREA_RSS_FEEDS = [
   {
-    url: 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0FtdHZHZ0pMVWlnQVAB?hl=ko&gl=KR&ceid=KR:ko',
-    publisher: 'Google News',
+    url: 'https://www.yna.co.kr/rss/economy.xml',
+    publisher: '연합뉴스',
+  },
+  {
+    url: 'https://www.mk.co.kr/rss/30100041/',
+    publisher: '매일경제',
+  },
+  {
+    url: 'https://www.hankyung.com/feed/economy',
+    publisher: '한국경제',
   },
 ];
 
@@ -259,11 +267,17 @@ async function handleMarketNews(request, feeds, limit = 20) {
     }),
   );
 
-  // Collect articles from successful feeds
+  // Collect articles from successful feeds + log failures
   let articles = [];
-  for (const result of results) {
+  const errors = [];
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
     if (result.status === 'fulfilled') {
       articles = articles.concat(result.value);
+    } else {
+      const feedName = feeds[i]?.publisher || feeds[i]?.url || 'unknown';
+      errors.push(`${feedName}: ${result.reason?.message || 'unknown error'}`);
+      console.error(`[RSS] ${feedName} failed:`, result.reason?.message);
     }
   }
 
@@ -282,6 +296,7 @@ async function handleMarketNews(request, feeds, limit = 20) {
     JSON.stringify({
       articles,
       cachedAt: new Date().toISOString(),
+      ...(errors.length > 0 ? { errors } : {}),
     }),
     {
       status: 200,
