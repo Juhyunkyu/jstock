@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
+import '../../../domain/trading/ladder_cycle_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/home/portfolio_allocation_chart.dart';
@@ -514,14 +515,29 @@ class _ActiveCycleCard extends ConsumerWidget {
         ? cycle.buyTicker
         : cycle.ticker;
 
-    final currentPrice = ref.watch(
-      closingPricesProvider.select((prices) => prices[displayTicker] ?? 0.0),
-    );
+    final prices = ref.watch(closingPricesProvider);
+    final currentPrice = prices[displayTicker] ?? 0.0;
     final liveExchangeRate = ref.watch(currentExchangeRateProvider);
     final signal = ref.watch(cycleSignalProvider(cycle.id));
 
     // 실제 평가금 계산 (라이브 환율 기준, 잔여현금 미포함)
-    final evalAmount = cycle.totalShares * currentPrice * liveExchangeRate;
+    // Ladder 안정형: 멀티 티커(QQQ+QLD+TQQQ) 합산 평가금
+    final double evalAmount;
+    if (isLadder && cycle.ladderMode == 0 && cycle.totalShares > 0) {
+      final tradeRepo = ref.read(tradeRepositoryProvider);
+      final trades = tradeRepo.getByCycleId(cycle.id);
+      final usedTickers = trades.map((t) => t.ticker ?? cycle.ticker).toSet();
+      final tickerPrices = <String, double>{};
+      for (final ticker in usedTickers) {
+        tickerPrices[ticker] = prices[ticker] ?? 0;
+      }
+      final holdings = buildTickerHoldings(
+        trades, cycle.ticker, tickerPrices, liveExchangeRate,
+      );
+      evalAmount = holdings.fold<double>(0, (sum, h) => sum + h.evalAmount);
+    } else {
+      evalAmount = cycle.totalShares * currentPrice * liveExchangeRate;
+    }
     final investedAmount = cycle.seedAmount - cycle.remainingCash; // 실제 투입금
     final profit = evalAmount - investedAmount; // 실제 투입 대비 손익
     final returnRate =
