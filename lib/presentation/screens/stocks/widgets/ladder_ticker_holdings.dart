@@ -74,6 +74,20 @@ class LadderTickerHoldings extends StatelessWidget {
           // 합계
           Divider(height: 16, color: context.appDivider),
           _buildTotalRow(context, totalShares, totalPnl, totalReturnRate, isMobile),
+
+          // 실제 투자금 / 총 손익
+          const SizedBox(height: 12),
+          Divider(height: 1, color: context.appDivider),
+          const SizedBox(height: 10),
+          _infoRow(context, '실제 투자금', formatKrw(totalInvested), context.appTextPrimary, isMobile),
+          const SizedBox(height: 6),
+          _infoRow(
+            context,
+            '총 손익',
+            '${totalPnl >= 0 ? '+' : ''}${formatKrw(totalPnl)} (${totalPnl >= 0 ? '+' : ''}${totalReturnRate.toStringAsFixed(1)}%)',
+            totalPnl >= 0 ? AppColors.red500 : AppColors.blue500,
+            isMobile,
+          ),
         ],
       ),
     );
@@ -166,6 +180,29 @@ class LadderTickerHoldings extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _infoRow(BuildContext context, String label, String value, Color valueColor, bool isMobile) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isMobile ? 12 : 13,
+            color: context.appTextSecondary,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: isMobile ? 12 : 13,
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
     );
   }
 
