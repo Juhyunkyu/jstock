@@ -75,11 +75,13 @@ class LadderTickerHoldings extends StatelessWidget {
           Divider(height: 16, color: context.appDivider),
           _buildTotalRow(context, totalShares, totalPnl, totalReturnRate, isMobile),
 
-          // 실제 투자금
+          // 실제 투자금 / 총 평가금
           const SizedBox(height: 12),
           Divider(height: 1, color: context.appDivider),
           const SizedBox(height: 10),
           _infoRow(context, '실제 투자금', formatKrw(totalInvested), context.appTextPrimary, isMobile),
+          const SizedBox(height: 6),
+          _infoRow(context, '총 평가금', formatKrw(totalEval), context.appTextPrimary, isMobile),
         ],
       ),
     );
