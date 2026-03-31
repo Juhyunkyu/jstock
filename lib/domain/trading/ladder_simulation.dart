@@ -109,11 +109,10 @@ List<LadderSimulationStep> _simulateAggressive({
     // 1. 기준 티커 예상가
     final baseTriggerPrice = cycle.athPrice * (1 + triggers[i] / 100);
 
-    // 2. 매수 티커 예상가
-    final additionalChangeBase =
-        (baseTriggerPrice - currentBasePrice) / currentBasePrice;
-    final rawEstPrice =
-        currentBuyPrice * (1 + additionalChangeBase * leverageMultiplier);
+    // 2. 매수 티커 예상가 (복리 근사: 기준 비율의 레버리지 거듭제곱)
+    // SOXL예상 = 현재SOXL × (기준예상가/현재기준가)^레버리지
+    final baseRatio = baseTriggerPrice / currentBasePrice;
+    final rawEstPrice = currentBuyPrice * pow(baseRatio, leverageMultiplier);
     final buyTickerEstPrice = max(rawEstPrice, 0.01);
 
     // 3. 투입금/수량
@@ -197,20 +196,18 @@ List<LadderSimulationStep> _simulateStable({
     final leverage = _leverageForTicker(buyTicker, cycle);
     stepBuyTickers.add(buyTicker);
 
-    // 3. 매수 티커 예상가
+    // 3. 매수 티커 예상가 (복리 근사: 기준 비율의 레버리지 거듭제곱)
     final currentBuyPrice = currentBuyPrices[buyTicker] ?? currentBasePrice;
-    final additionalChangeBase =
-        (baseTriggerPrice - currentBasePrice) / currentBasePrice;
-    final rawEstPrice =
-        currentBuyPrice * (1 + additionalChangeBase * leverage);
+    final baseRatio = baseTriggerPrice / currentBasePrice;
+    final rawEstPrice = currentBuyPrice * pow(baseRatio, leverage);
     final buyTickerEstPrice = max(rawEstPrice, 0.01);
 
-    // 모든 보유 티커의 이 단계 시점 예상가 계산
+    // 모든 보유 티커의 이 단계 시점 예상가 계산 (복리 근사)
     final pricesAtStep = <String, double>{};
     for (final ticker in {t1x, t2x, t3x}) {
       final lev = _leverageForTicker(ticker, cycle);
       final curPrice = currentBuyPrices[ticker] ?? currentBasePrice;
-      final rawP = curPrice * (1 + additionalChangeBase * lev);
+      final rawP = curPrice * pow(baseRatio, lev);
       pricesAtStep[ticker] = max(rawP, 0.01);
     }
     stepEstPrices.add(pricesAtStep);
@@ -307,15 +304,11 @@ double _calcRecoveryPercent({
 
 // ─── 검증 예시 (주석) ───
 //
-// 검증 예시: SOXX ATH $350, SOXL 현재 $46, SOXX 현재 $323, 시드 500만, 6단계 가속형
-// triggers: [-10, -19, -28, -37, -46, -55]
-// weights:  [1, 1, 2, 3, 4, 5] → totalWeight=16
+// 검증 예시: SOXX ATH $350, SOXL 현재 $40.62, SOXX 현재 $309.79, 시드 500만, 6단계 가속형
+// triggers: [-10, -19, -28, -37, -46, -55], weights: [1, 1, 2, 3, 4, 5]
 //
-// 1단계: baseTriggerPrice = 350 * 0.90 = $315
-//        additionalChangeBase = (315-323)/323 = -0.02478
-//        buyTickerEstPrice = 46 * (1 + (-0.02478)*3) = 46 * 0.9257 = $42.58
-//        investAmount = 5,000,000 * 1/16 = 312,500 KRW
-//        shares = floor(312500 / (42.58 * 1509)) = floor(312500 / 64233) = 4주
-//        cumulativeEval = 4 * 42.58 * 1509 = 256,918 KRW
-//        pnl = (256918 - 312500) / 312500 * 100 = -17.8%
-//        recoveryPercent = ((42.58→VWAP)/42.58*100) / 3
+// 복리 근사 공식: SOXL예상 = 현재SOXL × (기준예상가/현재기준가)^레버리지
+// 1단계: basePrice = 350*0.90 = $315, ratio = 315/309.79 = 1.0168
+//        soxlEst = 40.62 * 1.0168^3 = $42.70
+// 6단계: basePrice = 350*0.45 = $157.5, ratio = 157.5/309.79 = 0.5084
+//        soxlEst = 40.62 * 0.5084^3 = $5.34

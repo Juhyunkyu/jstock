@@ -201,11 +201,12 @@ class LadderSimulationSheet extends ConsumerWidget {
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Row(
             children: [
-              SizedBox(width: 36, child: Text('', style: headerStyle)),
-              Expanded(flex: 3, child: Text(bt, style: headerStyle, textAlign: TextAlign.right)),
+              SizedBox(width: 30, child: Text('', style: headerStyle)),
+              Expanded(flex: 2, child: Text(cycle.ticker, style: headerStyle, textAlign: TextAlign.right)),
+              Expanded(flex: 2, child: Text(bt, style: headerStyle, textAlign: TextAlign.right)),
               Expanded(flex: 2, child: Text('투입금', style: headerStyle, textAlign: TextAlign.right)),
               Expanded(flex: 2, child: Text('누적', style: headerStyle, textAlign: TextAlign.right)),
-              Expanded(flex: 4, child: Text('평단가(%)', style: headerStyle, textAlign: TextAlign.right)),
+              Expanded(flex: 3, child: Text('평단가(%)', style: headerStyle, textAlign: TextAlign.right)),
               Expanded(flex: 2, child: Text('평가금', style: headerStyle, textAlign: TextAlign.right)),
             ],
           ),
@@ -255,7 +256,7 @@ class LadderSimulationSheet extends ConsumerWidget {
         children: [
           // 단계 아이콘
           SizedBox(
-            width: 36,
+            width: 30,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -274,9 +275,18 @@ class LadderSimulationSheet extends ConsumerWidget {
               ],
             ),
           ),
+          // 기준 티커 예상가
+          Expanded(
+            flex: 2,
+            child: Text(
+              '\$${step.baseTriggerPrice.toStringAsFixed(0)}',
+              style: cellStyle,
+              textAlign: TextAlign.right,
+            ),
+          ),
           // 매수 티커 예상가
           Expanded(
-            flex: 3,
+            flex: 2,
             child: Text(
               '\$${step.buyTickerEstPrice.toStringAsFixed(2)}',
               style: cellStyle,
@@ -303,7 +313,7 @@ class LadderSimulationSheet extends ConsumerWidget {
           ),
           // 평단가(%) + 본주 회복
           Expanded(
-            flex: 4,
+            flex: 3,
             child: RichText(
               textAlign: TextAlign.right,
               text: TextSpan(
@@ -524,7 +534,7 @@ class LadderSimulationSheet extends ConsumerWidget {
                 ),
                 Expanded(
                   child: Text(
-                    '레버리지 근사값입니다. 변동성 감쇄로 실제 손실이 더 클 수 있습니다.',
+                    '레버리지 복리 근사값입니다. 실제 경로 의존적 변동성으로 차이가 발생할 수 있습니다.',
                     style: TextStyle(fontSize: 10, color: context.appTextHint),
                   ),
                 ),
