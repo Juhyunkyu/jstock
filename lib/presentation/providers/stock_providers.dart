@@ -157,14 +157,14 @@ final userTickersProvider = Provider<List<String>>((ref) {
     if (isLadder) {
       // Ladder 공격형 (ladderMode == 1)
       if (cycle.ladderMode == 1) {
+        tickers.add(cycle.ticker); // 기준 티커 (MDD 계산용)
         if (cycle.buyTicker.isNotEmpty) {
-          tickers.add(cycle.buyTicker);
-        } else {
-          tickers.add(cycle.ticker);
+          tickers.add(cycle.buyTicker); // 매수 티커
         }
       }
       // Ladder 안정형 (ladderMode == 0)
       else if (cycle.ladderMode == 0) {
+        tickers.add(cycle.ticker); // 기준 티커 (MDD 계산용)
         bool hasAnyBuyTicker = false;
         if (cycle.buyTicker1x.isNotEmpty) {
           tickers.add(cycle.buyTicker1x);
