@@ -1675,7 +1675,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   static const _ladderModeLabels = ['안정형', '공격형'];
 
   // 프리셋별 비중 데이터 (steps → weights)
-  static const _presetNames = ['균등형', '가속형', '피보나치형', '마틴게일', '커스텀'];
+  static const _presetNames = ['균등', '가속', '피보', '마틴', '커스텀'];
 
   static List<int> _presetWeights(int preset, int steps) {
     switch (preset) {
@@ -1916,7 +1916,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               label: Text(
                 _presetNames[i],
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 9,
                   fontWeight: FontWeight.w600,
                   color: _ladderPreset == i
                       ? Colors.white
@@ -2070,7 +2070,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             ),
           ],
         ),
-        if (!isValid)
+        if (!isValid) ...[
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
@@ -2081,6 +2081,17 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'ℹ 시드 전액이 비율에 따라 비례 분배됩니다',
+              style: TextStyle(
+                fontSize: 10,
+                color: context.appTextHint,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
