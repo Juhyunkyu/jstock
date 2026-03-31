@@ -1430,7 +1430,50 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               value: '+${_firstProfitTarget.toStringAsFixed(0)}%',
             ),
           ] else if (isLadder) ...[
-            _buildLadderCalcRows(seed),
+            // 커스텀 절대 비율: 실제 투입 예정금 표시
+            if (_ladderPreset == 4) ...[
+              Builder(builder: (_) {
+                final customTotal = _customWeightPercents
+                    .take(_ladderSteps)
+                    .fold<double>(0, (s, v) => s + v);
+                final actualSeed = customTotal > 0 && (customTotal - 100.0).abs() > 0.5
+                    ? seed * customTotal / 100
+                    : seed;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CalcRow(
+                      label: '시드 금액',
+                      value: '${formatKrwWithComma(seed)}\u2009원',
+                    ),
+                    if ((customTotal - 100.0).abs() > 0.5) ...[
+                      const SizedBox(height: 6),
+                      _CalcRow(
+                        label: '커스텀 합계',
+                        value: '${customTotal.toStringAsFixed(0)}%',
+                      ),
+                      const SizedBox(height: 6),
+                      _CalcRow(
+                        label: '실제 투입 예정',
+                        value: '${formatKrwWithComma(actualSeed)}\u2009원',
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '⚠ 시드가 자동으로 조정됩니다',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.amber500,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    _buildLadderCalcRows(actualSeed),
+                  ],
+                );
+              }),
+            ] else ...[
+              _buildLadderCalcRows(seed),
+            ],
           ] else ...[
             _buildInfiniteBuyCalcRows(seed),
           ],
@@ -1928,7 +1971,17 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             showSelectedIcon: false,
             onSelectionChanged: (selected) {
               setState(() {
-                _ladderPreset = selected.first;
+                final newPreset = selected.first;
+                // 커스텀으로 전환 시: 이전 프리셋의 비중을 %로 변환하여 초기값 설정
+                if (newPreset == 4 && _ladderPreset != 4) {
+                  final weights = _presetWeights(_ladderPreset, _ladderSteps);
+                  final total = weights.fold<int>(0, (s, w) => s + w);
+                  _customWeightPercents = total > 0
+                      ? weights.map((w) => double.parse((w / total * 100).toStringAsFixed(1))).toList()
+                      : List.filled(_ladderSteps, (100.0 / _ladderSteps));
+                  _applyCustomWeightsToLadder();
+                }
+                _ladderPreset = newPreset;
                 _updateLadderWeightsFromPreset();
               });
             },
@@ -1973,7 +2026,18 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                _buildLadderCalcRows(_seedAmount),
+                Builder(builder: (_) {
+                  double previewSeed = _seedAmount;
+                  if (_ladderPreset == 4) {
+                    final customTotal = _customWeightPercents
+                        .take(_ladderSteps)
+                        .fold<double>(0, (s, v) => s + v);
+                    if (customTotal > 0 && (customTotal - 100.0).abs() > 0.5) {
+                      previewSeed = _seedAmount * customTotal / 100;
+                    }
+                  }
+                  return _buildLadderCalcRows(previewSeed);
+                }),
               ],
             ),
           ),
@@ -2078,14 +2142,15 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               '⚠ 합계가 100%가 아닙니다 (현재 ${sum.toStringAsFixed(0)}%)',
               style: TextStyle(
                 fontSize: 11,
-                color: AppColors.red500,
+                color: AppColors.amber500,
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Text(
-              'ℹ 시드 전액이 비율에 따라 비례 분배됩니다',
+              'ℹ 시드가 ${sum.toStringAsFixed(0)}%로 자동 조정됩니다'
+              ' (시드 × ${sum.toStringAsFixed(0)}%)',
               style: TextStyle(
                 fontSize: 10,
                 color: context.appTextHint,
@@ -2231,12 +2296,23 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
     try {
       final exchangeRate = ref.read(currentExchangeRateProvider);
 
+      // 커스텀 비율: 합계가 100%가 아니면 시드를 조정 (절대 비율 해석)
+      double actualSeed = _seedAmount;
+      if (_selectedStrategy == StrategyType.ladderCycle && _ladderPreset == 4) {
+        final customTotal = _customWeightPercents
+            .take(_ladderSteps)
+            .fold<double>(0, (s, v) => s + v);
+        if (customTotal > 0 && (customTotal - 100.0).abs() > 0.5) {
+          actualSeed = _seedAmount * customTotal / 100;
+        }
+      }
+
       await ref.read(cycleListProvider.notifier).addCycle(
             ticker: _selectedTicker!,
             name: (_selectedStrategy == StrategyType.ladderCycle && _ladderMode != 0 && _buyTickerName != null)
                 ? _buyTickerName!
                 : (_selectedName ?? _selectedTicker!),
-            seedAmount: _seedAmount,
+            seedAmount: actualSeed,
             exchangeRate: exchangeRate,
             strategyType: _selectedStrategy,
             nickname: _nicknameController.text.trim(),
