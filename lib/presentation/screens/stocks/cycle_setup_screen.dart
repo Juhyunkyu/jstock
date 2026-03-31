@@ -62,7 +62,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   int _ladderSteps = 6;
   String _ladderWeights = '1,1,2,3,4,5';
   String _ladderTriggers = '-10,-19,-28,-37,-46,-55';
-  int _ladderPreset = 1; // 0=균등, 1=가속, 2=피보나치, 3=커스텀
+  int _ladderPreset = 1; // 0=균등, 1=가속, 2=피보나치, 3=마틴게일, 4=커스텀
   List<double> _customWeightPercents = [6.25, 6.25, 12.5, 18.75, 25.0, 31.25];
   final _athController = TextEditingController();
 
@@ -137,13 +137,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
       if (_ladderMode == 1 && _buyTicker == null) return false;
       // 안정형: 1배/2배/3배 모두 필수
       if (_ladderMode == 0 && (_buyTicker1x == null || _buyTicker2x == null || _buyTicker3x == null)) return false;
-      // 커스텀 비율일 때 합계 100% 검증
-      if (_ladderPreset == 3) {
-        final sum = _customWeightPercents
-            .take(_ladderSteps)
-            .fold<double>(0, (s, v) => s + v);
-        if ((sum - 100.0).abs() > 0.5) return false;
-      }
+      // 커스텀 비율일 때 경고만 표시 (버튼은 활성 유지)
     }
     return true;
   }
@@ -1681,7 +1675,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   static const _ladderModeLabels = ['안정형', '공격형'];
 
   // 프리셋별 비중 데이터 (steps → weights)
-  static const _presetNames = ['균등형', '가속형', '피보나치형', '커스텀'];
+  static const _presetNames = ['균등형', '가속형', '피보나치형', '마틴게일', '커스텀'];
 
   static List<int> _presetWeights(int preset, int steps) {
     switch (preset) {
@@ -1694,6 +1688,8 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           5 => [1, 1, 2, 3, 5],
           _ => [1, 1, 2, 3, 5, 8],
         };
+      case 3: // 마틴게일 (각 단계 = 이전의 2배)
+        return List.generate(steps, (i) => 1 << i); // 1, 2, 4, 8, 16, 32
       default: // 가속형 (1) — ladder_cycle_service 기본값
         return switch (steps) {
           3 => [2, 3, 5],
@@ -1705,7 +1701,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   }
 
   void _updateLadderWeightsFromPreset() {
-    if (_ladderPreset == 3) return; // 커스텀은 직접 관리
+    if (_ladderPreset == 4) return; // 커스텀은 직접 관리
     final weights = _presetWeights(_ladderPreset, _ladderSteps);
     _ladderWeights = weights.join(',');
     // 커스텀 퍼센트도 동기화
@@ -1915,12 +1911,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         SizedBox(
           width: double.infinity,
           child: SegmentedButton<int>(
-            segments: List.generate(4, (i) => ButtonSegment<int>(
+            segments: List.generate(5, (i) => ButtonSegment<int>(
               value: i,
               label: Text(
                 _presetNames[i],
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: _ladderPreset == i
                       ? Colors.white
@@ -1984,7 +1980,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         ],
 
         // 커스텀 슬라이더 (커스텀 프리셋 선택 시)
-        if (_ladderPreset == 3) ...[
+        if (_ladderPreset == 4) ...[
           _buildCustomWeightSliders(),
         ],
       ],
