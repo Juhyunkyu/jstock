@@ -147,6 +147,7 @@ class LadderDetailBody extends ConsumerWidget {
                   currentStep: cycle.currentStep,
                   totalSteps: cycle.ladderSteps,
                   ladderTriggers: cycle.ladderTriggers,
+                  cycle: cycle,
                 ),
                 SizedBox(height: isMobile ? 10 : 16),
 

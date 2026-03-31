@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../data/models/cycle.dart';
 import '../../../../domain/trading/ladder_cycle_service.dart';
+import 'ladder_simulation_sheet.dart';
 
 /// N단계 진행도 바: 원(●)과 선(━)으로 단계 표시
 ///
@@ -12,12 +14,14 @@ class LadderProgressBar extends StatelessWidget {
   final int currentStep;
   final int totalSteps;
   final String ladderTriggers;
+  final Cycle cycle;
 
   const LadderProgressBar({
     super.key,
     required this.currentStep,
     required this.totalSteps,
     required this.ladderTriggers,
+    required this.cycle,
   });
 
   @override
@@ -53,17 +57,47 @@ class LadderProgressBar extends StatelessWidget {
             },
           ),
           SizedBox(height: isMobile ? 6 : 8),
-          // 하단: 단계 표시
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '$currentStep / $totalSteps 단계',
-              style: TextStyle(
-                fontSize: isMobile ? 11 : 13,
-                fontWeight: FontWeight.w600,
-                color: context.appTextSecondary,
+          // 하단: 시뮬레이션 버튼 + 단계 표시
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // 왼쪽: 시뮬레이션 버튼
+              GestureDetector(
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  useSafeArea: true,
+                  backgroundColor: context.appSurface,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  builder: (_) => LadderSimulationSheet(cycle: cycle),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.analytics_outlined, size: 14, color: context.appTextHint),
+                    const SizedBox(width: 4),
+                    Text(
+                      '시뮬레이션',
+                      style: TextStyle(
+                        fontSize: isMobile ? 11 : 13,
+                        color: context.appTextHint,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              // 오른쪽: 단계
+              Text(
+                '$currentStep / $totalSteps 단계',
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 13,
+                  fontWeight: FontWeight.w600,
+                  color: context.appTextSecondary,
+                ),
+              ),
+            ],
           ),
         ],
       ),
