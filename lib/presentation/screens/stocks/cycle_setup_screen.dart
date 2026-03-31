@@ -1925,6 +1925,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               ),
             )),
             selected: {_ladderPreset},
+            showSelectedIcon: false,
             onSelectionChanged: (selected) {
               setState(() {
                 _ladderPreset = selected.first;
