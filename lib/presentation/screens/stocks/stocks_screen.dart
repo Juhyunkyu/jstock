@@ -641,42 +641,50 @@ class _ActiveCycleCard extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (cycle.strategyType == StrategyType.infiniteBuy &&
-                          cycle.steadyVersion != SteadyVersion.v1) ...[
+                      if (cycle.strategyType == StrategyType.infiniteBuy) ...[
                         const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.green500.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            cycle.steadyVersion == SteadyVersion.v2_2 ? 'V2.2' : 'V3.0',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: context.isDarkMode ? AppColors.green400 : AppColors.green600,
+                        Builder(builder: (context) {
+                          final steadyColorVal = ref.watch(settingsProvider.select((s) => s.steadyCycleChartColor));
+                          final steadyColor = steadyColorVal != 0 ? Color(steadyColorVal) : AppColors.green500;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: steadyColor.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                          ),
-                        ),
+                            child: Text(
+                              cycle.steadyVersion == SteadyVersion.v1 ? 'V1'
+                                  : cycle.steadyVersion == SteadyVersion.v2_2 ? 'V2.2' : 'V3.0',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: steadyColor,
+                              ),
+                            ),
+                          );
+                        }),
                       ],
                       if (cycle.strategyType == StrategyType.ladderCycle) ...[
                         const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: AppColors.amber500.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            cycle.ladderMode == 0 ? '안정형' : '공격형',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: context.isDarkMode ? AppColors.amber400 : AppColors.amber500,
+                        Builder(builder: (context) {
+                          final ladderColorVal = ref.watch(settingsProvider.select((s) => s.ladderCycleChartColor));
+                          final ladderColor = ladderColorVal != 0 ? Color(ladderColorVal) : AppColors.amber500;
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: ladderColor.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
+                              borderRadius: BorderRadius.circular(4),
                             ),
-                          ),
-                        ),
+                            child: Text(
+                              cycle.ladderMode == 0 ? '안정형' : '공격형',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: ladderColor,
+                              ),
+                            ),
+                          );
+                        }),
                         // 안정형: 추가 매수 티커 뱃지 (메인 티커 외)
                         if (cycle.ladderMode == 0) ..._buildExtraTickerBadges(context, ref, cycle, displayTicker),
                       ],

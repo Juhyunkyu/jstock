@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../data/models/cycle.dart';
 import '../../../../domain/trading/ladder_cycle_service.dart';
+import '../../../providers/settings_providers.dart';
 import 'ladder_simulation_sheet.dart';
 
 /// N단계 진행도 바: 원(●)과 선(━)으로 단계 표시
@@ -10,7 +12,7 @@ import 'ladder_simulation_sheet.dart';
 /// - 현재 단계: ▶ 표시
 /// - 대기 단계: 빈 원 + hint 색상
 /// - 각 원 위에 MDD 트리거값 표시
-class LadderProgressBar extends StatelessWidget {
+class LadderProgressBar extends ConsumerWidget {
   final int currentStep;
   final int totalSteps;
   final String ladderTriggers;
@@ -25,7 +27,7 @@ class LadderProgressBar extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final triggers = parseLadderTriggers(ladderTriggers, steps: totalSteps);
     final isMobile = MediaQuery.sizeOf(context).width < 600;
 
@@ -53,7 +55,7 @@ class LadderProgressBar extends StatelessWidget {
           // 진행도 바
           LayoutBuilder(
             builder: (context, constraints) {
-              return _buildProgressRow(context, triggers, constraints.maxWidth, isMobile);
+              return _buildProgressRow(context, ref, triggers, constraints.maxWidth, isMobile);
             },
           ),
           SizedBox(height: isMobile ? 6 : 8),
@@ -106,10 +108,13 @@ class LadderProgressBar extends StatelessWidget {
 
   Widget _buildProgressRow(
     BuildContext context,
+    WidgetRef ref,
     List<double> triggers,
     double maxWidth,
     bool isMobile,
   ) {
+    final ladderColorVal = ref.watch(settingsProvider.select((s) => s.ladderCycleChartColor));
+    final activeColor = ladderColorVal != 0 ? Color(ladderColorVal) : AppColors.amber500;
     final stepCount = triggers.length;
     final dotSize = isMobile ? 20.0 : 24.0;
     final fontSize = isMobile ? 9.0 : 10.0;
@@ -130,7 +135,7 @@ class LadderProgressBar extends StatelessWidget {
                   fontSize: fontSize,
                   fontWeight: FontWeight.w500,
                   color: i < currentStep
-                      ? (context.isDarkMode ? AppColors.amber400 : AppColors.amber500)
+                      ? activeColor
                       : context.appTextHint,
                 ),
               ),
@@ -144,7 +149,7 @@ class LadderProgressBar extends StatelessWidget {
             if (index.isEven) {
               // 원(dot)
               final stepIndex = index ~/ 2;
-              return _buildDot(context, stepIndex, dotSize);
+              return _buildDot(context, stepIndex, dotSize, activeColor);
             } else {
               // 선(line)
               final lineStepBefore = index ~/ 2;
@@ -153,7 +158,7 @@ class LadderProgressBar extends StatelessWidget {
                 child: Container(
                   height: 2,
                   color: isCompleted
-                      ? (context.isDarkMode ? AppColors.amber400 : AppColors.amber500)
+                      ? activeColor
                       : context.appDivider,
                 ),
               );
@@ -164,10 +169,9 @@ class LadderProgressBar extends StatelessWidget {
     );
   }
 
-  Widget _buildDot(BuildContext context, int stepIndex, double dotSize) {
+  Widget _buildDot(BuildContext context, int stepIndex, double dotSize, Color activeColor) {
     final isCompleted = stepIndex < currentStep;
     final isCurrent = stepIndex == currentStep;
-    final activeColor = context.isDarkMode ? AppColors.amber400 : AppColors.amber500;
 
     if (isCompleted) {
       // 완료 단계: 채운 원
