@@ -61,15 +61,21 @@ class StrategyBadge extends ConsumerWidget {
 
   _StrategyConfig _getConfig(BuildContext context, WidgetRef ref) {
     final isDark = context.isDarkMode;
-    final settings = ref.watch(settingsProvider);
+
+    // 전략별 차트 색상만 select하여 해당 색상 변경 시에만 rebuild
+    final chartColor = switch (strategyType) {
+      StrategyType.alphaCycleV3 => ref.watch(settingsProvider.select((s) => s.alphaCycleChartColor)),
+      StrategyType.infiniteBuy => ref.watch(settingsProvider.select((s) => s.steadyCycleChartColor)),
+      StrategyType.ladderCycle => ref.watch(settingsProvider.select((s) => s.ladderCycleChartColor)),
+    };
 
     switch (strategyType) {
       case StrategyType.alphaCycleV3:
         return _StrategyConfig(
           label: 'Smart',
           icon: Icons.shield_outlined,
-          color: settings.alphaCycleChartColor != 0
-              ? Color(settings.alphaCycleChartColor)
+          color: chartColor != 0
+              ? Color(chartColor)
               : (isDark ? AppColors.blue400 : AppColors.blue600),
         );
       case StrategyType.infiniteBuy:
@@ -81,8 +87,8 @@ class StrategyBadge extends ConsumerWidget {
         return _StrategyConfig(
           label: versionLabel,
           icon: Icons.all_inclusive,
-          color: settings.steadyCycleChartColor != 0
-              ? Color(settings.steadyCycleChartColor)
+          color: chartColor != 0
+              ? Color(chartColor)
               : (isDark ? AppColors.green400 : AppColors.green600),
         );
       case StrategyType.ladderCycle:
@@ -95,8 +101,8 @@ class StrategyBadge extends ConsumerWidget {
         return _StrategyConfig(
           label: modeLabel,
           icon: Icons.stacked_bar_chart,
-          color: settings.ladderCycleChartColor != 0
-              ? Color(settings.ladderCycleChartColor)
+          color: chartColor != 0
+              ? Color(chartColor)
               : (isDark ? AppColors.amber400 : AppColors.amber500),
         );
     }
