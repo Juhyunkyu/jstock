@@ -599,86 +599,101 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
               // 스크롤 가능 본문
               Expanded(
                 child: ListView(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: MediaQuery.sizeOf(context).width >= 1024 ? 24 : 16,
+                    vertical: 16,
+                  ),
                   children: [
-                    // 제목
-                    _buildSectionLabel('제목'),
-                    const SizedBox(height: 8),
-                    _buildTitleField(),
-                    const SizedBox(height: 20),
-
-                    // 카테고리
-                    _buildSectionLabel('카테고리'),
-                    const SizedBox(height: 8),
-                    MemoCategoryChoiceChips(
-                      selected: _category,
-                      onSelected: (cat) {
-                        setState(() {
-                          _category = cat;
-                          _hasUnsavedChanges = true;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    // 날짜
-                    _buildSectionLabel('날짜'),
-                    const SizedBox(height: 8),
-                    _buildDateField(),
-                    const SizedBox(height: 20),
-
-                    // 내용 header
-                    Row(
-                      children: [
-                        _buildSectionLabel('내용'),
-                        const Spacer(),
-                        if (_images.isNotEmpty)
-                          Text(
-                            '이미지 ${_images.length}장',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: context.appTextHint,
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-
-                    // 인라인 편집 영역
-                    _buildInlineEditArea(),
-
-                    const SizedBox(height: 24),
-
-                    // 하단 정보 + 삭제 버튼
-                    Row(
-                      children: [
-                        Text(
-                          '글자 수: $_contentLength',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: context.appTextHint,
-                          ),
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: MediaQuery.sizeOf(context).width >= 1024 ? 800 : double.infinity,
                         ),
-                        const Spacer(),
-                        if (_isEditMode)
-                          TextButton.icon(
-                            onPressed: _delete,
-                            icon: Icon(
-                              Icons.delete_outline,
-                              size: 18,
-                              color: AppColors.red500,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 제목
+                            _buildSectionLabel('제목'),
+                            const SizedBox(height: 8),
+                            _buildTitleField(),
+                            const SizedBox(height: 20),
+
+                            // 카테고리
+                            _buildSectionLabel('카테고리'),
+                            const SizedBox(height: 8),
+                            MemoCategoryChoiceChips(
+                              selected: _category,
+                              onSelected: (cat) {
+                                setState(() {
+                                  _category = cat;
+                                  _hasUnsavedChanges = true;
+                                });
+                              },
                             ),
-                            label: Text(
-                              '삭제',
-                              style: TextStyle(
-                                color: AppColors.red500,
-                                fontSize: 14,
-                              ),
+                            const SizedBox(height: 20),
+
+                            // 날짜
+                            _buildSectionLabel('날짜'),
+                            const SizedBox(height: 8),
+                            _buildDateField(),
+                            const SizedBox(height: 20),
+
+                            // 내용 header
+                            Row(
+                              children: [
+                                _buildSectionLabel('내용'),
+                                const Spacer(),
+                                if (_images.isNotEmpty)
+                                  Text(
+                                    '이미지 ${_images.length}장',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: context.appTextHint,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                      ],
+                            const SizedBox(height: 8),
+
+                            // 인라인 편집 영역
+                            _buildInlineEditArea(),
+
+                            const SizedBox(height: 24),
+
+                            // 하단 정보 + 삭제 버튼
+                            Row(
+                              children: [
+                                Text(
+                                  '글자 수: $_contentLength',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: context.appTextHint,
+                                  ),
+                                ),
+                                const Spacer(),
+                                if (_isEditMode)
+                                  TextButton.icon(
+                                    onPressed: _delete,
+                                    icon: Icon(
+                                      Icons.delete_outline,
+                                      size: 18,
+                                      color: AppColors.red500,
+                                    ),
+                                    label: Text(
+                                      '삭제',
+                                      style: TextStyle(
+                                        color: AppColors.red500,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 32),
+                          ],
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 32),
                   ],
                 ),
               ),
@@ -802,7 +817,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Stack(
         children: [
-          // Image
+          // Image (반응형: 편집 영역 내 이미지도 최대 높이 제한)
           GestureDetector(
             onTap: () => MemoImageViewer.show(
               context,
@@ -811,21 +826,26 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: Image.memory(
-                base64Decode(base64),
-                fit: BoxFit.fitWidth,
-                width: double.infinity,
-                errorBuilder: (_, __, ___) => Container(
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: context.appIconBg,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      size: 40,
-                      color: context.appTextHint,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).width < 600 ? 300 : 450,
+                ),
+                child: Image.memory(
+                  base64Decode(base64),
+                  fit: BoxFit.fitWidth,
+                  width: double.infinity,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: context.appIconBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: Icon(
+                        Icons.broken_image_outlined,
+                        size: 40,
+                        color: context.appTextHint,
+                      ),
                     ),
                   ),
                 ),

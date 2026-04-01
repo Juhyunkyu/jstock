@@ -47,6 +47,7 @@ class MemoDetailScreen extends ConsumerWidget {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 768;
+    final isWideDesktop = screenWidth >= 1024;
     final categoryColor = memoCategoryColor(context, memo.category);
     final categoryLabel =
         memoCategoryLabels[memo.category] ?? memo.category.name;
@@ -157,7 +158,7 @@ class MemoDetailScreen extends ConsumerWidget {
         ),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 600),
+            constraints: BoxConstraints(maxWidth: isWideDesktop ? 800 : 600),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

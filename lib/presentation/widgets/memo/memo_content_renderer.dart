@@ -95,6 +95,20 @@ class MemoContentRenderer extends StatelessWidget {
 
   Widget _buildImage(BuildContext context, int index) {
     final base64 = imageBase64List[index];
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 1024;
+
+    // 반응형 이미지 최대폭: 모바일 70%, 태블릿 50%, 데스크톱 고정 500px
+    final maxImageWidth = isMobile
+        ? screenWidth * 0.7
+        : isTablet
+            ? screenWidth * 0.5
+            : 500.0;
+
+    // 반응형 이미지 최대높이: 모바일 300, 태블릿/데스크톱 450
+    final effectiveMaxHeight = isMobile ? maxImageHeight : 450.0;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: GestureDetector(
@@ -103,8 +117,8 @@ class MemoContentRenderer extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: MediaQuery.sizeOf(context).width * 0.7,
-              maxHeight: maxImageHeight,
+              maxWidth: maxImageWidth,
+              maxHeight: effectiveMaxHeight,
             ),
             child: Image.memory(
               base64Decode(base64),
