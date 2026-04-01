@@ -12,6 +12,7 @@ import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/home/portfolio_allocation_chart.dart';
 import '../../widgets/cycle/signal_display.dart';
 import '../../widgets/holdings/holding_card.dart';
+import '../../widgets/common/top_toast.dart';
 import '../../widgets/shared/ticker_logo.dart';
 
 /// My 탭 화면
@@ -584,6 +585,7 @@ class _ActiveCycleCard extends ConsumerWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: () => _confirmDeleteCycle(context, ref, cycle, displayTicker),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(14),
@@ -920,6 +922,40 @@ class _ActiveCycleCard extends ConsumerWidget {
       ),
     ];
   }
+
+  void _confirmDeleteCycle(
+    BuildContext context, WidgetRef ref, Cycle cycle, String displayTicker,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.appSurface,
+        title: Text(
+          '사이클 삭제',
+          style: TextStyle(color: context.appTextPrimary),
+        ),
+        content: Text(
+          '$displayTicker 사이클과 모든 거래 내역을 삭제합니다.\n이 작업은 되돌릴 수 없습니다.',
+          style: TextStyle(color: context.appTextSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(cycleListProvider.notifier).deleteCycle(cycle.id);
+              showTopToast(context, '$displayTicker 사이클이 삭제되었습니다');
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.red500),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _CycleInfoColumn extends StatelessWidget {
@@ -996,6 +1032,7 @@ class _HoldingListTab extends ConsumerWidget {
         return HoldingCard(
           data: data,
           onTap: () => context.push('/holdings/${holding.id}'),
+          onLongPress: () => _confirmDeleteHolding(context, ref, holding),
           onArchive: holding.isEmpty
               ? () => ref
                   .read(holdingListProvider.notifier)
@@ -1003,6 +1040,40 @@ class _HoldingListTab extends ConsumerWidget {
               : null,
         );
       },
+    );
+  }
+
+  void _confirmDeleteHolding(
+    BuildContext context, WidgetRef ref, dynamic holding,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.appSurface,
+        title: Text(
+          '보유 종목 삭제',
+          style: TextStyle(color: context.appTextPrimary),
+        ),
+        content: Text(
+          '${holding.ticker} 보유 종목을 삭제합니다.\n이 작업은 되돌릴 수 없습니다.',
+          style: TextStyle(color: context.appTextSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(holdingListProvider.notifier).deleteHolding(holding.id);
+              showTopToast(context, '${holding.ticker} 보유 종목이 삭제되었습니다');
+            },
+            style: TextButton.styleFrom(foregroundColor: AppColors.red500),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
     );
   }
 }

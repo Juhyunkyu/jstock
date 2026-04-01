@@ -18,6 +18,9 @@ class HoldingCard extends StatelessWidget {
   /// 삭제 콜백
   final VoidCallback? onDelete;
 
+  /// 롱프레스 콜백
+  final VoidCallback? onLongPress;
+
   /// 아카이브 콜백
   final VoidCallback? onArchive;
 
@@ -29,6 +32,7 @@ class HoldingCard extends StatelessWidget {
     required this.data,
     this.onTap,
     this.onDelete,
+    this.onLongPress,
     this.onArchive,
     this.inGrid = false,
   });
@@ -43,6 +47,7 @@ class HoldingCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Container(
         margin: inGrid
             ? EdgeInsets.zero
