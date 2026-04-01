@@ -115,11 +115,8 @@ class MemoContentRenderer extends StatelessWidget {
         onTap: () => MemoImageViewer.show(context, imageBase64List, index),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxImageWidth,
-              maxHeight: effectiveMaxHeight,
-            ),
+          child: SizedBox(
+            width: maxImageWidth,
             child: Image.memory(
               base64Decode(base64),
               width: maxImageWidth,
