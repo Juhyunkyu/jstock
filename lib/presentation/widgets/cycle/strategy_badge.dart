@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/cycle.dart';
+import '../../providers/settings_providers.dart';
 
 /// 전략 유형을 표시하는 소형 배지 위젯
 ///
 /// Smart Cycle → 딥블루/인디고 배지 + 쉴드 아이콘
 /// Steady Cycle → 에메랄드/그린 배지 + ∞ 아이콘
-class StrategyBadge extends StatelessWidget {
+///
+/// settingsProvider에서 사용자 지정 차트 색상을 읽어 앱 전체에 통일된 색상 적용
+class StrategyBadge extends ConsumerWidget {
   final StrategyType strategyType;
   final SteadyVersion? steadyVersion;
   final int? ladderMode;
@@ -19,8 +23,8 @@ class StrategyBadge extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final config = _getConfig(context);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = _getConfig(context, ref);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -55,14 +59,18 @@ class StrategyBadge extends StatelessWidget {
     );
   }
 
-  _StrategyConfig _getConfig(BuildContext context) {
+  _StrategyConfig _getConfig(BuildContext context, WidgetRef ref) {
     final isDark = context.isDarkMode;
+    final settings = ref.watch(settingsProvider);
+
     switch (strategyType) {
       case StrategyType.alphaCycleV3:
         return _StrategyConfig(
           label: 'Smart',
           icon: Icons.shield_outlined,
-          color: isDark ? AppColors.blue400 : AppColors.blue600,
+          color: settings.alphaCycleChartColor != 0
+              ? Color(settings.alphaCycleChartColor)
+              : (isDark ? AppColors.blue400 : AppColors.blue600),
         );
       case StrategyType.infiniteBuy:
         final versionLabel = switch (steadyVersion) {
@@ -73,7 +81,9 @@ class StrategyBadge extends StatelessWidget {
         return _StrategyConfig(
           label: versionLabel,
           icon: Icons.all_inclusive,
-          color: isDark ? AppColors.green400 : AppColors.green600,
+          color: settings.steadyCycleChartColor != 0
+              ? Color(settings.steadyCycleChartColor)
+              : (isDark ? AppColors.green400 : AppColors.green600),
         );
       case StrategyType.ladderCycle:
         final modeLabel = switch (ladderMode) {
@@ -85,7 +95,9 @@ class StrategyBadge extends StatelessWidget {
         return _StrategyConfig(
           label: modeLabel,
           icon: Icons.stacked_bar_chart,
-          color: isDark ? AppColors.amber400 : AppColors.amber500,
+          color: settings.ladderCycleChartColor != 0
+              ? Color(settings.ladderCycleChartColor)
+              : (isDark ? AppColors.amber400 : AppColors.amber500),
         );
     }
   }
