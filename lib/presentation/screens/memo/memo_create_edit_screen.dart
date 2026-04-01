@@ -563,6 +563,21 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
             style: TextStyle(color: context.appTextPrimary),
           ),
           actions: [
+            // 이미지 추가 (AppBar)
+            IconButton(
+              icon: Icon(
+                Icons.add_photo_alternate_outlined,
+                color: context.appTextSecondary,
+                size: 22,
+              ),
+              tooltip: '이미지 추가',
+              onPressed: () async {
+                final base64 = await ImageCompressService.pickAndCompress();
+                if (base64 != null) {
+                  _insertImageAtCursor(base64);
+                }
+              },
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ElevatedButton(

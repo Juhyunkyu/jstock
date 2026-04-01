@@ -105,7 +105,7 @@ class MemoContentRenderer extends StatelessWidget {
             constraints: BoxConstraints(maxHeight: maxImageHeight),
             child: Image.memory(
               base64Decode(base64),
-              fit: BoxFit.cover,
+              fit: BoxFit.contain,
               width: double.infinity,
               errorBuilder: (_, __, ___) => Container(
                 height: 120,
