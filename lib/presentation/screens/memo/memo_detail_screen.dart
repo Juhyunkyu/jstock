@@ -221,7 +221,7 @@ class MemoDetailScreen extends ConsumerWidget {
                     child: MemoContentRenderer(
                       content: memo.content,
                       imageBase64List: memo.imageBase64List,
-                      maxImageHeight: isDesktop ? 500 : 300,
+                      maxImageHeight: 300,
                       textStyle: TextStyle(
                         fontSize: 15,
                         color: context.appTextPrimary,

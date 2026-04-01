@@ -95,18 +95,20 @@ class MemoContentRenderer extends StatelessWidget {
 
   Widget _buildImage(BuildContext context, int index) {
     final base64 = imageBase64List[index];
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+    return Align(
+      alignment: Alignment.centerLeft,
       child: GestureDetector(
         onTap: () => MemoImageViewer.show(context, imageBase64List, index),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(10),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxHeight: maxImageHeight),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.sizeOf(context).width * 0.7,
+              maxHeight: maxImageHeight,
+            ),
             child: Image.memory(
               base64Decode(base64),
-              fit: BoxFit.contain,
-              width: double.infinity,
+              fit: BoxFit.fitWidth,
               errorBuilder: (_, __, ___) => Container(
                 height: 120,
                 decoration: BoxDecoration(

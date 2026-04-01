@@ -563,21 +563,6 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
             style: TextStyle(color: context.appTextPrimary),
           ),
           actions: [
-            // 이미지 추가 (AppBar)
-            IconButton(
-              icon: Icon(
-                Icons.add_photo_alternate_outlined,
-                color: context.appTextSecondary,
-                size: 22,
-              ),
-              tooltip: '이미지 추가',
-              onPressed: () async {
-                final base64 = await ImageCompressService.pickAndCompress();
-                if (base64 != null) {
-                  _insertImageAtCursor(base64);
-                }
-              },
-            ),
             Padding(
               padding: const EdgeInsets.only(right: 8),
               child: ElevatedButton(
@@ -609,92 +594,134 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
             FocusScope.of(context).unfocus();
           },
           behavior: HitTestBehavior.translucent,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
+          child: Column(
             children: [
-              // 제목
-              _buildSectionLabel('제목'),
-              const SizedBox(height: 8),
-              _buildTitleField(),
-              const SizedBox(height: 20),
+              // 스크롤 가능 본문
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    // 제목
+                    _buildSectionLabel('제목'),
+                    const SizedBox(height: 8),
+                    _buildTitleField(),
+                    const SizedBox(height: 20),
 
-              // 카테고리
-              _buildSectionLabel('카테고리'),
-              const SizedBox(height: 8),
-              MemoCategoryChoiceChips(
-                selected: _category,
-                onSelected: (cat) {
-                  setState(() {
-                    _category = cat;
-                    _hasUnsavedChanges = true;
-                  });
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // 날짜
-              _buildSectionLabel('날짜'),
-              const SizedBox(height: 8),
-              _buildDateField(),
-              const SizedBox(height: 20),
-
-              // 내용 header
-              Row(
-                children: [
-                  _buildSectionLabel('내용'),
-                  const Spacer(),
-                  if (_images.isNotEmpty)
-                    Text(
-                      '이미지 ${_images.length}장',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: context.appTextHint,
-                      ),
+                    // 카테고리
+                    _buildSectionLabel('카테고리'),
+                    const SizedBox(height: 8),
+                    MemoCategoryChoiceChips(
+                      selected: _category,
+                      onSelected: (cat) {
+                        setState(() {
+                          _category = cat;
+                          _hasUnsavedChanges = true;
+                        });
+                      },
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
+                    const SizedBox(height: 20),
 
-              // 인라인 편집 영역
-              _buildInlineEditArea(),
+                    // 날짜
+                    _buildSectionLabel('날짜'),
+                    const SizedBox(height: 8),
+                    _buildDateField(),
+                    const SizedBox(height: 20),
 
-              const SizedBox(height: 12),
-
-              // 이미지 추가 버튼
-              _buildAddImageButton(),
-
-              const SizedBox(height: 24),
-
-              // 하단 정보 + 삭제 버튼
-              Row(
-                children: [
-                  Text(
-                    '글자 수: $_contentLength',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextHint,
+                    // 내용 header
+                    Row(
+                      children: [
+                        _buildSectionLabel('내용'),
+                        const Spacer(),
+                        if (_images.isNotEmpty)
+                          Text(
+                            '이미지 ${_images.length}장',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: context.appTextHint,
+                            ),
+                          ),
+                      ],
                     ),
-                  ),
-                  const Spacer(),
-                  if (_isEditMode)
-                    TextButton.icon(
-                      onPressed: _delete,
-                      icon: Icon(
-                        Icons.delete_outline,
-                        size: 18,
-                        color: AppColors.red500,
-                      ),
-                      label: Text(
-                        '삭제',
-                        style: TextStyle(
-                          color: AppColors.red500,
-                          fontSize: 14,
+                    const SizedBox(height: 8),
+
+                    // 인라인 편집 영역
+                    _buildInlineEditArea(),
+
+                    const SizedBox(height: 24),
+
+                    // 하단 정보 + 삭제 버튼
+                    Row(
+                      children: [
+                        Text(
+                          '글자 수: $_contentLength',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.appTextHint,
+                          ),
                         ),
-                      ),
+                        const Spacer(),
+                        if (_isEditMode)
+                          TextButton.icon(
+                            onPressed: _delete,
+                            icon: Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: AppColors.red500,
+                            ),
+                            label: Text(
+                              '삭제',
+                              style: TextStyle(
+                                color: AppColors.red500,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
-                ],
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
-              const SizedBox(height: 32),
+              // 하단 고정 툴바
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: context.appSurface,
+                  border: Border(
+                    top: BorderSide(color: context.appDivider, width: 0.5),
+                  ),
+                ),
+                child: SafeArea(
+                  top: false,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          Icons.add_photo_alternate_outlined,
+                          color: context.appTextSecondary,
+                        ),
+                        tooltip: '이미지 추가',
+                        onPressed: () async {
+                          final base64 =
+                              await ImageCompressService.pickAndCompress();
+                          if (base64 != null) {
+                            _insertImageAtCursor(base64);
+                          }
+                        },
+                      ),
+                      if (_images.isNotEmpty)
+                        Text(
+                          '이미지 ${_images.length}장',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.appTextHint,
+                          ),
+                        ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -828,67 +855,6 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Add image button
-  // -------------------------------------------------------------------------
-
-  Widget _buildAddImageButton() {
-    return Row(
-      children: [
-        InkWell(
-          onTap: () async {
-            final base64 = await ImageCompressService.pickAndCompress();
-            if (base64 != null) {
-              _insertImageAtCursor(base64);
-            }
-          },
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: context.appAccent
-                  .withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: context.appAccent.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.add_photo_alternate_outlined,
-                  size: 18,
-                  color: context.appAccent,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '이미지 추가',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: context.appAccent,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (_images.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          Text(
-            '커서 위치에 삽입됩니다',
-            style: TextStyle(
-              fontSize: 11,
-              color: context.appTextHint,
-            ),
-          ),
-        ],
-      ],
     );
   }
 
