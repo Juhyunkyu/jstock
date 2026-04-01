@@ -252,7 +252,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
         tabs: [
           _buildTab(
             context: context,
-            label: 'Smart ($alphaCount)',
+            label: 'Smart',
+            count: alphaCount,
             color: selectedIndex == 0 ? tabColors[0] : hintColor,
             isSelected: selectedIndex == 0,
             strategyIcon: Icons.shield_outlined,
@@ -262,7 +263,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
           ),
           _buildTab(
             context: context,
-            label: 'Steady ($infiniteBuyCount)',
+            label: 'Steady',
+            count: infiniteBuyCount,
             color: selectedIndex == 1 ? tabColors[1] : hintColor,
             isSelected: selectedIndex == 1,
             strategyIcon: Icons.all_inclusive,
@@ -272,7 +274,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
           ),
           _buildTab(
             context: context,
-            label: 'Ladder ($ladderCount)',
+            label: 'Ladder',
+            count: ladderCount,
             color: selectedIndex == 2 ? tabColors[2] : hintColor,
             isSelected: selectedIndex == 2,
             strategyIcon: Icons.stacked_bar_chart,
@@ -282,7 +285,8 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
           ),
           _buildTab(
             context: context,
-            label: '일반 ($holdingCount)',
+            label: '일반',
+            count: holdingCount,
             color: selectedIndex == 3 ? tabColors[3] : hintColor,
             isSelected: selectedIndex == 3,
             strategyIcon: Icons.account_balance_wallet_outlined,
@@ -295,6 +299,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
   Tab _buildTab({
     required BuildContext context,
     required String label,
+    required int count,
     required Color color,
     required bool isSelected,
     IconData? strategyIcon,
@@ -337,9 +342,25 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
           Text(
             label,
             style: TextStyle(
-              fontSize: 14,
+              fontSize: 13,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
               color: color,
+            ),
+          ),
+          const SizedBox(width: 3),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: isSelected ? 0.15 : 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              '$count',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
             ),
           ),
         ],
