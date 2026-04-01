@@ -597,25 +597,32 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
               ),
             ),
           ),
-        const SizedBox(width: 5),
-        // 전략 아이콘
-        Icon(
-          icon,
-          size: 13,
-          color: isWaiting ? context.appTextHint : color,
-        ),
-        const SizedBox(width: 5),
-        // 라벨 + 금액 + 퍼센테이지 (컴팩트)
+        const SizedBox(width: 6),
+        // 아이콘 + 라벨 + 금액 + 퍼센테이지 (컴팩트)
         Flexible(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: context.appTextSecondary,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
+                    size: 13,
+                    color: isWaiting ? context.appTextHint : color,
+                  ),
+                  const SizedBox(width: 3),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: context.appTextSecondary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 2),
               if (isWaiting)
