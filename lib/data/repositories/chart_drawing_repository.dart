@@ -20,6 +20,11 @@ class ChartDrawingRepository {
     return _box!;
   }
 
+  /// 전체 드로잉 조회
+  List<ChartDrawing> getAll() {
+    return box.values.toList();
+  }
+
   /// 특정 심볼의 드로잉 조회
   List<ChartDrawing> getBySymbol(String symbol) {
     return box.values.where((d) => d.symbol == symbol).toList()

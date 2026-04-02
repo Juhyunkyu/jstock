@@ -16,7 +16,9 @@ import '../../repositories/holding_repository.dart';
 import '../../repositories/notification_repository.dart';
 import '../../repositories/settings_repository.dart';
 import '../../repositories/memo_repository.dart';
+import '../../repositories/chart_drawing_repository.dart';
 import '../../models/memo.dart';
+import '../../models/chart_drawing.dart';
 
 /// 데이터 백업/복원/내보내기/초기화 서비스
 class DataManagementService {
@@ -29,6 +31,7 @@ class DataManagementService {
   final WatchlistGroupRepository watchlistGroupRepository;
   final RecentViewRepository recentViewRepository;
   final MemoRepository memoRepository;
+  final ChartDrawingRepository chartDrawingRepository;
 
   DataManagementService({
     required this.watchlistRepository,
@@ -40,12 +43,13 @@ class DataManagementService {
     required this.watchlistGroupRepository,
     required this.recentViewRepository,
     required this.memoRepository,
+    required this.chartDrawingRepository,
   });
 
   /// 전체 데이터를 JSON Map으로 백업
   Map<String, dynamic> createBackup() {
     return {
-      'version': 7,
+      'version': 8,
       'createdAt': DateTime.now().toIso8601String(),
       'data': {
         'settings': settingsRepository.settings.toJson(),
@@ -58,6 +62,7 @@ class DataManagementService {
         'watchlistGroups': watchlistGroupRepository.getAll().map((g) => g.toJson()).toList(),
         'recentViews': recentViewRepository.getAll().map((r) => r.toJson()).toList(),
         'memos': memoRepository.getAll().map((m) => m.toJson()).toList(),
+        'chartDrawings': chartDrawingRepository.getAll().map((d) => d.toJson()).toList(),
       },
     };
   }
@@ -65,7 +70,7 @@ class DataManagementService {
   /// JSON Map에서 데이터 복원 (기존 데이터 전체 삭제 후 삽입)
   Future<void> restoreFromBackup(Map<String, dynamic> backup) async {
     final version = backup['version'] as int? ?? 1;
-    if (version > 7) {
+    if (version > 8) {
       throw FormatException('지원하지 않는 백업 버전: $version');
     }
 
@@ -154,6 +159,14 @@ class DataManagementService {
         await memoRepository.save(memo);
       }
     }
+
+    // 12. Chart Drawings 복원 (v8+)
+    if (data['chartDrawings'] != null) {
+      for (final json in (data['chartDrawings'] as List)) {
+        final drawing = ChartDrawing.fromJson(json as Map<String, dynamic>);
+        await chartDrawingRepository.add(drawing);
+      }
+    }
   }
 
   /// 거래내역을 CSV 문자열로 내보내기
@@ -220,6 +233,7 @@ class DataManagementService {
       watchlistGroupRepository.clear(),
       recentViewRepository.clear(),
       memoRepository.clear(),
+      chartDrawingRepository.clearAll(),
     ]);
   }
 

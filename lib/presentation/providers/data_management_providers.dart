@@ -14,5 +14,6 @@ final dataManagementServiceProvider = Provider<DataManagementService>((ref) {
     watchlistGroupRepository: ref.watch(watchlistGroupRepositoryProvider),
     recentViewRepository: ref.watch(recentViewRepositoryProvider),
     memoRepository: ref.watch(memoRepositoryProvider),
+    chartDrawingRepository: ref.watch(chartDrawingRepositoryProvider),
   );
 });

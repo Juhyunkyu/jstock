@@ -244,6 +244,7 @@ class SettingsScreen extends ConsumerWidget {
     ref.invalidate(watchlistProvider);
     ref.invalidate(notificationHistoryProvider);
     ref.invalidate(memoListProvider);
+    ref.invalidate(chartDrawingProvider);
     ref.read(watchlistProvider.notifier).load();
     ref.read(notificationHistoryProvider.notifier).load();
     ref.read(memoListProvider.notifier).load();
