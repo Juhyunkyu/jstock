@@ -174,30 +174,56 @@ class DataManagementService {
     final buffer = StringBuffer();
     buffer.write('\uFEFF'); // BOM (Excel 한글 호환)
 
-    // ── 사이클 거래내역 (사이클별 블록) ──
     final allCycles = cycleRepository.getAll();
-    // 진행중 먼저 → 완료. 각 그룹 내 최근 먼저
-    allCycles.sort((a, b) {
-      final ao = a.status == CycleStatus.active ? 0 : 1;
-      final bo = b.status == CycleStatus.active ? 0 : 1;
-      if (ao != bo) return ao.compareTo(bo);
-      return b.startDate.compareTo(a.startDate);
-    });
+    final allHoldings = holdingRepository.getAll();
 
-    if (allCycles.isNotEmpty) {
-      buffer.writeln('[사이클 거래내역]');
-      for (final cycle in allCycles) {
+    // 사이클 분류: 전량매도(shares=0+매도있음) 또는 status=completed → 완료
+    final activeCycles = <Cycle>[];
+    final completedCycles = <Cycle>[];
+    for (final c in allCycles) {
+      final isSoldOut = c.totalShares <= 0 && c.totalSellAmountKrw > 0;
+      if (c.status == CycleStatus.completed || isSoldOut) {
+        completedCycles.add(c);
+      } else {
+        activeCycles.add(c);
+      }
+    }
+    activeCycles.sort((a, b) => b.startDate.compareTo(a.startDate));
+    completedCycles.sort((a, b) => b.startDate.compareTo(a.startDate));
+
+    // 보유 분류
+    final activeHoldings = allHoldings.where((h) => !h.isArchivedItem).toList();
+    final archivedHoldings = allHoldings.where((h) => h.isArchivedItem).toList();
+
+    // ── 1. 진행중 사이클 ──
+    if (activeCycles.isNotEmpty) {
+      buffer.writeln('[진행중 사이클]');
+      for (final cycle in activeCycles) {
         buffer.writeln();
-        _writeCycleBlock(buffer, cycle);
+        _writeCycleBlock(buffer, cycle, forceCompleted: false);
       }
     }
 
-    // ── 일반 보유 거래내역 (종목별 블록) ──
-    final allHoldings = holdingRepository.getAll();
-    if (allHoldings.isNotEmpty) {
+    // ── 2. 일반 보유 ──
+    if (activeHoldings.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('[일반 보유 거래내역]');
-      for (final holding in allHoldings) {
+      buffer.writeln('[일반 보유]');
+      for (final holding in activeHoldings) {
+        buffer.writeln();
+        _writeHoldingBlock(buffer, holding);
+      }
+    }
+
+    // ── 3. 완료된 거래 ──
+    final hasCompleted = completedCycles.isNotEmpty || archivedHoldings.isNotEmpty;
+    if (hasCompleted) {
+      buffer.writeln();
+      buffer.writeln('[완료된 거래]');
+      for (final cycle in completedCycles) {
+        buffer.writeln();
+        _writeCycleBlock(buffer, cycle, forceCompleted: true);
+      }
+      for (final holding in archivedHoldings) {
         buffer.writeln();
         _writeHoldingBlock(buffer, holding);
       }
@@ -206,14 +232,10 @@ class DataManagementService {
     return buffer.toString();
   }
 
-  void _writeCycleBlock(StringBuffer buffer, Cycle cycle) {
+  void _writeCycleBlock(StringBuffer buffer, Cycle cycle, {required bool forceCompleted}) {
     final strategy = _strategyLabel(cycle.strategyType);
     final startStr = _formatCsvDate(cycle.firstTradeDate ?? cycle.startDate);
-
-    // 전량매도 판정: shares=0 이고 매도 기록이 있으면 전량매도
-    final isSoldOut = cycle.totalShares <= 0 && cycle.totalSellAmountKrw > 0;
-    final isCompleted = cycle.status == CycleStatus.completed || isSoldOut;
-
+    final isCompleted = forceCompleted;
     final status = isCompleted ? '완료' : '진행중';
     final endStr = isCompleted && cycle.lastTradeDate != null
         ? ' ~ ${_formatCsvDate(cycle.lastTradeDate!)}'
