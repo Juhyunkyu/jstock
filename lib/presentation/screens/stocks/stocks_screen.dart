@@ -131,13 +131,6 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                 ),
               ),
               actions: [
-                IconButton(
-                  icon: Icon(
-                    Icons.search,
-                    color: context.appTextPrimary,
-                  ),
-                  onPressed: () => context.push('/stocks/search'),
-                ),
                 const NotificationBellButton(),
                 const SizedBox(width: 8),
               ],

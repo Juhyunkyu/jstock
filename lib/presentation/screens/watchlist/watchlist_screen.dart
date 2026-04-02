@@ -24,6 +24,7 @@ class WatchlistScreen extends ConsumerStatefulWidget {
 class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   late PageController _pageController;
   int _currentPage = 0;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -84,11 +85,26 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         toolbarHeight: 64,
         title: const Text('관심종목'),
         actions: [
-          IconButton(
-            icon: Icon(Icons.refresh, color: context.appTextSecondary),
-            onPressed: () =>
-                ref.read(watchlistProvider.notifier).refreshQuotes(),
-          ),
+          _refreshing
+              ? Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: context.appTextSecondary,
+                    ),
+                  ),
+                )
+              : IconButton(
+                  icon: Icon(Icons.refresh, color: context.appTextSecondary),
+                  onPressed: () async {
+                    setState(() => _refreshing = true);
+                    await ref.read(watchlistProvider.notifier).refreshQuotes();
+                    if (mounted) setState(() => _refreshing = false);
+                  },
+                ),
           const NotificationBellButton(),
         ],
       ),
