@@ -208,32 +208,39 @@ class DataManagementService {
 
   void _writeCycleBlock(StringBuffer buffer, Cycle cycle) {
     final strategy = _strategyLabel(cycle.strategyType);
-    final status = cycle.status == CycleStatus.completed ? '완료' : '진행중';
     final startStr = _formatCsvDate(cycle.firstTradeDate ?? cycle.startDate);
-    final endStr = cycle.status == CycleStatus.completed && cycle.lastTradeDate != null
+
+    // 전량매도 판정: shares=0 이고 매도 기록이 있으면 전량매도
+    final isSoldOut = cycle.totalShares <= 0 && cycle.totalSellAmountKrw > 0;
+    final isCompleted = cycle.status == CycleStatus.completed || isSoldOut;
+
+    final status = isCompleted ? '완료' : '진행중';
+    final endStr = isCompleted && cycle.lastTradeDate != null
         ? ' ~ ${_formatCsvDate(cycle.lastTradeDate!)}'
         : ' ~';
 
     // 구분선
     buffer.writeln('--- ${cycle.ticker} ($strategy) | $status | $startStr$endStr ---');
 
-    // 요약
-    if (cycle.status == CycleStatus.completed) {
-      final profit = cycle.realizedProfitKrw;
-      final rate = cycle.realizedProfitRate;
-      final sign = profit >= 0 ? '+' : '';
+    // 요약: 투자금/회수금/손익 중심
+    final profitKrw = cycle.realizedProfitKrw;
+    final profitRate = cycle.realizedProfitRate;
+    final profitUsd = cycle.totalSellUsd - cycle.totalBuyUsd;
+    final sign = profitKrw >= 0 ? '+' : '';
+    final usdSign = profitUsd >= 0 ? '+' : '';
+
+    if (isCompleted) {
       buffer.writeln(
-        '"시드: ${_w(cycle.seedAmount)}",'
-        '"총매수: ${_w(cycle.totalBuyAmountKrw)}",'
-        '"총매도: ${_w(cycle.totalSellAmountKrw)}",'
-        '"실현손익: ${_w(profit)} ($sign${rate.toStringAsFixed(1)}%)"',
+        '"총투자: ${_w(cycle.totalBuyAmountKrw)}",'
+        '"총회수: ${_w(cycle.totalSellAmountKrw)}",'
+        '"원화손익: ${_w(profitKrw)} ($sign${profitRate.toStringAsFixed(1)}%)",'
+        '"외화손익: $usdSign\$${profitUsd.toStringAsFixed(2)}"',
       );
     } else {
       buffer.writeln(
-        '"시드: ${_w(cycle.seedAmount)}",'
-        '"총매수: ${_w(cycle.totalBuyAmountKrw)}",'
-        '"잔여현금: ${_w(cycle.remainingCash)}",'
-        '"보유: ${cycle.totalShares.toStringAsFixed(4)}주 @ \$${cycle.averagePrice.toStringAsFixed(2)}"',
+        '"총투자: ${_w(cycle.totalBuyAmountKrw)}",'
+        '"보유: ${cycle.totalShares.toStringAsFixed(4)}주 @ \$${cycle.averagePrice.toStringAsFixed(2)}",'
+        '"투자(USD): \$${cycle.totalBuyUsd.toStringAsFixed(2)}"',
       );
     }
     if (cycle.isExchangeSettled && cycle.settledExchangeRate > 0) {
