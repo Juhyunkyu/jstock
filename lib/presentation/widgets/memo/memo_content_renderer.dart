@@ -101,10 +101,12 @@ class MemoContentRenderer extends StatelessWidget {
 
     final matches = _urlPattern.allMatches(text).toList();
     if (matches.isEmpty) {
-      return Text(text, style: style);
+      // SelectableText: 모바일 웹에서 롱프레스 → 선택 → 복사 툴바 정상 표시
+      return SelectableText(text, style: style);
     }
 
-    // URL이 포함된 텍스트 → RichText로 분리
+    // URL이 포함된 텍스트 → SelectableText.rich로 분리
+    // (SelectionArea + Text.rich 조합은 모바일 웹에서 컨텍스트 메뉴 미표시 이슈)
     final spans = <InlineSpan>[];
     int lastEnd = 0;
 
@@ -141,7 +143,16 @@ class MemoContentRenderer extends StatelessWidget {
       ));
     }
 
-    return Text.rich(TextSpan(children: spans));
+    return SelectableText.rich(
+      TextSpan(children: spans),
+      // 모바일 웹에서 롱프레스 시 복사/붙여넣기 툴바 표시
+      contextMenuBuilder: (context, editableTextState) {
+        return AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: editableTextState.contextMenuAnchors,
+          buttonItems: editableTextState.contextMenuButtonItems,
+        );
+      },
+    );
   }
 
   static Future<void> _launchUrl(String url) async {

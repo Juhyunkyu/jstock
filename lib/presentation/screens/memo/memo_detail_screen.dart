@@ -218,23 +218,16 @@ class MemoDetailScreen extends ConsumerWidget {
                     ),
                   )
                 else
-                  SelectionArea(
-                    contextMenuBuilder: (context, selectableRegionState) {
-                      return AdaptiveTextSelectionToolbar.buttonItems(
-                        anchors: selectableRegionState.contextMenuAnchors,
-                        buttonItems:
-                            selectableRegionState.contextMenuButtonItems,
-                      );
-                    },
-                    child: MemoContentRenderer(
-                      content: memo.content,
-                      imageBase64List: memo.imageBase64List,
-                      maxImageHeight: 300,
-                      textStyle: TextStyle(
-                        fontSize: 15,
-                        color: context.appTextPrimary,
-                        height: 1.7,
-                      ),
+                  // SelectionArea 제거: 모바일 웹에서 컨텍스트 메뉴 미표시 이슈
+                  // 대신 MemoContentRenderer 내부에서 SelectableText.rich 사용
+                  MemoContentRenderer(
+                    content: memo.content,
+                    imageBase64List: memo.imageBase64List,
+                    maxImageHeight: 300,
+                    textStyle: TextStyle(
+                      fontSize: 15,
+                      color: context.appTextPrimary,
+                      height: 1.7,
                     ),
                   ),
 
