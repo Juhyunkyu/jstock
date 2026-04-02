@@ -433,7 +433,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                 _steadyVersion == SteadyVersion.v1
                     ? '꾸준한 분할매수형'
                     : _steadyVersion == SteadyVersion.v2_2
-                        ? '라오어 정통 LOC형'
+                        ? '정통 LOC형 (V2.2)'
                         : '공격적 복리형',
                 _steadyVersion == SteadyVersion.v1
                     ? '40회 분할 매수로\n기계적으로 평균단가를 낮추며\n+10% 익절 시 복리 효과를 극대화합니다.'

@@ -53,7 +53,7 @@ class GuideSheet extends StatelessWidget {
                       'Alpha Cycle은 레버리지 ETF(TQQQ, SOXL 등) 투자를 돕는 매매 가이드 앱입니다.\n\n'
                       '2가지 전략을 지원합니다:\n'
                       '• Smart Cycle — 가중매수 + 승부수 방어형\n'
-                      '• Steady Cycle — 라오어 무한매수법 기반 분할매수형\n\n'
+                      '• Steady Cycle — 무한매수법 기반 분할매수형\n\n'
                       '앱은 주문 가격/수량을 계산하여 가이드를 제공하고, '
                       '사용자가 실제 증권사에서 주문 후 결과를 기록합니다.',
                 ),
@@ -83,7 +83,7 @@ class GuideSheet extends StatelessWidget {
                 const _GuideSection(
                   title: '∞ Steady Cycle이란',
                   content:
-                      '라오어의 무한매수법을 기반으로 한 기계적 분할매수 전략입니다.\n\n'
+                      '무한매수법을 기반으로 한 기계적 분할매수 전략입니다.\n\n'
                       '시드를 N등분하여 매일 LOC(종가조건부) 주문을 걸고, '
                       '목표 수익률 도달 시 매도 후 복리로 재투자합니다.\n\n'
                       '3가지 버전을 지원합니다:',
