@@ -219,6 +219,13 @@ class MemoDetailScreen extends ConsumerWidget {
                   )
                 else
                   SelectionArea(
+                    contextMenuBuilder: (context, selectableRegionState) {
+                      return AdaptiveTextSelectionToolbar.buttonItems(
+                        anchors: selectableRegionState.contextMenuAnchors,
+                        buttonItems:
+                            selectableRegionState.contextMenuButtonItems,
+                      );
+                    },
                     child: MemoContentRenderer(
                       content: memo.content,
                       imageBase64List: memo.imageBase64List,

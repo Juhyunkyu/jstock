@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
 import 'memo_image_viewer.dart';
@@ -83,6 +85,12 @@ class MemoContentRenderer extends StatelessWidget {
     );
   }
 
+  /// URL 패턴: http/https 링크 자동 감지
+  static final _urlPattern = RegExp(
+    r'https?://[^\s<>\[\](){}「」『』【】\u3000]+',
+    caseSensitive: false,
+  );
+
   Widget _buildText(BuildContext context, String text) {
     final style = textStyle ??
         TextStyle(
@@ -90,7 +98,57 @@ class MemoContentRenderer extends StatelessWidget {
           color: context.appTextPrimary,
           height: 1.6,
         );
-    return Text(text, style: style);
+
+    final matches = _urlPattern.allMatches(text).toList();
+    if (matches.isEmpty) {
+      return Text(text, style: style);
+    }
+
+    // URL이 포함된 텍스트 → RichText로 분리
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+
+    for (final match in matches) {
+      // URL 앞 일반 텍스트
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(
+          text: text.substring(lastEnd, match.start),
+          style: style,
+        ));
+      }
+
+      // URL 링크 (파란색 + 밑줄 + 탭 가능)
+      final url = match.group(0)!;
+      spans.add(TextSpan(
+        text: url,
+        style: style.copyWith(
+          color: context.appAccent,
+          decoration: TextDecoration.underline,
+          decorationColor: context.appAccent,
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () => _launchUrl(url),
+      ));
+
+      lastEnd = match.end;
+    }
+
+    // URL 뒤 남은 텍스트
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(
+        text: text.substring(lastEnd),
+        style: style,
+      ));
+    }
+
+    return Text.rich(TextSpan(children: spans));
+  }
+
+  static Future<void> _launchUrl(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri != null && await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
   }
 
   Widget _buildImage(BuildContext context, int index) {
