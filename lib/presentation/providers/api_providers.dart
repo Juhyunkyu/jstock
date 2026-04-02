@@ -277,21 +277,22 @@ class StockQuoteNotifier extends StateNotifier<StockQuoteState> {
     }
   }
 
-  /// 캐시 강제 새로고침 (REST API 사용)
+  /// 캐시 만료된 종목만 새로고침 (API 콜 절약)
   Future<void> refreshQuotes(List<String> symbols) async {
     if (symbols.isEmpty) return;
 
-    // 캐시 무효화
-    for (final symbol in symbols) {
-      _cache.remove(stockCacheKey(symbol));
-    }
+    // 캐시가 유효한 종목은 스킵, 만료된 것만 API 호출
+    final staleSymbols = symbols
+        .where((s) => !_cache.containsKey(stockCacheKey(s)))
+        .toList();
+
+    if (staleSymbols.isEmpty) return; // 모든 데이터가 캐시에 유효
 
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final quotes = await _service.getQuotes(symbols);
+      final quotes = await _service.getQuotes(staleSymbols);
 
-      // 캐시 저장
       for (final entry in quotes.entries) {
         _cache.set(
           stockCacheKey(entry.key),
