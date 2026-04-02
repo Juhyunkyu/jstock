@@ -90,8 +90,13 @@ class HtmlTextBlock extends StatefulWidget {
           '$url</a>';
     });
 
-    // 3. 줄바꿈 → <br>
-    return html.replaceAll('\n', '<br>');
+    // 3. 줄바꿈 → 선택 가능한 빈 줄 블록
+    // <br>만으로는 빈 줄의 높이가 0에 가까워 모바일 long-press 선택이 어려움.
+    // 연속 줄바꿈(빈 줄)을 min-height가 있는 div 블록으로 변환하여
+    // 터치 영역을 확보한다.
+    html = html.replaceAll('\n\n', '</p><p style="min-height:1.2em;margin:0;padding:0;">');
+    html = html.replaceAll('\n', '<br>');
+    return '<p style="margin:0;padding:0;">$html</p>';
   }
 
   static String _colorToCss(Color c) {
@@ -110,12 +115,18 @@ class _HtmlTextBlockState extends State<HtmlTextBlock> {
   double _measuredHeight = 0;
   bool _ready = false;
 
+  /// text 내용의 해시 — viewType에 포함하여 내용 변경 시 새 factory 등록
+  int _textHash = 0;
+
   String get _viewType =>
-      'memo-text-${widget.viewId}-${widget.textColor.value.toRadixString(16)}';
+      'memo-text-${widget.viewId}-'
+      '${widget.textColor.value.toRadixString(16)}-'
+      '$_textHash';
 
   @override
   void initState() {
     super.initState();
+    _textHash = widget.text.hashCode;
     _register();
     _measure();
   }
@@ -127,8 +138,11 @@ class _HtmlTextBlockState extends State<HtmlTextBlock> {
         old.textColor != widget.textColor ||
         old.linkColor != widget.linkColor ||
         old.fontSize != widget.fontSize) {
+      _textHash = widget.text.hashCode;
       _register();
       _measure();
+      // viewType이 바뀌므로 HtmlElementView도 새로 생성됨 → rebuild 필요
+      setState(() {});
     }
   }
 
