@@ -149,10 +149,6 @@ class SettingsScreen extends ConsumerWidget {
               '알림',
               style: TextStyle(fontSize: isDesktop ? 15 : 14, color: context.appTextPrimary),
             ),
-            subtitle: Text(
-              muted ? '꺼짐' : '켜짐',
-              style: TextStyle(fontSize: isDesktop ? 13 : 12, color: context.appTextHint),
-            ),
             value: !muted,
             onChanged: (value) {
               ref.read(settingsProvider.notifier).toggleNotificationMuted(!value);
