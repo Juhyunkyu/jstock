@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/services/data/web_file_service.dart';
 import '../../providers/providers.dart';
@@ -7,6 +8,7 @@ import '../../widgets/settings/settings_section.dart';
 import '../../widgets/settings/settings_dialogs.dart';
 import '../../widgets/settings/backup_restore.dart';
 import '../../widgets/settings/guide_sheet.dart';
+import '../../widgets/settings/legal_sheets.dart';
 import '../../widgets/common/app_title_logo.dart';
 import '../../widgets/common/top_toast.dart';
 
@@ -62,18 +64,18 @@ class SettingsScreen extends ConsumerWidget {
               SettingsItem(
                 icon: Icons.info_outlined,
                 title: '앱 정보',
-                trailingText: 'v1.0.1',
+                trailingText: 'v${AppConstants.appVersion}',
                 onTap: () => showAboutDialog_(context),
               ),
               SettingsItem(
                 icon: Icons.description_outlined,
                 title: '개인정보 처리방침',
-                onTap: () => _showComingSoon(context, '개인정보 처리방침 페이지 준비 중'),
+                onTap: () => showPrivacyPolicySheet(context),
               ),
               SettingsItem(
                 icon: Icons.article_outlined,
                 title: '이용약관',
-                onTap: () => _showComingSoon(context, '이용약관 페이지 준비 중'),
+                onTap: () => showTermsOfServiceSheet(context),
               ),
             ],
           ),
@@ -245,10 +247,6 @@ class SettingsScreen extends ConsumerWidget {
     ref.read(watchlistProvider.notifier).load();
     ref.read(notificationHistoryProvider.notifier).load();
     ref.read(memoListProvider.notifier).load();
-  }
-
-  void _showComingSoon(BuildContext context, String message) {
-    showTopToast(context, message);
   }
 
   void _showGuide(BuildContext context) {

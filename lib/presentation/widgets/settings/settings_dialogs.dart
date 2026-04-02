@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
-import '../common/top_toast.dart';
 
 /// 테마 설정 다이얼로그
 void showThemeDialog(BuildContext context, WidgetRef ref) {
@@ -67,9 +67,9 @@ void showAboutDialog_(BuildContext context) {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('알파 사이클', style: TextStyle(color: context.appTextPrimary)),
+              Text(AppConstants.appName, style: TextStyle(color: context.appTextPrimary)),
               Text(
-                'v1.0.1',
+                'v${AppConstants.appVersion}',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.normal,
