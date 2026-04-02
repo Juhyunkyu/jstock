@@ -228,12 +228,12 @@ class MemoDetailScreen extends ConsumerWidget {
                     ),
                   )
                 else
-                  // SelectionArea 제거: 모바일 웹에서 컨텍스트 메뉴 미표시 이슈
-                  // 대신 MemoContentRenderer 내부에서 SelectableText.rich 사용
                   MemoContentRenderer(
                     content: memo.content,
                     imageBase64List: memo.imageBase64List,
                     maxImageHeight: 300,
+                    memoId: memo.id,
+                    linkColor: context.appAccent,
                     textStyle: TextStyle(
                       fontSize: 15,
                       color: context.appTextPrimary,
