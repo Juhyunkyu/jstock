@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_colors.dart';
@@ -91,6 +92,17 @@ class MemoContentRenderer extends StatelessWidget {
     caseSensitive: false,
   );
 
+  /// 모바일 웹 복사 툴바를 확실히 표시하는 contextMenuBuilder
+  static Widget _copyMenuBuilder(
+    BuildContext context,
+    EditableTextState editableTextState,
+  ) {
+    return AdaptiveTextSelectionToolbar.buttonItems(
+      anchors: editableTextState.contextMenuAnchors,
+      buttonItems: editableTextState.contextMenuButtonItems,
+    );
+  }
+
   Widget _buildText(BuildContext context, String text) {
     final style = textStyle ??
         TextStyle(
@@ -99,14 +111,56 @@ class MemoContentRenderer extends StatelessWidget {
           height: 1.6,
         );
 
+    // 텍스트 위젯 생성
+    final textWidget = _buildTextContent(context, text, style);
+
+    // 텍스트 블록 + 복사 아이콘 (모바일 웹 CanvasKit에서 네이티브 복사 메뉴 미지원 대응)
+    return Stack(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 28),
+          child: textWidget,
+        ),
+        Positioned(
+          top: 0,
+          right: 0,
+          child: GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: text));
+              ScaffoldMessenger.of(context)
+                ..clearSnackBars()
+                ..showSnackBar(SnackBar(
+                  content: const Text('복사됨'),
+                  duration: const Duration(seconds: 1),
+                  behavior: SnackBarBehavior.floating,
+                  width: 100,
+                ));
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.copy_rounded,
+                size: 16,
+                color: context.appTextHint,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextContent(BuildContext context, String text, TextStyle style) {
     final matches = _urlPattern.allMatches(text).toList();
     if (matches.isEmpty) {
-      // SelectableText: 모바일 웹에서 롱프레스 → 선택 → 복사 툴바 정상 표시
-      return SelectableText(text, style: style);
+      return SelectableText(
+        text,
+        style: style,
+        contextMenuBuilder: _copyMenuBuilder,
+      );
     }
 
-    // URL이 포함된 텍스트 → SelectableText.rich로 분리
-    // (SelectionArea + Text.rich 조합은 모바일 웹에서 컨텍스트 메뉴 미표시 이슈)
+    // URL 포함 텍스트: 일반텍스트 + 링크 분리
     final spans = <InlineSpan>[];
     int lastEnd = 0;
 
@@ -119,7 +173,7 @@ class MemoContentRenderer extends StatelessWidget {
         ));
       }
 
-      // URL 링크 (파란색 + 밑줄 + 탭 가능)
+      // URL 링크 (파란색 + 밑줄 + 탭으로 열기)
       final url = match.group(0)!;
       spans.add(TextSpan(
         text: url,
@@ -145,13 +199,7 @@ class MemoContentRenderer extends StatelessWidget {
 
     return SelectableText.rich(
       TextSpan(children: spans),
-      // 모바일 웹에서 롱프레스 시 복사/붙여넣기 툴바 표시
-      contextMenuBuilder: (context, editableTextState) {
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: editableTextState.contextMenuAnchors,
-          buttonItems: editableTextState.contextMenuButtonItems,
-        );
-      },
+      contextMenuBuilder: _copyMenuBuilder,
     );
   }
 
