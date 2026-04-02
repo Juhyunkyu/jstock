@@ -59,6 +59,7 @@ class SettingsItem extends StatelessWidget {
   final IconData icon;
   final String title;
   final String? subtitle;
+  final String? trailingText;
   final VoidCallback onTap;
 
   const SettingsItem({
@@ -66,6 +67,7 @@ class SettingsItem extends StatelessWidget {
     required this.icon,
     required this.title,
     this.subtitle,
+    this.trailingText,
     required this.onTap,
   });
 
@@ -101,10 +103,24 @@ class SettingsItem extends StatelessWidget {
               ),
             )
           : null,
-      trailing: Icon(
-        Icons.chevron_right_rounded,
-        color: context.appTextHint,
-        size: isDesktop ? 24 : 20,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (trailingText != null)
+            Text(
+              trailingText!,
+              style: TextStyle(
+                fontSize: isDesktop ? 14 : 13,
+                color: context.appTextHint,
+              ),
+            ),
+          const SizedBox(width: 4),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: context.appTextHint,
+            size: isDesktop ? 24 : 20,
+          ),
+        ],
       ),
       onTap: onTap,
     );

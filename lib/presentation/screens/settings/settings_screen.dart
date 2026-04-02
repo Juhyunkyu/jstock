@@ -32,13 +32,13 @@ class SettingsScreen extends ConsumerWidget {
               SettingsItem(
                 icon: Icons.palette_outlined,
                 title: '테마',
-                subtitle: AppThemeType.values[settings.themeType.clamp(0, AppThemeType.values.length - 1)].label,
+                trailingText: AppThemeType.values[settings.themeType.clamp(0, AppThemeType.values.length - 1)].label,
                 onTap: () => showThemeDialog(context, ref),
               ),
               SettingsItem(
                 icon: Icons.language_outlined,
                 title: '언어',
-                subtitle: '한국어',
+                trailingText: '한국어',
                 onTap: () => showLanguageDialog(context),
               ),
             ],
@@ -68,7 +68,7 @@ class SettingsScreen extends ConsumerWidget {
               SettingsItem(
                 icon: Icons.info_outlined,
                 title: '앱 정보',
-                subtitle: 'v1.0.1',
+                trailingText: 'v1.0.1',
                 onTap: () => showAboutDialog_(context),
               ),
               SettingsItem(
