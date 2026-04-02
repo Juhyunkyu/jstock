@@ -176,9 +176,9 @@ class DataManagementService {
     // BOM (Excel 한글 호환)
     buffer.write('\uFEFF');
 
-    // 일반 보유 거래내역
-    buffer.writeln('=== 일반 보유 거래내역 ===');
-    buffer.writeln('날짜,종목,거래유형,단가(USD),수량,금액(KRW),환율,실현손익(KRW),메모');
+    // ── 일반 보유 거래내역 ──
+    buffer.writeln('[일반 보유 거래내역]');
+    buffer.writeln('날짜,종목,거래유형,단가(USD),수량,원화금액,환율,실현손익,메모');
 
     final holdingTxns = holdingRepository.getAllTransactions();
     for (final txn in holdingTxns) {
@@ -186,38 +186,95 @@ class DataManagementService {
         '${_formatCsvDate(txn.date)},'
         '${txn.ticker},'
         '${txn.isBuy ? "매수" : "매도"},'
-        '${txn.price.toStringAsFixed(2)},'
+        '\$${txn.price.toStringAsFixed(2)},'
         '${txn.shares.toStringAsFixed(4)},'
-        '${txn.amountKrw.toStringAsFixed(0)},'
-        '${txn.exchangeRate.toStringAsFixed(2)},'
-        '${txn.realizedPnlKrw?.toStringAsFixed(0) ?? ""},'
+        '${_formatKrw(txn.amountKrw)},'
+        '${_formatKrw(txn.exchangeRate)},'
+        '${txn.realizedPnlKrw != null ? _formatKrw(txn.realizedPnlKrw!) : ""},'
         '${_escapeCsv(txn.note ?? "")}',
       );
     }
 
-    // 알파 사이클 거래내역
+    // ── 사이클 거래내역 ──
     buffer.writeln();
-    buffer.writeln('=== 알파 사이클 거래내역 ===');
-    buffer.writeln('날짜,사이클ID,종목,매매,신호,단가(USD),수량,금액(KRW),환율,메모');
+    buffer.writeln('[사이클 거래내역]');
+    buffer.writeln('날짜,사이클,종목,전략,매매,신호,단가(USD),수량,원화금액,환율,메모');
 
     final trades = tradeRepository.getAll();
     final cycles = {for (final c in cycleRepository.getAll()) c.id: c};
     for (final trade in trades) {
-      final tradeTicker = trade.ticker ?? cycles[trade.cycleId]?.ticker ?? '';
+      final cycle = cycles[trade.cycleId];
+      final tradeTicker = trade.ticker ?? cycle?.ticker ?? '';
+      final cycleName = cycle != null
+          ? '$tradeTicker (${_strategyLabel(cycle.strategyType)})'
+          : tradeTicker;
+      final strategyName = _strategyLabel(cycle?.strategyType);
       buffer.writeln(
         '${_formatCsvDate(trade.tradedAt)},'
-        '${trade.cycleId.substring(0, 8)},'
+        '${_escapeCsv(cycleName)},'
         '${_escapeCsv(tradeTicker)},'
+        '$strategyName,'
         '${trade.action == TradeAction.buy ? "매수" : "매도"},'
-        '${trade.signal.name},'
-        '${trade.price.toStringAsFixed(2)},'
+        '${_signalLabel(trade.signal)},'
+        '\$${trade.price.toStringAsFixed(2)},'
         '${trade.shares.toStringAsFixed(4)},'
-        '${trade.amountKrw.toStringAsFixed(0)},'
-        '${trade.exchangeRate.toStringAsFixed(2)},'
+        '${_formatKrw(trade.amountKrw)},'
+        '${_formatKrw(trade.exchangeRate)},'
         '${_escapeCsv(trade.memo ?? "")}',
       );
     }
 
+    return buffer.toString();
+  }
+
+  static String _strategyLabel(StrategyType? type) {
+    return switch (type) {
+      StrategyType.alphaCycleV3 => 'Smart',
+      StrategyType.infiniteBuy => 'Steady',
+      StrategyType.ladderCycle => 'Ladder',
+      null => '',
+    };
+  }
+
+  static String _signalLabel(TradeSignal signal) {
+    return switch (signal) {
+      // Smart Cycle
+      TradeSignal.initial => '초기진입',
+      TradeSignal.weightedBuy => '가중매수',
+      TradeSignal.panicBuy => '승부수',
+      TradeSignal.cashSecure => '현금확보',
+      TradeSignal.takeProfit => '익절',
+      // Steady Cycle
+      TradeSignal.locA => 'LOC-A 매수',
+      TradeSignal.locB => 'LOC-B 매수',
+      TradeSignal.locAB => 'LOC-AB 매수',
+      TradeSignal.buySingle => '1회분 매수',
+      TradeSignal.sellLocQuarter => 'LOC 1/4 매도',
+      TradeSignal.sellLimitThreeQ => '지정가 3/4 매도',
+      TradeSignal.takeProfitFull => '전량 익절',
+      TradeSignal.noFill => '미체결',
+      // Ladder Cycle
+      TradeSignal.ladderStep1 => '1단계 매수',
+      TradeSignal.ladderStep2 => '2단계 매수',
+      TradeSignal.ladderStep3 => '3단계 매수',
+      TradeSignal.ladderStep4 => '4단계 매수',
+      TradeSignal.ladderStep5 => '5단계 매수',
+      TradeSignal.ladderStep6 => '6단계 매수',
+      // 공통
+      TradeSignal.manual => '수동',
+      TradeSignal.hold => '보유',
+    };
+  }
+
+  static String _formatKrw(double value) {
+    final intVal = value.round();
+    final str = intVal.abs().toString();
+    final buffer = StringBuffer();
+    if (intVal < 0) buffer.write('-');
+    for (int i = 0; i < str.length; i++) {
+      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(str[i]);
+    }
     return buffer.toString();
   }
 
