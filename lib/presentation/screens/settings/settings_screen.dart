@@ -35,12 +35,6 @@ class SettingsScreen extends ConsumerWidget {
                 trailingText: AppThemeType.values[settings.themeType.clamp(0, AppThemeType.values.length - 1)].label,
                 onTap: () => showThemeDialog(context, ref),
               ),
-              SettingsItem(
-                icon: Icons.language_outlined,
-                title: '언어',
-                trailingText: '한국어',
-                onTap: () => showLanguageDialog(context),
-              ),
             ],
           ),
 

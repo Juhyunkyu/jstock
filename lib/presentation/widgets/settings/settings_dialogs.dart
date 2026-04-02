@@ -42,34 +42,6 @@ void showThemeDialog(BuildContext context, WidgetRef ref) {
   );
 }
 
-/// 언어 설정 다이얼로그
-void showLanguageDialog(BuildContext context) {
-  showDialog(
-    context: context,
-    builder: (context) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: const Text('언어 설정'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('한국어'),
-            trailing: Icon(Icons.check, color: context.appAccent),
-            onTap: () => Navigator.pop(context),
-          ),
-          ListTile(
-            title: const Text('English'),
-            onTap: () {
-              Navigator.pop(context);
-              showTopToast(context, '영어는 준비 중입니다');
-            },
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
 /// 앱 정보 다이얼로그
 void showAboutDialog_(BuildContext context) {
   showDialog(
