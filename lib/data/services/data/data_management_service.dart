@@ -172,81 +172,136 @@ class DataManagementService {
   /// 거래내역을 CSV 문자열로 내보내기
   String exportToCsv() {
     final buffer = StringBuffer();
+    buffer.write('\uFEFF'); // BOM (Excel 한글 호환)
 
-    // BOM (Excel 한글 호환)
-    buffer.write('\uFEFF');
+    // ── 사이클 거래내역 (사이클별 블록) ──
+    final allCycles = cycleRepository.getAll();
+    // 진행중 먼저 → 완료. 각 그룹 내 최근 먼저
+    allCycles.sort((a, b) {
+      final ao = a.status == CycleStatus.active ? 0 : 1;
+      final bo = b.status == CycleStatus.active ? 0 : 1;
+      if (ao != bo) return ao.compareTo(bo);
+      return b.startDate.compareTo(a.startDate);
+    });
 
-    final cycles = {for (final c in cycleRepository.getAll()) c.id: c};
-
-    // ── 1. 사이클 요약 ──
-    buffer.writeln('[사이클 요약]');
-    buffer.writeln('종목,전략,상태,시드,투자금,평균단가,보유수량,잔여현금,수익률,시작일');
-    for (final c in cycles.values) {
-      final status = c.status == CycleStatus.completed ? '완료' : '진행중';
-      buffer.writeln(
-        '${c.ticker},'
-        '${_strategyLabel(c.strategyType)},'
-        '$status,'
-        '"${_fmtNum(c.seedAmount)}",'
-        '"${_fmtNum(c.totalInvestedAmount)}",'
-        '\$${c.averagePrice.toStringAsFixed(2)},'
-        '${c.totalShares.toStringAsFixed(4)},'
-        '"${_fmtNum(c.remainingCash)}",'
-        '${c.completedReturnRate != null ? "${c.completedReturnRate!.toStringAsFixed(1)}%" : ""},'
-        '${_formatCsvDate(c.startDate)}',
-      );
+    if (allCycles.isNotEmpty) {
+      buffer.writeln('[사이클 거래내역]');
+      for (final cycle in allCycles) {
+        buffer.writeln();
+        _writeCycleBlock(buffer, cycle);
+      }
     }
 
-    // ── 2. 사이클 거래내역 ──
-    buffer.writeln();
-    buffer.writeln('[사이클 거래내역]');
-    buffer.writeln('날짜,사이클,종목,전략,매매,신호,단가(USD),수량,원화금액,환율,메모');
-
-    final trades = tradeRepository.getAll();
-    for (final trade in trades) {
-      final cycle = cycles[trade.cycleId];
-      final tradeTicker = trade.ticker ?? cycle?.ticker ?? '';
-      final cycleName = cycle != null
-          ? '$tradeTicker (${_strategyLabel(cycle.strategyType)})'
-          : tradeTicker;
-      buffer.writeln(
-        '${_formatCsvDate(trade.tradedAt)},'
-        '${_escapeCsv(cycleName)},'
-        '$tradeTicker,'
-        '${_strategyLabel(cycle?.strategyType)},'
-        '${trade.action == TradeAction.buy ? "매수" : "매도"},'
-        '${_signalLabel(trade.signal)},'
-        '\$${trade.price.toStringAsFixed(2)},'
-        '${trade.shares.toStringAsFixed(4)},'
-        '"${_fmtNum(trade.amountKrw)}",'
-        '"${_fmtNum(trade.exchangeRate)}",'
-        '${_escapeCsv(trade.memo ?? "")}',
-      );
-    }
-
-    // ── 3. 일반 보유 거래내역 ──
-    final holdingTxns = holdingRepository.getAllTransactions();
-    if (holdingTxns.isNotEmpty) {
+    // ── 일반 보유 거래내역 (종목별 블록) ──
+    final allHoldings = holdingRepository.getAll();
+    if (allHoldings.isNotEmpty) {
       buffer.writeln();
       buffer.writeln('[일반 보유 거래내역]');
-      buffer.writeln('날짜,종목,거래유형,단가(USD),수량,원화금액,환율,실현손익,메모');
-      for (final txn in holdingTxns) {
-        buffer.writeln(
-          '${_formatCsvDate(txn.date)},'
-          '${txn.ticker},'
-          '${txn.isBuy ? "매수" : "매도"},'
-          '\$${txn.price.toStringAsFixed(2)},'
-          '${txn.shares.toStringAsFixed(4)},'
-          '"${_fmtNum(txn.amountKrw)}",'
-          '"${_fmtNum(txn.exchangeRate)}",'
-          '${txn.realizedPnlKrw != null ? "\"${_fmtNum(txn.realizedPnlKrw!)}\"" : ""},'
-          '${_escapeCsv(txn.note ?? "")}',
-        );
+      for (final holding in allHoldings) {
+        buffer.writeln();
+        _writeHoldingBlock(buffer, holding);
       }
     }
 
     return buffer.toString();
   }
+
+  void _writeCycleBlock(StringBuffer buffer, Cycle cycle) {
+    final strategy = _strategyLabel(cycle.strategyType);
+    final status = cycle.status == CycleStatus.completed ? '완료' : '진행중';
+    final startStr = _formatCsvDate(cycle.firstTradeDate ?? cycle.startDate);
+    final endStr = cycle.status == CycleStatus.completed && cycle.lastTradeDate != null
+        ? ' ~ ${_formatCsvDate(cycle.lastTradeDate!)}'
+        : ' ~';
+
+    // 구분선
+    buffer.writeln('--- ${cycle.ticker} ($strategy) | $status | $startStr$endStr ---');
+
+    // 요약
+    if (cycle.status == CycleStatus.completed) {
+      final profit = cycle.realizedProfitKrw;
+      final rate = cycle.realizedProfitRate;
+      final sign = profit >= 0 ? '+' : '';
+      buffer.writeln(
+        '"시드: ${_w(cycle.seedAmount)}",'
+        '"총매수: ${_w(cycle.totalBuyAmountKrw)}",'
+        '"총매도: ${_w(cycle.totalSellAmountKrw)}",'
+        '"실현손익: ${_w(profit)} ($sign${rate.toStringAsFixed(1)}%)"',
+      );
+    } else {
+      buffer.writeln(
+        '"시드: ${_w(cycle.seedAmount)}",'
+        '"총매수: ${_w(cycle.totalBuyAmountKrw)}",'
+        '"잔여현금: ${_w(cycle.remainingCash)}",'
+        '"보유: ${cycle.totalShares.toStringAsFixed(4)}주 @ \$${cycle.averagePrice.toStringAsFixed(2)}"',
+      );
+    }
+    if (cycle.isExchangeSettled && cycle.settledExchangeRate > 0) {
+      buffer.writeln('"환전확정: ${_w(cycle.settledExchangeRate)}"');
+    }
+
+    // 거래 테이블
+    final trades = tradeRepository.getByCycleId(cycle.id);
+    if (trades.isEmpty) {
+      buffer.writeln('(거래 내역 없음)');
+      return;
+    }
+    trades.sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
+    buffer.writeln('날짜,매매,신호,단가(USD),수량,원화금액,환율,메모');
+    for (final t in trades) {
+      buffer.writeln(
+        '${_formatCsvDate(t.tradedAt)},'
+        '${t.action == TradeAction.buy ? "매수" : "매도"},'
+        '${_signalLabel(t.signal)},'
+        '\$${t.price.toStringAsFixed(2)},'
+        '${t.shares.toStringAsFixed(4)},'
+        '"${_fmtNum(t.amountKrw)}",'
+        '"${_fmtNum(t.exchangeRate)}",'
+        '${_escapeCsv(t.memo ?? "")}',
+      );
+    }
+  }
+
+  void _writeHoldingBlock(StringBuffer buffer, Holding holding) {
+    final status = holding.isArchivedItem ? '아카이브' : '보유중';
+    buffer.writeln('--- ${holding.ticker} (${holding.name}) | $status ---');
+
+    if (holding.totalShares > 0) {
+      buffer.writeln(
+        '"보유: ${holding.totalShares.toStringAsFixed(4)}주 @ \$${holding.averagePrice.toStringAsFixed(2)}",'
+        '"투자금: ${_w(holding.totalInvestedAmount)}",'
+        '"매입환율: ${_w(holding.exchangeRate)}"',
+      );
+    } else {
+      buffer.writeln('"전량 매도"');
+    }
+    if (holding.isExchangeSettled && holding.settledExchangeRate > 0) {
+      buffer.writeln('"환전확정: ${_w(holding.settledExchangeRate)}"');
+    }
+
+    final txns = holdingRepository.getTransactionsByHoldingId(holding.id);
+    if (txns.isEmpty) {
+      buffer.writeln('(거래 내역 없음)');
+      return;
+    }
+    txns.sort((a, b) => a.date.compareTo(b.date));
+    buffer.writeln('날짜,매매,단가(USD),수량,원화금액,환율,실현손익,메모');
+    for (final t in txns) {
+      buffer.writeln(
+        '${_formatCsvDate(t.date)},'
+        '${t.isBuy ? "매수" : "매도"},'
+        '\$${t.price.toStringAsFixed(2)},'
+        '${t.shares.toStringAsFixed(4)},'
+        '"${_fmtNum(t.amountKrw)}",'
+        '"${_fmtNum(t.exchangeRate)}",'
+        '${t.realizedPnlKrw != null ? "\"${_fmtNum(t.realizedPnlKrw!)}\"" : ""},'
+        '${_escapeCsv(t.note ?? "")}',
+      );
+    }
+  }
+
+  /// 원화 포맷 헬퍼: ₩1,234,567
+  static String _w(double v) => '₩${_fmtNum(v)}';
 
   static String _strategyLabel(StrategyType? type) {
     return switch (type) {
