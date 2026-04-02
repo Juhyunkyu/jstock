@@ -176,52 +176,73 @@ class DataManagementService {
     // BOM (Excel 한글 호환)
     buffer.write('\uFEFF');
 
-    // ── 일반 보유 거래내역 ──
-    buffer.writeln('[일반 보유 거래내역]');
-    buffer.writeln('날짜,종목,거래유형,단가(USD),수량,원화금액,환율,실현손익,메모');
+    final cycles = {for (final c in cycleRepository.getAll()) c.id: c};
 
-    final holdingTxns = holdingRepository.getAllTransactions();
-    for (final txn in holdingTxns) {
+    // ── 1. 사이클 요약 ──
+    buffer.writeln('[사이클 요약]');
+    buffer.writeln('종목,전략,상태,시드,투자금,평균단가,보유수량,잔여현금,수익률,시작일');
+    for (final c in cycles.values) {
+      final status = c.status == CycleStatus.completed ? '완료' : '진행중';
       buffer.writeln(
-        '${_formatCsvDate(txn.date)},'
-        '${txn.ticker},'
-        '${txn.isBuy ? "매수" : "매도"},'
-        '\$${txn.price.toStringAsFixed(2)},'
-        '${txn.shares.toStringAsFixed(4)},'
-        '${_formatKrw(txn.amountKrw)},'
-        '${_formatKrw(txn.exchangeRate)},'
-        '${txn.realizedPnlKrw != null ? _formatKrw(txn.realizedPnlKrw!) : ""},'
-        '${_escapeCsv(txn.note ?? "")}',
+        '${c.ticker},'
+        '${_strategyLabel(c.strategyType)},'
+        '$status,'
+        '"${_fmtNum(c.seedAmount)}",'
+        '"${_fmtNum(c.totalInvestedAmount)}",'
+        '\$${c.averagePrice.toStringAsFixed(2)},'
+        '${c.totalShares.toStringAsFixed(4)},'
+        '"${_fmtNum(c.remainingCash)}",'
+        '${c.completedReturnRate != null ? "${c.completedReturnRate!.toStringAsFixed(1)}%" : ""},'
+        '${_formatCsvDate(c.startDate)}',
       );
     }
 
-    // ── 사이클 거래내역 ──
+    // ── 2. 사이클 거래내역 ──
     buffer.writeln();
     buffer.writeln('[사이클 거래내역]');
     buffer.writeln('날짜,사이클,종목,전략,매매,신호,단가(USD),수량,원화금액,환율,메모');
 
     final trades = tradeRepository.getAll();
-    final cycles = {for (final c in cycleRepository.getAll()) c.id: c};
     for (final trade in trades) {
       final cycle = cycles[trade.cycleId];
       final tradeTicker = trade.ticker ?? cycle?.ticker ?? '';
       final cycleName = cycle != null
           ? '$tradeTicker (${_strategyLabel(cycle.strategyType)})'
           : tradeTicker;
-      final strategyName = _strategyLabel(cycle?.strategyType);
       buffer.writeln(
         '${_formatCsvDate(trade.tradedAt)},'
         '${_escapeCsv(cycleName)},'
-        '${_escapeCsv(tradeTicker)},'
-        '$strategyName,'
+        '$tradeTicker,'
+        '${_strategyLabel(cycle?.strategyType)},'
         '${trade.action == TradeAction.buy ? "매수" : "매도"},'
         '${_signalLabel(trade.signal)},'
         '\$${trade.price.toStringAsFixed(2)},'
         '${trade.shares.toStringAsFixed(4)},'
-        '${_formatKrw(trade.amountKrw)},'
-        '${_formatKrw(trade.exchangeRate)},'
+        '"${_fmtNum(trade.amountKrw)}",'
+        '"${_fmtNum(trade.exchangeRate)}",'
         '${_escapeCsv(trade.memo ?? "")}',
       );
+    }
+
+    // ── 3. 일반 보유 거래내역 ──
+    final holdingTxns = holdingRepository.getAllTransactions();
+    if (holdingTxns.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('[일반 보유 거래내역]');
+      buffer.writeln('날짜,종목,거래유형,단가(USD),수량,원화금액,환율,실현손익,메모');
+      for (final txn in holdingTxns) {
+        buffer.writeln(
+          '${_formatCsvDate(txn.date)},'
+          '${txn.ticker},'
+          '${txn.isBuy ? "매수" : "매도"},'
+          '\$${txn.price.toStringAsFixed(2)},'
+          '${txn.shares.toStringAsFixed(4)},'
+          '"${_fmtNum(txn.amountKrw)}",'
+          '"${_fmtNum(txn.exchangeRate)}",'
+          '${txn.realizedPnlKrw != null ? "\"${_fmtNum(txn.realizedPnlKrw!)}\"" : ""},'
+          '${_escapeCsv(txn.note ?? "")}',
+        );
+      }
     }
 
     return buffer.toString();
@@ -266,16 +287,17 @@ class DataManagementService {
     };
   }
 
-  static String _formatKrw(double value) {
+  /// 숫자를 쉼표 포맷으로 변환. CSV에서는 "로 감싸서 사용.
+  static String _fmtNum(double value) {
     final intVal = value.round();
     final str = intVal.abs().toString();
-    final buffer = StringBuffer();
-    if (intVal < 0) buffer.write('-');
+    final buf = StringBuffer();
+    if (intVal < 0) buf.write('-');
     for (int i = 0; i < str.length; i++) {
-      if (i > 0 && (str.length - i) % 3 == 0) buffer.write(',');
-      buffer.write(str[i]);
+      if (i > 0 && (str.length - i) % 3 == 0) buf.write(',');
+      buf.write(str[i]);
     }
-    return buffer.toString();
+    return buf.toString();
   }
 
   /// 모든 데이터 초기화
