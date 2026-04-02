@@ -231,7 +231,6 @@ class MemoDetailScreen extends ConsumerWidget {
                   MemoContentRenderer(
                     content: memo.content,
                     imageBase64List: memo.imageBase64List,
-                    maxImageHeight: 300,
                     memoId: memo.id,
                     linkColor: context.appAccent,
                     textStyle: TextStyle(

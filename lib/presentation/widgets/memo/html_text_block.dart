@@ -33,15 +33,13 @@ class HtmlTextBlock extends StatefulWidget {
   @override
   State<HtmlTextBlock> createState() => _HtmlTextBlockState();
 
-  /// 텍스트의 렌더링 높이를 사전 측정.
-  /// 폰트 로딩 완료 후 임시 div를 body에 부착 → offsetHeight 읽기 → 제거.
+  /// 사전 처리된 HTML로 렌더링 높이를 측정.
   static Future<double> measureHeight({
-    required String text,
+    required String processedHtml,
     required double fontSize,
     required double lineHeight,
     required double maxWidth,
   }) async {
-    // 폰트 로딩 완료 대기
     await web.document.fonts.ready.toDart;
 
     final div = web.document.createElement('div') as web.HTMLDivElement;
@@ -53,34 +51,29 @@ class HtmlTextBlock extends StatefulWidget {
         'width:${maxWidth}px;'
         'word-break:keep-all;'
         'overflow-wrap:break-word;';
-    div.innerHTML = _processText(text, const Color(0xFF000000)).toJS;
+    div.innerHTML = processedHtml.toJS;
     web.document.body!.appendChild(div);
 
-    // 한 프레임 대기 후 높이 읽기
     await Future<void>.delayed(Duration.zero);
     final height = div.offsetHeight.toDouble();
     web.document.body!.removeChild(div);
 
-    // 최소 높이 보장 (빈 줄 등)
     return height > 0 ? height : fontSize * lineHeight;
   }
 
-  /// URL 패턴: http/https 링크 감지
   static final _urlPattern = RegExp(
     r'https?://[^\s<>\[\](){}「」『』【】\u3000]+',
     caseSensitive: false,
   );
 
   /// 텍스트를 HTML로 변환 (XSS 이스케이프 + URL → <a> 태그)
-  static String _processText(String text, Color linkColor) {
-    // 1. HTML 이스케이프 (XSS 방지)
+  static String processText(String text, Color linkColor) {
     var html = text
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;');
 
-    // 2. URL → <a> 태그 변환
     html = html.replaceAllMapped(_urlPattern, (match) {
       final url = match.group(0)!;
       final cssColor = _colorToCss(linkColor);
@@ -90,11 +83,9 @@ class HtmlTextBlock extends StatefulWidget {
           '$url</a>';
     });
 
-    // 3. 줄바꿈 → 선택 가능한 빈 줄 블록
-    // <br>만으로는 빈 줄의 높이가 0에 가까워 모바일 long-press 선택이 어려움.
-    // 연속 줄바꿈(빈 줄)을 min-height가 있는 div 블록으로 변환하여
-    // 터치 영역을 확보한다.
-    html = html.replaceAll('\n\n', '</p><p style="min-height:1.2em;margin:0;padding:0;">');
+    // 연속 줄바꿈 → min-height 블록 (모바일에서 빈 줄 터치 영역 확보)
+    html = html.replaceAll(
+        '\n\n', '</p><p style="min-height:1.2em;margin:0;padding:0;">');
     html = html.replaceAll('\n', '<br>');
     return '<p style="margin:0;padding:0;">$html</p>';
   }
@@ -109,24 +100,24 @@ class HtmlTextBlock extends StatefulWidget {
 }
 
 class _HtmlTextBlockState extends State<HtmlTextBlock> {
-  /// 등록된 viewType 목록 (중복 방지)
+  /// platformViewRegistry는 deregister를 지원하지 않아 세션 동안 누적됨
   static final _registered = <String>{};
 
   double _measuredHeight = 0;
   bool _ready = false;
-
-  /// text 내용의 해시 — viewType에 포함하여 내용 변경 시 새 factory 등록
-  int _textHash = 0;
+  bool _measuring = false;
+  String _cachedHtml = '';
 
   String get _viewType =>
       'memo-text-${widget.viewId}-'
       '${widget.textColor.value.toRadixString(16)}-'
-      '$_textHash';
+      '${widget.text.hashCode}';
 
   @override
   void initState() {
     super.initState();
-    _textHash = widget.text.hashCode;
+    _cachedHtml =
+        HtmlTextBlock.processText(widget.text, widget.linkColor);
     _register();
     _measure();
   }
@@ -138,11 +129,11 @@ class _HtmlTextBlockState extends State<HtmlTextBlock> {
         old.textColor != widget.textColor ||
         old.linkColor != widget.linkColor ||
         old.fontSize != widget.fontSize) {
-      _textHash = widget.text.hashCode;
+      _cachedHtml =
+          HtmlTextBlock.processText(widget.text, widget.linkColor);
       _register();
       _measure();
-      // viewType이 바뀌므로 HtmlElementView도 새로 생성됨 → rebuild 필요
-      setState(() {});
+      setState(() => _ready = false);
     }
   }
 
@@ -159,8 +150,7 @@ class _HtmlTextBlockState extends State<HtmlTextBlock> {
   web.HTMLDivElement _createElement() {
     final div = web.document.createElement('div') as web.HTMLDivElement;
     div.style.cssText = _buildCss();
-    div.innerHTML =
-        HtmlTextBlock._processText(widget.text, widget.linkColor).toJS;
+    div.innerHTML = _cachedHtml.toJS;
     return div;
   }
 
@@ -183,29 +173,33 @@ class _HtmlTextBlockState extends State<HtmlTextBlock> {
   }
 
   Future<void> _measure() async {
-    if (!mounted) return;
-    // LayoutBuilder에서 maxWidth를 가져올 수 없으므로
-    // 빌드 후 한 프레임 기다려 context.size를 읽는다
+    if (!mounted || _measuring) return;
+    _measuring = true;
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      // 부모의 폭 추정: ConstrainedBox maxWidth - padding
+      if (!mounted) {
+        _measuring = false;
+        return;
+      }
+
       final screenWidth = MediaQuery.sizeOf(context).width;
       final isDesktop = screenWidth >= 768;
       final isWideDesktop = screenWidth >= 1024;
       final maxContentWidth = isWideDesktop ? 800.0 : 600.0;
-      final padding = isDesktop ? 48.0 : 32.0; // symmetric 24 or 16 × 2
+      final padding = isDesktop ? 48.0 : 32.0;
       final maxWidth =
           (screenWidth < maxContentWidth + padding
               ? screenWidth - padding
               : maxContentWidth) -
-          2; // 여유 2px
+          2;
 
       final height = await HtmlTextBlock.measureHeight(
-        text: widget.text,
+        processedHtml: _cachedHtml,
         fontSize: widget.fontSize,
         lineHeight: widget.lineHeight,
         maxWidth: maxWidth,
       );
+      _measuring = false;
       if (mounted) {
         setState(() {
           _measuredHeight = height;
@@ -218,7 +212,6 @@ class _HtmlTextBlockState extends State<HtmlTextBlock> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      // 측정 완료 전: Flutter Text로 폴백 (깜박임 최소화)
       return Text(
         widget.text,
         style: TextStyle(

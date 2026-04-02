@@ -17,16 +17,8 @@ class MemoContentRenderer extends StatelessWidget {
   final String content;
   final List<String> imageBase64List;
 
-  /// 텍스트 스타일 (null이면 기본값 사용)
   final TextStyle? textStyle;
-
-  /// 이미지 최대 높이
-  final double maxImageHeight;
-
-  /// 링크 색상 (null이면 context.appAccent)
   final Color? linkColor;
-
-  /// 메모 ID (HtmlTextBlock viewId 고유성을 위해)
   final String? memoId;
 
   static final _markerPattern = RegExp(r'\[IMG:(\d+)\]');
@@ -36,7 +28,6 @@ class MemoContentRenderer extends StatelessWidget {
     required this.content,
     required this.imageBase64List,
     this.textStyle,
-    this.maxImageHeight = 300,
     this.linkColor,
     this.memoId,
   });
@@ -50,12 +41,10 @@ class MemoContentRenderer extends StatelessWidget {
     int textBlockIndex = 0;
 
     if (matches.isEmpty) {
-      // 마커 없으면 텍스트만
       widgets.add(_buildText(context, content, textBlockIndex));
     } else {
       int lastEnd = 0;
       for (final match in matches) {
-        // 마커 앞 텍스트
         if (match.start > lastEnd) {
           final text = content.substring(lastEnd, match.start).trim();
           if (text.isNotEmpty) {
@@ -64,7 +53,6 @@ class MemoContentRenderer extends StatelessWidget {
           }
         }
 
-        // 이미지
         final imgIndex = int.tryParse(match.group(1) ?? '');
         if (imgIndex != null &&
             imgIndex >= 0 &&
@@ -76,7 +64,6 @@ class MemoContentRenderer extends StatelessWidget {
         lastEnd = match.end;
       }
 
-      // 마지막 마커 뒤 텍스트
       if (lastEnd < content.length) {
         final text = content.substring(lastEnd).trim();
         if (text.isNotEmpty) {
