@@ -25,6 +25,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
   late PageController _pageController;
   int _currentPage = 0;
   bool _refreshing = false;
+  DateTime? _lastRefreshAt;
 
   @override
   void initState() {
@@ -100,7 +101,14 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
               : IconButton(
                   icon: Icon(Icons.refresh, color: context.appTextSecondary),
                   onPressed: () async {
+                    // 30초 쿨다운 — API 콜 남용 방지
+                    if (_lastRefreshAt != null &&
+                        DateTime.now().difference(_lastRefreshAt!) <
+                            const Duration(seconds: 30)) {
+                      return;
+                    }
                     setState(() => _refreshing = true);
+                    _lastRefreshAt = DateTime.now();
                     await ref.read(watchlistProvider.notifier).refreshQuotes();
                     if (mounted) setState(() => _refreshing = false);
                   },
