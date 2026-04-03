@@ -39,8 +39,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   // === 통화 모드 ===
   bool _isKrwMode = false; // false=USD, true=KRW
 
-  // === 환율 접이식 ===
+  // === 접이식 ===
   bool _showExchangeRate = false;
+  bool _showScenario = false;
 
   // === 사이클 연동 ===
   String? _loadedCycleId;
@@ -617,23 +618,15 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
-              _buildTextField(
+              _buildPriceInput(
                 label: '평균단가',
                 controller: _avgPriceController,
-                hint: _isKrwMode ? '0' : '0.00',
-                prefix: _isKrwMode ? '₩' : '\$',
-                keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
-              _buildTextField(
+              _buildPriceInput(
                 label: '현재가',
                 controller: _currentPriceController,
-                hint: _isKrwMode ? '0' : '0.00',
-                prefix: _isKrwMode ? '₩' : '\$',
-                keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
               if (!_isKrwMode) ...[
@@ -684,15 +677,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           trailing: _buildSmallResetButton(_resetAdditional),
           child: Column(
             children: [
-              _buildTextField(
+              _buildPriceInput(
                 label: '매수가',
                 controller: _addPriceController,
-                hint: _isKrwMode
-                    ? (_currentPrice > 0 ? _currentPrice.toStringAsFixed(0) : '0')
-                    : (_currentPrice > 0 ? _currentPrice.toStringAsFixed(2) : '0.00'),
-                prefix: _isKrwMode ? '₩' : '\$',
-                keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onAddPriceChanged,
               ),
               const SizedBox(height: 12),
@@ -718,6 +705,53 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// 가격 입력 필드 — KRW 모드에서 쉼표 자동 포맷
+  Widget _buildPriceInput({
+    required String label,
+    required TextEditingController controller,
+    required ValueChanged<String> onChanged,
+  }) {
+    if (_isKrwMode) {
+      // KRW: 정수 + 쉼표 자동 포맷
+      return _buildTextField(
+        label: label,
+        controller: controller,
+        hint: '0',
+        prefix: '₩',
+        keyboardType: const TextInputType.numberWithOptions(decimal: false),
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,]'))],
+        onChanged: (value) {
+          final raw = value.replaceAll(',', '');
+          if (raw.isEmpty) {
+            onChanged(value);
+            return;
+          }
+          final num = int.tryParse(raw);
+          if (num != null) {
+            final formatted = formatKrwWithComma(num.toDouble());
+            if (formatted != value) {
+              controller.value = TextEditingValue(
+                text: formatted,
+                selection: TextSelection.collapsed(offset: formatted.length),
+              );
+            }
+          }
+          onChanged(raw);
+        },
+      );
+    }
+    // USD: 소수점 허용, 쉼표 없음
+    return _buildTextField(
+      label: label,
+      controller: controller,
+      hint: '0.00',
+      prefix: '\$',
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+      onChanged: onChanged,
     );
   }
 
@@ -1191,9 +1225,27 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     return _buildCard(
       title: '하락 시나리오',
-      child: Column(
+      trailing: GestureDetector(
+        onTap: () => setState(() => _showScenario = !_showScenario),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              _showScenario ? '접기' : '펼치기',
+              style: TextStyle(fontSize: 12, color: context.appTextHint),
+            ),
+            Icon(
+              _showScenario ? Icons.expand_less : Icons.expand_more,
+              size: 18,
+              color: context.appTextHint,
+            ),
+          ],
+        ),
+      ),
+      child: !_showScenario
+          ? const SizedBox.shrink()
+          : Column(
         children: [
-          // 헤더
           Row(
             children: [
               Expanded(flex: 2, child: Text('추가하락', style: _headerStyle)),
@@ -1279,13 +1331,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       title: '목표가 수익',
       child: Column(
         children: [
-          _buildTextField(
+          _buildPriceInput(
             label: '목표가',
             controller: _targetPriceController,
-            hint: _isKrwMode ? '0' : '0.00',
-            prefix: _isKrwMode ? '₩' : '\$',
-            keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
             onChanged: _onBasicInputChanged,
           ),
           if (result?.targetPriceResult != null) ...[
