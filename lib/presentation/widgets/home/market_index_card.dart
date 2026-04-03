@@ -18,7 +18,7 @@ class MarketIndexCard extends ConsumerWidget {
 
     final nasdaqCard = _CompactIndexSection(
       title: 'QQQ',
-      symbol: '^NDX',
+      symbol: 'QQQ',
       stateProvider: marketIndexProvider,
       onRefresh: () => ref.read(marketIndexProvider.notifier).loadNasdaqData(),
       onPeriodChanged: (range, interval) {
@@ -31,7 +31,7 @@ class MarketIndexCard extends ConsumerWidget {
 
     final sp500Card = _CompactIndexSection(
       title: 'SPY',
-      symbol: '^GSPC',
+      symbol: 'SPY',
       stateProvider: sp500IndexProvider,
       onRefresh: () => ref.read(sp500IndexProvider.notifier).loadSp500Data(),
       onPeriodChanged: (range, interval) {
