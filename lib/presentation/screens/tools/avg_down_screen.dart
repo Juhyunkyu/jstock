@@ -21,14 +21,21 @@ class _RoundData {
   final TextEditingController priceController;
   final TextEditingController sharesController;
   final TextEditingController amountController;
+  final TextEditingController targetReturnController;
+  _EditedField lastEditedField = _EditedField.shares;
+  bool isAutoUpdating = false;
+
   _RoundData()
       : priceController = TextEditingController(),
         sharesController = TextEditingController(),
-        amountController = TextEditingController();
+        amountController = TextEditingController(),
+        targetReturnController = TextEditingController(text: '-');
+
   void dispose() {
     priceController.dispose();
     sharesController.dispose();
     amountController.dispose();
+    targetReturnController.dispose();
   }
 }
 
@@ -288,6 +295,152 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       case _EditedField.targetReturn:
         _syncFromTargetReturn();
     }
+  }
+
+  // ════════════════════════════════════════════
+  // 다회차 물타기 per-round 연동
+  // ════════════════════════════════════════════
+
+  /// Get cumulative position BEFORE round at given index
+  /// index=0 means before round 2 (after round 1)
+  ({double shares, double avgPrice}) _cumulativeBeforeRound(int roundIndex) {
+    var cumShares = _holdingShares;
+    var cumCost = _holdingShares * _avgPrice;
+
+    // Add round 1 (from existing fields)
+    final r1Price = _addPrice;
+    final r1Shares = _addShares;
+    if (r1Price > 0 && r1Shares > 0) {
+      cumShares += r1Shares;
+      cumCost += r1Shares * r1Price;
+    }
+
+    // Add rounds 2..N-1 (from _rounds[0] to _rounds[roundIndex-1])
+    for (var i = 0; i < roundIndex; i++) {
+      final rd = _rounds[i];
+      final p = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
+      final s = double.tryParse(rd.sharesController.text) ?? 0;
+      if (p > 0 && s > 0) {
+        cumShares += s;
+        cumCost += s * p;
+      }
+    }
+
+    final cumAvg = cumShares > 0 ? cumCost / cumShares : 0.0;
+    return (shares: cumShares, avgPrice: cumAvg);
+  }
+
+  void _onRoundSharesChanged(int index) {
+    final rd = _rounds[index];
+    if (rd.isAutoUpdating) return;
+    rd.lastEditedField = _EditedField.shares;
+    _syncRoundFromShares(index);
+    _recalculate();
+  }
+
+  void _onRoundAmountChanged2(int index, String value) {
+    final rd = _rounds[index];
+    if (rd.isAutoUpdating) return;
+    _autoFormatComma(rd.amountController, value, (_) {});
+    rd.lastEditedField = _EditedField.amount;
+    _syncRoundFromAmount(index);
+    _recalculate();
+  }
+
+  void _onRoundTargetReturnChanged(int index) {
+    final rd = _rounds[index];
+    if (rd.isAutoUpdating) return;
+    rd.lastEditedField = _EditedField.targetReturn;
+    _syncRoundFromTargetReturn(index);
+    _recalculate();
+  }
+
+  void _onRoundPriceChanged(int index) {
+    final rd = _rounds[index];
+    if (rd.isAutoUpdating) return;
+    switch (rd.lastEditedField) {
+      case _EditedField.shares:
+        _syncRoundFromShares(index);
+      case _EditedField.amount:
+        _syncRoundFromAmount(index);
+      case _EditedField.targetReturn:
+        _syncRoundFromTargetReturn(index);
+    }
+    _recalculate();
+  }
+
+  void _syncRoundFromShares(int index) {
+    final rd = _rounds[index];
+    rd.isAutoUpdating = true;
+    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
+    final shares = double.tryParse(rd.sharesController.text) ?? 0;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    if (price > 0 && shares > 0) {
+      final amount = shares * price * exRate;
+      rd.amountController.text = formatKrwWithComma(amount);
+      final cum = _cumulativeBeforeRound(index);
+      if (cum.shares > 0 && cum.avgPrice > 0 && _currentPrice > 0) {
+        final newAvg = AverageDownCalculator.newAveragePrice(
+          holdingShares: cum.shares, averagePrice: cum.avgPrice,
+          additionalShares: shares, additionalPrice: price,
+        );
+        final newMdd = AverageDownCalculator.mdd(currentPrice: _currentPrice, averagePrice: newAvg);
+        rd.targetReturnController.text = newMdd.toStringAsFixed(2);
+      }
+    }
+    rd.isAutoUpdating = false;
+  }
+
+  void _syncRoundFromAmount(int index) {
+    final rd = _rounds[index];
+    rd.isAutoUpdating = true;
+    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
+    final amount = double.tryParse(rd.amountController.text.replaceAll(',', '')) ?? 0;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    if (price > 0 && amount > 0 && exRate > 0) {
+      final shares = amount / (price * exRate);
+      rd.sharesController.text = shares.toStringAsFixed(4);
+      final cum = _cumulativeBeforeRound(index);
+      if (cum.shares > 0 && cum.avgPrice > 0 && _currentPrice > 0) {
+        final newAvg = AverageDownCalculator.newAveragePrice(
+          holdingShares: cum.shares, averagePrice: cum.avgPrice,
+          additionalShares: shares, additionalPrice: price,
+        );
+        final newMdd = AverageDownCalculator.mdd(currentPrice: _currentPrice, averagePrice: newAvg);
+        rd.targetReturnController.text = newMdd.toStringAsFixed(2);
+      }
+    }
+    rd.isAutoUpdating = false;
+  }
+
+  void _syncRoundFromTargetReturn(int index) {
+    final rd = _rounds[index];
+    rd.isAutoUpdating = true;
+    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
+    final targetRet = double.tryParse(rd.targetReturnController.text) ?? 0;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    final cum = _cumulativeBeforeRound(index);
+    if (price > 0 && cum.shares > 0 && cum.avgPrice > 0 && _currentPrice > 0) {
+      final reverseResult = AverageDownCalculator.reverseCalc(
+        holdingShares: cum.shares,
+        averagePrice: cum.avgPrice,
+        currentPrice: _currentPrice,
+        additionalPrice: price,
+        exchangeRate: exRate,
+        targetReturnRate: targetRet,
+      );
+      if (reverseResult.isFeasible && reverseResult.requiredShares > 0) {
+        rd.sharesController.text = reverseResult.requiredShares.toStringAsFixed(4);
+        rd.amountController.text = formatKrwWithComma(reverseResult.requiredAmountKrw);
+      } else {
+        rd.sharesController.text = '';
+        rd.amountController.text = '';
+      }
+    }
+    rd.isAutoUpdating = false;
   }
 
   // ════════════════════════════════════════════
@@ -625,8 +778,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       final rd = _rounds[i];
       final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
       final shares = double.tryParse(rd.sharesController.text) ?? 0;
+      final targetRet = rd.targetReturnController.text;
       if (price > 0 && shares > 0) {
-        buf.writeln('${i + 2}차: ${_fmtPrice(price)} x ${shares.toStringAsFixed(1)}주 (${formatCashShort(shares * price * exRate)})');
+        buf.writeln('${i + 2}차: ${_fmtPrice(price)} x ${shares.toStringAsFixed(1)}주 (${formatCashShort(shares * price * exRate)}) 목표 $targetRet%');
         final roundIdx = i + 1;
         if (roundIdx < result.roundResults.length) {
           final r = result.roundResults[roundIdx];
@@ -918,203 +1072,193 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     return [
       for (var i = 0; i < _rounds.length; i++) ...[
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         _buildRoundCard(i, result),
       ],
     ];
   }
 
-  /// 개별 라운드 카드
+  /// 개별 라운드 카드 — 1차 추가매수와 동일한 전체 레이아웃
   Widget _buildRoundCard(int index, AvgDownResult? result) {
     final rd = _rounds[index];
     final roundNumber = index + 2; // 1차는 기존 필드
 
-    // 이 라운드까지의 누적 결과 (roundResults에서 index+1)
-    String? inlineResult;
-    if (result != null && result.roundResults.length > index + 1) {
-      final prev = result.roundResults[index]; // 이전 라운드 누적
-      final curr = result.roundResults[index + 1]; // 현재 라운드 누적
-      inlineResult =
-          '평단 ${_fmtPrice(prev.cumulativeAvgPrice)} → ${_fmtPrice(curr.cumulativeAvgPrice)}'
-          ' | MDD ${prev.cumulativeMdd.toStringAsFixed(1)}% → ${curr.cumulativeMdd.toStringAsFixed(1)}%';
-    } else if (result != null && result.roundResults.length == index + 1) {
-      // 첫 추가 라운드이고 이전 데이터가 roundResults[index]
-      final curr = result.roundResults[index];
-      inlineResult =
-          '누적 평단 ${_fmtPrice(curr.cumulativeAvgPrice)}'
-          ' | MDD ${curr.cumulativeMdd.toStringAsFixed(1)}%';
-    }
+    // 금액 suffix (한글 축약)
+    final rawAmountText = rd.amountController.text.replaceAll(',', '');
+    final amountVal = double.tryParse(rawAmountText) ?? 0;
+    final koreanSuffix = amountVal >= 10000 ? '약 ${formatCashShort(amountVal)}' : '';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.appCardBackground,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.appBorder.withValues(alpha: 0.5)),
+    // 목표손익률 +/- 상태
+    final isNegative = rd.targetReturnController.text.isEmpty || rd.targetReturnController.text.startsWith('-');
+
+    return _buildCard(
+      title: '$roundNumber차 물타기',
+      trailing: GestureDetector(
+        onTap: () {
+          setState(() {
+            _rounds[index].dispose();
+            _rounds.removeAt(index);
+          });
+          _recalculate();
+        },
+        child: Icon(Icons.close, size: 18, color: context.appTextHint),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 매수가
+          _buildPriceInput(
+            label: '매수가',
+            controller: rd.priceController,
+            onChanged: (_) => _onRoundPriceChanged(index),
+          ),
+          const SizedBox(height: 12),
+          // 매수수량
+          _buildTextField(
+            label: '매수수량',
+            controller: rd.sharesController,
+            hint: '0',
+            suffix: '주',
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [_decimalFilter],
+            onChanged: (_) => _onRoundSharesChanged(index),
+            highlighted: rd.lastEditedField == _EditedField.shares,
+          ),
+          const SizedBox(height: 12),
+          // 매수금액 (쉼표 포맷 + 한글 축약)
           Row(
             children: [
-              Text(
-                '$roundNumber차 물타기',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextPrimary,
+              SizedBox(
+                width: 72,
+                child: Text(
+                  '매수금액',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: rd.lastEditedField == _EditedField.amount ? context.appAccent : context.appTextSecondary,
+                    fontWeight: rd.lastEditedField == _EditedField.amount ? FontWeight.w600 : FontWeight.normal,
+                  ),
                 ),
               ),
-              const Spacer(),
+              Expanded(
+                child: TextField(
+                  controller: rd.amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                  inputFormatters: [_commaDigitFilter],
+                  onChanged: (value) => _onRoundAmountChanged2(index, value),
+                  style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+                  decoration: InputDecoration(
+                    hintText: '0',
+                    hintStyle: TextStyle(color: context.appTextHint),
+                    prefixText: '₩',
+                    prefixStyle: TextStyle(fontSize: 14, color: context.appTextSecondary),
+                    suffixText: koreanSuffix.isNotEmpty ? koreanSuffix : null,
+                    suffixStyle: TextStyle(fontSize: 11, color: context.appTextHint),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    filled: true,
+                    fillColor: context.appSurface,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: rd.lastEditedField == _EditedField.amount ? context.appAccent.withValues(alpha: 0.4) : context.appBorder,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.appAccent, width: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // 목표손익률 (+/- 토글)
+          Row(
+            children: [
+              SizedBox(
+                width: 72,
+                child: Text(
+                  '목표손익률',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: rd.lastEditedField == _EditedField.targetReturn ? context.appAccent : context.appTextSecondary,
+                    fontWeight: rd.lastEditedField == _EditedField.targetReturn ? FontWeight.w600 : FontWeight.normal,
+                  ),
+                ),
+              ),
               GestureDetector(
                 onTap: () {
-                  setState(() {
-                    _rounds[index].dispose();
-                    _rounds.removeAt(index);
-                  });
-                  _recalculate();
+                  final text = rd.targetReturnController.text;
+                  if (text.isEmpty) {
+                    rd.targetReturnController.text = '-';
+                    return;
+                  }
+                  if (text.startsWith('-')) {
+                    rd.targetReturnController.text = text.substring(1);
+                  } else {
+                    rd.targetReturnController.text = '-$text';
+                  }
+                  _onRoundTargetReturnChanged(index);
                 },
-                child: Icon(Icons.close, size: 18, color: context.appTextHint),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: isNegative ? AppColors.blue500.withValues(alpha: 0.15) : AppColors.red500.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: isNegative ? AppColors.blue500.withValues(alpha: 0.4) : AppColors.red500.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      isNegative ? '−' : '+',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: isNegative ? AppColors.blue500 : AppColors.red500,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: rd.targetReturnController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                  inputFormatters: [_signedDecimalFilter],
+                  onChanged: (_) => _onRoundTargetReturnChanged(index),
+                  style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+                  decoration: InputDecoration(
+                    hintText: '-5.0',
+                    hintStyle: TextStyle(color: context.appTextHint),
+                    suffixText: '%',
+                    suffixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    filled: true,
+                    fillColor: context.appSurface,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: rd.lastEditedField == _EditedField.targetReturn ? context.appAccent.withValues(alpha: 0.4) : context.appBorder,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(color: context.appAccent, width: 1.5),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          // 3 fields in compact layout
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactField(
-                  label: '매수가',
-                  controller: rd.priceController,
-                  prefix: _isKrwMode ? '₩' : '\$',
-                  onChanged: (_) => _onRoundFieldChanged(index),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactField(
-                  label: '수량',
-                  controller: rd.sharesController,
-                  suffix: '주',
-                  onChanged: (_) => _onRoundFieldChanged(index),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactField(
-                  label: '금액',
-                  controller: rd.amountController,
-                  prefix: '₩',
-                  onChanged: (value) => _onRoundAmountChanged(index, value),
-                  isAmount: true,
-                ),
-              ),
-            ],
-          ),
-          // Inline result
-          if (inlineResult != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              '$roundNumber차: $inlineResult',
-              style: TextStyle(fontSize: 11, color: context.appAccent),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  /// 라운드 필드 변경 시 금액 자동계산 + 재계산
-  void _onRoundFieldChanged(int index) {
-    final rd = _rounds[index];
-    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-    final shares = double.tryParse(rd.sharesController.text) ?? 0;
-    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
-
-    if (price > 0 && shares > 0) {
-      final amount = shares * price * exRate;
-      rd.amountController.text = formatKrwWithComma(amount);
-    }
-    _recalculate();
-  }
-
-  /// 라운드 금액 필드 변경 시 수량 자동계산
-  void _onRoundAmountChanged(int index, String value) {
-    final rd = _rounds[index];
-    // Auto-format comma
-    final raw = value.replaceAll(',', '');
-    if (raw.isNotEmpty) {
-      final num = int.tryParse(raw);
-      if (num != null) {
-        final formatted = formatKrwWithComma(num.toDouble());
-        if (formatted != value) {
-          rd.amountController.value = TextEditingValue(
-            text: formatted,
-            selection: TextSelection.collapsed(offset: formatted.length),
-          );
-        }
-      }
-    }
-
-    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-    final amount = double.tryParse(raw) ?? 0;
-    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
-
-    if (price > 0 && amount > 0 && exRate > 0) {
-      final shares = amount / (price * exRate);
-      rd.sharesController.text = shares.toStringAsFixed(4);
-    }
-    _recalculate();
-  }
-
-  /// 컴팩트 입력 필드 (라운드용)
-  Widget _buildCompactField({
-    required String label,
-    required TextEditingController controller,
-    String? prefix,
-    String? suffix,
-    required ValueChanged<String> onChanged,
-    bool isAmount = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: context.appTextHint),
-        ),
-        const SizedBox(height: 4),
-        TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [isAmount ? _commaDigitFilter : _decimalFilter],
-          onChanged: onChanged,
-          style: TextStyle(fontSize: 13, color: context.appTextPrimary),
-          decoration: InputDecoration(
-            hintText: '0',
-            hintStyle: TextStyle(color: context.appTextHint, fontSize: 13),
-            prefixText: prefix,
-            prefixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
-            suffixText: suffix,
-            suffixStyle: TextStyle(fontSize: 12, color: context.appTextSecondary),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            filled: true,
-            fillColor: context.appSurface,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: context.appBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: context.appAccent, width: 1.5),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   /// [+ 다음 물타기 추가] 버튼
   Widget _buildAddRoundButton() {
