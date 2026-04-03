@@ -59,6 +59,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   @override
   void initState() {
     super.initState();
+    _targetReturnController.text = '-';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final rate = ref.read(currentExchangeRateProvider);
       _exchangeRateController.text = rate.toStringAsFixed(0);
@@ -311,7 +312,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _addPriceController.clear();
     _addAmountController.clear();
     _addSharesController.clear();
-    _targetReturnController.clear();
+    _targetReturnController.text = '-';
     _lastEditedField = 'shares';
     _recalculate();
   }
