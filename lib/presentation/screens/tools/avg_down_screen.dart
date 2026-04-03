@@ -102,12 +102,24 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   bool get _hasValidInput =>
       _holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0;
 
-  /// 통화 prefix + 가격 포맷
+  /// 통화 prefix + 가격 포맷 (쉼표 포함)
   String _fmtPrice(double value) {
     if (_isKrwMode) {
       return '₩${formatKrwWithComma(value)}';
     }
-    return '\$${value.toStringAsFixed(2)}';
+    // USD: 소수점 2자리 + 정수부 쉼표
+    final parts = value.toStringAsFixed(2).split('.');
+    final intPart = parts[0].replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+      (m) => '${m[1]},',
+    );
+    return '\$$intPart.${parts[1]}';
+  }
+
+  /// KRW 금액 포맷 (쉼표 + 부호)
+  String _fmtKrw(double value) {
+    final sign = value >= 0 ? '+' : '';
+    return '$sign₩${formatKrwWithComma(value)}';
   }
 
   bool get _hasAdditionalBuy => _addPrice > 0 && _addShares > 0;
