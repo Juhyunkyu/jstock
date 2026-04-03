@@ -62,7 +62,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   int _ladderSteps = 6;
   String _ladderWeights = '1,1,2,3,4,5';
   String _ladderTriggers = '-10,-19,-28,-37,-46,-55';
-  int _ladderPreset = 1; // 0=균등, 1=가속, 2=피보나치, 3=마틴게일, 4=커스텀
+  int _ladderPreset = 0; // 0=가속, 1=피보나치, 2=마틴게일, 3=커스텀
   List<double> _customWeightPercents = [6.25, 6.25, 12.5, 18.75, 25.0, 31.25];
   final _athController = TextEditingController();
 
@@ -132,7 +132,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   /// 커스텀 비율 합계가 100%와 다르면 시드를 비례 조정합니다.
   /// 커스텀이 아니면 baseSeed를 그대로 반환합니다.
   double _calculateActualSeed(double baseSeed) {
-    if (_ladderPreset != 4) return baseSeed;
+    if (_ladderPreset != 3) return baseSeed;
     final customTotal = _customWeightPercents
         .take(_ladderSteps)
         .fold<double>(0, (s, v) => s + v);
@@ -1446,7 +1446,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
             ),
           ] else if (isLadder) ...[
             // 커스텀 절대 비율: 실제 투입 예정금 표시
-            if (_ladderPreset == 4) ...[
+            if (_ladderPreset == 3) ...[
               Builder(builder: (_) {
                 final actualSeed = _calculateActualSeed(seed);
                 final customTotal = _customWeightPercents
@@ -1731,22 +1731,20 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   static const _ladderModeLabels = ['안정형', '공격형'];
 
   // 프리셋별 비중 데이터 (steps → weights)
-  static const _presetNames = ['균등', '가속', '피보', '마틴', '커스텀'];
+  static const _presetNames = ['가속', '피보', '마틴', '커스텀'];
 
   static List<int> _presetWeights(int preset, int steps) {
     switch (preset) {
-      case 0: // 균등형
-        return List.filled(steps, 1);
-      case 2: // 피보나치형
+      case 1: // 피보나치형
         return switch (steps) {
           3 => [1, 2, 3],
           4 => [1, 1, 2, 3],
           5 => [1, 1, 2, 3, 5],
           _ => [1, 1, 2, 3, 5, 8],
         };
-      case 3: // 마틴게일 (각 단계 = 이전의 2배)
+      case 2: // 마틴게일 (각 단계 = 이전의 2배)
         return List.generate(steps, (i) => 1 << i); // 1, 2, 4, 8, 16, 32
-      default: // 가속형 (1) — ladder_cycle_service 기본값
+      default: // 가속형 (0) — ladder_cycle_service 기본값
         return switch (steps) {
           3 => [2, 3, 5],
           4 => [1, 2, 3, 4],
@@ -1757,7 +1755,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   }
 
   void _updateLadderWeightsFromPreset() {
-    if (_ladderPreset == 4) return; // 커스텀은 직접 관리
+    if (_ladderPreset == 3) return; // 커스텀은 직접 관리
     final weights = _presetWeights(_ladderPreset, _ladderSteps);
     _ladderWeights = weights.join(',');
     // 커스텀 퍼센트도 동기화
@@ -1967,7 +1965,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         SizedBox(
           width: double.infinity,
           child: SegmentedButton<int>(
-            segments: List.generate(5, (i) => ButtonSegment<int>(
+            segments: List.generate(4, (i) => ButtonSegment<int>(
               value: i,
               label: Text(
                 _presetNames[i],
@@ -1986,7 +1984,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               setState(() {
                 final newPreset = selected.first;
                 // 커스텀으로 전환 시: 이전 프리셋의 비중을 %로 변환하여 초기값 설정
-                if (newPreset == 4 && _ladderPreset != 4) {
+                if (newPreset == 3 && _ladderPreset != 3) {
                   final weights = _presetWeights(_ladderPreset, _ladderSteps);
                   final total = weights.fold<int>(0, (s, w) => s + w);
                   _customWeightPercents = total > 0
@@ -2049,7 +2047,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         ],
 
         // 커스텀 슬라이더 (커스텀 프리셋 선택 시)
-        if (_ladderPreset == 4) ...[
+        if (_ladderPreset == 3) ...[
           _buildCustomWeightSliders(),
         ],
       ],
@@ -2096,10 +2094,10 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                           enabledThumbRadius: 7),
                     ),
                     child: Slider(
-                      value: _customWeightPercents[i].clamp(0, 50),
+                      value: _customWeightPercents[i].clamp(0, 100),
                       min: 0,
-                      max: 50,
-                      divisions: 50,
+                      max: 100,
+                      divisions: 100,
                       onChanged: (v) {
                         setState(() {
                           _customWeightPercents[i] = v;
@@ -2134,7 +2132,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isValid ? context.appTextSecondary : AppColors.red500,
+                color: isValid ? context.appTextSecondary : AppColors.amber500,
               ),
             ),
           ],
@@ -2143,21 +2141,12 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              '⚠ 합계가 100%가 아닙니다 (현재 ${sum.toStringAsFixed(0)}%)',
+              sum < 100
+                  ? 'ℹ 시드의 ${sum.toStringAsFixed(0)}%만 사용됩니다'
+                  : '⚠ 시드 초과 (${sum.toStringAsFixed(0)}% 필요)',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.amber500,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Text(
-              'ℹ 시드가 ${sum.toStringAsFixed(0)}%로 자동 조정됩니다'
-              ' (시드 × ${sum.toStringAsFixed(0)}%)',
-              style: TextStyle(
-                fontSize: 10,
-                color: context.appTextHint,
               ),
             ),
           ),
@@ -2169,7 +2158,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
   void _applyCustomWeightsToLadder() {
     // 퍼센트를 정수 비중으로 변환 (최소 1 단위)
     final percents = _customWeightPercents.take(_ladderSteps).toList();
-    final weights = percents.map((p) => p.round().clamp(0, 50)).toList();
+    final weights = percents.map((p) => p.round().clamp(0, 100)).toList();
     _ladderWeights = weights.join(',');
   }
 
