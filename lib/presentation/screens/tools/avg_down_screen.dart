@@ -7,30 +7,12 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../core/utils/korean_number_formatter.dart';
 import '../../../data/models/cycle.dart';
-import '../../../data/models/holding.dart';
-import '../../../data/models/memo.dart';
 import '../../../domain/trading/average_down_calculator.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shared/info_row.dart';
 
 /// 3필드 연동: 마지막 입력 필드 추적
 enum _EditedField { shares, amount, targetReturn }
-
-/// 다회차 물타기 라운드 데이터
-class _RoundData {
-  final TextEditingController priceController;
-  final TextEditingController sharesController;
-  final TextEditingController amountController;
-  _RoundData()
-      : priceController = TextEditingController(),
-        sharesController = TextEditingController(),
-        amountController = TextEditingController();
-  void dispose() {
-    priceController.dispose();
-    sharesController.dispose();
-    amountController.dispose();
-  }
-}
 
 /// 물타기 계산기 메인 화면
 class AvgDownScreen extends ConsumerStatefulWidget {
@@ -60,9 +42,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
   // === 목표가 ===
   final _targetPriceController = TextEditingController();
-
-  // === 다회차 물타기 (2차 이후) ===
-  final List<_RoundData> _rounds = [];
 
   // === 통화 모드 ===
   bool _isKrwMode = false; // false=USD, true=KRW
@@ -103,9 +82,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _addSharesController.dispose();
     _targetReturnController.dispose();
     _targetPriceController.dispose();
-    for (final r in _rounds) {
-      r.dispose();
-    }
     super.dispose();
   }
 
@@ -300,27 +276,18 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       return;
     }
 
+    final addPrice = _addPrice;
+    final addShares = _addShares;
     final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
-    final allRounds = <({double price, double shares})>[];
-
-    // Round 1 from existing fields
-    if (_addPrice > 0 && _addShares > 0) {
-      allRounds.add((price: _addPrice, shares: _addShares));
-    }
-
-    // Additional rounds (2nd, 3rd, ...)
-    for (final rd in _rounds) {
-      final p = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-      final s = double.tryParse(rd.sharesController.text) ?? 0;
-      if (p > 0 && s > 0) allRounds.add((price: p, shares: s));
-    }
 
     final result = AverageDownCalculator.calculateAll(
       holdingShares: _holdingShares,
       averagePrice: _avgPrice,
       currentPrice: _currentPrice,
       exchangeRate: exRate,
-      additionalRounds: allRounds,
+      additionalRounds: addPrice > 0 && addShares > 0
+          ? [(price: addPrice, shares: addShares)]
+          : [],
       targetPrice: _targetPrice > 0 ? _targetPrice : null,
     );
 
@@ -351,10 +318,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _addSharesController.clear();
     _targetReturnController.text = '-';
     _lastEditedField = _EditedField.shares;
-    for (final r in _rounds) {
-      r.dispose();
-    }
-    _rounds.clear();
     _recalculate();
   }
 
@@ -371,14 +334,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   void _showCyclePicker() {
     final cycles = ref.read(cycleListProvider);
     final activeCycles = cycles.where((c) => c.status == CycleStatus.active).toList();
-    final holdings = ref.read(holdingListProvider)
-        .where((h) => h.totalShares > 0 && !(h.isArchived ?? false))
-        .toList();
 
-    if (activeCycles.isEmpty && holdings.isEmpty) {
+    if (activeCycles.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('불러올 수 있는 보유 데이터가 없습니다', style: TextStyle(color: context.appTextPrimary)),
+          content: Text('활성 사이클이 없습니다', style: TextStyle(color: context.appTextPrimary)),
           backgroundColor: context.appSurface,
         ),
       );
@@ -392,11 +352,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => _buildCyclePickerSheet(ctx, activeCycles, holdings),
+      builder: (ctx) => _buildCyclePickerSheet(ctx, activeCycles),
     );
   }
 
-  Widget _buildCyclePickerSheet(BuildContext ctx, List<Cycle> cycles, List<Holding> holdings) {
+  Widget _buildCyclePickerSheet(BuildContext ctx, List<Cycle> cycles) {
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -413,7 +373,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '보유 데이터 불러오기',
+              '활성 사이클에서 불러오기',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -423,99 +383,47 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           ),
           Divider(height: 1, color: context.appDivider),
           Flexible(
-            child: ListView(
+            child: ListView.builder(
               shrinkWrap: true,
-              children: [
-                // === 활성 사이클 섹션 ===
-                if (cycles.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Text(
-                      '📊 활성 사이클 (${cycles.length})',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextSecondary,
-                      ),
-                    ),
-                  ),
-                  ...cycles.map((cycle) {
-                    final strategyLabel = switch (cycle.strategyType) {
-                      StrategyType.alphaCycleV3 => 'Smart Cycle',
-                      StrategyType.infiniteBuy => 'Steady Cycle',
-                      StrategyType.ladderCycle => 'Ladder Cycle',
-                    };
-                    final seedText = formatKoreanAmountShort(cycle.seedAmount);
-                    final displayTicker = cycle.buyTicker.isNotEmpty
-                        ? cycle.buyTicker
-                        : cycle.ticker;
+              itemCount: cycles.length,
+              itemBuilder: (ctx, i) {
+                final cycle = cycles[i];
+                final strategyLabel = switch (cycle.strategyType) {
+                  StrategyType.alphaCycleV3 => 'Smart Cycle',
+                  StrategyType.infiniteBuy => 'Steady Cycle',
+                  StrategyType.ladderCycle => 'Ladder Cycle',
+                };
+                final seedText = formatKoreanAmountShort(cycle.seedAmount);
+                // Ladder: buyTicker 사용, 나머지: ticker
+                final displayTicker = cycle.buyTicker.isNotEmpty
+                    ? cycle.buyTicker
+                    : cycle.ticker;
 
-                    return ListTile(
-                      title: Text(
-                        cycle.nickname.isNotEmpty
-                            ? '$displayTicker (${cycle.nickname})'
-                            : displayTicker,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: context.appTextPrimary,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '$strategyLabel · 시드 $seedText\n'
-                        '${cycle.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(cycle.averagePrice)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: context.appTextSecondary,
-                        ),
-                      ),
-                      isThreeLine: true,
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _loadFromCycle(cycle);
-                      },
-                    );
-                  }),
-                ],
-                // === 일반 보유 섹션 ===
-                if (holdings.isNotEmpty) ...[
-                  if (cycles.isNotEmpty) Divider(height: 1, color: context.appDivider),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                    child: Text(
-                      '💼 일반 보유 (${holdings.length})',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTextSecondary,
-                      ),
+                return ListTile(
+                  title: Text(
+                    cycle.nickname.isNotEmpty
+                        ? '$displayTicker (${cycle.nickname})'
+                        : displayTicker,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: context.appTextPrimary,
                     ),
                   ),
-                  ...holdings.map((holding) {
-                    return ListTile(
-                      title: Text(
-                        holding.name.isNotEmpty
-                            ? '${holding.ticker} (${holding.name})'
-                            : holding.ticker,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: context.appTextPrimary,
-                        ),
-                      ),
-                      subtitle: Text(
-                        '${holding.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(holding.averagePrice)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: context.appTextSecondary,
-                        ),
-                      ),
-                      onTap: () {
-                        Navigator.pop(ctx);
-                        _loadFromHolding(holding);
-                      },
-                    );
-                  }),
-                ],
-              ],
+                  subtitle: Text(
+                    '$strategyLabel · 시드 $seedText\n'
+                    '${cycle.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(cycle.averagePrice)}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.appTextSecondary,
+                    ),
+                  ),
+                  isThreeLine: true,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _loadFromCycle(cycle);
+                  },
+                );
+              },
             ),
           ),
           Padding(
@@ -570,92 +478,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _recalculate();
   }
 
-  void _loadFromHolding(Holding holding) {
-    _tickerNameController.text = holding.ticker;
-    _holdingSharesController.text = holding.totalShares > 0
-        ? holding.totalShares.toStringAsFixed(2) : '';
-    _avgPriceController.text = holding.averagePrice > 0
-        ? holding.averagePrice.toStringAsFixed(2) : '';
-
-    // 현재가: stockQuoteProvider에서 가져오기
-    final quote = ref.read(stockQuoteProvider).quotes[holding.ticker];
-    if (quote != null && quote.currentPrice > 0) {
-      _currentPriceController.text = quote.currentPrice.toStringAsFixed(2);
-      _addPriceController.text = quote.currentPrice.toStringAsFixed(2);
-    }
-
-    // 환율
-    if (holding.exchangeRate > 0) {
-      _exchangeRateController.text = holding.exchangeRate.toStringAsFixed(0);
-    }
-
-    _recalculate();
-  }
-
-  // ════════════════════════════════════════════
-  // 메모 저장 (Feature 3)
-  // ════════════════════════════════════════════
-
-  void _saveToMemo() {
-    final result = _result;
-    if (result == null) return;
-
-    final ticker = _tickerNameController.text.isNotEmpty
-        ? _tickerNameController.text : '종목';
-    final now = DateTime.now();
-    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
-
-    final buf = StringBuffer();
-    buf.writeln('물타기 시뮬레이션 - $ticker');
-    buf.writeln('현재: ${_holdingShares.toStringAsFixed(1)}주 x ${_fmtPrice(_avgPrice)} (MDD ${result.currentMdd.toStringAsFixed(1)}%)');
-    buf.writeln('');
-
-    // Round 1
-    if (_hasAdditionalBuy) {
-      buf.writeln('1차: ${_fmtPrice(_addPrice)} x ${_addShares.toStringAsFixed(1)}주 (${formatCashShort(_addShares * _addPrice * exRate)})');
-      if (result.roundResults.isNotEmpty) {
-        final r = result.roundResults.first;
-        buf.writeln('  -> 평단 ${_fmtPrice(r.cumulativeAvgPrice)} | MDD ${r.cumulativeMdd.toStringAsFixed(1)}%');
-      }
-    }
-
-    // Additional rounds
-    for (var i = 0; i < _rounds.length; i++) {
-      final rd = _rounds[i];
-      final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-      final shares = double.tryParse(rd.sharesController.text) ?? 0;
-      if (price > 0 && shares > 0) {
-        buf.writeln('${i + 2}차: ${_fmtPrice(price)} x ${shares.toStringAsFixed(1)}주 (${formatCashShort(shares * price * exRate)})');
-        final roundIdx = i + 1;
-        if (roundIdx < result.roundResults.length) {
-          final r = result.roundResults[roundIdx];
-          buf.writeln('  -> 평단 ${_fmtPrice(r.cumulativeAvgPrice)} | MDD ${r.cumulativeMdd.toStringAsFixed(1)}%');
-        }
-      }
-    }
-
-    buf.writeln('');
-    buf.writeln('최종: ${result.totalShares.toStringAsFixed(1)}주 | 평단 ${_fmtPrice(result.newAvgPrice)} | MDD ${result.newMdd.toStringAsFixed(1)}%');
-    buf.writeln('투자: ₩${formatCashShort(result.totalInvestedKrw)} | 평가: ₩${formatCashShort(result.evaluatedAmountKrw)}');
-
-    final memo = Memo(
-      id: 'memo_${now.millisecondsSinceEpoch}',
-      title: '$ticker 물타기 계획 ($dateStr)',
-      content: buf.toString(),
-      category: MemoCategory.strategy,
-    );
-
-    ref.read(memoListProvider.notifier).save(memo);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('전략 메모에 저장되었습니다', style: TextStyle(color: context.appTextPrimary)),
-        backgroundColor: context.appSurface,
-      ),
-    );
-  }
-
   // ════════════════════════════════════════════
   // 빌드
   // ════════════════════════════════════════════
@@ -683,14 +505,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          if (_hasValidInput && _result != null)
-            IconButton(
-              icon: Icon(Icons.save_outlined, color: context.appTextPrimary),
-              tooltip: '메모에 저장',
-              onPressed: _saveToMemo,
-            ),
-        ],
       ),
       body: isWide ? _buildWideLayout() : _buildNarrowLayout(),
     );
@@ -903,254 +717,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             ],
           ),
         ),
-        // === 다회차 물타기 (Feature 1) ===
-        ..._buildAdditionalRounds(),
-        const SizedBox(height: 8),
-        _buildAddRoundButton(),
       ],
-    );
-  }
-
-  /// 다회차 물타기 라운드 카드 목록
-  List<Widget> _buildAdditionalRounds() {
-    if (_rounds.isEmpty) return [];
-    final result = _result;
-
-    return [
-      for (var i = 0; i < _rounds.length; i++) ...[
-        const SizedBox(height: 8),
-        _buildRoundCard(i, result),
-      ],
-    ];
-  }
-
-  /// 개별 라운드 카드
-  Widget _buildRoundCard(int index, AvgDownResult? result) {
-    final rd = _rounds[index];
-    final roundNumber = index + 2; // 1차는 기존 필드
-
-    // 이 라운드까지의 누적 결과 (roundResults에서 index+1)
-    String? inlineResult;
-    if (result != null && result.roundResults.length > index + 1) {
-      final prev = result.roundResults[index]; // 이전 라운드 누적
-      final curr = result.roundResults[index + 1]; // 현재 라운드 누적
-      inlineResult =
-          '평단 ${_fmtPrice(prev.cumulativeAvgPrice)} → ${_fmtPrice(curr.cumulativeAvgPrice)}'
-          ' | MDD ${prev.cumulativeMdd.toStringAsFixed(1)}% → ${curr.cumulativeMdd.toStringAsFixed(1)}%';
-    } else if (result != null && result.roundResults.length == index + 1) {
-      // 첫 추가 라운드이고 이전 데이터가 roundResults[index]
-      final curr = result.roundResults[index];
-      inlineResult =
-          '누적 평단 ${_fmtPrice(curr.cumulativeAvgPrice)}'
-          ' | MDD ${curr.cumulativeMdd.toStringAsFixed(1)}%';
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: context.appCardBackground,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: context.appBorder.withValues(alpha: 0.5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '$roundNumber차 물타기',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextPrimary,
-                ),
-              ),
-              const Spacer(),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _rounds[index].dispose();
-                    _rounds.removeAt(index);
-                  });
-                  _recalculate();
-                },
-                child: Icon(Icons.close, size: 18, color: context.appTextHint),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 3 fields in compact layout
-          Row(
-            children: [
-              Expanded(
-                child: _buildCompactField(
-                  label: '매수가',
-                  controller: rd.priceController,
-                  prefix: _isKrwMode ? '₩' : '\$',
-                  onChanged: (_) => _onRoundFieldChanged(index),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactField(
-                  label: '수량',
-                  controller: rd.sharesController,
-                  suffix: '주',
-                  onChanged: (_) => _onRoundFieldChanged(index),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildCompactField(
-                  label: '금액',
-                  controller: rd.amountController,
-                  prefix: '₩',
-                  onChanged: (value) => _onRoundAmountChanged(index, value),
-                  isAmount: true,
-                ),
-              ),
-            ],
-          ),
-          // Inline result
-          if (inlineResult != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              '$roundNumber차: $inlineResult',
-              style: TextStyle(fontSize: 11, color: context.appAccent),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// 라운드 필드 변경 시 금액 자동계산 + 재계산
-  void _onRoundFieldChanged(int index) {
-    final rd = _rounds[index];
-    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-    final shares = double.tryParse(rd.sharesController.text) ?? 0;
-    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
-
-    if (price > 0 && shares > 0) {
-      final amount = shares * price * exRate;
-      rd.amountController.text = formatKrwWithComma(amount);
-    }
-    _recalculate();
-  }
-
-  /// 라운드 금액 필드 변경 시 수량 자동계산
-  void _onRoundAmountChanged(int index, String value) {
-    final rd = _rounds[index];
-    // Auto-format comma
-    final raw = value.replaceAll(',', '');
-    if (raw.isNotEmpty) {
-      final num = int.tryParse(raw);
-      if (num != null) {
-        final formatted = formatKrwWithComma(num.toDouble());
-        if (formatted != value) {
-          rd.amountController.value = TextEditingValue(
-            text: formatted,
-            selection: TextSelection.collapsed(offset: formatted.length),
-          );
-        }
-      }
-    }
-
-    final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-    final amount = double.tryParse(raw) ?? 0;
-    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
-
-    if (price > 0 && amount > 0 && exRate > 0) {
-      final shares = amount / (price * exRate);
-      rd.sharesController.text = shares.toStringAsFixed(4);
-    }
-    _recalculate();
-  }
-
-  /// 컴팩트 입력 필드 (라운드용)
-  Widget _buildCompactField({
-    required String label,
-    required TextEditingController controller,
-    String? prefix,
-    String? suffix,
-    required ValueChanged<String> onChanged,
-    bool isAmount = false,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(fontSize: 11, color: context.appTextHint),
-        ),
-        const SizedBox(height: 4),
-        TextField(
-          controller: controller,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [isAmount ? _commaDigitFilter : _decimalFilter],
-          onChanged: onChanged,
-          style: TextStyle(fontSize: 13, color: context.appTextPrimary),
-          decoration: InputDecoration(
-            hintText: '0',
-            hintStyle: TextStyle(color: context.appTextHint, fontSize: 13),
-            prefixText: prefix,
-            prefixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
-            suffixText: suffix,
-            suffixStyle: TextStyle(fontSize: 12, color: context.appTextSecondary),
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            filled: true,
-            fillColor: context.appSurface,
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: context.appBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: context.appAccent, width: 1.5),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// [+ 다음 물타기 추가] 버튼
-  Widget _buildAddRoundButton() {
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _rounds.add(_RoundData());
-        });
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: context.appAccent.withValues(alpha: 0.3),
-            style: BorderStyle.solid,
-          ),
-          borderRadius: BorderRadius.circular(10),
-          color: context.appAccent.withValues(alpha: 0.05),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add, size: 16, color: context.appAccent),
-            const SizedBox(width: 6),
-            Text(
-              '다음 물타기 추가',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: context.appAccent,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
