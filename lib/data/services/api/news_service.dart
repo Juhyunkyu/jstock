@@ -352,12 +352,12 @@ class NewsService {
     return _paywallPublishers.any((p) => lower.contains(p.toLowerCase()));
   }
 
-  /// 지수 심볼 변환
+  /// 지수 심볼 → 뉴스 검색용 ETF 심볼 변환
   String _convertSymbol(String symbol) {
     switch (symbol) {
-      case '^NDX':
+      case 'NDX':
         return 'QQQ';
-      case '^GSPC':
+      case 'SPX':
         return 'SPY';
       default:
         return symbol.toUpperCase();

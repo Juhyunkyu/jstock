@@ -101,148 +101,61 @@ class MarketIndexState {
   }
 }
 
-/// 시장 지수 관리 Notifier
+/// 시장 지수 Notifier (Twelve Data 전용 — 실제 지수 데이터)
+///
+/// NDX(NASDAQ 100), SPX(S&P 500) 등 실제 지수 심볼을 사용하여
+/// 차트 데이터를 조회하고, 최신 캔들에서 현재가/변동률을 추출한다.
+/// Finnhub 호출 없이 Twelve Data 1회 호출로 가격+차트 모두 해결.
 class MarketIndexNotifier extends StateNotifier<MarketIndexState> {
-  final FinnhubService _finnhubService;
   final TwelveDataService _twelveDataService;
   int _retryCount = 0;
   static const _maxAutoRetry = 3;
 
-  MarketIndexNotifier(this._finnhubService, this._twelveDataService)
-      : super(const MarketIndexState(
-          symbol: 'QQQ',
-          name: 'NASDAQ 100 (QQQ)',
-        ));
+  MarketIndexNotifier(
+    this._twelveDataService, {
+    required String symbol,
+    required String name,
+  }) : super(MarketIndexState(symbol: symbol, name: name));
 
-  /// 나스닥 100 지수 데이터 로드 (QQQ ETF 사용)
-  Future<void> loadNasdaqData() async {
+  /// 지수 데이터 로드 (차트에서 가격 추출 — API 1회)
+  Future<void> loadData() async {
     state = state.copyWith(isLoading: true, error: null);
 
-    // 가격과 차트를 독립 호출 (하나 실패해도 다른 건 성공)
-    StockQuote? quote;
     List<OHLCData>? chartData;
-
-    try {
-      quote = await _finnhubService.getQuote(FinnhubService.nasdaqSymbol);
-    } catch (_) {}
-
     try {
       chartData = await _twelveDataService.getChartData(
-        FinnhubService.nasdaqSymbol,
-        interval: '1day',
-        outputsize: 180, // 약 6개월치
-      );
-    } catch (_) {}
-
-    // 기존 데이터 유지하면서 성공한 것만 업데이트
-    state = state.copyWith(
-      price: quote?.currentPrice ?? state.price,
-      changePercent: quote?.changePercent ?? state.changePercent,
-      chartData: (chartData != null && chartData.isNotEmpty) ? chartData : state.chartData,
-      isLoading: false,
-      lastUpdated: (quote != null || chartData != null) ? DateTime.now() : state.lastUpdated,
-      marketState: quote?.marketState ?? state.marketState,
-      error: (quote == null && chartData == null && !state.hasData && !state.hasChart)
-          ? '데이터 로드 실패'
-          : null,
-    );
-
-    // 차트가 비어있으면 자동 재시도 (10초 후, 최대 3번)
-    if (!state.hasChart && _retryCount < _maxAutoRetry && mounted) {
-      _retryCount++;
-      Future.delayed(Duration(seconds: 10 * _retryCount), () {
-        if (mounted && !state.hasChart) loadNasdaqData();
-      });
-    } else if (state.hasChart) {
-      _retryCount = 0; // 성공 시 리셋
-    }
-  }
-
-  /// 차트 데이터만 로드 (기간 지정)
-  Future<void> loadChartData({String range = '1mo', String interval = '1day'}) async {
-    try {
-      final outputsize = _rangeToOutputsize(range);
-      final chartData = await _twelveDataService.getChartData(
         state.symbol,
-        interval: interval,
-        outputsize: outputsize,
-      );
-
-      // 새 데이터가 있으면 업데이트, 없으면 기존 유지
-      if (chartData.isNotEmpty) {
-        state = state.copyWith(chartData: chartData);
-      }
-    } catch (e) {
-      // 차트 로드 실패 시 기존 차트 유지 (에러 표시하지 않음)
-    }
-  }
-
-  /// 현재가만 새로고침 (Finnhub 사용)
-  Future<void> refreshPrice() async {
-    try {
-      final quote = await _finnhubService.getQuote(state.symbol);
-      state = state.copyWith(
-        price: quote.currentPrice,
-        changePercent: quote.changePercent,
-        lastUpdated: DateTime.now(),
-        marketState: quote.marketState,
-      );
-    } catch (e) {
-      // 가격 새로고침 실패는 무시 (기존 데이터 유지)
-    }
-  }
-}
-
-/// 시장 지수 Provider (나스닥)
-final marketIndexProvider =
-    StateNotifierProvider<MarketIndexNotifier, MarketIndexState>((ref) {
-  final finnhubService = ref.watch(finnhubServiceProvider);
-  final twelveDataService = ref.watch(twelveDataServiceProvider);
-  return MarketIndexNotifier(finnhubService, twelveDataService);
-});
-
-/// S&P 500 지수 관리 Notifier
-class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
-  final FinnhubService _finnhubService;
-  final TwelveDataService _twelveDataService;
-  int _retryCount = 0;
-  static const _maxAutoRetry = 3;
-
-  SP500IndexNotifier(this._finnhubService, this._twelveDataService)
-      : super(const MarketIndexState(
-          symbol: 'SPY',
-          name: 'S&P 500 (SPY)',
-        ));
-
-  /// S&P 500 지수 데이터 로드 (SPY ETF 사용)
-  Future<void> loadSp500Data() async {
-    state = state.copyWith(isLoading: true, error: null);
-
-    // 가격과 차트를 독립 호출 (하나 실패해도 다른 건 성공)
-    StockQuote? quote;
-    List<OHLCData>? chartData;
-
-    try {
-      quote = await _finnhubService.getQuote(FinnhubService.sp500Symbol);
-    } catch (_) {}
-
-    try {
-      chartData = await _twelveDataService.getChartData(
-        FinnhubService.sp500Symbol,
         interval: '1day',
         outputsize: 180, // 약 6개월치
       );
     } catch (_) {}
 
-    // 기존 데이터 유지하면서 성공한 것만 업데이트
+    // 차트 데이터에서 현재가 및 변동률 추출
+    double? price;
+    double? changePercent;
+    if (chartData != null && chartData.length >= 2) {
+      final latest = chartData.last;
+      final previous = chartData[chartData.length - 2];
+      price = latest.close;
+      if (previous.close > 0) {
+        changePercent =
+            ((latest.close - previous.close) / previous.close) * 100;
+      }
+    } else if (chartData != null && chartData.length == 1) {
+      price = chartData.first.close;
+    }
+
     state = state.copyWith(
-      price: quote?.currentPrice ?? state.price,
-      changePercent: quote?.changePercent ?? state.changePercent,
-      chartData: (chartData != null && chartData.isNotEmpty) ? chartData : state.chartData,
+      price: price ?? state.price,
+      changePercent: changePercent ?? state.changePercent,
+      chartData: (chartData != null && chartData.isNotEmpty)
+          ? chartData
+          : state.chartData,
       isLoading: false,
-      lastUpdated: (quote != null || chartData != null) ? DateTime.now() : state.lastUpdated,
-      marketState: quote?.marketState ?? state.marketState,
-      error: (quote == null && chartData == null && !state.hasData && !state.hasChart)
+      lastUpdated:
+          chartData != null ? DateTime.now() : state.lastUpdated,
+      marketState: FinnhubService.calculateMarketState(),
+      error: (chartData == null && !state.hasData && !state.hasChart)
           ? '데이터 로드 실패'
           : null,
     );
@@ -251,7 +164,7 @@ class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
     if (!state.hasChart && _retryCount < _maxAutoRetry && mounted) {
       _retryCount++;
       Future.delayed(Duration(seconds: 10 * _retryCount), () {
-        if (mounted && !state.hasChart) loadSp500Data();
+        if (mounted && !state.hasChart) loadData();
       });
     } else if (state.hasChart) {
       _retryCount = 0;
@@ -259,7 +172,10 @@ class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
   }
 
   /// 차트 데이터만 로드 (기간 지정)
-  Future<void> loadChartData({String range = '1mo', String interval = '1day'}) async {
+  Future<void> loadChartData({
+    String range = '1mo',
+    String interval = '1day',
+  }) async {
     try {
       final outputsize = _rangeToOutputsize(range);
       final chartData = await _twelveDataService.getChartData(
@@ -268,22 +184,35 @@ class SP500IndexNotifier extends StateNotifier<MarketIndexState> {
         outputsize: outputsize,
       );
 
-      // 새 데이터가 있으면 업데이트, 없으면 기존 유지
       if (chartData.isNotEmpty) {
         state = state.copyWith(chartData: chartData);
       }
-    } catch (e) {
-      // 차트 로드 실패 시 기존 차트 유지 (에러 표시하지 않음)
+    } catch (_) {
+      // 차트 로드 실패 시 기존 차트 유지
     }
   }
 }
 
-/// S&P 500 지수 Provider
-final sp500IndexProvider =
-    StateNotifierProvider<SP500IndexNotifier, MarketIndexState>((ref) {
-  final finnhubService = ref.watch(finnhubServiceProvider);
+/// NASDAQ 100 지수 Provider (심볼: NDX)
+final marketIndexProvider =
+    StateNotifierProvider<MarketIndexNotifier, MarketIndexState>((ref) {
   final twelveDataService = ref.watch(twelveDataServiceProvider);
-  return SP500IndexNotifier(finnhubService, twelveDataService);
+  return MarketIndexNotifier(
+    twelveDataService,
+    symbol: 'NDX',
+    name: 'NASDAQ 100',
+  );
+});
+
+/// S&P 500 지수 Provider (심볼: SPX)
+final sp500IndexProvider =
+    StateNotifierProvider<MarketIndexNotifier, MarketIndexState>((ref) {
+  final twelveDataService = ref.watch(twelveDataServiceProvider);
+  return MarketIndexNotifier(
+    twelveDataService,
+    symbol: 'SPX',
+    name: 'S&P 500',
+  );
 });
 
 /// 나스닥 현재가 Provider
