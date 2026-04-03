@@ -582,21 +582,30 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       children: [
         _buildCard(
           title: '현재 보유',
+          titleTrailing: _buildCurrencyToggle(),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 통화 토글 (USD/KRW)
-              _buildCurrencyToggle(),
-              const SizedBox(width: 4),
-              _buildSmallResetButton(_resetHolding),
-              const SizedBox(width: 4),
-              TextButton.icon(
-                icon: Icon(Icons.download_outlined, size: 16, color: context.appAccent),
-                label: Text(
-                  '불러오기',
-                  style: TextStyle(fontSize: 12, color: context.appAccent),
+              _buildResetButton(_resetHolding),
+              const SizedBox(width: 6),
+              GestureDetector(
+                onTap: _showCyclePicker,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: context.appAccent.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: context.appAccent.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.download_outlined, size: 14, color: context.appAccent),
+                      const SizedBox(width: 4),
+                      Text('불러오기', style: TextStyle(fontSize: 11, color: context.appAccent)),
+                    ],
+                  ),
                 ),
-                onPressed: _showCyclePicker,
               ),
             ],
           ),
@@ -675,7 +684,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         // Section B: 추가 매수 (3필드 상호 연동)
         _buildCard(
           title: '추가 매수',
-          trailing: _buildSmallResetButton(_resetAdditional),
+          trailing: _buildResetButton(_resetAdditional),
           child: Column(
             children: [
               _buildPriceInput(
@@ -1023,13 +1032,20 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   }
 
   /// 섹션 초기화 작은 버튼
-  Widget _buildSmallResetButton(VoidCallback onPressed) {
-    return InkWell(
+  Widget _buildResetButton(VoidCallback onPressed) {
+    return GestureDetector(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.all(4),
-        child: Icon(Icons.refresh, size: 16, color: context.appTextHint),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: context.appIconBg,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: context.appBorder),
+        ),
+        child: Text(
+          '초기화',
+          style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+        ),
       ),
     );
   }
@@ -1381,6 +1397,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     required String title,
     required Widget child,
     Widget? trailing,
+    Widget? titleTrailing,
   }) {
     return Container(
       width: double.infinity,
@@ -1395,7 +1412,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 title,
@@ -1405,6 +1421,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   color: context.appTextPrimary,
                 ),
               ),
+              if (titleTrailing != null) ...[
+                const SizedBox(width: 8),
+                titleTrailing,
+              ],
+              const Spacer(),
               if (trailing != null) trailing,
             ],
           ),
