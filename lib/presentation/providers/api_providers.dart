@@ -5,6 +5,7 @@ import '../../data/services/api/finnhub_websocket_service.dart';
 import '../../data/services/api/exchange_rate_service.dart';
 import '../../data/services/api/twelve_data_service.dart';
 import '../../data/services/api/news_service.dart';
+import '../../data/services/api/tradingview_service.dart';
 import '../../data/services/api/api_exception.dart';
 import '../../data/services/cache/cache_manager.dart';
 
@@ -469,4 +470,63 @@ final apiInitializationProvider = FutureProvider<void>((ref) async {
 
   // 환율만 조회 (종목 시세는 stockPriceInitProvider에서 동적으로 로드)
   await exchangeRateNotifier.fetchUsdKrwRate();
+});
+
+/// TradingView 서비스 Provider
+final tradingViewServiceProvider = Provider<TradingViewService>((ref) {
+  return TradingViewService();
+});
+
+/// 실시간 지수 데이터 상태
+class IndexQuoteState {
+  final List<IndexQuote> indices;
+  final bool isLoading;
+  final DateTime? lastUpdated;
+
+  const IndexQuoteState({
+    this.indices = const [],
+    this.isLoading = false,
+    this.lastUpdated,
+  });
+
+  IndexQuote? get nasdaq => indices.where((i) => i.symbol == 'NDX').firstOrNull;
+  IndexQuote? get sp500 => indices.where((i) => i.symbol == 'SPX').firstOrNull;
+  bool get hasData => indices.isNotEmpty;
+}
+
+/// 실시간 지수 Notifier
+class IndexQuoteNotifier extends StateNotifier<IndexQuoteState> {
+  final TradingViewService _service;
+
+  IndexQuoteNotifier(this._service) : super(const IndexQuoteState());
+
+  Future<void> fetchIndices() async {
+    state = IndexQuoteState(
+      indices: state.indices,
+      isLoading: true,
+      lastUpdated: state.lastUpdated,
+    );
+
+    final results = await _service.fetchIndices();
+    if (results.isNotEmpty) {
+      state = IndexQuoteState(
+        indices: results,
+        isLoading: false,
+        lastUpdated: DateTime.now(),
+      );
+    } else {
+      state = IndexQuoteState(
+        indices: state.indices,
+        isLoading: false,
+        lastUpdated: state.lastUpdated,
+      );
+    }
+  }
+}
+
+/// 실시간 지수 Provider (NASDAQ 100, S&P 500)
+final indexQuoteProvider =
+    StateNotifierProvider<IndexQuoteNotifier, IndexQuoteState>((ref) {
+  final service = ref.watch(tradingViewServiceProvider);
+  return IndexQuoteNotifier(service);
 });

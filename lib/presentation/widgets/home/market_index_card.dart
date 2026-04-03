@@ -17,7 +17,7 @@ class MarketIndexCard extends ConsumerWidget {
     final isMobile = screenWidth < 600;
 
     final nasdaqCard = _CompactIndexSection(
-      title: 'NASDAQ 100',
+      title: 'QQQ',
       symbol: '^NDX',
       stateProvider: marketIndexProvider,
       onRefresh: () => ref.read(marketIndexProvider.notifier).loadNasdaqData(),
@@ -30,7 +30,7 @@ class MarketIndexCard extends ConsumerWidget {
     );
 
     final sp500Card = _CompactIndexSection(
-      title: 'S&P 500',
+      title: 'SPY',
       symbol: '^GSPC',
       stateProvider: sp500IndexProvider,
       onRefresh: () => ref.read(sp500IndexProvider.notifier).loadSp500Data(),

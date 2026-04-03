@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../providers/providers.dart';
 import '../../providers/market_data_providers.dart';
 import '../../providers/fear_greed_providers.dart';
+import '../../widgets/home/index_quote_row.dart';
 import '../../widgets/home/market_index_card.dart';
 import '../../widgets/home/exchange_rate_card.dart';
 import '../../widgets/home/fear_greed_card.dart';
@@ -37,6 +38,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadMarketData() async {
+    ref.read(indexQuoteProvider.notifier).fetchIndices();
     ref.read(marketIndexProvider.notifier).loadNasdaqData();
     ref.read(sp500IndexProvider.notifier).loadSp500Data();
     ref.read(exchangeRateProvider.notifier).fetchUsdKrwRate();
@@ -132,6 +134,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  const IndexQuoteRow(),
                   const SizedBox(height: 8),
                   const MarketIndexCard(),
                   const SizedBox(height: 10),
