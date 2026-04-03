@@ -893,7 +893,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   /// 목표손익률 필드 — +/- 부호 버튼 포함
   Widget _buildTargetReturnField() {
     final highlighted = _lastEditedField == 'targetReturn';
-    final isNegative = _targetReturnController.text.startsWith('-');
+    // 물타기 계산기이므로 기본 마이너스(손실)
+    final isNegative = _targetReturnController.text.isEmpty || _targetReturnController.text.startsWith('-');
 
     return Row(
       children: [
