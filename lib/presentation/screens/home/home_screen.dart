@@ -37,8 +37,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _loadMarketData() async {
-    ref.read(marketIndexProvider.notifier).loadData();
-    ref.read(sp500IndexProvider.notifier).loadData();
+    ref.read(marketIndexProvider.notifier).loadNasdaqData();
+    ref.read(sp500IndexProvider.notifier).loadSp500Data();
     ref.read(exchangeRateProvider.notifier).fetchUsdKrwRate();
     ref.read(fearGreedProvider.notifier).fetchIndex();
     ref.read(marketNewsProvider.notifier).fetchNews();

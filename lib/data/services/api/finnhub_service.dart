@@ -108,6 +108,12 @@ class StockQuote {
 class FinnhubService {
   final Dio _dio;
 
+  /// 나스닥 100 지수 심볼 (Finnhub은 ^NDX 대신 QQQ ETF 사용 권장)
+  static const String nasdaqSymbol = 'QQQ';
+
+  /// S&P 500 지수 심볼 (Finnhub은 ^GSPC 대신 SPY ETF 사용 권장)
+  static const String sp500Symbol = 'SPY';
+
   FinnhubService()
       : _dio = Dio(BaseOptions(
           baseUrl: AppConfig.finnhubBaseUrl,

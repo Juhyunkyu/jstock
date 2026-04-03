@@ -20,7 +20,7 @@ class MarketIndexCard extends ConsumerWidget {
       title: 'NASDAQ 100',
       symbol: '^NDX',
       stateProvider: marketIndexProvider,
-      onRefresh: () => ref.read(marketIndexProvider.notifier).loadData(),
+      onRefresh: () => ref.read(marketIndexProvider.notifier).loadNasdaqData(),
       onPeriodChanged: (range, interval) {
         ref.read(marketIndexProvider.notifier).loadChartData(
           range: range,
@@ -33,7 +33,7 @@ class MarketIndexCard extends ConsumerWidget {
       title: 'S&P 500',
       symbol: '^GSPC',
       stateProvider: sp500IndexProvider,
-      onRefresh: () => ref.read(sp500IndexProvider.notifier).loadData(),
+      onRefresh: () => ref.read(sp500IndexProvider.notifier).loadSp500Data(),
       onPeriodChanged: (range, interval) {
         ref.read(sp500IndexProvider.notifier).loadChartData(
           range: range,

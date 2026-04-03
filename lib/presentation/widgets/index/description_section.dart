@@ -96,8 +96,8 @@ class _DescriptionSectionState extends State<DescriptionSection> {
       'GOOG': descriptions['Alphabet Inc.'],
       'AMZN': descriptions['Amazon.com, Inc.'],
       'META': descriptions['Meta Platforms, Inc.'],
-      'NDX': descriptions['NASDAQ 100'],
-      'SPX': descriptions['S&P 500'],
+      '^NDX': descriptions['NASDAQ 100'],
+      '^GSPC': descriptions['S&P 500'],
     };
 
     String? description = descriptions[widget.name] ?? symbolDescriptions[widget.symbol];

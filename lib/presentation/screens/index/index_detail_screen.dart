@@ -57,13 +57,12 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
   /// 지수 심볼인 경우 탭 없이 기존 레이아웃 유지
   bool get _isIndex => widget.symbol.startsWith('^');
 
-  /// 지수 심볼 → Twelve Data 심볼 변환
   String get _chartSymbol {
     switch (widget.symbol) {
       case '^NDX':
-        return 'NDX';
+        return 'QQQ';
       case '^GSPC':
-        return 'SPX';
+        return 'SPY';
       default:
         return widget.symbol;
     }
@@ -98,12 +97,10 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
 
     final twelveDataService = ref.read(twelveDataServiceProvider);
 
-    // 지수가 아닌 경우에만 Finnhub 시세 조회 (NDX/SPX는 Finnhub 미지원)
-    if (!_isIndex) {
-      try {
-        await ref.read(stockQuoteProvider.notifier).fetchQuote(_chartSymbol);
-      } catch (_) {}
-    }
+    // Price and chart are independent — one failure doesn't block the other
+    try {
+      await ref.read(stockQuoteProvider.notifier).fetchQuote(_chartSymbol);
+    } catch (_) {}
 
     try {
       final chartData = await twelveDataService.getChartData(
@@ -279,20 +276,13 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
-    // 지수: 차트 데이터에서 가격 추출, 개별종목: Finnhub 시세 사용
-    final StockQuote? quote;
-    final double closingPrice;
-    if (_isIndex) {
-      quote = null;
-      closingPrice = _getCurrentPrice();
-    } else {
-      quote = ref.watch(
-        stockQuoteProvider.select((s) => s.quotes[_chartSymbol]),
-      );
-      closingPrice = ref.watch(
-        closingPricesProvider.select((m) => m[_chartSymbol] ?? 0.0),
-      );
-    }
+    final quote = ref.watch(
+      stockQuoteProvider.select((s) => s.quotes[_chartSymbol]),
+    );
+    // 종가 기반 가격 (프리/애프터/휴장 시 previousClose 사용)
+    final closingPrice = ref.watch(
+      closingPricesProvider.select((m) => m[_chartSymbol] ?? 0.0),
+    );
 
     return Scaffold(
       backgroundColor: context.appBackground,
@@ -445,7 +435,7 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
                 pivotLevels: _calculatePivotLevels(),
                 indicatorService: _indicatorService,
                 currentPrice: closingPrice,
-                previousClose: quote?.previousClose ?? (_chartData.length >= 2 ? _chartData[_chartData.length - 2].close : null),
+                previousClose: quote?.previousClose,
                 onDrawingActiveChanged: (active) {
                   if (_isDrawingActive != active) {
                     setState(() => _isDrawingActive = active);
@@ -498,14 +488,9 @@ class _IndexDetailScreenState extends ConsumerState<IndexDetailScreen>
   }
 
   Widget _buildMetaInfo(StockQuote? quote, bool isDesktop) {
-    final String timeStr;
-    if (quote != null) {
-      timeStr = DateFormat('yyyy/MM/dd HH:mm').format(quote.timestamp);
-    } else if (_chartData.isNotEmpty) {
-      timeStr = DateFormat('yyyy/MM/dd').format(_chartData.last.date);
-    } else {
-      timeStr = '';
-    }
+    final timeStr = quote != null
+        ? DateFormat('yyyy/MM/dd HH:mm').format(quote.timestamp)
+        : '';
     return Container(
       color: context.appSurface,
       padding: const EdgeInsets.only(left: 16, right: 16, top: 6, bottom: 2),
