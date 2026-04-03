@@ -687,45 +687,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 highlighted: _lastEditedField == 'shares',
               ),
               const SizedBox(height: 12),
-              _buildTextField(
-                label: '매수금액',
-                controller: _addAmountController,
-                hint: '0',
-                prefix: '₩',
-                keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                onChanged: (value) {
-                  // 쉼표 제거 후 다시 포맷팅
-                  final raw = value.replaceAll(',', '');
-                  if (raw.isEmpty) {
-                    _onAmountChanged(value);
-                    return;
-                  }
-                  final num = int.tryParse(raw);
-                  if (num != null) {
-                    final formatted = formatKrwWithComma(num.toDouble());
-                    if (formatted != value) {
-                      _addAmountController.value = TextEditingValue(
-                        text: formatted,
-                        selection: TextSelection.collapsed(offset: formatted.length),
-                      );
-                    }
-                  }
-                  _onAmountChanged(raw);
-                },
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,]'))],
-                highlighted: _lastEditedField == 'amount',
-              ),
-              // 금액 한글 표시
-              if (_addAmountController.text.isNotEmpty) ...[
-                const SizedBox(height: 2),
-                Padding(
-                  padding: const EdgeInsets.only(left: 72),
-                  child: Text(
-                    '약 ${formatCashShort(double.tryParse(_addAmountController.text.replaceAll(',', '')) ?? 0)}원',
-                    style: TextStyle(fontSize: 11, color: context.appTextHint),
-                  ),
-                ),
-              ],
+              _buildAmountField(),
               const SizedBox(height: 12),
               _buildTargetReturnField(),
               if (_lastEditedField == 'targetReturn' && _targetReturnController.text.isNotEmpty) ...[
@@ -733,6 +695,80 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 _buildReverseCalcInfo(),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 매수금액 필드 — 쉼표 포맷 + suffix에 한글 축약
+  Widget _buildAmountField() {
+    final highlighted = _lastEditedField == 'amount';
+    final rawText = _addAmountController.text.replaceAll(',', '');
+    final amount = double.tryParse(rawText) ?? 0;
+    final koreanSuffix = amount >= 10000 ? '약 ${formatCashShort(amount)}' : '';
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            '매수금액',
+            style: TextStyle(
+              fontSize: 13,
+              color: highlighted ? context.appAccent : context.appTextSecondary,
+              fontWeight: highlighted ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _addAmountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: false),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,]'))],
+            onChanged: (value) {
+              final raw = value.replaceAll(',', '');
+              if (raw.isEmpty) {
+                _onAmountChanged(value);
+                setState(() {});
+                return;
+              }
+              final num = int.tryParse(raw);
+              if (num != null) {
+                final formatted = formatKrwWithComma(num.toDouble());
+                if (formatted != value) {
+                  _addAmountController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(offset: formatted.length),
+                  );
+                }
+              }
+              _onAmountChanged(raw);
+              setState(() {});
+            },
+            style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+            decoration: InputDecoration(
+              hintText: '0',
+              hintStyle: TextStyle(color: context.appTextHint),
+              prefixText: '₩',
+              prefixStyle: TextStyle(fontSize: 14, color: context.appTextSecondary),
+              suffixText: koreanSuffix.isNotEmpty ? koreanSuffix : null,
+              suffixStyle: TextStyle(fontSize: 11, color: context.appTextHint),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: context.appSurface,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: highlighted ? context.appAccent.withValues(alpha: 0.4) : context.appBorder,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: context.appAccent, width: 1.5),
+              ),
+            ),
           ),
         ),
       ],
