@@ -587,6 +587,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0',
                 suffix: '주',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
@@ -596,6 +597,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0.00',
                 prefix: '\$',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
@@ -605,6 +607,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0.00',
                 prefix: '\$',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 8),
@@ -639,6 +642,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   hint: '1400',
                   prefix: '₩',
                   keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onChanged: _onBasicInputChanged,
                 ),
               ],
@@ -658,6 +662,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: _currentPrice > 0 ? _currentPrice.toStringAsFixed(2) : '0.00',
                 prefix: '\$',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onAddPriceChanged,
               ),
               const SizedBox(height: 12),
@@ -667,6 +672,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0',
                 suffix: '주',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onSharesChanged,
                 highlighted: _lastEditedField == 'shares',
               ),
@@ -682,20 +688,104 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 highlighted: _lastEditedField == 'amount',
               ),
               const SizedBox(height: 12),
-              _buildTextField(
-                label: '목표손익률',
-                controller: _targetReturnController,
-                hint: '-5.0',
-                suffix: '%',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-                onChanged: _onTargetReturnChanged,
-                highlighted: _lastEditedField == 'targetReturn',
-              ),
+              _buildTargetReturnField(),
               if (_lastEditedField == 'targetReturn' && _targetReturnController.text.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _buildReverseCalcInfo(),
               ],
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 목표손익률 필드 — +/- 부호 버튼 포함
+  Widget _buildTargetReturnField() {
+    final highlighted = _lastEditedField == 'targetReturn';
+    final isNegative = _targetReturnController.text.startsWith('-');
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            '목표손익률',
+            style: TextStyle(
+              fontSize: 13,
+              color: highlighted ? context.appAccent : context.appTextSecondary,
+              fontWeight: highlighted ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+        // +/- 토글 버튼
+        GestureDetector(
+          onTap: () {
+            final text = _targetReturnController.text;
+            if (text.isEmpty) {
+              _targetReturnController.text = '-';
+              return;
+            }
+            if (text.startsWith('-')) {
+              _targetReturnController.text = text.substring(1);
+            } else {
+              _targetReturnController.text = '-$text';
+            }
+            _onTargetReturnChanged(_targetReturnController.text);
+          },
+          child: Container(
+            width: 36,
+            height: 36,
+            margin: const EdgeInsets.only(right: 6),
+            decoration: BoxDecoration(
+              color: isNegative ? AppColors.blue500.withValues(alpha: 0.15) : AppColors.red500.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isNegative ? AppColors.blue500.withValues(alpha: 0.4) : AppColors.red500.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Center(
+              child: Text(
+                isNegative ? '−' : '+',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isNegative ? AppColors.blue500 : AppColors.red500,
+                ),
+              ),
+            ),
+          ),
+        ),
+        // 숫자 입력 필드
+        Expanded(
+          child: TextField(
+            controller: _targetReturnController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[-\d.]')),
+            ],
+            onChanged: _onTargetReturnChanged,
+            style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+            decoration: InputDecoration(
+              hintText: '-5.0',
+              hintStyle: TextStyle(color: context.appTextHint),
+              suffixText: '%',
+              suffixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: context.appSurface,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: highlighted ? context.appAccent.withValues(alpha: 0.4) : context.appBorder,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: context.appAccent, width: 1.5),
+              ),
+            ),
           ),
         ),
       ],
