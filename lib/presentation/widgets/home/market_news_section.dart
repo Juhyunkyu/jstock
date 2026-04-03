@@ -128,6 +128,18 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
                     color: context.appTextPrimary,
                   ),
                 ),
+                if (title == '글로벌 시장')
+                  GestureDetector(
+                    onTap: () => _showTranslationInfo(context),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: context.appTextHint,
+                      ),
+                    ),
+                  ),
                 if (newsState.isLoading) ...[
                   const SizedBox(width: 8),
                   const SizedBox(
@@ -327,5 +339,50 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     if (diff.inHours < 24) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';
     return DateFormat('MM/dd').format(date);
+  }
+
+  void _showTranslationInfo(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: context.appSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.translate, size: 22, color: context.appAccent),
+            const SizedBox(width: 8),
+            Text(
+              '뉴스 번역 안내',
+              style: TextStyle(fontSize: 16, color: context.appTextPrimary),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '해외 뉴스 제목은 자동 번역되어 표시됩니다.\n\n'
+              '무료 번역 API 사용량이 소진되면 영어 원문 그대로 '
+              '표시될 수 있습니다. (매월 자동 리셋)\n\n'
+              '💡 기사를 탭하면 외부 브라우저에서 열립니다. '
+              'Chrome 브라우저의 경우 페이지 번역 기능으로 '
+              '전체 기사를 한국어로 읽을 수 있습니다.',
+              style: TextStyle(
+                fontSize: 13,
+                color: context.appTextSecondary,
+                height: 1.6,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
   }
 }
