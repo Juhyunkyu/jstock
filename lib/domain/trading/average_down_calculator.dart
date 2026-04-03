@@ -405,6 +405,7 @@ class AverageDownCalculator {
   /// 모든 결과를 한번에 계산
   ///
   /// [additionalRounds]: 다회차 물타기 리스트 (단일 물타기 시 1개 원소)
+  /// - 매수가(price)가 0인 라운드는 자동 제외 (추가매수 스킵)
   /// [targetReturnRate]: 수익률 역산 목표 (null이면 역산 생략)
   /// [targetPrice]: 목표가 (null이면 목표가 수익 생략)
   /// [dropPercents]: 하락 시나리오 퍼센트 (기본: [-10, -20, -30, -50])
@@ -418,18 +419,23 @@ class AverageDownCalculator {
     double? targetPrice,
     List<double> dropPercents = const [-10, -20, -30, -50],
   }) {
+    // 매수가 0인 라운드 제외
+    final validRounds = additionalRounds
+        .where((r) => r.price > 0 && r.shares > 0)
+        .toList();
+
     // 다회차 누적 계산
     final roundResults = multiRoundAverage(
       holdingShares: holdingShares,
       averagePrice: averagePrice,
       currentPrice: currentPrice,
-      rounds: additionalRounds,
+      rounds: validRounds,
     );
 
     // 총 추가 수량/비용 합산
     var totalAddShares = 0.0;
     var totalAddCostUsd = 0.0;
-    for (final r in additionalRounds) {
+    for (final r in validRounds) {
       totalAddShares += r.shares;
       totalAddCostUsd += r.shares * r.price;
     }
@@ -439,12 +445,14 @@ class AverageDownCalculator {
         totalAddShares > 0 ? totalAddCostUsd / totalAddShares : 0.0;
 
     // 핵심 결과
-    final newAvg = newAveragePrice(
-      holdingShares: holdingShares,
-      averagePrice: averagePrice,
-      additionalShares: totalAddShares,
-      additionalPrice: effectiveAddPrice,
-    );
+    final newAvg = totalAddShares > 0
+        ? newAveragePrice(
+            holdingShares: holdingShares,
+            averagePrice: averagePrice,
+            additionalShares: totalAddShares,
+            additionalPrice: effectiveAddPrice,
+          )
+        : averagePrice;
     final currentMddVal = mdd(
       currentPrice: currentPrice,
       averagePrice: averagePrice,
@@ -461,7 +469,7 @@ class AverageDownCalculator {
     final returnRateVal =
         totalInvestedKrw > 0 ? profitLossKrw / totalInvestedKrw * 100 : 0.0;
 
-    final avgReduction = averagePrice > 0
+    final avgReduction = averagePrice > 0 && totalAddShares > 0
         ? (newAvg - averagePrice) / averagePrice * 100
         : 0.0;
 

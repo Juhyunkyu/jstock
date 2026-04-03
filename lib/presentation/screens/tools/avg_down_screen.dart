@@ -27,14 +27,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   final _currentPriceController = TextEditingController();
   final _exchangeRateController = TextEditingController();
 
-  // === 추가 매수 ===
+  // === 추가 매수 (3필드 상호 연동) ===
   final _addPriceController = TextEditingController();
   final _addAmountController = TextEditingController();
   final _addSharesController = TextEditingController();
-  bool _inputByAmount = true; // true=금액입력, false=수량입력
-
-  // === 수익률 역산 ===
-  final _targetReturnController = TextEditingController(text: '-5.0');
+  final _targetReturnController = TextEditingController();
 
   // === 목표가 ===
   final _targetPriceController = TextEditingController();
@@ -45,13 +42,19 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   // === 사이클 연동 ===
   String? _loadedCycleId;
 
+  // === 3필드 연동: 마지막 입력 필드 추적 ===
+  // 'shares', 'amount', 'targetReturn'
+  String _lastEditedField = 'shares';
+
+  // 프로그래밍적 텍스트 업데이트 중 순환 방지
+  bool _isAutoUpdating = false;
+
   // === 계산 결과 ===
   AvgDownResult? _result;
 
   @override
   void initState() {
     super.initState();
-    // 기본 환율 로드
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final rate = ref.read(currentExchangeRateProvider);
       _exchangeRateController.text = rate.toStringAsFixed(0);
@@ -93,25 +96,145 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   double get _targetReturn => _parseDouble(_targetReturnController);
   double get _targetPrice => _parseDouble(_targetPriceController);
 
-  /// 추가매수 수량 계산 (금액 입력 모드일 때)
-  double get _effectiveAddShares {
-    if (_inputByAmount) {
-      return AverageDownCalculator.sharesToBuy(
-        amountKrw: _addAmount,
-        price: _addPrice > 0 ? _addPrice : _currentPrice,
-        exchangeRate: _exchangeRate,
-      );
-    }
-    return _addShares;
-  }
-
-  /// 추가매수 단가 (미입력 시 현재가)
-  double get _effectiveAddPrice => _addPrice > 0 ? _addPrice : _currentPrice;
-
   bool get _hasValidInput =>
       _holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0;
 
-  bool get _hasAdditionalBuy => _effectiveAddShares > 0;
+  bool get _hasAdditionalBuy => _addPrice > 0 && _addShares > 0;
+
+  // ════════════════════════════════════════════
+  // 3필드 상호 연동 로직
+  // ════════════════════════════════════════════
+
+  /// 수량 필드 수정 → 금액, 목표손익률 자동계산
+  void _onSharesChanged(String _) {
+    if (_isAutoUpdating) return;
+    _lastEditedField = 'shares';
+    _syncFromShares();
+    _recalculate();
+  }
+
+  /// 금액 필드 수정 → 수량, 목표손익률 자동계산
+  void _onAmountChanged(String _) {
+    if (_isAutoUpdating) return;
+    _lastEditedField = 'amount';
+    _syncFromAmount();
+    _recalculate();
+  }
+
+  /// 목표손익률 필드 수정 → 수량, 금액 자동계산 (역산)
+  void _onTargetReturnChanged(String _) {
+    if (_isAutoUpdating) return;
+    _lastEditedField = 'targetReturn';
+    _syncFromTargetReturn();
+    _recalculate();
+  }
+
+  /// 매수가 변경 → 현재 마스터 필드 기준으로 나머지 재계산
+  void _onAddPriceChanged(String _) {
+    if (_isAutoUpdating) return;
+    _syncDependentFields();
+    _recalculate();
+  }
+
+  /// 수량 기준 → 금액, 목표손익률 계산
+  void _syncFromShares() {
+    _isAutoUpdating = true;
+    final price = _addPrice;
+    final shares = _addShares;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    if (price > 0 && shares > 0) {
+      // 금액 = 수량 × 매수가 × 환율
+      final amount = shares * price * exRate;
+      _addAmountController.text = amount.toStringAsFixed(0);
+
+      // 목표손익률: 물타기 후 MDD
+      if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
+        final newAvg = AverageDownCalculator.newAveragePrice(
+          holdingShares: _holdingShares,
+          averagePrice: _avgPrice,
+          additionalShares: shares,
+          additionalPrice: price,
+        );
+        final newMddVal = AverageDownCalculator.mdd(
+          currentPrice: _currentPrice,
+          averagePrice: newAvg,
+        );
+        _targetReturnController.text = newMddVal.toStringAsFixed(2);
+      }
+    }
+    _isAutoUpdating = false;
+  }
+
+  /// 금액 기준 → 수량, 목표손익률 계산
+  void _syncFromAmount() {
+    _isAutoUpdating = true;
+    final price = _addPrice;
+    final amount = _addAmount;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    if (price > 0 && amount > 0 && exRate > 0) {
+      // 수량 = 금액 / (매수가 × 환율)
+      final shares = amount / (price * exRate);
+      _addSharesController.text = shares.toStringAsFixed(4);
+
+      // 목표손익률
+      if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
+        final newAvg = AverageDownCalculator.newAveragePrice(
+          holdingShares: _holdingShares,
+          averagePrice: _avgPrice,
+          additionalShares: shares,
+          additionalPrice: price,
+        );
+        final newMddVal = AverageDownCalculator.mdd(
+          currentPrice: _currentPrice,
+          averagePrice: newAvg,
+        );
+        _targetReturnController.text = newMddVal.toStringAsFixed(2);
+      }
+    }
+    _isAutoUpdating = false;
+  }
+
+  /// 목표손익률 기준 → 수량, 금액 역산
+  void _syncFromTargetReturn() {
+    _isAutoUpdating = true;
+    final price = _addPrice;
+    final targetRet = _targetReturn;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    if (price > 0 && _holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
+      final reverseResult = AverageDownCalculator.reverseCalc(
+        holdingShares: _holdingShares,
+        averagePrice: _avgPrice,
+        currentPrice: _currentPrice,
+        additionalPrice: price,
+        exchangeRate: exRate,
+        targetReturnRate: targetRet,
+      );
+
+      if (reverseResult.isFeasible && reverseResult.requiredShares > 0) {
+        _addSharesController.text = reverseResult.requiredShares.toStringAsFixed(4);
+        _addAmountController.text = reverseResult.requiredAmountKrw.toStringAsFixed(0);
+      } else {
+        _addSharesController.text = '';
+        _addAmountController.text = '';
+      }
+    }
+    _isAutoUpdating = false;
+  }
+
+  /// 매수가 변경 시 현재 마스터 필드 기준으로 재계산
+  void _syncDependentFields() {
+    switch (_lastEditedField) {
+      case 'shares':
+        _syncFromShares();
+      case 'amount':
+        _syncFromAmount();
+      case 'targetReturn':
+        _syncFromTargetReturn();
+    }
+  }
 
   // ════════════════════════════════════════════
   // 계산
@@ -123,8 +246,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       return;
     }
 
-    final addShares = _effectiveAddShares;
-    final addPrice = _effectiveAddPrice;
+    final addPrice = _addPrice;
+    final addShares = _addShares;
     final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
 
     final result = AverageDownCalculator.calculateAll(
@@ -132,17 +255,48 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       averagePrice: _avgPrice,
       currentPrice: _currentPrice,
       exchangeRate: exRate,
-      additionalRounds: addShares > 0
+      additionalRounds: addPrice > 0 && addShares > 0
           ? [(price: addPrice, shares: addShares)]
           : [],
-      targetReturnRate: _targetReturn != 0 ? _targetReturn : null,
       targetPrice: _targetPrice > 0 ? _targetPrice : null,
     );
 
     setState(() => _result = result);
   }
 
-  void _onInputChanged([String? _]) => _recalculate();
+  void _onBasicInputChanged([String? _]) => _recalculate();
+
+  // ════════════════════════════════════════════
+  // 초기화
+  // ════════════════════════════════════════════
+
+  void _resetHolding() {
+    _tickerNameController.clear();
+    _holdingSharesController.clear();
+    _avgPriceController.clear();
+    _currentPriceController.clear();
+    _loadedCycleId = null;
+
+    final rate = ref.read(currentExchangeRateProvider);
+    _exchangeRateController.text = rate.toStringAsFixed(0);
+
+    _recalculate();
+  }
+
+  void _resetAdditional() {
+    _addPriceController.clear();
+    _addAmountController.clear();
+    _addSharesController.clear();
+    _targetReturnController.clear();
+    _lastEditedField = 'shares';
+    _recalculate();
+  }
+
+  void _resetAll() {
+    _resetHolding();
+    _resetAdditional();
+    _targetPriceController.clear();
+  }
 
   // ════════════════════════════════════════════
   // 사이클 불러오기
@@ -210,17 +364,17 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   StrategyType.infiniteBuy => 'Steady Cycle',
                   StrategyType.ladderCycle => 'Ladder Cycle',
                 };
-                final mdd = cycle.totalShares > 0 && cycle.averagePrice > 0
-                    ? AverageDownCalculator.mdd(
-                        currentPrice: cycle.averagePrice, // placeholder
-                        averagePrice: cycle.averagePrice,
-                      )
-                    : 0.0;
                 final seedText = formatKoreanAmountShort(cycle.seedAmount);
+                // Ladder: buyTicker 사용, 나머지: ticker
+                final displayTicker = cycle.buyTicker.isNotEmpty
+                    ? cycle.buyTicker
+                    : cycle.ticker;
 
                 return ListTile(
                   title: Text(
-                    cycle.nickname.isNotEmpty ? '${cycle.ticker} (${cycle.nickname})' : cycle.ticker,
+                    cycle.nickname.isNotEmpty
+                        ? '$displayTicker (${cycle.nickname})'
+                        : displayTicker,
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: context.appTextPrimary,
@@ -263,7 +417,12 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   }
 
   void _loadFromCycle(Cycle cycle) {
-    _tickerNameController.text = cycle.ticker;
+    // Ladder: 실제 투입 티커 사용
+    final displayTicker = cycle.buyTicker.isNotEmpty
+        ? cycle.buyTicker
+        : cycle.ticker;
+    _tickerNameController.text = displayTicker;
+
     _holdingSharesController.text = cycle.totalShares > 0
         ? cycle.totalShares.toStringAsFixed(2)
         : '';
@@ -273,36 +432,21 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     // 현재가: stockQuoteProvider에서 가져오기
     final quoteState = ref.read(stockQuoteProvider);
-    final quote = quoteState.quotes[cycle.ticker];
+    final quote = quoteState.quotes[displayTicker];
     if (quote != null && quote.currentPrice > 0) {
       _currentPriceController.text = quote.currentPrice.toStringAsFixed(2);
-      // 추가매수가 기본값 = 현재가
       _addPriceController.text = quote.currentPrice.toStringAsFixed(2);
     }
 
-    // 환율
-    final rate = ref.read(currentExchangeRateProvider);
-    _exchangeRateController.text = rate.toStringAsFixed(0);
+    // 환율: 사이클의 exchangeRateAtEntry 자동 채움
+    if (cycle.exchangeRateAtEntry > 0) {
+      _exchangeRateController.text = cycle.exchangeRateAtEntry.toStringAsFixed(0);
+    } else {
+      final rate = ref.read(currentExchangeRateProvider);
+      _exchangeRateController.text = rate.toStringAsFixed(0);
+    }
 
     _loadedCycleId = cycle.id;
-    _recalculate();
-  }
-
-  void _resetAll() {
-    _tickerNameController.clear();
-    _holdingSharesController.clear();
-    _avgPriceController.clear();
-    _currentPriceController.clear();
-    _addPriceController.clear();
-    _addAmountController.clear();
-    _addSharesController.clear();
-    _targetReturnController.text = '-5.0';
-    _targetPriceController.clear();
-    _loadedCycleId = null;
-
-    final rate = ref.read(currentExchangeRateProvider);
-    _exchangeRateController.text = rate.toStringAsFixed(0);
-
     _recalculate();
   }
 
@@ -350,13 +494,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             const SizedBox(height: 16),
             _buildScenarioTable(),
             const SizedBox(height: 16),
-            _buildReverseCalcSection(),
-            const SizedBox(height: 16),
             _buildTargetPriceSection(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
           ],
-          _buildResetButton(),
-          const SizedBox(height: 32),
         ],
       ),
     );
@@ -371,13 +511,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           width: 380,
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildInputSection(),
-                const SizedBox(height: 24),
-                _buildResetButton(),
-              ],
-            ),
+            child: _buildInputSection(),
           ),
         ),
         VerticalDivider(width: 1, color: context.appDivider),
@@ -391,8 +525,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   _buildResultCard(),
                   const SizedBox(height: 16),
                   _buildScenarioTable(),
-                  const SizedBox(height: 16),
-                  _buildReverseCalcSection(),
                   const SizedBox(height: 16),
                   _buildTargetPriceSection(),
                 ] else
@@ -417,22 +549,28 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   }
 
   // ════════════════════════════════════════════
-  // Section A+B: 입력 영역
+  // Section A: 현재 보유
   // ════════════════════════════════════════════
 
   Widget _buildInputSection() {
     return Column(
       children: [
-        // Section A: 현재 보유
         _buildCard(
           title: '현재 보유',
-          trailing: TextButton.icon(
-            icon: Icon(Icons.download_outlined, size: 16, color: context.appAccent),
-            label: Text(
-              '사이클에서 불러오기',
-              style: TextStyle(fontSize: 12, color: context.appAccent),
-            ),
-            onPressed: _showCyclePicker,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSmallResetButton(_resetHolding),
+              const SizedBox(width: 4),
+              TextButton.icon(
+                icon: Icon(Icons.download_outlined, size: 16, color: context.appAccent),
+                label: Text(
+                  '불러오기',
+                  style: TextStyle(fontSize: 12, color: context.appAccent),
+                ),
+                onPressed: _showCyclePicker,
+              ),
+            ],
           ),
           child: Column(
             children: [
@@ -440,7 +578,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 label: '종목명',
                 controller: _tickerNameController,
                 hint: 'TQQQ',
-                onChanged: _onInputChanged,
+                onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
               _buildTextField(
@@ -449,7 +587,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0',
                 suffix: '주',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: _onInputChanged,
+                onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
               _buildTextField(
@@ -458,7 +596,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0.00',
                 prefix: '\$',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: _onInputChanged,
+                onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
               _buildTextField(
@@ -467,7 +605,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0.00',
                 prefix: '\$',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: _onInputChanged,
+                onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 8),
               // 환율 접이식
@@ -501,17 +639,17 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   hint: '1400',
                   prefix: '₩',
                   keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                  onChanged: _onInputChanged,
+                  onChanged: _onBasicInputChanged,
                 ),
               ],
             ],
           ),
         ),
         const SizedBox(height: 12),
-        // Section B: 추가 매수
+        // Section B: 추가 매수 (3필드 상호 연동)
         _buildCard(
           title: '추가 매수',
-          trailing: _buildAmountSharesToggle(),
+          trailing: _buildSmallResetButton(_resetAdditional),
           child: Column(
             children: [
               _buildTextField(
@@ -520,46 +658,43 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: _currentPrice > 0 ? _currentPrice.toStringAsFixed(2) : '0.00',
                 prefix: '\$',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: _onInputChanged,
+                onChanged: _onAddPriceChanged,
               ),
               const SizedBox(height: 12),
-              if (_inputByAmount) ...[
-                _buildTextField(
-                  label: '매수금액',
-                  controller: _addAmountController,
-                  hint: '0',
-                  prefix: '₩',
-                  keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                  onChanged: _onInputChanged,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-                if (_effectiveAddShares > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 4),
-                        Icon(Icons.arrow_forward, size: 14, color: context.appTextHint),
-                        const SizedBox(width: 4),
-                        Text(
-                          '예상수량  ${_effectiveAddShares.toStringAsFixed(2)}주',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: context.appTextSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ] else
-                _buildTextField(
-                  label: '매수수량',
-                  controller: _addSharesController,
-                  hint: '0',
-                  suffix: '주',
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: _onInputChanged,
-                ),
+              _buildTextField(
+                label: '매수수량',
+                controller: _addSharesController,
+                hint: '0',
+                suffix: '주',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: _onSharesChanged,
+                highlighted: _lastEditedField == 'shares',
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                label: '매수금액',
+                controller: _addAmountController,
+                hint: '0',
+                prefix: '₩',
+                keyboardType: const TextInputType.numberWithOptions(decimal: false),
+                onChanged: _onAmountChanged,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                highlighted: _lastEditedField == 'amount',
+              ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                label: '목표손익률',
+                controller: _targetReturnController,
+                hint: '-5.0',
+                suffix: '%',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                onChanged: _onTargetReturnChanged,
+                highlighted: _lastEditedField == 'targetReturn',
+              ),
+              if (_lastEditedField == 'targetReturn' && _targetReturnController.text.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                _buildReverseCalcInfo(),
+              ],
             ],
           ),
         ),
@@ -567,43 +702,52 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     );
   }
 
-  Widget _buildAmountSharesToggle() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildToggleChip('금액', _inputByAmount, () {
-          setState(() => _inputByAmount = true);
-          _recalculate();
-        }),
-        const SizedBox(width: 4),
-        _buildToggleChip('수량', !_inputByAmount, () {
-          setState(() => _inputByAmount = false);
-          _recalculate();
-        }),
-      ],
+  /// 역산 결과 안내 (목표손익률 입력 시 인라인 표시)
+  Widget _buildReverseCalcInfo() {
+    final price = _addPrice;
+    final shares = _addShares;
+    if (price <= 0 || shares <= 0) {
+      // 역산 실패 케이스 — 계산기 엔진 결과 확인
+      if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0 && price > 0) {
+        final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+        final reverseResult = AverageDownCalculator.reverseCalc(
+          holdingShares: _holdingShares,
+          averagePrice: _avgPrice,
+          currentPrice: _currentPrice,
+          additionalPrice: price,
+          exchangeRate: exRate,
+          targetReturnRate: _targetReturn,
+        );
+        if (!reverseResult.isFeasible) {
+          return Padding(
+            padding: const EdgeInsets.only(left: 72),
+            child: Text(
+              reverseResult.infeasibleReason ?? '달성 불가능',
+              style: TextStyle(fontSize: 11, color: context.appTextHint),
+            ),
+          );
+        }
+      }
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 72),
+      child: Text(
+        '수량은 소수점 포함 참고용입니다',
+        style: TextStyle(fontSize: 11, color: context.appTextHint),
+      ),
     );
   }
 
-  Widget _buildToggleChip(String label, bool selected, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? context.appAccent.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: selected ? context.appAccent : context.appBorder,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-            color: selected ? context.appAccent : context.appTextHint,
-          ),
-        ),
+  /// 섹션 초기화 작은 버튼
+  Widget _buildSmallResetButton(VoidCallback onPressed) {
+    return InkWell(
+      onTap: onPressed,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(Icons.refresh, size: 16, color: context.appTextHint),
       ),
     );
   }
@@ -879,78 +1023,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       );
 
   // ════════════════════════════════════════════
-  // Section E: 수익률 역산
-  // ════════════════════════════════════════════
-
-  Widget _buildReverseCalcSection() {
-    final result = _result;
-
-    return _buildCard(
-      title: '수익률 역산',
-      child: Column(
-        children: [
-          _buildTextField(
-            label: '목표 손익률',
-            controller: _targetReturnController,
-            hint: '-5.0',
-            suffix: '%',
-            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-            onChanged: _onInputChanged,
-          ),
-          if (result?.reverseCalc != null) ...[
-            const SizedBox(height: 16),
-            if (result!.reverseCalc!.isFeasible) ...[
-              InfoRow(
-                label: '필요 금액',
-                value: '₩${formatKrwWithComma(result.reverseCalc!.requiredAmountKrw)}',
-                valueColor: context.appAccent,
-              ),
-              const SizedBox(height: 6),
-              InfoRow(
-                label: '필요 수량',
-                value: '${result.reverseCalc!.requiredShares.toStringAsFixed(2)}주',
-              ),
-              const SizedBox(height: 6),
-              InfoRow(
-                label: '새 평단',
-                value: '\$${result.reverseCalc!.newAvgPrice.toStringAsFixed(2)}',
-              ),
-              // 대규모 자금 경고
-              if (result.reverseCalc!.requiredAmountKrw > 1000000000)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning_amber, size: 14, color: context.appCautionColor),
-                      const SizedBox(width: 4),
-                      Text(
-                        '대규모 자금 필요',
-                        style: TextStyle(fontSize: 12, color: context.appCautionColor),
-                      ),
-                    ],
-                  ),
-                ),
-            ] else
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: context.appStockChangeMinusBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  result.reverseCalc!.infeasibleReason ?? '달성 불가능',
-                  style: TextStyle(fontSize: 13, color: context.appTextSecondary),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ════════════════════════════════════════════
-  // Section F: 목표가 수익
+  // Section E: 목표가 수익
   // ════════════════════════════════════════════
 
   Widget _buildTargetPriceSection() {
@@ -966,7 +1039,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             hint: '0.00',
             prefix: '\$',
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: _onInputChanged,
+            onChanged: _onBasicInputChanged,
           ),
           if (result?.targetPriceResult != null) ...[
             const SizedBox(height: 16),
@@ -999,29 +1072,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             ],
           ],
         ],
-      ),
-    );
-  }
-
-  // ════════════════════════════════════════════
-  // 초기화 버튼
-  // ════════════════════════════════════════════
-
-  Widget _buildResetButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        icon: Icon(Icons.refresh, size: 18, color: context.appTextSecondary),
-        label: Text(
-          '초기화',
-          style: TextStyle(color: context.appTextSecondary),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: BorderSide(color: context.appBorder),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        onPressed: _resetAll,
       ),
     );
   }
@@ -1077,6 +1127,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
     List<TextInputFormatter>? inputFormatters,
+    bool highlighted = false,
   }) {
     return Row(
       children: [
@@ -1086,7 +1137,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             label,
             style: TextStyle(
               fontSize: 13,
-              color: context.appTextSecondary,
+              color: highlighted ? context.appAccent : context.appTextSecondary,
+              fontWeight: highlighted ? FontWeight.w600 : FontWeight.normal,
             ),
           ),
         ),
@@ -1119,7 +1171,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               fillColor: context.appSurface,
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: context.appBorder),
+                borderSide: BorderSide(
+                  color: highlighted ? context.appAccent.withValues(alpha: 0.4) : context.appBorder,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
