@@ -36,6 +36,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   // === 목표가 ===
   final _targetPriceController = TextEditingController();
 
+  // === 통화 모드 ===
+  bool _isKrwMode = false; // false=USD, true=KRW
+
   // === 환율 접이식 ===
   bool _showExchangeRate = false;
 
@@ -560,6 +563,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 통화 토글 (USD/KRW)
+              _buildCurrencyToggle(),
+              const SizedBox(width: 4),
               _buildSmallResetButton(_resetHolding),
               const SizedBox(width: 4),
               TextButton.icon(
@@ -594,9 +600,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               _buildTextField(
                 label: '평균단가',
                 controller: _avgPriceController,
-                hint: '0.00',
-                prefix: '\$',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                hint: _isKrwMode ? '0' : '0.00',
+                prefix: _isKrwMode ? '₩' : '\$',
+                keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
@@ -604,14 +610,15 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               _buildTextField(
                 label: '현재가',
                 controller: _currentPriceController,
-                hint: '0.00',
-                prefix: '\$',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                hint: _isKrwMode ? '0' : '0.00',
+                prefix: _isKrwMode ? '₩' : '\$',
+                keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onBasicInputChanged,
               ),
+              if (!_isKrwMode) ...[
               const SizedBox(height: 8),
-              // 환율 접이식
+              // 환율 접이식 (USD 모드에서만)
               InkWell(
                 onTap: () => setState(() => _showExchangeRate = !_showExchangeRate),
                 child: Row(
@@ -646,6 +653,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   onChanged: _onBasicInputChanged,
                 ),
               ],
+              ], // if (!_isKrwMode) 닫기
             ],
           ),
         ),
@@ -659,9 +667,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               _buildTextField(
                 label: '매수가',
                 controller: _addPriceController,
-                hint: _currentPrice > 0 ? _currentPrice.toStringAsFixed(2) : '0.00',
-                prefix: '\$',
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                hint: _isKrwMode
+                    ? (_currentPrice > 0 ? _currentPrice.toStringAsFixed(0) : '0')
+                    : (_currentPrice > 0 ? _currentPrice.toStringAsFixed(2) : '0.00'),
+                prefix: _isKrwMode ? '₩' : '\$',
+                keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
                 onChanged: _onAddPriceChanged,
               ),
@@ -726,6 +736,67 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  /// 통화 토글 (USD/KRW)
+  Widget _buildCurrencyToggle() {
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: context.appIconBg,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildCurrencyChip('USD', !_isKrwMode),
+          _buildCurrencyChip('KRW', _isKrwMode),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCurrencyChip(String label, bool selected) {
+    return GestureDetector(
+      onTap: () {
+        final newMode = label == 'KRW';
+        if (newMode == _isKrwMode) return;
+        setState(() {
+          _isKrwMode = newMode;
+          if (_isKrwMode) {
+            // KRW 모드: 환율을 1로 설정
+            _exchangeRateController.text = '1';
+            _showExchangeRate = false;
+          } else {
+            // USD 모드: 실시간 환율 복원
+            final rate = ref.read(currentExchangeRateProvider);
+            _exchangeRateController.text = rate.toStringAsFixed(0);
+          }
+          // 입력값 초기화 (통화 전환 시 값이 의미 없어짐)
+          _avgPriceController.clear();
+          _currentPriceController.clear();
+          _addPriceController.clear();
+          _targetPriceController.clear();
+          _recalculate();
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected ? context.appAccent : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: selected ? Colors.white : context.appTextHint,
+          ),
+        ),
+      ),
     );
   }
 
@@ -1155,9 +1226,10 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           _buildTextField(
             label: '목표가',
             controller: _targetPriceController,
-            hint: '0.00',
-            prefix: '\$',
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            hint: _isKrwMode ? '0' : '0.00',
+            prefix: _isKrwMode ? '₩' : '\$',
+            keyboardType: TextInputType.numberWithOptions(decimal: !_isKrwMode),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
             onChanged: _onBasicInputChanged,
           ),
           if (result?.targetPriceResult != null) ...[
