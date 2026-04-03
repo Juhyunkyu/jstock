@@ -608,6 +608,12 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
+              _buildPriceInput(
+                label: '평균단가',
+                controller: _avgPriceController,
+                onChanged: _onBasicInputChanged,
+              ),
+              const SizedBox(height: 12),
               _buildTextField(
                 label: '보유수량',
                 controller: _holdingSharesController,
@@ -615,12 +621,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 suffix: '주',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
-                onChanged: _onBasicInputChanged,
-              ),
-              const SizedBox(height: 12),
-              _buildPriceInput(
-                label: '평균단가',
-                controller: _avgPriceController,
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
