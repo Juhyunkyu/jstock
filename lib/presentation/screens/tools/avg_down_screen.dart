@@ -146,7 +146,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     if (price > 0 && shares > 0) {
       // 금액 = 수량 × 매수가 × 환율
       final amount = shares * price * exRate;
-      _addAmountController.text = amount.toStringAsFixed(0);
+      _addAmountController.text = formatKrwWithComma(amount);
 
       // 목표손익률: 물타기 후 MDD
       if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
@@ -215,7 +215,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
       if (reverseResult.isFeasible && reverseResult.requiredShares > 0) {
         _addSharesController.text = reverseResult.requiredShares.toStringAsFixed(4);
-        _addAmountController.text = reverseResult.requiredAmountKrw.toStringAsFixed(0);
+        _addAmountController.text = formatKrwWithComma(reverseResult.requiredAmountKrw);
       } else {
         _addSharesController.text = '';
         _addAmountController.text = '';
@@ -683,10 +683,39 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0',
                 prefix: '₩',
                 keyboardType: const TextInputType.numberWithOptions(decimal: false),
-                onChanged: _onAmountChanged,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (value) {
+                  // 쉼표 제거 후 다시 포맷팅
+                  final raw = value.replaceAll(',', '');
+                  if (raw.isEmpty) {
+                    _onAmountChanged(value);
+                    return;
+                  }
+                  final num = int.tryParse(raw);
+                  if (num != null) {
+                    final formatted = formatKrwWithComma(num.toDouble());
+                    if (formatted != value) {
+                      _addAmountController.value = TextEditingValue(
+                        text: formatted,
+                        selection: TextSelection.collapsed(offset: formatted.length),
+                      );
+                    }
+                  }
+                  _onAmountChanged(raw);
+                },
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,]'))],
                 highlighted: _lastEditedField == 'amount',
               ),
+              // 금액 한글 표시
+              if (_addAmountController.text.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Padding(
+                  padding: const EdgeInsets.only(left: 72),
+                  child: Text(
+                    '약 ${formatCashShort(double.tryParse(_addAmountController.text.replaceAll(',', '')) ?? 0)}원',
+                    style: TextStyle(fontSize: 11, color: context.appTextHint),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               _buildTargetReturnField(),
               if (_lastEditedField == 'targetReturn' && _targetReturnController.text.isNotEmpty) ...[
