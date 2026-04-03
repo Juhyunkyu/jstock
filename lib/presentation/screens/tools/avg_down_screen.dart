@@ -7,6 +7,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
 import '../../../core/utils/korean_number_formatter.dart';
 import '../../../data/models/cycle.dart';
+import '../../../data/models/holding.dart';
+import '../../../data/models/memo.dart';
 import '../../../domain/trading/average_down_calculator.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shared/info_row.dart';
@@ -334,11 +336,14 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   void _showCyclePicker() {
     final cycles = ref.read(cycleListProvider);
     final activeCycles = cycles.where((c) => c.status == CycleStatus.active).toList();
+    final holdings = ref.read(holdingListProvider)
+        .where((h) => h.totalShares > 0 && !(h.isArchived ?? false))
+        .toList();
 
-    if (activeCycles.isEmpty) {
+    if (activeCycles.isEmpty && holdings.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('활성 사이클이 없습니다', style: TextStyle(color: context.appTextPrimary)),
+          content: Text('불러올 데이터가 없습니다', style: TextStyle(color: context.appTextPrimary)),
           backgroundColor: context.appSurface,
         ),
       );
@@ -352,11 +357,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => _buildCyclePickerSheet(ctx, activeCycles),
+      builder: (ctx) => _buildPickerSheet(ctx, activeCycles, holdings),
     );
   }
 
-  Widget _buildCyclePickerSheet(BuildContext ctx, List<Cycle> cycles) {
+  Widget _buildPickerSheet(BuildContext ctx, List<Cycle> cycles, List<Holding> holdings) {
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -373,7 +378,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '활성 사이클에서 불러오기',
+              '보유 데이터 불러오기',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -383,47 +388,88 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           ),
           Divider(height: 1, color: context.appDivider),
           Flexible(
-            child: ListView.builder(
+            child: ListView(
               shrinkWrap: true,
-              itemCount: cycles.length,
-              itemBuilder: (ctx, i) {
-                final cycle = cycles[i];
-                final strategyLabel = switch (cycle.strategyType) {
-                  StrategyType.alphaCycleV3 => 'Smart Cycle',
-                  StrategyType.infiniteBuy => 'Steady Cycle',
-                  StrategyType.ladderCycle => 'Ladder Cycle',
-                };
-                final seedText = formatKoreanAmountShort(cycle.seedAmount);
-                // Ladder: buyTicker 사용, 나머지: ticker
-                final displayTicker = cycle.buyTicker.isNotEmpty
-                    ? cycle.buyTicker
-                    : cycle.ticker;
-
-                return ListTile(
-                  title: Text(
-                    cycle.nickname.isNotEmpty
-                        ? '$displayTicker (${cycle.nickname})'
-                        : displayTicker,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: context.appTextPrimary,
+              children: [
+                // 활성 사이클
+                if (cycles.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      '📊 활성 사이클 (${cycles.length})',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.appTextSecondary,
+                      ),
                     ),
                   ),
-                  subtitle: Text(
-                    '$strategyLabel · 시드 $seedText\n'
-                    '${cycle.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(cycle.averagePrice)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextSecondary,
+                  ...cycles.map((cycle) {
+                    final strategyLabel = switch (cycle.strategyType) {
+                      StrategyType.alphaCycleV3 => 'Smart',
+                      StrategyType.infiniteBuy => 'Steady',
+                      StrategyType.ladderCycle => 'Ladder',
+                    };
+                    final displayTicker = cycle.buyTicker.isNotEmpty
+                        ? cycle.buyTicker
+                        : cycle.ticker;
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        cycle.nickname.isNotEmpty
+                            ? '$displayTicker (${cycle.nickname})'
+                            : displayTicker,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: context.appTextPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '$strategyLabel · ${cycle.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(cycle.averagePrice)}',
+                        style: TextStyle(fontSize: 12, color: context.appTextSecondary),
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _loadFromCycle(cycle);
+                      },
+                    );
+                  }),
+                ],
+                // 일반 보유
+                if (holdings.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      '💼 일반 보유 (${holdings.length})',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: context.appTextSecondary,
+                      ),
                     ),
                   ),
-                  isThreeLine: true,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _loadFromCycle(cycle);
-                  },
-                );
-              },
+                  ...holdings.map((holding) {
+                    return ListTile(
+                      dense: true,
+                      title: Text(
+                        '${holding.ticker} (${holding.name})',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: context.appTextPrimary,
+                        ),
+                      ),
+                      subtitle: Text(
+                        '${holding.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(holding.averagePrice)}',
+                        style: TextStyle(fontSize: 12, color: context.appTextSecondary),
+                      ),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _loadFromHolding(holding);
+                      },
+                    );
+                  }),
+                ],
+              ],
             ),
           ),
           Padding(
@@ -443,6 +489,31 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         ],
       ),
     );
+  }
+
+  void _loadFromHolding(Holding holding) {
+    _tickerNameController.text = holding.ticker;
+    _holdingSharesController.text = holding.totalShares > 0
+        ? holding.totalShares.toStringAsFixed(2)
+        : '';
+    _avgPriceController.text = holding.averagePrice > 0
+        ? holding.averagePrice.toStringAsFixed(2)
+        : '';
+
+    final quote = ref.read(stockQuoteProvider).quotes[holding.ticker];
+    if (quote != null && quote.currentPrice > 0) {
+      _currentPriceController.text = quote.currentPrice.toStringAsFixed(2);
+      _addPriceController.text = quote.currentPrice.toStringAsFixed(2);
+    }
+
+    if (holding.exchangeRate > 0) {
+      _exchangeRateController.text = holding.exchangeRate.toStringAsFixed(0);
+    } else {
+      final rate = ref.read(currentExchangeRateProvider);
+      _exchangeRateController.text = rate.toStringAsFixed(0);
+    }
+
+    _recalculate();
   }
 
   void _loadFromCycle(Cycle cycle) {
@@ -479,6 +550,53 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   }
 
   // ════════════════════════════════════════════
+  // 메모 저장
+  // ════════════════════════════════════════════
+
+  void _saveToMemo() {
+    final result = _result;
+    if (result == null) return;
+
+    final ticker = _tickerNameController.text.isNotEmpty
+        ? _tickerNameController.text : '종목';
+    final now = DateTime.now();
+    final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    final buf = StringBuffer();
+    buf.writeln('물타기 시뮬레이션 - $ticker');
+    buf.writeln('현재: ${_holdingShares.toStringAsFixed(1)}주 × ${_fmtPrice(_avgPrice)} (MDD ${result.currentMdd.toStringAsFixed(1)}%)');
+    buf.writeln('현재가: ${_fmtPrice(_currentPrice)} | 환율: ₩${exRate.toStringAsFixed(0)}');
+    buf.writeln('');
+
+    if (_hasAdditionalBuy) {
+      buf.writeln('추가 매수: ${_fmtPrice(_addPrice)} × ${_addShares.toStringAsFixed(1)}주 (₩${formatKrwWithComma(_addShares * _addPrice * exRate)})');
+      buf.writeln('');
+    }
+
+    buf.writeln('결과:');
+    buf.writeln('평단: ${_fmtPrice(result.currentAvgPrice)} → ${_fmtPrice(result.newAvgPrice)} (${result.avgPriceReduction >= 0 ? '+' : ''}${result.avgPriceReduction.toStringAsFixed(1)}%)');
+    buf.writeln('MDD: ${result.currentMdd.toStringAsFixed(1)}% → ${result.newMdd.toStringAsFixed(1)}%');
+    buf.writeln('총: ${result.totalShares.toStringAsFixed(1)}주 | 투자 ₩${formatKrwWithComma(result.totalInvestedKrw)}');
+
+    final memo = Memo(
+      id: 'memo_${now.millisecondsSinceEpoch}',
+      title: '$ticker 물타기 계획 ($dateStr)',
+      content: buf.toString(),
+      category: MemoCategory.strategy,
+    );
+
+    ref.read(memoListProvider.notifier).save(memo);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('전략 메모에 저장되었습니다', style: TextStyle(color: context.appTextPrimary)),
+        backgroundColor: context.appSurface,
+      ),
+    );
+  }
+
+  // ════════════════════════════════════════════
   // 빌드
   // ════════════════════════════════════════════
 
@@ -505,6 +623,14 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           ),
         ),
         centerTitle: true,
+        actions: [
+          if (_hasValidInput && _result != null)
+            IconButton(
+              icon: Icon(Icons.save_outlined, color: context.appTextPrimary),
+              tooltip: '메모에 저장',
+              onPressed: _saveToMemo,
+            ),
+        ],
       ),
       body: isWide ? _buildWideLayout() : _buildNarrowLayout(),
     );
