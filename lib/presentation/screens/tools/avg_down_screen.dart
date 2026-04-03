@@ -11,6 +11,9 @@ import '../../../domain/trading/average_down_calculator.dart';
 import '../../providers/providers.dart';
 import '../../widgets/shared/info_row.dart';
 
+/// 3필드 연동: 마지막 입력 필드 추적
+enum _EditedField { shares, amount, targetReturn }
+
 /// 물타기 계산기 메인 화면
 class AvgDownScreen extends ConsumerStatefulWidget {
   const AvgDownScreen({super.key});
@@ -20,6 +23,10 @@ class AvgDownScreen extends ConsumerStatefulWidget {
 }
 
 class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
+  // === static InputFormatters (avoid per-build RegExp allocation) ===
+  static final _decimalFilter = FilteringTextInputFormatter.allow(RegExp(r'[\d.]'));
+  static final _commaDigitFilter = FilteringTextInputFormatter.allow(RegExp(r'[\d,]'));
+  static final _signedDecimalFilter = FilteringTextInputFormatter.allow(RegExp(r'[-\d.]'));
   // === 현재 보유 ===
   final _tickerNameController = TextEditingController();
   final _holdingSharesController = TextEditingController();
@@ -43,12 +50,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   bool _showExchangeRate = false;
   bool _showScenario = false;
 
-  // === 사이클 연동 ===
-  String? _loadedCycleId;
-
   // === 3필드 연동: 마지막 입력 필드 추적 ===
-  // 'shares', 'amount', 'targetReturn'
-  String _lastEditedField = 'shares';
+  _EditedField _lastEditedField = _EditedField.shares;
 
   // 프로그래밍적 텍스트 업데이트 중 순환 방지
   bool _isAutoUpdating = false;
@@ -106,16 +109,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
   /// 통화 prefix + 가격 포맷 (쉼표 포함)
   String _fmtPrice(double value) {
-    if (_isKrwMode) {
-      return '₩${formatKrwWithComma(value)}';
-    }
-    // USD: 소수점 2자리 + 정수부 쉼표
-    final parts = value.toStringAsFixed(2).split('.');
-    final intPart = parts[0].replaceAllMapped(
-      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (m) => '${m[1]},',
-    );
-    return '\$$intPart.${parts[1]}';
+    if (_isKrwMode) return '₩${formatKrwWithComma(value)}';
+    // USD: 정수부 쉼표 + 소수점 2자리
+    final intPart = formatKrwWithComma(value.truncate().toDouble());
+    final decimal = (value - value.truncate()).toStringAsFixed(2).substring(1); // .XX
+    return '\$$intPart$decimal';
   }
 
   /// KRW 금액 포맷 (쉼표 + 부호)
@@ -133,7 +131,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   /// 수량 필드 수정 → 금액, 목표손익률 자동계산
   void _onSharesChanged(String _) {
     if (_isAutoUpdating) return;
-    _lastEditedField = 'shares';
+    _lastEditedField = _EditedField.shares;
     _syncFromShares();
     _recalculate();
   }
@@ -141,7 +139,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   /// 금액 필드 수정 → 수량, 목표손익률 자동계산
   void _onAmountChanged(String _) {
     if (_isAutoUpdating) return;
-    _lastEditedField = 'amount';
+    _lastEditedField = _EditedField.amount;
     _syncFromAmount();
     _recalculate();
   }
@@ -149,7 +147,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   /// 목표손익률 필드 수정 → 수량, 금액 자동계산 (역산)
   void _onTargetReturnChanged(String _) {
     if (_isAutoUpdating) return;
-    _lastEditedField = 'targetReturn';
+    _lastEditedField = _EditedField.targetReturn;
     _syncFromTargetReturn();
     _recalculate();
   }
@@ -161,6 +159,43 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _recalculate();
   }
 
+  /// MDD 계산 후 목표손익률 필드 업데이트 (공통 헬퍼)
+  void _updateTargetReturnFromMdd(double shares, double price) {
+    if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
+      final newAvg = AverageDownCalculator.newAveragePrice(
+        holdingShares: _holdingShares,
+        averagePrice: _avgPrice,
+        additionalShares: shares,
+        additionalPrice: price,
+      );
+      final newMddVal = AverageDownCalculator.mdd(
+        currentPrice: _currentPrice,
+        averagePrice: newAvg,
+      );
+      _targetReturnController.text = newMddVal.toStringAsFixed(2);
+    }
+  }
+
+  /// KRW 쉼표 자동 포맷 (공통 헬퍼)
+  void _autoFormatComma(TextEditingController controller, String value, ValueChanged<String> onChanged) {
+    final raw = value.replaceAll(',', '');
+    if (raw.isEmpty) {
+      onChanged(value);
+      return;
+    }
+    final num = int.tryParse(raw);
+    if (num != null) {
+      final formatted = formatKrwWithComma(num.toDouble());
+      if (formatted != value) {
+        controller.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      }
+    }
+    onChanged(raw);
+  }
+
   /// 수량 기준 → 금액, 목표손익률 계산
   void _syncFromShares() {
     _isAutoUpdating = true;
@@ -169,24 +204,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
 
     if (price > 0 && shares > 0) {
-      // 금액 = 수량 × 매수가 × 환율
       final amount = shares * price * exRate;
       _addAmountController.text = formatKrwWithComma(amount);
-
-      // 목표손익률: 물타기 후 MDD
-      if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
-        final newAvg = AverageDownCalculator.newAveragePrice(
-          holdingShares: _holdingShares,
-          averagePrice: _avgPrice,
-          additionalShares: shares,
-          additionalPrice: price,
-        );
-        final newMddVal = AverageDownCalculator.mdd(
-          currentPrice: _currentPrice,
-          averagePrice: newAvg,
-        );
-        _targetReturnController.text = newMddVal.toStringAsFixed(2);
-      }
+      _updateTargetReturnFromMdd(shares, price);
     }
     _isAutoUpdating = false;
   }
@@ -199,24 +219,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
 
     if (price > 0 && amount > 0 && exRate > 0) {
-      // 수량 = 금액 / (매수가 × 환율)
       final shares = amount / (price * exRate);
       _addSharesController.text = shares.toStringAsFixed(4);
-
-      // 목표손익률
-      if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
-        final newAvg = AverageDownCalculator.newAveragePrice(
-          holdingShares: _holdingShares,
-          averagePrice: _avgPrice,
-          additionalShares: shares,
-          additionalPrice: price,
-        );
-        final newMddVal = AverageDownCalculator.mdd(
-          currentPrice: _currentPrice,
-          averagePrice: newAvg,
-        );
-        _targetReturnController.text = newMddVal.toStringAsFixed(2);
-      }
+      _updateTargetReturnFromMdd(shares, price);
     }
     _isAutoUpdating = false;
   }
@@ -252,11 +257,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   /// 매수가 변경 시 현재 마스터 필드 기준으로 재계산
   void _syncDependentFields() {
     switch (_lastEditedField) {
-      case 'shares':
+      case _EditedField.shares:
         _syncFromShares();
-      case 'amount':
+      case _EditedField.amount:
         _syncFromAmount();
-      case 'targetReturn':
+      case _EditedField.targetReturn:
         _syncFromTargetReturn();
     }
   }
@@ -300,7 +305,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _holdingSharesController.clear();
     _avgPriceController.clear();
     _currentPriceController.clear();
-    _loadedCycleId = null;
 
     final rate = ref.read(currentExchangeRateProvider);
     _exchangeRateController.text = rate.toStringAsFixed(0);
@@ -313,7 +317,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _addAmountController.clear();
     _addSharesController.clear();
     _targetReturnController.text = '-';
-    _lastEditedField = 'shares';
+    _lastEditedField = _EditedField.shares;
     _recalculate();
   }
 
@@ -471,7 +475,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       _exchangeRateController.text = rate.toStringAsFixed(0);
     }
 
-    _loadedCycleId = cycle.id;
     _recalculate();
   }
 
@@ -630,7 +633,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0',
                 suffix: '주',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+                inputFormatters: [_decimalFilter],
                 onChanged: _onBasicInputChanged,
               ),
               const SizedBox(height: 12),
@@ -699,15 +702,15 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                 hint: '0',
                 suffix: '주',
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+                inputFormatters: [_decimalFilter],
                 onChanged: _onSharesChanged,
-                highlighted: _lastEditedField == 'shares',
+                highlighted: _lastEditedField == _EditedField.shares,
               ),
               const SizedBox(height: 12),
               _buildAmountField(),
               const SizedBox(height: 12),
               _buildTargetReturnField(),
-              if (_lastEditedField == 'targetReturn' && _targetReturnController.text.isNotEmpty) ...[
+              if (_lastEditedField == _EditedField.targetReturn && _targetReturnController.text.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _buildReverseCalcInfo(),
               ],
@@ -732,25 +735,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         hint: '0',
         prefix: '₩',
         keyboardType: const TextInputType.numberWithOptions(decimal: false),
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,]'))],
-        onChanged: (value) {
-          final raw = value.replaceAll(',', '');
-          if (raw.isEmpty) {
-            onChanged(value);
-            return;
-          }
-          final num = int.tryParse(raw);
-          if (num != null) {
-            final formatted = formatKrwWithComma(num.toDouble());
-            if (formatted != value) {
-              controller.value = TextEditingValue(
-                text: formatted,
-                selection: TextSelection.collapsed(offset: formatted.length),
-              );
-            }
-          }
-          onChanged(raw);
-        },
+        inputFormatters: [_commaDigitFilter],
+        onChanged: (value) => _autoFormatComma(controller, value, onChanged),
       );
     }
     // USD: 소수점 허용, 쉼표 없음
@@ -760,14 +746,14 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       hint: '0.00',
       prefix: '\$',
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
+      inputFormatters: [_decimalFilter],
       onChanged: onChanged,
     );
   }
 
   /// 매수금액 필드 — 쉼표 포맷 + suffix에 한글 축약
   Widget _buildAmountField() {
-    final highlighted = _lastEditedField == 'amount';
+    final highlighted = _lastEditedField == _EditedField.amount;
     final rawText = _addAmountController.text.replaceAll(',', '');
     final amount = double.tryParse(rawText) ?? 0;
     final koreanSuffix = amount >= 10000 ? '약 ${formatCashShort(amount)}' : '';
@@ -789,27 +775,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           child: TextField(
             controller: _addAmountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: false),
-            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,]'))],
-            onChanged: (value) {
-              final raw = value.replaceAll(',', '');
-              if (raw.isEmpty) {
-                _onAmountChanged(value);
-                setState(() {});
-                return;
-              }
-              final num = int.tryParse(raw);
-              if (num != null) {
-                final formatted = formatKrwWithComma(num.toDouble());
-                if (formatted != value) {
-                  _addAmountController.value = TextEditingValue(
-                    text: formatted,
-                    selection: TextSelection.collapsed(offset: formatted.length),
-                  );
-                }
-              }
-              _onAmountChanged(raw);
-              setState(() {});
-            },
+            inputFormatters: [_commaDigitFilter],
+            onChanged: (value) => _autoFormatComma(_addAmountController, value, _onAmountChanged),
             style: TextStyle(fontSize: 14, color: context.appTextPrimary),
             decoration: InputDecoration(
               hintText: '0',
@@ -902,7 +869,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
   /// 목표손익률 필드 — +/- 부호 버튼 포함
   Widget _buildTargetReturnField() {
-    final highlighted = _lastEditedField == 'targetReturn';
+    final highlighted = _lastEditedField == _EditedField.targetReturn;
     // 물타기 계산기이므로 기본 마이너스(손실)
     final isNegative = _targetReturnController.text.isEmpty || _targetReturnController.text.startsWith('-');
 
@@ -962,9 +929,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           child: TextField(
             controller: _targetReturnController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[-\d.]')),
-            ],
+            inputFormatters: [_signedDecimalFilter],
             onChanged: _onTargetReturnChanged,
             style: TextStyle(fontSize: 14, color: context.appTextPrimary),
             decoration: InputDecoration(
