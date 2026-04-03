@@ -102,6 +102,14 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   bool get _hasValidInput =>
       _holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0;
 
+  /// 통화 prefix + 가격 포맷
+  String _fmtPrice(double value) {
+    if (_isKrwMode) {
+      return '₩${formatKrwWithComma(value)}';
+    }
+    return '\$${value.toStringAsFixed(2)}';
+  }
+
   bool get _hasAdditionalBuy => _addPrice > 0 && _addShares > 0;
 
   // ════════════════════════════════════════════
@@ -385,7 +393,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   ),
                   subtitle: Text(
                     '$strategyLabel · 시드 $seedText\n'
-                    '${cycle.totalShares.toStringAsFixed(1)}주 · 평단 \$${cycle.averagePrice.toStringAsFixed(2)}',
+                    '${cycle.totalShares.toStringAsFixed(1)}주 · 평단 ${_fmtPrice(cycle.averagePrice)}',
                     style: TextStyle(
                       fontSize: 12,
                       color: context.appTextSecondary,
@@ -1002,7 +1010,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               children: [
                 Text('현재 평단', style: TextStyle(fontSize: 13, color: context.appTextSecondary)),
                 Text(
-                  '\$${result.currentAvgPrice.toStringAsFixed(2)}',
+                  _fmtPrice(result.currentAvgPrice),
                   style: TextStyle(fontSize: 13, color: context.appTextPrimary),
                 ),
               ],
@@ -1019,7 +1027,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   ],
                 ),
                 Text(
-                  '\$${result.newAvgPrice.toStringAsFixed(2)}',
+                  _fmtPrice(result.newAvgPrice),
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
@@ -1205,7 +1213,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      '\$${row.projectedPrice.toStringAsFixed(2)}',
+                      _fmtPrice(row.projectedPrice),
                       style: TextStyle(fontSize: 13, color: context.appTextPrimary),
                       textAlign: TextAlign.right,
                     ),
