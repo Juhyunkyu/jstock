@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:dio/dio.dart';
 
 /// 실시간 지수 데이터 모델
@@ -36,6 +37,8 @@ class TradingViewService {
           baseUrl: 'https://scanner.tradingview.com',
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
+          // text/plain → CORS preflight 회피 (content-type이 allow-headers에 없음)
+          contentType: 'text/plain',
         ));
 
   /// NASDAQ 100, S&P 500 실제 지수값 조회
@@ -49,17 +52,20 @@ class TradingViewService {
     try {
       final response = await _dio.post(
         '/america/scan',
-        data: {
+        data: jsonEncode({
           'symbols': {
             'tickers': ['NASDAQ:NDX', 'SP:SPX'],
             'query': {'types': []},
           },
           'columns': ['close', 'change', 'change_abs', 'description'],
-        },
+        }),
       );
 
       final results = <IndexQuote>[];
-      final data = response.data['data'] as List?;
+      final body = response.data is String
+          ? jsonDecode(response.data) as Map<String, dynamic>
+          : response.data as Map<String, dynamic>;
+      final data = body['data'] as List?;
       if (data == null) return _cache?.data ?? [];
 
       for (final item in data) {
