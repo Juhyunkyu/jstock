@@ -419,8 +419,17 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     final rd = _rounds[index];
     rd.isAutoUpdating = true;
     final price = double.tryParse(rd.priceController.text.replaceAll(',', '')) ?? 0;
-    final targetRet = double.tryParse(rd.targetReturnController.text) ?? 0;
+    final rawTarget = rd.targetReturnController.text.replaceAll(',', '');
+    final targetRet = double.tryParse(rawTarget);
     final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    // 목표손익률이 비어있거나 '-'만 있으면 수량/금액 클리어
+    if (targetRet == null) {
+      rd.sharesController.text = '';
+      rd.amountController.text = '';
+      rd.isAutoUpdating = false;
+      return;
+    }
 
     final cum = _cumulativeBeforeRound(index);
     if (price > 0 && cum.shares > 0 && cum.avgPrice > 0 && _currentPrice > 0) {
