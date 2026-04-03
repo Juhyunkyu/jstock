@@ -9,6 +9,7 @@ import '../../widgets/home/market_index_card.dart';
 import '../../widgets/home/exchange_rate_card.dart';
 import '../../widgets/home/fear_greed_card.dart';
 import '../../widgets/common/app_title_logo.dart';
+import '../../widgets/common/calculator_button.dart';
 import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/home/market_news_section.dart';
 import '../../widgets/home/global_indicators_panel.dart';
@@ -72,6 +73,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       fontWeight: FontWeight.w800,
                     ),
               actions: const [
+                CalculatorButton(),
                 NotificationBellButton(),
               ],
             ),

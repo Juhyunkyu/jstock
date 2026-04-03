@@ -19,6 +19,7 @@ import '../presentation/screens/memo/memo_create_edit_screen.dart';
 import '../presentation/screens/memo/memo_detail_screen.dart';
 import '../presentation/screens/settings/settings_screen.dart';
 import '../presentation/screens/index/index_detail_screen.dart';
+import '../presentation/screens/tools/avg_down_screen.dart';
 import '../presentation/screens/watchlist/watchlist_screen.dart';
 import '../presentation/widgets/common/main_shell.dart';
 import '../presentation/widgets/stocks/popular_etf_list.dart';
@@ -164,6 +165,7 @@ class AppRouter {
   static const String memoDetail = '/memo/detail/:memoId';
   static const String memoEdit = '/memo/edit/:memoId';
   static const String settings = '/settings';
+  static const String toolsAvgDown = '/tools/avg-down';
 
   /// push/pop이 브라우저 히스토리에 반영되도록 설정
   /// go_router v14+에서 기본값이 false → push()가 히스토리에 안 들어감
@@ -239,6 +241,12 @@ class AppRouter {
             pageBuilder: (context, state) => const NoTransitionPage(
               child: SettingsScreen(),
             ),
+          ),
+
+          // 도구 라우트
+          GoRoute(
+            path: toolsAvgDown,
+            builder: (context, state) => const AvgDownScreen(),
           ),
 
           // 종목 관리 상세 라우트

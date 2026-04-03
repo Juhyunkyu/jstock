@@ -8,6 +8,7 @@ import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
 import '../../../domain/trading/ladder_cycle_service.dart';
 import '../../providers/providers.dart';
+import '../../widgets/common/calculator_button.dart';
 import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/home/portfolio_allocation_chart.dart';
 import '../../widgets/cycle/signal_display.dart';
@@ -131,6 +132,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
                 ),
               ),
               actions: [
+                const CalculatorButton(),
                 const NotificationBellButton(),
                 const SizedBox(width: 8),
               ],

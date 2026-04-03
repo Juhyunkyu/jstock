@@ -10,6 +10,7 @@ import '../../widgets/watchlist/watchlist_group_content.dart';
 import '../../widgets/watchlist/alert_settings_sheet.dart';
 import '../../widgets/watchlist/group_selection_sheet.dart';
 import '../../widgets/watchlist/watchlist_settings_sheet.dart';
+import '../../widgets/common/calculator_button.dart';
 import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/common/top_toast.dart';
 
@@ -113,6 +114,7 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
                     if (mounted) setState(() => _refreshing = false);
                   },
                 ),
+          const CalculatorButton(),
           const NotificationBellButton(),
         ],
       ),
