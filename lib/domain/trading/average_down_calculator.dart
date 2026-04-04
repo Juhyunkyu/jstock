@@ -55,25 +55,6 @@ class TargetPriceResult {
   });
 }
 
-/// 다회차 물타기 회차별 누적 결과
-class RoundResult {
-  final int round;
-  final double price;
-  final double shares;
-  final double cumulativeShares;
-  final double cumulativeAvgPrice;
-  final double cumulativeMdd;
-
-  const RoundResult({
-    required this.round,
-    required this.price,
-    required this.shares,
-    required this.cumulativeShares,
-    required this.cumulativeAvgPrice,
-    required this.cumulativeMdd,
-  });
-}
-
 /// 물타기 계산 전체 결과
 class AvgDownResult {
   // === 핵심 결과 ===
@@ -102,9 +83,6 @@ class AvgDownResult {
   // === 목표가 수익 ===
   final TargetPriceResult? targetPriceResult;
 
-  // === 다회차 누적 ===
-  final List<RoundResult> roundResults;
-
   const AvgDownResult({
     required this.currentAvgPrice,
     required this.newAvgPrice,
@@ -120,7 +98,6 @@ class AvgDownResult {
     required this.scenarios,
     this.reverseCalc,
     this.targetPriceResult,
-    this.roundResults = const [],
   });
 }
 
@@ -360,46 +337,7 @@ class AverageDownCalculator {
   }
 
   // ──────────────────────────────────────────
-  // 7. 다회차 물타기 누적 계산
-  // ──────────────────────────────────────────
-
-  /// 여러 회차의 물타기를 순차 적용하여 회차별 누적 평균단가 + MDD 계산
-  ///
-  /// [rounds]: 각 회차의 (매수가, 매수수량) 리스트
-  /// 반환: 회차별 누적 결과 리스트
-  static List<RoundResult> multiRoundAverage({
-    required double holdingShares,
-    required double averagePrice,
-    required double currentPrice,
-    required List<({double price, double shares})> rounds,
-  }) {
-    final results = <RoundResult>[];
-    var cumShares = holdingShares;
-    var cumCostUsd = holdingShares * averagePrice;
-
-    for (var i = 0; i < rounds.length; i++) {
-      final (:price, :shares) = rounds[i];
-      cumShares += shares;
-      cumCostUsd += shares * price;
-
-      final cumAvg = cumShares > 0 ? cumCostUsd / cumShares : 0.0;
-      final cumMdd = mdd(currentPrice: currentPrice, averagePrice: cumAvg);
-
-      results.add(RoundResult(
-        round: i + 1,
-        price: price,
-        shares: shares,
-        cumulativeShares: cumShares,
-        cumulativeAvgPrice: cumAvg,
-        cumulativeMdd: cumMdd,
-      ));
-    }
-
-    return results;
-  }
-
-  // ──────────────────────────────────────────
-  // 8. 전체 계산 편의 메서드
+  // 7. 전체 계산 편의 메서드
   // ──────────────────────────────────────────
 
   /// 모든 결과를 한번에 계산
@@ -423,14 +361,6 @@ class AverageDownCalculator {
     final validRounds = additionalRounds
         .where((r) => r.price > 0 && r.shares > 0)
         .toList();
-
-    // 다회차 누적 계산
-    final roundResults = multiRoundAverage(
-      holdingShares: holdingShares,
-      averagePrice: averagePrice,
-      currentPrice: currentPrice,
-      rounds: validRounds,
-    );
 
     // 총 추가 수량/비용 합산
     var totalAddShares = 0.0;
@@ -525,7 +455,6 @@ class AverageDownCalculator {
       scenarios: scenarios,
       reverseCalc: reverseResult,
       targetPriceResult: targetResult,
-      roundResults: roundResults,
     );
   }
 }

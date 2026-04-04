@@ -575,8 +575,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       final boundary = _screenshotKey.currentContext?.findRenderObject()
           as RenderRepaintBoundary?;
       if (boundary != null) {
-        final pixelRatio = MediaQuery.of(context).devicePixelRatio;
-        final image = await boundary.toImage(pixelRatio: pixelRatio);
+        // pixelRatio 1.5로 제한 — 3x 디바이스에서 base64 크기 폭발 방지
+        final image = await boundary.toImage(pixelRatio: 1.5);
         final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
         if (byteData != null) {
           imageBase64 = base64Encode(byteData.buffer.asUint8List());
@@ -668,7 +668,10 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       ),
       body: RepaintBoundary(
         key: _screenshotKey,
-        child: isWide ? _buildWideLayout() : _buildNarrowLayout(),
+        child: ColoredBox(
+          color: context.appBackground,
+          child: isWide ? _buildWideLayout() : _buildNarrowLayout(),
+        ),
       ),
     );
   }

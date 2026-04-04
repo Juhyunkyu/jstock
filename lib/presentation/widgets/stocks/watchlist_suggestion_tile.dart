@@ -16,7 +16,7 @@ class WatchlistSuggestionTile extends StatelessWidget {
     required this.ticker,
     required this.name,
     required this.quote,
-    required this.isDisabled,
+    this.isDisabled = false,
     this.onTap,
   });
 

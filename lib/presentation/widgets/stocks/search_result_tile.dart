@@ -13,7 +13,7 @@ class SearchResultTile extends StatelessWidget {
   const SearchResultTile({
     super.key,
     required this.result,
-    required this.isDisabled,
+    this.isDisabled = false,
     this.quote,
     this.onTap,
   });

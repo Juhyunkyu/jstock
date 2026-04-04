@@ -186,7 +186,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 ticker: item.ticker,
                 name: item.name,
                 quote: quote,
-                isDisabled: false,
                 onTap: () => _onRecentItemSelected(item),
               );
             },
@@ -258,7 +257,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         final result = results[index];
         return SearchResultTile(
           result: result,
-          isDisabled: false,
           quote: _searchQuotes[result.symbol],
           onTap: () => _onSearchResultSelected(result),
         );
