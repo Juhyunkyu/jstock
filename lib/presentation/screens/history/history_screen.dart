@@ -30,7 +30,15 @@ class HistoryScreen extends ConsumerWidget {
       backgroundColor: context.appBackground,
       appBar: AppBar(
         toolbarHeight: 64,
-        title: const Text('과거 거래기록'),
+        centerTitle: false,
+        title: Text(
+          '거래내역',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: context.appTextPrimary,
+          ),
+        ),
         backgroundColor: context.appBackground,
         elevation: 0,
       ),

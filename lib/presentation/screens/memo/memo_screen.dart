@@ -121,9 +121,14 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
       backgroundColor: context.appSurface,
       elevation: 0,
       toolbarHeight: 64,
+      centerTitle: false,
       title: Text(
         '메모',
-        style: TextStyle(color: context.appTextPrimary),
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: context.appTextPrimary,
+        ),
       ),
       actions: [
         // 정렬 토글

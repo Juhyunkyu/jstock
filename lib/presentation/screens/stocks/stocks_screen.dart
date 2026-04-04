@@ -126,7 +126,7 @@ class _StocksScreenState extends ConsumerState<StocksScreen>
               title: Text(
                 'My',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: context.appTextPrimary,
                 ),

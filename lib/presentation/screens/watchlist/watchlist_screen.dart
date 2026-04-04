@@ -85,7 +85,15 @@ class _WatchlistScreenState extends ConsumerState<WatchlistScreen> {
         backgroundColor: context.appSurface,
         elevation: 0,
         toolbarHeight: 64,
-        title: const Text('관심종목'),
+        centerTitle: false,
+        title: Text(
+          '관심종목',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: context.appTextPrimary,
+          ),
+        ),
         actions: [
           _refreshing
               ? Padding(
