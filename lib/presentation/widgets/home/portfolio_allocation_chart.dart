@@ -51,6 +51,9 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
   /// 종목별 모드 토글
   bool _showTickerView = false;
 
+  /// 도넛 회전 (0.0 = 0°, 0.5 = 180°)
+  double _donutTurns = 0;
+
   /// 기본 세그먼트 색상 (밝고 선명, 라이트/다크 모두에서 잘 보임)
   static const Color _defaultSmartColor = Color(0xFF58A6FF);  // bright blue
   static const Color _defaultSteadyColor = Color(0xFF4ADE80); // bright green
@@ -143,7 +146,10 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
               if (_editingIndex == null) ...[
                 const Spacer(),
                 GestureDetector(
-                  onTap: () => setState(() => _showTickerView = !_showTickerView),
+                  onTap: () => setState(() {
+                    _showTickerView = !_showTickerView;
+                    _donutTurns += 0.5;
+                  }),
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -501,33 +507,41 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
     final sign = isProfit ? '+' : '';
 
-    return SizedBox(
-      width: chartSize,
-      height: chartSize,
-      child: hasData
-          ? Stack(
-              alignment: Alignment.center,
-              children: [
-                PieChart(
-                  PieChartData(
-                    sectionsSpace: 3,
-                    centerSpaceRadius: chartSize * 0.38,
-                    sections: overrideSections ?? _buildSections(
-                        context, summary, smartColor, steadyColor, ladderColor, holdingColor),
-                    pieTouchData: PieTouchData(enabled: false),
+    return AnimatedRotation(
+      turns: _donutTurns,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+      child: SizedBox(
+        width: chartSize,
+        height: chartSize,
+        child: hasData
+            ? Stack(
+                alignment: Alignment.center,
+                children: [
+                  PieChart(
+                    PieChartData(
+                      sectionsSpace: 3,
+                      centerSpaceRadius: chartSize * 0.38,
+                      sections: overrideSections ?? _buildSections(
+                          context, summary, smartColor, steadyColor, ladderColor, holdingColor),
+                      pieTouchData: PieTouchData(enabled: false),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '총 자산',
-                        style: TextStyle(
-                          fontSize: isWide ? 10 : 9,
-                          color: context.appTextSecondary,
-                        ),
+                AnimatedRotation(
+                  turns: -_donutTurns,
+                  duration: const Duration(milliseconds: 500),
+                  curve: Curves.easeInOut,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '총 자산',
+                          style: TextStyle(
+                            fontSize: isWide ? 10 : 9,
+                            color: context.appTextSecondary,
+                          ),
                       ),
                       FittedBox(
                         fit: BoxFit.scaleDown,
@@ -549,7 +563,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                             color: profitColor,
                           ),
                         ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -563,6 +578,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                 ),
               ),
             ),
+      ),
     );
   }
 
