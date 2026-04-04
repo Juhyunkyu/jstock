@@ -3,8 +3,17 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/krw_formatter.dart';
+import '../../../data/models/cycle.dart';
+import '../../../domain/trading/trading_math.dart';
+import '../../../presentation/providers/cycle_providers.dart';
+import '../../../presentation/providers/holding_providers.dart';
 import '../../../presentation/providers/portfolio_providers.dart';
 import '../../../presentation/providers/settings_providers.dart';
+import '../../../presentation/providers/api_providers.dart';
+import '../../../presentation/providers/stock_providers.dart';
+
+/// 종목별 도넛 세그먼트 데이터
+typedef _TickerSegment = ({String ticker, String label, double value});
 
 /// 내 포트폴리오 차트 위젯
 ///
@@ -38,6 +47,9 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
 
   /// 현재 편집 중인 범례 인덱스 (0=Smart, 1=Steady, 2=Ladder, 3=일반 보유, null=없음)
   int? _editingIndex;
+
+  /// 종목별 모드 토글
+  bool _showTickerView = false;
 
   /// 기본 세그먼트 색상 (밝고 선명, 라이트/다크 모두에서 잘 보임)
   static const Color _defaultSmartColor = Color(0xFF58A6FF);  // bright blue
@@ -128,7 +140,30 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   color: context.appTextPrimary,
                 ),
               ),
-              if (_editingIndex != null) ...[
+              if (_editingIndex == null) ...[
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() => _showTickerView = !_showTickerView),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: context.appTextSecondary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _showTickerView ? '종목별' : '전략별',
+                          style: TextStyle(fontSize: 11, color: context.appTextSecondary),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(Icons.swap_horiz_rounded, size: 14, color: context.appTextSecondary),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else ...[
                 const SizedBox(width: 12),
                 Expanded(
                   child: SizedBox(
@@ -232,14 +267,28 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   ? (widget.size * 1.1).clamp(120.0, 160.0)
                   : widget.size;
 
-              final legendItems = _buildLegendItems(
-                context: context,
-                summary: summary,
-                smartColor: smartColor,
-                steadyColor: steadyColor,
-                ladderColor: ladderColor,
-                holdingColor: holdingColor,
-              );
+              List<Widget> legendItems;
+              List<PieChartSectionData>? tickerSections;
+
+              if (_showTickerView) {
+                final rawSegments = _buildTickerSegments();
+                rawSegments.sort((a, b) => b.value.compareTo(a.value));
+                legendItems = _buildTickerLegendItems(
+                  context: context,
+                  sorted: rawSegments,
+                  totalValue: summary.totalValue,
+                );
+                tickerSections = _buildTickerSections(context, rawSegments);
+              } else {
+                legendItems = _buildLegendItems(
+                  context: context,
+                  summary: summary,
+                  smartColor: smartColor,
+                  steadyColor: steadyColor,
+                  ladderColor: ladderColor,
+                  holdingColor: holdingColor,
+                );
+              }
 
               // 모바일: 2열 균등 수직 정렬 (좌: 도넛+총투자, 우: 범례+총손익)
               if (!isWide) {
@@ -255,7 +304,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                       children: [
                         Expanded(
                           child: _buildDonutChart(context, summary, chartSize,
-                              smartColor, steadyColor, ladderColor, holdingColor, hasData, false),
+                              smartColor, steadyColor, ladderColor, holdingColor, hasData, false,
+                              overrideSections: tickerSections),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -310,7 +360,8 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                         child: Row(
                           children: [
                             _buildDonutChart(context, summary, chartSize,
-                                smartColor, steadyColor, ladderColor, holdingColor, hasData, true),
+                                smartColor, steadyColor, ladderColor, holdingColor, hasData, true,
+                                overrideSections: tickerSections),
                             const SizedBox(width: 16),
                             Expanded(
                               child: Column(
@@ -442,8 +493,9 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
     Color ladderColor,
     Color holdingColor,
     bool hasData,
-    bool isWide,
-  ) {
+    bool isWide, {
+    List<PieChartSectionData>? overrideSections,
+  }) {
     final returnRate = summary.totalReturnRate;
     final isProfit = returnRate >= 0;
     final profitColor = isProfit ? AppColors.red500 : AppColors.blue500;
@@ -460,7 +512,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   PieChartData(
                     sectionsSpace: 3,
                     centerSpaceRadius: chartSize * 0.38,
-                    sections: _buildSections(
+                    sections: overrideSections ?? _buildSections(
                         context, summary, smartColor, steadyColor, ladderColor, holdingColor),
                     pieTouchData: PieTouchData(enabled: false),
                   ),
@@ -664,6 +716,182 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
       ],
     );
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 종목별 모드
+  // ═══════════════════════════════════════════════════════════════
+
+  String _strategyLabel(Cycle cycle) {
+    return switch (cycle.strategyType) {
+      StrategyType.alphaCycleV3 => 'Smart',
+      StrategyType.ladderCycle => 'Ladder',
+      _ => 'Steady',
+    };
+  }
+
+  List<_TickerSegment> _buildTickerSegments() {
+    final prices = ref.watch(closingPricesProvider);
+    final exchangeRate = ref.watch(currentExchangeRateProvider);
+    final activeCycles = ref.watch(activeCyclesProvider);
+    final holdingsWithPrice = ref.watch(holdingsWithPriceProvider);
+
+    final raw = <({String ticker, String label, double value, String strategy})>[];
+
+    // 일반보유
+    for (final hwp in holdingsWithPrice) {
+      if (hwp.holding.totalShares <= 0) continue;
+      final value = hwp.currentValue;
+      if (value <= 0) continue;
+      raw.add((ticker: hwp.holding.ticker, label: hwp.holding.ticker, value: value, strategy: '보유'));
+    }
+
+    // 사이클
+    for (final cycle in activeCycles) {
+      final strategyLabel = _strategyLabel(cycle);
+
+      if (cycle.isPendingCompletion) {
+        final value = cycle.totalSellAmountKrw;
+        if (value <= 0) continue;
+        raw.add((ticker: cycle.ticker, label: cycle.ticker, value: value, strategy: strategyLabel));
+        continue;
+      }
+
+      // Ladder 안정형: averagePrice=0이고 멀티티커라 단순 evaluatedAmount 불가 → seedAmount 기반 근사
+      if (cycle.strategyType == StrategyType.ladderCycle && cycle.ladderMode == 0) {
+        final actualInvested = cycle.seedAmount - cycle.remainingCash;
+        final value = actualInvested > 0 ? actualInvested : 0.0;
+        if (value <= 0) continue;
+        raw.add((ticker: cycle.ticker, label: cycle.ticker, value: value, strategy: strategyLabel));
+        continue;
+      }
+
+      final evalTicker = (cycle.strategyType == StrategyType.ladderCycle &&
+              cycle.buyTicker.isNotEmpty)
+          ? cycle.buyTicker
+          : cycle.ticker;
+      final price = prices[evalTicker] ?? 0.0;
+      final value = TradingMath.evaluatedAmount(cycle.totalShares, price, exchangeRate);
+      if (value <= 0) continue;
+
+      raw.add((ticker: evalTicker, label: evalTicker, value: value, strategy: strategyLabel));
+    }
+
+    // 같은 티커 중복 감지 → 접미사 추가
+    final tickerCount = <String, int>{};
+    for (final s in raw) {
+      tickerCount[s.ticker] = (tickerCount[s.ticker] ?? 0) + 1;
+    }
+
+    return raw.map((s) {
+      final needsSuffix = (tickerCount[s.ticker] ?? 0) > 1;
+      final label = needsSuffix ? '${s.ticker} (${s.strategy})' : s.ticker;
+      return (ticker: s.ticker, label: label, value: s.value);
+    }).toList();
+  }
+
+  List<PieChartSectionData> _buildTickerSections(
+    BuildContext context,
+    List<_TickerSegment> sorted,
+  ) {
+    if (sorted.isEmpty) {
+      return [PieChartSectionData(color: context.appDivider, value: 100, title: '', radius: 15)];
+    }
+
+    final top = sorted.take(6).toList();
+    final rest = sorted.skip(6).toList();
+    final otherValue = rest.fold(0.0, (sum, s) => sum + s.value);
+
+    final sections = <PieChartSectionData>[];
+    for (int i = 0; i < top.length; i++) {
+      sections.add(PieChartSectionData(
+        color: _colorPalette[i % _colorPalette.length],
+        value: top[i].value,
+        title: '',
+        radius: 15,
+      ));
+    }
+
+    if (otherValue > 0) {
+      sections.add(PieChartSectionData(
+        color: _colorPalette[6 % _colorPalette.length],
+        value: otherValue,
+        title: '',
+        radius: 15,
+      ));
+    }
+
+    return sections;
+  }
+
+  List<Widget> _buildTickerLegendItems({
+    required BuildContext context,
+    required List<_TickerSegment> sorted,
+    required double totalValue,
+  }) {
+    final top = sorted.take(6).toList();
+    final rest = sorted.skip(6).toList();
+    final otherCount = rest.length;
+    final otherValue = rest.fold(0.0, (sum, s) => sum + s.value);
+
+    final items = <Widget>[];
+
+    for (int i = 0; i < top.length; i++) {
+      final seg = top[i];
+      final ratio = totalValue > 0 ? (seg.value / totalValue) * 100 : 0.0;
+      final color = _colorPalette[i % _colorPalette.length];
+
+      if (items.isNotEmpty) items.add(const SizedBox(height: 6));
+      items.add(Row(
+        children: [
+          Container(
+            width: 12, height: 12,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '${seg.label}  ${ratio.toStringAsFixed(1)}%',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: context.appTextSecondary),
+            ),
+          ),
+        ],
+      ));
+    }
+
+    if (otherCount > 0) {
+      final otherRatio = totalValue > 0 ? (otherValue / totalValue) * 100 : 0.0;
+      if (items.isNotEmpty) items.add(const SizedBox(height: 6));
+      items.add(Row(
+        children: [
+          Container(
+            width: 12, height: 12,
+            decoration: BoxDecoration(
+              color: _colorPalette[6 % _colorPalette.length],
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              '기타 (${otherCount}종)  ${otherRatio.toStringAsFixed(1)}%',
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, color: context.appTextSecondary),
+            ),
+          ),
+        ],
+      ));
+    }
+
+    return items;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // 전략별 모드 (기존)
+  // ═══════════════════════════════════════════════════════════════
 
   List<PieChartSectionData> _buildSections(
     BuildContext context,
