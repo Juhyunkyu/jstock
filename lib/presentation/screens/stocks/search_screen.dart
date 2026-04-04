@@ -61,9 +61,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 활성 보유 종목의 티커 목록 (중복 추가 방지)
-    final activeHoldings = ref.watch(activeHoldingsProvider);
-    final activeTickers = activeHoldings.map((h) => h.ticker).toSet();
     final searchState = ref.watch(searchProvider);
     // 최근 조회 종목
     final recentItems = ref.watch(recentViewProvider);
@@ -125,10 +122,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           // 검색 결과 또는 기본 목록
           Expanded(
             child: searchState.query.isEmpty
-                ? _buildDefaultList(activeTickers, recentItems, stockQuoteState)
+                ? _buildDefaultList(recentItems, stockQuoteState)
                 : searchState.isLoading
                     ? const Center(child: CircularProgressIndicator())
-                    : _buildSearchResults(searchState.results, activeTickers),
+                    : _buildSearchResults(searchState.results),
           ),
         ],
       ),
@@ -136,7 +133,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Widget _buildDefaultList(
-    Set<String> activeTickers,
     List<RecentViewItem> recentItems,
     StockQuoteState stockQuoteState,
   ) {
@@ -184,15 +180,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
               final item = recentItems[index];
-              final isDisabled = activeTickers.contains(item.ticker);
               final quote = stockQuoteState.quotes[item.ticker];
 
               return WatchlistSuggestionTile(
                 ticker: item.ticker,
                 name: item.name,
                 quote: quote,
-                isDisabled: isDisabled,
-                onTap: isDisabled ? null : () => _onRecentItemSelected(item),
+                isDisabled: false,
+                onTap: () => _onRecentItemSelected(item),
               );
             },
           ),
@@ -215,7 +210,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     context.push('/holdings/setup/${item.ticker}', extra: etf);
   }
 
-  Widget _buildSearchResults(List<SearchResult> results, Set<String> activeTickers) {
+  Widget _buildSearchResults(List<SearchResult> results) {
     // 검색 결과가 있으면 시세 조회 트리거
     if (results.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -261,13 +256,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final result = results[index];
-        final isDisabled = activeTickers.contains(result.symbol);
-
         return SearchResultTile(
           result: result,
-          isDisabled: isDisabled,
+          isDisabled: false,
           quote: _searchQuotes[result.symbol],
-          onTap: isDisabled ? null : () => _onSearchResultSelected(result),
+          onTap: () => _onSearchResultSelected(result),
         );
       },
     );

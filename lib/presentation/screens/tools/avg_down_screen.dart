@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -25,6 +28,9 @@ class AvgDownScreen extends ConsumerStatefulWidget {
 }
 
 class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
+  // === 스크린샷 캡처용 키 ===
+  final _screenshotKey = GlobalKey();
+
   // === static InputFormatters (avoid per-build RegExp allocation) ===
   static final _decimalFilter = FilteringTextInputFormatter.allow(RegExp(r'[\d.]'));
   static final _commaDigitFilter = FilteringTextInputFormatter.allow(RegExp(r'[\d,]'));
@@ -553,7 +559,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   // 메모 저장
   // ════════════════════════════════════════════
 
-  void _saveToMemo() {
+  Future<void> _saveToMemo() async {
     final result = _result;
     if (result == null) return;
 
@@ -562,6 +568,23 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     final now = DateTime.now();
     final dateStr = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    // 스크린샷 캡처 → base64
+    String? imageBase64;
+    try {
+      final boundary = _screenshotKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final pixelRatio = MediaQuery.of(context).devicePixelRatio;
+        final image = await boundary.toImage(pixelRatio: pixelRatio);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null) {
+          imageBase64 = base64Encode(byteData.buffer.asUint8List());
+        }
+      }
+    } catch (_) {
+      // 캡처 실패해도 텍스트 메모는 저장
+    }
 
     final buf = StringBuffer();
     buf.writeln('물타기 시뮬레이션 - $ticker');
@@ -579,21 +602,32 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     buf.writeln('MDD: ${result.currentMdd.toStringAsFixed(1)}% → ${result.newMdd.toStringAsFixed(1)}%');
     buf.writeln('총: ${result.totalShares.toStringAsFixed(1)}주 | 투자 ₩${formatKrwWithComma(result.totalInvestedKrw)}');
 
+    if (imageBase64 != null) {
+      buf.writeln('');
+      buf.writeln('[IMG:0]');
+    }
+
     final memo = Memo(
       id: 'memo_${now.millisecondsSinceEpoch}',
       title: '$ticker 물타기 계획 ($dateStr)',
       content: buf.toString(),
       category: MemoCategory.strategy,
+      imageBase64List: imageBase64 != null ? [imageBase64] : null,
     );
 
     ref.read(memoListProvider.notifier).save(memo);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('전략 메모에 저장되었습니다', style: TextStyle(color: context.appTextPrimary)),
-        backgroundColor: context.appSurface,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            imageBase64 != null ? '스크린샷과 함께 전략 메모에 저장되었습니다' : '전략 메모에 저장되었습니다',
+            style: TextStyle(color: context.appTextPrimary),
+          ),
+          backgroundColor: context.appSurface,
+        ),
+      );
+    }
   }
 
   // ════════════════════════════════════════════
@@ -632,7 +666,10 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             ),
         ],
       ),
-      body: isWide ? _buildWideLayout() : _buildNarrowLayout(),
+      body: RepaintBoundary(
+        key: _screenshotKey,
+        child: isWide ? _buildWideLayout() : _buildNarrowLayout(),
+      ),
     );
   }
 
