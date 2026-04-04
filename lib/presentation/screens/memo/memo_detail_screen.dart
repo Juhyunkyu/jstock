@@ -75,16 +75,7 @@ class MemoDetailScreen extends ConsumerWidget {
           icon: Icon(Icons.arrow_back, color: context.appTextPrimary),
           onPressed: () => context.go('/memo'),
         ),
-        title: Text(
-          memo.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: context.appTextPrimary,
-          ),
-        ),
+        title: const SizedBox.shrink(),
         actions: [
           // 고정 토글
           IconButton(
@@ -172,6 +163,16 @@ class MemoDetailScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 제목 (AppBar 대신 본문에 표시 — 잘림 방지)
+                Text(
+                  memo.title,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 12),
                 // 카테고리 뱃지 + 날짜
                 Row(
                   children: [
