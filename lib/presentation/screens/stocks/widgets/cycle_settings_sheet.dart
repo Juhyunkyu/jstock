@@ -454,6 +454,7 @@ class _CycleSettingsSheetState extends State<CycleSettingsSheet> {
 
       cycle.nickname = _nicknameController.text.trim();
       cycle.seedAmount = newSeed;
+      cycle.originalSeedAmount = newSeed;
       cycle.remainingCash = newSeed; // 대기중이라 전액 현금
       cycle.initialEntryRatio = _initialEntryRatio;
       cycle.weightedBuyThreshold = _weightedBuyThreshold;

@@ -6,6 +6,7 @@ import '../../../core/utils/krw_formatter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/cycle.dart';
 import '../../../data/models/trade.dart';
+import '../../../domain/trading/alpha_cycle_service.dart';
 import '../../../domain/trading/trading_math.dart';
 import '../../providers/providers.dart';
 import '../../widgets/cycle/strategy_badge.dart';
@@ -122,6 +123,23 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
 
     final isMobile = MediaQuery.sizeOf(context).width < 600;
 
+    // Smart Cycle: 진입가 기준 lossRate + 다음 신호 트리거
+    final isSmartCycle = cycle.strategyType == StrategyType.alphaCycleV3;
+    final effectiveEntryPrice = isSmartCycle
+        ? ((cycle.entryPrice != null && cycle.entryPrice! > 0)
+            ? cycle.entryPrice!
+            : cycle.averagePrice)
+        : 0.0;
+    final hasEntry = isSmartCycle && effectiveEntryPrice > 0;
+    final entryLossRate = (hasEntry && hasPosition)
+        ? AlphaCycleService.lossRate(currentPrice, effectiveEntryPrice)
+        : null;
+    String? nextTriggerInfo;
+    if (isSmartCycle && hasEntry && signal == TradeSignal.hold) {
+      final triggerPrice = effectiveEntryPrice * (1 + cycle.weightedBuyThreshold / 100);
+      nextTriggerInfo = '다음 신호: \$${triggerPrice.toStringAsFixed(2)} 이하 시 가중매수';
+    }
+
     // === 완료 사이클은 결과 중심 레이아웃 ===
     if (cycle.status == CycleStatus.completed) {
       return Scaffold(
@@ -178,7 +196,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                       CycleInitialBuyGuide(cycle: cycle, currentPrice: currentPrice, liveExchangeRate: liveExchangeRate),
                     SizedBox(height: isMobile ? 10 : 16),
 
-                    // === 신호 카드 (Smart Cycle만) ===
+                    // === 신호 카드 (Smart/Ladder Cycle) ===
                     if (cycle.status == CycleStatus.active &&
                         cycle.strategyType != StrategyType.infiniteBuy) ...[
                       Padding(
@@ -187,7 +205,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                           signal: signal,
                           size: SignalDisplaySize.large,
                           amount: signalAmount,
-                          lossRate: hasPosition ? usdReturnRate : null,
+                          lossRate: isSmartCycle ? entryLossRate : (hasPosition ? usdReturnRate : null),
+                          nextTriggerInfo: nextTriggerInfo,
                         ),
                       ),
                       SizedBox(height: isMobile ? 10 : 16),
@@ -623,6 +642,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
           changePercent: quote?.changePercent,
           currentSignal: signal,
           signalAmount: signalAmount,
+          onConvertToHolding: () => _handleConvertToHolding(cycle),
           onSubmit: ({
             required isBuy,
             required signal,
@@ -1072,12 +1092,36 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
     }
   }
 
+  Future<void> _handleConvertToHolding(Cycle cycle) async {
+    if (cycle.totalShares <= 0) {
+      if (!mounted) return;
+      showErrorToast(context, '보유 주식이 없어 전환할 수 없습니다');
+      return;
+    }
+
+    final holding = await ref.read(holdingListProvider.notifier).addHoldingWithValues(
+      ticker: cycle.ticker,
+      name: cycle.name,
+      purchasePrice: cycle.averagePrice,
+      quantity: cycle.totalShares.toInt(),
+      purchaseExchangeRate: cycle.exchangeRateAtEntry,
+      notes: 'Smart Cycle에서 전환',
+      startDate: cycle.firstTradeDate ?? cycle.startDate,
+    );
+
+    await ref.read(cycleListProvider.notifier).completeCycle(widget.cycleId);
+
+    if (!mounted) return;
+    context.push('/holdings/${holding.id}');
+  }
+
   Future<void> _handleEditSeed(Cycle cycle) async {
     final newSeed = await CycleSeedEditDialog.show(context, cycle);
 
     if (newSeed != null && mounted) {
       final investedAmount = cycle.seedAmount - cycle.remainingCash;
       cycle.seedAmount = newSeed;
+      cycle.originalSeedAmount = newSeed;
       cycle.remainingCash = newSeed - investedAmount;
       await ref.read(cycleListProvider.notifier).saveCycle(cycle);
     }

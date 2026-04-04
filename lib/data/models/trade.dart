@@ -105,6 +105,10 @@ class Trade extends HiveObject {
   @HiveField(11)
   String? ticker;
 
+  /// 이 거래와 함께 투입된 추가 자금 (KRW). 삭제 시 시드에서 차감 복원용.
+  @HiveField(12, defaultValue: 0.0)
+  double extraFundingAmount;
+
   Trade({
     required this.id,
     required this.cycleId,
@@ -118,6 +122,7 @@ class Trade extends HiveObject {
     this.memo,
     this.groupId,
     this.ticker,
+    this.extraFundingAmount = 0.0,
   }) : tradedAt = tradedAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
@@ -133,6 +138,7 @@ class Trade extends HiveObject {
     'memo': memo,
     'groupId': groupId,
     'ticker': ticker,
+    'extraFundingAmount': extraFundingAmount,
   };
 
   static TradeSignal _parseTradeSignal(String value) {
@@ -156,6 +162,7 @@ class Trade extends HiveObject {
     memo: json['memo'] as String?,
     groupId: json['groupId'] as String?,
     ticker: json['ticker'] as String?,
+    extraFundingAmount: (json['extraFundingAmount'] as num?)?.toDouble() ?? 0.0,
   );
 
   @override

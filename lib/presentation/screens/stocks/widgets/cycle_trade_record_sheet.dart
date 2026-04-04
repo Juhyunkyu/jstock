@@ -48,6 +48,9 @@ class CycleTradeRecordSheet extends ConsumerStatefulWidget {
     double extraFundingAmount,
   }) onSubmit;
 
+  /// 일반 보유로 전환 콜백 (Smart Cycle에서 진입가보다 높은 가격 매수 시)
+  final Future<void> Function()? onConvertToHolding;
+
   const CycleTradeRecordSheet({
     super.key,
     required this.cycle,
@@ -59,6 +62,7 @@ class CycleTradeRecordSheet extends ConsumerStatefulWidget {
     this.editingTrade,
     this.editTitle,
     required this.onSubmit,
+    this.onConvertToHolding,
   });
 
   @override
@@ -1531,7 +1535,7 @@ class _CycleTradeRecordSheetState
   // 제출
   // ═══════════════════════════════════════════════════════════════
 
-  void _onSubmit() {
+  Future<void> _onSubmit() async {
     final exchangeRate = widget.currentExchangeRate;
 
     // V2.2/V3.0 전반전 A/B 분리 모드
@@ -1610,6 +1614,25 @@ class _CycleTradeRecordSheetState
         extraAmount = amountKrw - widget.cycle.remainingCash;
       }
 
+      // Smart Cycle: 진입가보다 높은 가격 매수 경고
+      if (widget.cycle.strategyType == StrategyType.alphaCycleV3 &&
+          widget.cycle.entryPrice != null &&
+          widget.cycle.entryPrice! > 0 &&
+          _price > widget.cycle.entryPrice!) {
+        final result = await _showHighPriceWarningDialog(
+          buyPrice: _price,
+          entryPrice: widget.cycle.entryPrice!,
+        );
+        if (!mounted) return;
+        if (result == null) return; // 취소
+        if (result == 'convert') {
+          Navigator.of(context).pop(); // 시트 닫기
+          await widget.onConvertToHolding?.call();
+          return;
+        }
+        // 'proceed' → 계속 진행
+      }
+
       setState(() => _isSubmitting = true);
       widget.onSubmit(
         isBuy: true,
@@ -1643,6 +1666,64 @@ class _CycleTradeRecordSheetState
     }
 
     Navigator.of(context).pop();
+  }
+
+  Future<String?> _showHighPriceWarningDialog({
+    required double buyPrice,
+    required double entryPrice,
+  }) {
+    final diffPercent = (buyPrice - entryPrice) / entryPrice * 100;
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ctx.appCardBackground,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.amber500, size: 22),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('진입가보다 높은 가격 매수',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: ctx.appTextPrimary)),
+          ),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '매수가(\$${buyPrice.toStringAsFixed(2)})가 진입가(\$${entryPrice.toStringAsFixed(2)})보다 '
+              '${diffPercent.toStringAsFixed(1)}% 높습니다.',
+              style: TextStyle(fontSize: 14, color: ctx.appTextPrimary, height: 1.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              '• 사이클 신호는 진입가 기준으로 동작합니다\n'
+              '• 매수 후 가중매수 여력이 줄어듭니다',
+              style: TextStyle(fontSize: 13, color: ctx.appTextSecondary, height: 1.6),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(null),
+            child: Text('취소', style: TextStyle(color: ctx.appTextSecondary)),
+          ),
+          if (widget.onConvertToHolding != null && widget.cycle.totalShares > 0)
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop('convert'),
+              child: Text('일반 보유로 전환',
+                style: TextStyle(color: ctx.appAccent, fontWeight: FontWeight.w600)),
+            ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop('proceed'),
+            child: const Text('그래도 매수',
+              style: TextStyle(color: AppColors.amber500, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showError(String message) {

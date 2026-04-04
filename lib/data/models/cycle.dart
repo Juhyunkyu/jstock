@@ -196,6 +196,10 @@ class Cycle extends HiveObject implements TradingPosition {
   @HiveField(54, defaultValue: 0.0)
   double settledExchangeRate; // 환전 확정 환율
 
+  /// 원본 시드 금액 (추가자금 투입 전 기준값). 0이면 seedAmount를 원본으로 간주.
+  @HiveField(55, defaultValue: 0.0)
+  double originalSeedAmount;
+
   // === 집계 필드 (거래 재계산 시 자동 업데이트) ===
   @HiveField(37, defaultValue: 0.0)
   double totalBuyAmountKrw;
@@ -260,6 +264,7 @@ class Cycle extends HiveObject implements TradingPosition {
     this.buyTicker3x = '',
     this.isExchangeSettled = false,
     this.settledExchangeRate = 0.0,
+    this.originalSeedAmount = 0.0,
     this.totalBuyAmountKrw = 0.0,
     this.totalSellAmountKrw = 0.0,
     this.firstTradeDate,
@@ -431,6 +436,7 @@ class Cycle extends HiveObject implements TradingPosition {
     'buyTicker3x': buyTicker3x,
     'isExchangeSettled': isExchangeSettled,
     'settledExchangeRate': settledExchangeRate,
+    'originalSeedAmount': originalSeedAmount,
   };
 
   factory Cycle.fromJson(Map<String, dynamic> json) {
@@ -465,6 +471,7 @@ class Cycle extends HiveObject implements TradingPosition {
       quarterModeOffset: (json['quarterModeOffset'] as num?)?.toDouble() ?? -15.0,
       isQuarterStopLossMode: json['isQuarterStopLossMode'] as bool? ?? false,
       quarterStopLossRoundsUsed: json['quarterStopLossRoundsUsed'] as int? ?? 0,
+      originalSeedAmount: (json['originalSeedAmount'] as num?)?.toDouble() ?? 0.0,
       totalBuyAmountKrw: (json['totalBuyAmountKrw'] as num?)?.toDouble() ?? 0.0,
       totalSellAmountKrw: (json['totalSellAmountKrw'] as num?)?.toDouble() ?? 0.0,
       firstTradeDate: json['firstTradeDate'] != null ? DateTime.parse(json['firstTradeDate'] as String) : null,
@@ -565,6 +572,7 @@ class Cycle extends HiveObject implements TradingPosition {
     String? buyTicker3x,
     bool? isExchangeSettled,
     double? settledExchangeRate,
+    double? originalSeedAmount,
     double? totalBuyAmountKrw,
     double? totalSellAmountKrw,
     DateTime? firstTradeDate,
@@ -615,6 +623,7 @@ class Cycle extends HiveObject implements TradingPosition {
       buyTicker3x: buyTicker3x ?? this.buyTicker3x,
       isExchangeSettled: isExchangeSettled ?? this.isExchangeSettled,
       settledExchangeRate: settledExchangeRate ?? this.settledExchangeRate,
+      originalSeedAmount: originalSeedAmount ?? this.originalSeedAmount,
       totalBuyAmountKrw: totalBuyAmountKrw ?? this.totalBuyAmountKrw,
       totalBuyUsd: totalBuyUsd ?? this.totalBuyUsd,
       totalSellUsd: totalSellUsd ?? this.totalSellUsd,

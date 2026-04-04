@@ -26,12 +26,16 @@ class SignalDisplay extends StatelessWidget {
   /// large 모드에서 표시할 현재 손실률 (%)
   final double? lossRate;
 
+  /// large + HOLD 모드에서 다음 신호 트리거 정보 (예: "다음 신호: $37.60 이하 시 가중매수")
+  final String? nextTriggerInfo;
+
   const SignalDisplay({
     super.key,
     required this.signal,
     this.size = SignalDisplaySize.compact,
     this.amount,
     this.lossRate,
+    this.nextTriggerInfo,
   });
 
   @override
@@ -138,7 +142,22 @@ class SignalDisplay extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                '\uC190\uC2E4\uB960 ${lossRate! >= 0 ? '+' : ''}${lossRate!.toStringAsFixed(1)}%',
+                '손실률 ${lossRate! >= 0 ? '+' : ''}${lossRate!.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: isMobile ? 11 : 13,
+                  color: context.appTextSecondary,
+                ),
+              ),
+            ),
+          ],
+
+          // 다음 신호 트리거 정보 (HOLD 상태에서만)
+          if (signal == TradeSignal.hold && nextTriggerInfo != null) ...[
+            SizedBox(height: isMobile ? 2 : 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                nextTriggerInfo!,
                 style: TextStyle(
                   fontSize: isMobile ? 11 : 13,
                   color: context.appTextSecondary,

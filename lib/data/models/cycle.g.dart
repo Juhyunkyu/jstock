@@ -50,6 +50,26 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       quarterModeOffset: fields[34] == null ? -15.0 : fields[34] as double,
       isQuarterStopLossMode: fields[35] == null ? false : fields[35] as bool,
       quarterStopLossRoundsUsed: fields[36] == null ? 0 : fields[36] as int,
+      athPrice: fields[43] == null ? 0.0 : fields[43] as double,
+      ladderMode: fields[44] == null ? 1 : fields[44] as int,
+      currentStep: fields[45] == null ? 0 : fields[45] as int,
+      ladderSteps: fields[46] == null ? 6 : fields[46] as int,
+      ladderWeights: fields[47] == null ? '1,1,2,3,4,5' : fields[47] as String,
+      ladderTriggers:
+          fields[48] == null ? '-10,-19,-28,-37,-46,-55' : fields[48] as String,
+      buyTicker: fields[49] == null ? '' : fields[49] as String,
+      buyTicker1x: fields[50] == null ? '' : fields[50] as String,
+      buyTicker2x: fields[51] == null ? '' : fields[51] as String,
+      buyTicker3x: fields[52] == null ? '' : fields[52] as String,
+      isExchangeSettled: fields[53] == null ? false : fields[53] as bool,
+      settledExchangeRate: fields[54] == null ? 0.0 : fields[54] as double,
+      originalSeedAmount: fields[55] == null ? 0.0 : fields[55] as double,
+      totalBuyAmountKrw: fields[37] == null ? 0.0 : fields[37] as double,
+      totalSellAmountKrw: fields[38] == null ? 0.0 : fields[38] as double,
+      firstTradeDate: fields[39] as DateTime?,
+      lastTradeDate: fields[40] as DateTime?,
+      totalBuyUsd: fields[41] == null ? 0.0 : fields[41] as double,
+      totalSellUsd: fields[42] == null ? 0.0 : fields[42] as double,
       completedReturnRate: fields[10] as double?,
       startDate: fields[8] as DateTime?,
     )
@@ -58,34 +78,13 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..remainingCash = fields[6] == null ? 0.0 : fields[6] as double
       ..status =
           fields[7] == null ? CycleStatus.active : fields[7] as CycleStatus
-      ..updatedAt = fields[9] as DateTime
-      ..totalBuyAmountKrw = fields[37] == null ? 0.0 : fields[37] as double
-      ..totalSellAmountKrw = fields[38] == null ? 0.0 : fields[38] as double
-      ..firstTradeDate = fields[39] as DateTime?
-      ..lastTradeDate = fields[40] as DateTime?
-      ..totalBuyUsd = fields[41] == null ? 0.0 : fields[41] as double
-      ..totalSellUsd = fields[42] == null ? 0.0 : fields[42] as double
-      ..athPrice = fields[43] == null ? 0.0 : fields[43] as double
-      ..ladderMode = fields[44] == null ? 1 : fields[44] as int
-      ..currentStep = fields[45] == null ? 0 : fields[45] as int
-      ..ladderSteps = fields[46] == null ? 6 : fields[46] as int
-      ..ladderWeights =
-          fields[47] == null ? '1,1,2,3,4,5' : fields[47] as String
-      ..ladderTriggers = fields[48] == null
-          ? '-10,-19,-28,-37,-46,-55'
-          : fields[48] as String
-      ..buyTicker = fields[49] == null ? '' : fields[49] as String
-      ..buyTicker1x = fields[50] == null ? '' : fields[50] as String
-      ..buyTicker2x = fields[51] == null ? '' : fields[51] as String
-      ..buyTicker3x = fields[52] == null ? '' : fields[52] as String
-      ..isExchangeSettled = fields[53] == null ? false : fields[53] as bool
-      ..settledExchangeRate = fields[54] == null ? 0.0 : fields[54] as double;
+      ..updatedAt = fields[9] as DateTime;
   }
 
   @override
   void write(BinaryWriter writer, Cycle obj) {
     writer
-      ..writeByte(55)
+      ..writeByte(56)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -160,18 +159,6 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..write(obj.isQuarterStopLossMode)
       ..writeByte(36)
       ..write(obj.quarterStopLossRoundsUsed)
-      ..writeByte(37)
-      ..write(obj.totalBuyAmountKrw)
-      ..writeByte(38)
-      ..write(obj.totalSellAmountKrw)
-      ..writeByte(39)
-      ..write(obj.firstTradeDate)
-      ..writeByte(40)
-      ..write(obj.lastTradeDate)
-      ..writeByte(41)
-      ..write(obj.totalBuyUsd)
-      ..writeByte(42)
-      ..write(obj.totalSellUsd)
       ..writeByte(43)
       ..write(obj.athPrice)
       ..writeByte(44)
@@ -195,7 +182,21 @@ class CycleAdapter extends TypeAdapter<Cycle> {
       ..writeByte(53)
       ..write(obj.isExchangeSettled)
       ..writeByte(54)
-      ..write(obj.settledExchangeRate);
+      ..write(obj.settledExchangeRate)
+      ..writeByte(55)
+      ..write(obj.originalSeedAmount)
+      ..writeByte(37)
+      ..write(obj.totalBuyAmountKrw)
+      ..writeByte(38)
+      ..write(obj.totalSellAmountKrw)
+      ..writeByte(39)
+      ..write(obj.firstTradeDate)
+      ..writeByte(40)
+      ..write(obj.lastTradeDate)
+      ..writeByte(41)
+      ..write(obj.totalBuyUsd)
+      ..writeByte(42)
+      ..write(obj.totalSellUsd);
   }
 
   @override

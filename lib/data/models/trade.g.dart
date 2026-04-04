@@ -29,13 +29,14 @@ class TradeAdapter extends TypeAdapter<Trade> {
       memo: fields[9] as String?,
       groupId: fields[10] as String?,
       ticker: fields[11] as String?,
+      extraFundingAmount: fields[12] == null ? 0.0 : fields[12] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, Trade obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class TradeAdapter extends TypeAdapter<Trade> {
       ..writeByte(10)
       ..write(obj.groupId)
       ..writeByte(11)
-      ..write(obj.ticker);
+      ..write(obj.ticker)
+      ..writeByte(12)
+      ..write(obj.extraFundingAmount);
   }
 
   @override

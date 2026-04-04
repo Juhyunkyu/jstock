@@ -80,6 +80,7 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
       memo: memo,
       groupId: groupId,
       ticker: ticker,
+      extraFundingAmount: extraFundingAmount,
     );
 
     await _repository.save(trade);
@@ -184,6 +185,21 @@ class TradeListNotifier extends StateNotifier<List<Trade>> {
 
     // 시간순 정렬 (오래된 것 먼저) — entryPrice는 첫 매수 가격이어야 함
     final trades = [...state]..sort((a, b) => a.tradedAt.compareTo(b.tradedAt));
+
+    // 추가자금 합산 → 원본 시드 복원
+    double totalExtraFunding = 0;
+    for (final trade in trades) {
+      totalExtraFunding += trade.extraFundingAmount;
+    }
+    // originalSeedAmount가 0이면 (마이그레이션 전 데이터) 현재 seedAmount에서 추가자금 빼서 복원
+    final baseSeed = cycle.originalSeedAmount > 0
+        ? cycle.originalSeedAmount
+        : cycle.seedAmount - totalExtraFunding;
+    // originalSeedAmount 확정 저장
+    if (cycle.originalSeedAmount <= 0) {
+      cycle.originalSeedAmount = baseSeed;
+    }
+    cycle.seedAmount = baseSeed + totalExtraFunding;
 
     // 순수 USD VWAP 재계산
     double totalBuyShares = 0;
