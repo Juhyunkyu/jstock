@@ -824,8 +824,8 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
         children: [
           TickerLogo(
             ticker: _selectedTicker!,
-            size: 36,
-            borderRadius: 8,
+            size: 28,
+            borderRadius: 6,
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -840,7 +840,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                     Text(
                       _selectedTicker!,
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: context.appTickerColor,
                       ),
@@ -886,7 +886,7 @@ class _CycleSetupScreenState extends ConsumerState<CycleSetupScreen> {
                   Text(
                     _selectedName!,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 11,
                       color: context.appTextSecondary,
                     ),
                     overflow: TextOverflow.ellipsis,

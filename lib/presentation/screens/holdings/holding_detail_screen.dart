@@ -79,7 +79,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
             Text(
               holding.ticker,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 15,
                 fontWeight: FontWeight.bold,
                 color: context.appTextPrimary,
               ),
@@ -87,7 +87,7 @@ class _HoldingDetailScreenState extends ConsumerState<HoldingDetailScreen> {
             Text(
               holding.name,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 11,
                 color: context.appTextSecondary,
               ),
             ),

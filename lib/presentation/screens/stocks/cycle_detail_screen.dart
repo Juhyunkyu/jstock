@@ -305,7 +305,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
               Text(
                 appBarTicker,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: context.appTextPrimary,
                 ),
@@ -315,7 +315,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                 Text(
                   displayLabel,
                   style: TextStyle(
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: cycle.nickname.isNotEmpty
                         ? context.appAccent
@@ -328,7 +328,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
           Text(
             cycle.name,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 11,
               color: context.appTextSecondary,
             ),
           ),
