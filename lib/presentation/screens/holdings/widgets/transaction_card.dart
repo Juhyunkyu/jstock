@@ -205,13 +205,14 @@ class TransactionCard extends ConsumerWidget {
             // 수정 버튼 (readOnly일 때 숨김)
             if (!readOnly) ...[
               const SizedBox(width: 8),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => _showTransactionOptions(context, ref, transaction),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _showTransactionOptions(context, ref, transaction),
+                    borderRadius: BorderRadius.circular(20),
                     child: Icon(
                       Icons.more_vert_rounded,
                       color: context.appTextHint,

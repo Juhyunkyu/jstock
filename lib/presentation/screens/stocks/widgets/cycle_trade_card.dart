@@ -122,15 +122,17 @@ class CycleTradeCard extends ConsumerWidget {
                     Text(formatKrw(trade.amountKrw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
                   ],
                 ),
-                // ⋮ 고정 폭 (readOnly면 빈 공간으로 정렬 유지)
+                // ⋮ 메뉴 (readOnly면 빈 공간으로 정렬 유지)
                 SizedBox(
-                  width: 26,
+                  width: 40,
+                  height: 40,
                   child: !readOnly
-                      ? GestureDetector(
-                          onTap: () => _showTradeOptions(context, ref),
-                          child: const Padding(
-                            padding: EdgeInsets.only(left: 4),
-                            child: Icon(Icons.more_vert_rounded, size: 18),
+                      ? Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _showTradeOptions(context, ref),
+                            borderRadius: BorderRadius.circular(20),
+                            child: const Icon(Icons.more_vert_rounded, size: 20),
                           ),
                         )
                       : null,
@@ -236,15 +238,17 @@ class CycleTradeCard extends ConsumerWidget {
               Text(formatKrw(krw), style: TextStyle(fontSize: 11, color: context.appTextSecondary)),
             ],
           ),
-          // ⋮ 고정 폭 (showOptions 없어도 빈 공간으로 정렬 유지)
+          // ⋮ 메뉴 (showOptions 없어도 빈 공간으로 정렬 유지)
           SizedBox(
-            width: 26,
+            width: 40,
+            height: 40,
             child: (showOptions && !readOnly)
-                ? GestureDetector(
-                    onTap: () => _showGroupedTradeOptions(context, ref, trades),
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 4),
-                      child: Icon(Icons.more_vert_rounded, size: 18),
+                ? Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _showGroupedTradeOptions(context, ref, trades),
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Icon(Icons.more_vert_rounded, size: 20),
                     ),
                   )
                 : null,
