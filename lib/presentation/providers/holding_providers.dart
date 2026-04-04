@@ -10,9 +10,10 @@ import 'stock_providers.dart';
 
 /// 보유 목록 상태 관리
 class HoldingListNotifier extends StateNotifier<List<Holding>> {
+  final Ref _ref;
   final HoldingRepository _repository;
 
-  HoldingListNotifier(this._repository) : super([]) {
+  HoldingListNotifier(this._ref, this._repository) : super([]) {
     _loadHoldings();
   }
 
@@ -102,6 +103,12 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
     await _repository.saveTransaction(initialTransaction);
 
     state = [...state, holding];
+
+    // WebSocket 가격 구독 (등록 직후 카드에 현재가 표시)
+    try {
+      _ref.read(stockPriceProvider.notifier).loadSymbols([ticker]);
+    } catch (_) {}
+
     return holding;
   }
 
@@ -499,7 +506,7 @@ class HoldingListNotifier extends StateNotifier<List<Holding>> {
 final holdingListProvider =
     StateNotifierProvider<HoldingListNotifier, List<Holding>>((ref) {
   final repository = ref.watch(holdingRepositoryProvider);
-  return HoldingListNotifier(repository);
+  return HoldingListNotifier(ref, repository);
 });
 
 /// 활성 보유만 (아카이브 안 된 항목 — 0주 포함)
