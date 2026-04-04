@@ -243,34 +243,19 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
   }
 
   Widget _buildMobileList(MemoListState memoState) {
-    return ReorderableListView.builder(
+    return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-      buildDefaultDragHandles: false,
-      proxyDecorator: (child, index, animation) {
-        return Material(
-          elevation: 4,
-          borderRadius: BorderRadius.circular(12),
-          color: Colors.transparent,
-          child: child,
-        );
-      },
-      onReorder: (oldIndex, newIndex) {
-        ref.read(memoListProvider.notifier).reorder(oldIndex, newIndex);
-      },
       itemCount: memoState.memos.length,
       itemBuilder: (context, index) {
         final memo = memoState.memos[index];
-        return ReorderableDragStartListener(
+        return _DismissibleMemoCard(
           key: ValueKey(memo.id),
-          index: index,
-          child: _DismissibleMemoCard(
-            memo: memo,
-            onTap: () => context.go('/memo/detail/${memo.id}'),
-            onDismissed: () {
-              ref.read(memoListProvider.notifier).delete(memo.id);
-              showTopToast(context, '"${memo.title}" 삭제됨');
-            },
-          ),
+          memo: memo,
+          onTap: () => context.go('/memo/detail/${memo.id}'),
+          onDismissed: () {
+            ref.read(memoListProvider.notifier).delete(memo.id);
+            showTopToast(context, '"${memo.title}" 삭제됨');
+          },
         );
       },
     );

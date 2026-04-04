@@ -22,7 +22,11 @@ class MemoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final categoryColor = memoCategoryColor(context, memo.category);
-    final dateStr = DateFormat('MM.dd').format(memo.displayDate);
+    final createdStr = DateFormat('MM.dd').format(memo.createdAt);
+    final isEdited = memo.updatedAt.isAfter(
+      memo.createdAt.add(const Duration(seconds: 1)),
+    );
+    final updatedStr = isEdited ? DateFormat('MM.dd').format(memo.updatedAt) : null;
 
     return GestureDetector(
       onTap: onTap,
@@ -84,14 +88,6 @@ class MemoCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  dateStr,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: context.appTextHint,
-                  ),
-                ),
               ],
             ),
 
@@ -132,6 +128,21 @@ class MemoCard extends StatelessWidget {
                 ],
               ),
             ],
+
+            // 3줄: 작성일 · 수정일 (우측 정렬)
+            const SizedBox(height: 4),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                updatedStr != null
+                    ? '작성 $createdStr · 수정 $updatedStr'
+                    : '작성 $createdStr',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: context.appTextHint,
+                ),
+              ),
+            ),
           ],
         ),
       ),

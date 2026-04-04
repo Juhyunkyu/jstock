@@ -23,7 +23,7 @@ class MemoRepository {
     _box ??= await Hive.openBox<Memo>(_boxName);
   }
 
-  /// 전체 메모 (고정 우선 → sortOrder → 최신순)
+  /// 전체 메모 (고정 우선 → 수정일 최신순)
   List<Memo> getAll() {
     if (!isInitialized) return [];
     final items = _box!.values.map(_deepCopy).toList();
@@ -31,12 +31,11 @@ class MemoRepository {
     return items;
   }
 
-  /// 정렬 (고정 우선 → sortOrder → 최신순)
+  /// 정렬 (고정 우선 → 수정일 최신순)
   void _sortMemos(List<Memo> items) {
     items.sort((a, b) {
       if (a.isPinned != b.isPinned) return a.isPinned ? -1 : 1;
-      if (a.sortOrder != b.sortOrder) return a.sortOrder.compareTo(b.sortOrder);
-      return b.displayDate.compareTo(a.displayDate);
+      return b.updatedAt.compareTo(a.updatedAt);
     });
   }
 

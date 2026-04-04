@@ -243,18 +243,34 @@ class MemoDetailScreen extends ConsumerWidget {
 
                 const SizedBox(height: 32),
 
-                // 수정됨 표시
-                if (isEdited) ...[
-                  Divider(color: context.appDivider, height: 1),
-                  const SizedBox(height: 12),
-                  Text(
-                    '수정됨: ${_formatDateTime(memo.updatedAt)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextHint,
-                    ),
+                // 작성일 + 수정일
+                Divider(color: context.appDivider, height: 1),
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '작성 ${_formatDateTime(memo.createdAt)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: context.appTextHint,
+                        ),
+                      ),
+                      if (isEdited) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          '수정 ${_formatDateTime(memo.updatedAt)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: context.appTextHint,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
+                ),
 
                 const SizedBox(height: 40),
               ],

@@ -75,27 +75,6 @@ class MemoListNotifier extends StateNotifier<MemoListState> {
     _applyFilters();
   }
 
-  /// 드래그 정렬 순서 변경
-  Future<void> reorder(int oldIndex, int newIndex) async {
-    final memos = List<Memo>.from(state.memos);
-    if (oldIndex < 0 || oldIndex >= memos.length) return;
-    if (newIndex < 0 || newIndex > memos.length) return;
-    if (newIndex > oldIndex) newIndex--;
-
-    final item = memos.removeAt(oldIndex);
-    memos.insert(newIndex, item);
-
-    // sortOrder 재할당
-    for (int i = 0; i < memos.length; i++) {
-      final m = _repository.getById(memos[i].id);
-      if (m != null && m.sortOrder != i) {
-        m.sortOrder = i;
-        await _repository.save(m);
-      }
-    }
-    _applyFilters();
-  }
-
   /// 검색어 설정
   void setSearchQuery(String query) {
     state = state.copyWith(searchQuery: query);
@@ -129,9 +108,8 @@ class MemoListNotifier extends StateNotifier<MemoListState> {
       result = _repository.getAll();
     }
 
-    // 정렬 방향 적용 (getAll은 기본 newest)
+    // 정렬 방향 적용 (getAll은 기본 updatedAt newest)
     if (state.sortOrder == MemoSortOrder.oldest) {
-      // 고정 그룹 내에서만 역순
       final pinned = result.where((m) => m.isPinned).toList();
       final unpinned = result.where((m) => !m.isPinned).toList().reversed.toList();
       result = [...pinned, ...unpinned];
