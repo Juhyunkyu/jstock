@@ -367,12 +367,12 @@ class _TickerInfoCard extends StatelessWidget {
         children: [
           TickerLogo(
             ticker: ticker,
-            size: 56,
-            borderRadius: 14,
+            size: 36,
+            borderRadius: 8,
             backgroundColor: Colors.white.withValues(alpha: 0.2),
             textColor: Colors.white,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +380,7 @@ class _TickerInfoCard extends StatelessWidget {
                 Text(
                   ticker.toUpperCase(),
                   style: const TextStyle(
-                    fontSize: 22,
+                    fontSize: 16,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
@@ -388,7 +388,7 @@ class _TickerInfoCard extends StatelessWidget {
                 Text(
                   name,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 12,
                     color: Colors.white70,
                   ),
                 ),
@@ -402,7 +402,7 @@ class _TickerInfoCard extends StatelessWidget {
                 Text(
                   '\$${quote!.currentPrice.toStringAsFixed(2)}',
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),

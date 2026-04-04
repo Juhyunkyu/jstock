@@ -41,14 +41,28 @@ class DatePickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 라벨
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: context.appTextPrimary,
-          ),
+        // 라벨 + 도움말
+        Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: context.appTextPrimary,
+              ),
+            ),
+            if (helperText != null) ...[
+              const Spacer(),
+              Text(
+                helperText!,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.appTextHint,
+                ),
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 8),
 
@@ -114,20 +128,6 @@ class DatePickerField extends StatelessWidget {
           ),
         ),
 
-        // 도움말 텍스트
-        if (helperText != null) ...[
-          const SizedBox(height: 6),
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: Text(
-              helperText!,
-              style: TextStyle(
-                fontSize: 12,
-                color: context.appTextHint,
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }
