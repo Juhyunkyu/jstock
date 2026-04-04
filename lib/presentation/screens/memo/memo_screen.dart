@@ -14,9 +14,9 @@ import '../../widgets/shared/confirm_dialog.dart';
 
 /// 메모 목록 화면
 ///
-/// AppBar: "메모" + 검색 아이콘 + 정렬 토글
+/// AppBar: "메모" + 정렬 토글 + 검색
 /// 카테고리 필터 칩 (가로 스크롤)
-/// 메모 카드 목록 (드래그 정렬, 250ms 딜레이)
+/// 메모 카드 목록 (수정일 기준 정렬, 스와이프 삭제)
 /// FAB: + 새 메모
 /// 반응형: 모바일 리스트 / 데스크톱 2열 그리드 (>=768px)
 class MemoScreen extends ConsumerStatefulWidget {

@@ -61,9 +61,7 @@ class MemoDetailScreen extends ConsumerWidget {
     final categoryColor = memoCategoryColor(context, memo.category);
     final categoryLabel =
         memoCategoryLabels[memo.category] ?? memo.category.name;
-    final isEdited = memo.updatedAt.isAfter(
-      memo.createdAt.add(const Duration(seconds: 1)),
-    );
+    final isEdited = memo.isEdited;
 
     return Scaffold(
       backgroundColor: context.appBackground,

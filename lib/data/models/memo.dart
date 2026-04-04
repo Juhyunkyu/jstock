@@ -69,6 +69,9 @@ class Memo extends HiveObject {
 
   DateTime get displayDate => customDate ?? createdAt;
 
+  /// 수정 여부 (생성 후 1초 이상 경과한 updatedAt이면 수정된 것)
+  bool get isEdited => updatedAt.isAfter(createdAt.add(const Duration(seconds: 1)));
+
   int get imageCount => imageBase64List.length;
 
   static final _whitespaceRegex = RegExp(r'\s+');

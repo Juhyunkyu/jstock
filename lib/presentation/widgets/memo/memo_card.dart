@@ -23,10 +23,7 @@ class MemoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final categoryColor = memoCategoryColor(context, memo.category);
     final createdStr = DateFormat('MM.dd').format(memo.createdAt);
-    final isEdited = memo.updatedAt.isAfter(
-      memo.createdAt.add(const Duration(seconds: 1)),
-    );
-    final updatedStr = isEdited ? DateFormat('MM.dd').format(memo.updatedAt) : null;
+    final updatedStr = memo.isEdited ? DateFormat('MM.dd').format(memo.updatedAt) : null;
 
     return GestureDetector(
       onTap: onTap,
@@ -134,7 +131,7 @@ class MemoCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: Text(
-                updatedStr != null
+                memo.isEdited
                     ? '작성 $createdStr · 수정 $updatedStr'
                     : '작성 $createdStr',
                 style: TextStyle(
