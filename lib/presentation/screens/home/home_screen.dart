@@ -71,8 +71,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               title: MediaQuery.sizeOf(context).width >= 1200
                   ? null
                   : const AppTitleLogo(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
                     ),
               actions: const [
                 CalculatorButton(),
