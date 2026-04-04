@@ -135,27 +135,53 @@ class ActiveCycleCard extends ConsumerWidget {
             ),
 
             if (cycle.totalShares > 0) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
-              // === 중간: 평가금액 + 손익 (라벨 없이 한 줄) ===
+              // === 중간: 평가금액 + 손익 ===
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    '${formatKrwWithComma(evaluatedAmount)}\u2009원',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: context.appTextPrimary,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '\uC2E4\uC81C \uD3C9\uAC00\uAE08',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.appTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${formatKrwWithComma(evaluatedAmount)}\u2009\uC6D0',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: context.appTextPrimary,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '${isProfit ? '+' : ''}${formatKrwWithComma(profitLoss)}\u2009원',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: profitColor,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '\uC190\uC775',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.appTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${isProfit ? '+' : ''}${formatKrwWithComma(profitLoss)}\u2009\uC6D0',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: profitColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

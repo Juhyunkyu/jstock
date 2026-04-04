@@ -107,27 +107,53 @@ class HoldingCard extends StatelessWidget {
             ),
 
             if (!isSoldOut) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
-              // 중간: 평가금액 + 손익 (라벨 없이 한 줄)
+              // 중간: 현재 가치
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _formatKrw(data.currentValue),
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: context.appTextPrimary,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '평가금액',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.appTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _formatKrw(data.currentValue),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: context.appTextPrimary,
+                        ),
+                      ),
+                    ],
                   ),
-                  Text(
-                    '${isProfit ? '+' : ''}${_formatKrw(data.profitLoss)}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: profitColor,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '손익',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: context.appTextSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${isProfit ? '+' : ''}${_formatKrw(data.profitLoss)}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: profitColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
