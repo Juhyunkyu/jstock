@@ -105,7 +105,7 @@ class SignalDisplay extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 신호 아이콘 + 라벨 + 권장 금액 (같은 행)
+          // 신호 아이콘 + 라벨 + 권장 금액 또는 전환 버튼 (같은 행)
           Row(
             children: [
               Icon(config.icon, size: isMobile ? 18 : 20, color: config.color),
@@ -134,6 +134,43 @@ class SignalDisplay extends StatelessWidget {
                     fontSize: isMobile ? 14 : 16,
                     fontWeight: FontWeight.w600,
                     color: context.appTextPrimary,
+                  ),
+                ),
+              ]
+              // HOLD + 규칙위반 시 전환 버튼 (대기 라벨 옆 오른쪽)
+              else if (signal == TradeSignal.hold && onConvertToHolding != null) ...[
+                const Spacer(),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: onConvertToHolding,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '규칙위반 매수확인',
+                            style: TextStyle(
+                              fontSize: isMobile ? 10 : 12,
+                              color: AppColors.amber500,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(Icons.swap_horiz, size: isMobile ? 14 : 16, color: context.appAccent),
+                          const SizedBox(width: 2),
+                          Text(
+                            '보유전환',
+                            style: TextStyle(
+                              fontSize: isMobile ? 10 : 12,
+                              color: context.appAccent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -170,30 +207,6 @@ class SignalDisplay extends StatelessWidget {
             ),
           ],
 
-          // 일반 보유로 전환 버튼 (HOLD + 콜백 있을 때만)
-          if (signal == TradeSignal.hold && onConvertToHolding != null) ...[
-            SizedBox(height: isMobile ? 8 : 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: onConvertToHolding,
-                icon: Icon(Icons.swap_horiz, size: 16, color: context.appAccent),
-                label: Text(
-                  '일반 보유로 전환',
-                  style: TextStyle(
-                    fontSize: isMobile ? 12 : 13,
-                    color: context.appAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 4 : 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );

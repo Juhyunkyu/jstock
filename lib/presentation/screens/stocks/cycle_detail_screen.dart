@@ -207,7 +207,8 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                           amount: signalAmount,
                           lossRate: isSmartCycle ? entryLossRate : (hasPosition ? usdReturnRate : null),
                           nextTriggerInfo: nextTriggerInfo,
-                          onConvertToHolding: (isSmartCycle && hasPosition)
+                          onConvertToHolding: (isSmartCycle && hasPosition &&
+                                  cycle.averagePrice > effectiveEntryPrice)
                               ? () => _handleConvertToHolding(cycle)
                               : null,
                         ),
