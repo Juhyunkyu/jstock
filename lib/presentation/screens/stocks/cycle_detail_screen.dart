@@ -125,11 +125,7 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
 
     // Smart Cycle: 진입가 기준 lossRate + 다음 신호 트리거
     final isSmartCycle = cycle.strategyType == StrategyType.alphaCycleV3;
-    final effectiveEntryPrice = isSmartCycle
-        ? ((cycle.entryPrice != null && cycle.entryPrice! > 0)
-            ? cycle.entryPrice!
-            : cycle.averagePrice)
-        : 0.0;
+    final effectiveEntryPrice = isSmartCycle ? cycle.effectiveEntryPrice : 0.0;
     final hasEntry = isSmartCycle && effectiveEntryPrice > 0;
     final entryLossRate = (hasEntry && hasPosition)
         ? AlphaCycleService.lossRate(currentPrice, effectiveEntryPrice)

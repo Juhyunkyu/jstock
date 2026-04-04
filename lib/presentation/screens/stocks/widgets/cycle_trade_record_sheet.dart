@@ -1624,13 +1624,12 @@ class _CycleTradeRecordSheetState
           entryPrice: widget.cycle.entryPrice!,
         );
         if (!mounted) return;
-        if (result == null) return; // 취소
-        if (result == 'convert') {
-          Navigator.of(context).pop(); // 시트 닫기
+        if (result == null) return;
+        if (result == _HighPriceAction.convert) {
+          Navigator.of(context).pop();
           await widget.onConvertToHolding?.call();
           return;
         }
-        // 'proceed' → 계속 진행
       }
 
       setState(() => _isSubmitting = true);
@@ -1668,12 +1667,12 @@ class _CycleTradeRecordSheetState
     Navigator.of(context).pop();
   }
 
-  Future<String?> _showHighPriceWarningDialog({
+  Future<_HighPriceAction?> _showHighPriceWarningDialog({
     required double buyPrice,
     required double entryPrice,
   }) {
     final diffPercent = (buyPrice - entryPrice) / entryPrice * 100;
-    return showDialog<String>(
+    return showDialog<_HighPriceAction>(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
@@ -1712,12 +1711,12 @@ class _CycleTradeRecordSheetState
           ),
           if (widget.onConvertToHolding != null && widget.cycle.totalShares > 0)
             TextButton(
-              onPressed: () => Navigator.of(ctx).pop('convert'),
+              onPressed: () => Navigator.of(ctx).pop(_HighPriceAction.convert),
               child: Text('일반 보유로 전환',
                 style: TextStyle(color: ctx.appAccent, fontWeight: FontWeight.w600)),
             ),
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop('proceed'),
+            onPressed: () => Navigator.of(ctx).pop(_HighPriceAction.proceed),
             child: const Text('그래도 매수',
               style: TextStyle(color: AppColors.amber500, fontWeight: FontWeight.w600)),
           ),
@@ -1730,6 +1729,9 @@ class _CycleTradeRecordSheetState
     showErrorToast(context, message);
   }
 }
+
+/// 고가 매수 경고 다이얼로그 결과
+enum _HighPriceAction { convert, proceed }
 
 /// 수량 스텝퍼 버튼
 class _StepperButton extends StatelessWidget {

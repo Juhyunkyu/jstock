@@ -46,10 +46,7 @@ class AlphaCycleService implements StrategyEngine {
     required double currentPrice,
     required double liveExchangeRate,
   }) {
-    // entryPrice가 없으면 averagePrice로 폴백 (데이터 복구/수동 입력 대응)
-    final effectiveEntryPrice = (cycle.entryPrice != null && cycle.entryPrice! > 0)
-        ? cycle.entryPrice!
-        : cycle.averagePrice;
+    final effectiveEntryPrice = cycle.effectiveEntryPrice;
     if (effectiveEntryPrice == 0) return TradeSignal.hold;
 
     final loss = lossRate(currentPrice, effectiveEntryPrice);
@@ -87,9 +84,7 @@ class AlphaCycleService implements StrategyEngine {
     required double currentPrice,
     required double liveExchangeRate,
   }) {
-    final effectiveEntryPrice = (cycle.entryPrice != null && cycle.entryPrice! > 0)
-        ? cycle.entryPrice!
-        : cycle.averagePrice;
+    final effectiveEntryPrice = cycle.effectiveEntryPrice;
 
     switch (signal) {
       case TradeSignal.panicBuy:

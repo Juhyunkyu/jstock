@@ -326,6 +326,10 @@ class Cycle extends HiveObject implements TradingPosition {
   /// 지정가 매도 가격 (USD)
   double get limitSellPrice => averagePrice * (1 + takeProfitPercent / 100);
 
+  /// Smart Cycle 신호 감지에 사용되는 진입가 (entryPrice ?? averagePrice 폴백)
+  double get effectiveEntryPrice =>
+      (entryPrice != null && entryPrice! > 0) ? entryPrice! : averagePrice;
+
   /// 현재 익절 목표 (Strategy A)
   double get currentSellTarget {
     final target = firstProfitTarget - consecutiveProfitCount * profitTargetStep;
