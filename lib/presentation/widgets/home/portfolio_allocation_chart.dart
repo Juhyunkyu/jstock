@@ -251,7 +251,7 @@ class _PortfolioAllocationChartState extends ConsumerState<PortfolioAllocationCh
                   children: [
                     // 상단: 도넛(좌) + 범례(우) 균등 2열
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: _buildDonutChart(context, summary, chartSize,
