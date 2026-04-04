@@ -46,12 +46,13 @@ class AlphaCycleService implements StrategyEngine {
     required double currentPrice,
     required double liveExchangeRate,
   }) {
-    if (cycle.entryPrice == null || cycle.entryPrice == 0) {
-      return TradeSignal.hold;
-    }
-    if (cycle.averagePrice == 0) return TradeSignal.hold;
+    // entryPrice가 없으면 averagePrice로 폴백 (데이터 복구/수동 입력 대응)
+    final effectiveEntryPrice = (cycle.entryPrice != null && cycle.entryPrice! > 0)
+        ? cycle.entryPrice!
+        : cycle.averagePrice;
+    if (effectiveEntryPrice == 0) return TradeSignal.hold;
 
-    final loss = lossRate(currentPrice, cycle.entryPrice);
+    final loss = lossRate(currentPrice, effectiveEntryPrice);
     final ret = TradingMath.returnRate(currentPrice, cycle.averagePrice);
     final evalAmt = TradingMath.evaluatedAmount(
       cycle.totalShares,
@@ -86,6 +87,10 @@ class AlphaCycleService implements StrategyEngine {
     required double currentPrice,
     required double liveExchangeRate,
   }) {
+    final effectiveEntryPrice = (cycle.entryPrice != null && cycle.entryPrice! > 0)
+        ? cycle.entryPrice!
+        : cycle.averagePrice;
+
     switch (signal) {
       case TradeSignal.panicBuy:
         // 승부수 + 가중매수 합산
@@ -98,7 +103,7 @@ class AlphaCycleService implements StrategyEngine {
           evaluatedAmount: evalAmt,
           panicBuyMultiplier: cycle.panicBuyMultiplier,
         );
-        final loss = lossRate(currentPrice, cycle.entryPrice);
+        final loss = lossRate(currentPrice, effectiveEntryPrice);
         final weighted = weightedBuyAmount(
           lossRate: loss,
           weightedBuyPerPercent: cycle.effectiveWeightedBuyPerPercent,
@@ -107,7 +112,7 @@ class AlphaCycleService implements StrategyEngine {
         return total > 0 ? total.clamp(0.0, cycle.remainingCash) : null;
 
       case TradeSignal.weightedBuy:
-        final loss = lossRate(currentPrice, cycle.entryPrice);
+        final loss = lossRate(currentPrice, effectiveEntryPrice);
         final amount = weightedBuyAmount(
           lossRate: loss,
           weightedBuyPerPercent: cycle.effectiveWeightedBuyPerPercent,
