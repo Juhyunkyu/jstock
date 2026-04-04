@@ -17,8 +17,8 @@ import '../../providers/providers.dart';
 import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/shared/info_row.dart';
 
-/// 3필드 연동: 마지막 입력 필드 추적
-enum _EditedField { shares, amount, targetReturn }
+/// 4필드 연동: 마지막 입력 필드 추적
+enum _EditedField { shares, amount, targetReturn, targetAvgPrice }
 
 /// 물타기 계산기 메인 화면
 class AvgDownScreen extends ConsumerStatefulWidget {
@@ -48,6 +48,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   final _addAmountController = TextEditingController();
   final _addSharesController = TextEditingController();
   final _targetReturnController = TextEditingController();
+
+  // === 목표평단 (4번째 연동 필드) ===
+  final _targetAvgPriceController = TextEditingController();
 
   // === 목표가 ===
   final _targetPriceController = TextEditingController();
@@ -90,6 +93,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _addAmountController.dispose();
     _addSharesController.dispose();
     _targetReturnController.dispose();
+    _targetAvgPriceController.dispose();
     _targetPriceController.dispose();
     super.dispose();
   }
@@ -111,6 +115,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   double get _addAmount => _parseDouble(_addAmountController);
   double get _addShares => _parseDouble(_addSharesController);
   double get _targetReturn => _parseDouble(_targetReturnController);
+  double get _targetAvgPrice => _parseDouble(_targetAvgPriceController);
   double get _targetPrice => _parseDouble(_targetPriceController);
 
   bool get _hasValidInput =>
@@ -161,6 +166,14 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _recalculate();
   }
 
+  /// 목표평단 필드 수정 → 수량, 금액, 목표손익률 자동계산
+  void _onTargetAvgPriceChanged(String _) {
+    if (_isAutoUpdating) return;
+    _lastEditedField = _EditedField.targetAvgPrice;
+    _syncFromTargetAvgPrice();
+    _recalculate();
+  }
+
   /// 매수가 변경 → 현재 마스터 필드 기준으로 나머지 재계산
   void _onAddPriceChanged(String _) {
     if (_isAutoUpdating) return;
@@ -168,7 +181,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _recalculate();
   }
 
-  /// MDD 계산 후 목표손익률 필드 업데이트 (공통 헬퍼)
+  /// MDD 계산 + 목표평단 업데이트 (공통 헬퍼)
   void _updateTargetReturnFromMdd(double shares, double price) {
     if (_holdingShares > 0 && _avgPrice > 0 && _currentPrice > 0) {
       final newAvg = AverageDownCalculator.newAveragePrice(
@@ -182,6 +195,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         averagePrice: newAvg,
       );
       _targetReturnController.text = newMddVal.toStringAsFixed(2);
+      _targetAvgPriceController.text = newAvg.toStringAsFixed(2);
     }
   }
 
@@ -255,6 +269,37 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       if (reverseResult.isFeasible && reverseResult.requiredShares > 0) {
         _addSharesController.text = reverseResult.requiredShares.toStringAsFixed(4);
         _addAmountController.text = formatKrwWithComma(reverseResult.requiredAmountKrw);
+        _targetAvgPriceController.text = reverseResult.newAvgPrice.toStringAsFixed(2);
+      } else {
+        _addSharesController.text = '';
+        _addAmountController.text = '';
+        _targetAvgPriceController.text = '';
+      }
+    }
+    _isAutoUpdating = false;
+  }
+
+  /// 목표평단 기준 → 수량, 금액, 목표손익률 역산
+  void _syncFromTargetAvgPrice() {
+    _isAutoUpdating = true;
+    final price = _addPrice;
+    final targetAvg = _targetAvgPrice;
+    final exRate = _exchangeRate > 0 ? _exchangeRate : 1400.0;
+
+    if (price > 0 && targetAvg > 0 && targetAvg > price &&
+        _holdingShares > 0 && _avgPrice > 0 && _avgPrice > targetAvg) {
+      // requiredShares = holdingShares × (avgPrice - targetAvg) / (targetAvg - addPrice)
+      final requiredShares = _holdingShares * (_avgPrice - targetAvg) / (targetAvg - price);
+      if (requiredShares > 0) {
+        _addSharesController.text = requiredShares.toStringAsFixed(4);
+        _addAmountController.text = formatKrwWithComma(requiredShares * price * exRate);
+        if (_currentPrice > 0) {
+          final newMddVal = AverageDownCalculator.mdd(
+            currentPrice: _currentPrice,
+            averagePrice: targetAvg,
+          );
+          _targetReturnController.text = newMddVal.toStringAsFixed(2);
+        }
       } else {
         _addSharesController.text = '';
         _addAmountController.text = '';
@@ -272,6 +317,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         _syncFromAmount();
       case _EditedField.targetReturn:
         _syncFromTargetReturn();
+      case _EditedField.targetAvgPrice:
+        _syncFromTargetAvgPrice();
     }
   }
 
@@ -326,6 +373,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     _addAmountController.clear();
     _addSharesController.clear();
     _targetReturnController.text = '-';
+    _targetAvgPriceController.clear();
     _lastEditedField = _EditedField.shares;
     _recalculate();
   }
@@ -932,6 +980,8 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               _buildAmountField(),
               const SizedBox(height: 12),
               _buildTargetReturnField(),
+              const SizedBox(height: 12),
+              _buildTargetAvgPriceField(),
               if (_lastEditedField == _EditedField.targetReturn && _targetReturnController.text.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 _buildReverseCalcInfo(),
@@ -1159,6 +1209,55 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
               hintStyle: TextStyle(color: context.appTextHint),
               suffixText: '%',
               suffixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: context.appSurface,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(
+                  color: highlighted ? context.appAccent.withValues(alpha: 0.4) : context.appBorder,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: context.appAccent, width: 1.5),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 목표평단 필드
+  Widget _buildTargetAvgPriceField() {
+    final highlighted = _lastEditedField == _EditedField.targetAvgPrice;
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          child: Text(
+            '목표평단',
+            style: TextStyle(
+              fontSize: 13,
+              color: highlighted ? context.appAccent : context.appTextSecondary,
+              fontWeight: highlighted ? FontWeight.w600 : FontWeight.normal,
+            ),
+          ),
+        ),
+        Expanded(
+          child: TextField(
+            controller: _targetAvgPriceController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [_decimalFilter],
+            onChanged: _onTargetAvgPriceChanged,
+            style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+            decoration: InputDecoration(
+              hintText: _isKrwMode ? '45000' : '45.00',
+              hintStyle: TextStyle(color: context.appTextHint),
+              prefixText: _isKrwMode ? '₩ ' : '\$ ',
+              prefixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               filled: true,
