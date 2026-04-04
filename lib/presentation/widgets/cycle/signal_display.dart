@@ -29,6 +29,9 @@ class SignalDisplay extends StatelessWidget {
   /// large + HOLD 모드에서 다음 신호 트리거 정보 (예: "다음 신호: $37.60 이하 시 가중매수")
   final String? nextTriggerInfo;
 
+  /// large + HOLD 모드에서 일반 보유 전환 콜백 (null이면 버튼 숨김)
+  final VoidCallback? onConvertToHolding;
+
   const SignalDisplay({
     super.key,
     required this.signal,
@@ -36,6 +39,7 @@ class SignalDisplay extends StatelessWidget {
     this.amount,
     this.lossRate,
     this.nextTriggerInfo,
+    this.onConvertToHolding,
   });
 
   @override
@@ -161,6 +165,31 @@ class SignalDisplay extends StatelessWidget {
                 style: TextStyle(
                   fontSize: isMobile ? 11 : 13,
                   color: context.appTextSecondary,
+                ),
+              ),
+            ),
+          ],
+
+          // 일반 보유로 전환 버튼 (HOLD + 콜백 있을 때만)
+          if (signal == TradeSignal.hold && onConvertToHolding != null) ...[
+            SizedBox(height: isMobile ? 8 : 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: onConvertToHolding,
+                icon: Icon(Icons.swap_horiz, size: 16, color: context.appAccent),
+                label: Text(
+                  '일반 보유로 전환',
+                  style: TextStyle(
+                    fontSize: isMobile ? 12 : 13,
+                    color: context.appAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: isMobile ? 4 : 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),
             ),

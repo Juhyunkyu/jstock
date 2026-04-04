@@ -207,6 +207,9 @@ class _CycleDetailScreenState extends ConsumerState<CycleDetailScreen> {
                           amount: signalAmount,
                           lossRate: isSmartCycle ? entryLossRate : (hasPosition ? usdReturnRate : null),
                           nextTriggerInfo: nextTriggerInfo,
+                          onConvertToHolding: (isSmartCycle && hasPosition)
+                              ? () => _handleConvertToHolding(cycle)
+                              : null,
                         ),
                       ),
                       SizedBox(height: isMobile ? 10 : 16),
