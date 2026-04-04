@@ -167,8 +167,12 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
   }
 
   /// 목표평단 필드 수정 → 수량, 금액, 목표손익률 자동계산
-  void _onTargetAvgPriceChanged(String _) {
+  void _onTargetAvgPriceChanged(String value) {
     if (_isAutoUpdating) return;
+    // KRW 모드: 쉼표 자동 포맷
+    if (_isKrwMode) {
+      _autoFormatComma(_targetAvgPriceController, value, (_) {});
+    }
     _lastEditedField = _EditedField.targetAvgPrice;
     _syncFromTargetAvgPrice();
     _recalculate();
@@ -195,7 +199,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
         averagePrice: newAvg,
       );
       _targetReturnController.text = newMddVal.toStringAsFixed(2);
-      _targetAvgPriceController.text = newAvg.toStringAsFixed(2);
+      _targetAvgPriceController.text = _isKrwMode
+          ? formatKrwWithComma(newAvg)
+          : newAvg.toStringAsFixed(2);
     }
   }
 
@@ -269,7 +275,9 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       if (reverseResult.isFeasible && reverseResult.requiredShares > 0) {
         _addSharesController.text = reverseResult.requiredShares.toStringAsFixed(4);
         _addAmountController.text = formatKrwWithComma(reverseResult.requiredAmountKrw);
-        _targetAvgPriceController.text = reverseResult.newAvgPrice.toStringAsFixed(2);
+        _targetAvgPriceController.text = _isKrwMode
+            ? formatKrwWithComma(reverseResult.newAvgPrice)
+            : reverseResult.newAvgPrice.toStringAsFixed(2);
       } else {
         _addSharesController.text = '';
         _addAmountController.text = '';
@@ -288,7 +296,6 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     if (price > 0 && targetAvg > 0 && targetAvg > price &&
         _holdingShares > 0 && _avgPrice > 0 && _avgPrice > targetAvg) {
-      // requiredShares = holdingShares × (avgPrice - targetAvg) / (targetAvg - addPrice)
       final requiredShares = _holdingShares * (_avgPrice - targetAvg) / (targetAvg - price);
       if (requiredShares > 0) {
         _addSharesController.text = requiredShares.toStringAsFixed(4);
@@ -303,7 +310,13 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
       } else {
         _addSharesController.text = '';
         _addAmountController.text = '';
+        _targetReturnController.text = '-';
       }
+    } else {
+      // 조건 불충분 시 연동 필드 초기화
+      _addSharesController.text = '';
+      _addAmountController.text = '';
+      _targetReturnController.text = '-';
     }
     _isAutoUpdating = false;
   }
@@ -1250,11 +1263,11 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
           child: TextField(
             controller: _targetAvgPriceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [_decimalFilter],
+            inputFormatters: [_isKrwMode ? _commaDigitFilter : _decimalFilter],
             onChanged: _onTargetAvgPriceChanged,
             style: TextStyle(fontSize: 14, color: context.appTextPrimary),
             decoration: InputDecoration(
-              hintText: _isKrwMode ? '45000' : '45.00',
+              hintText: _isKrwMode ? '450,000' : '45.00',
               hintStyle: TextStyle(color: context.appTextHint),
               prefixText: _isKrwMode ? '₩ ' : '\$ ',
               prefixStyle: TextStyle(fontSize: 13, color: context.appTextSecondary),
