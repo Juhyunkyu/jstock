@@ -566,7 +566,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     final confirmed = await ConfirmDialog.show(
       context: context,
-      title: '🧮 메모에 저장',
+      title: '메모에 저장',
       message: '계산 결과가 전략 메모로 저장됩니다.',
       confirmText: '저장',
     );
@@ -659,7 +659,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     final memo = Memo(
       id: 'memo_${now.millisecondsSinceEpoch}',
-      title: '🧮 $ticker [${_isKrwMode ? "KRW" : "USD"}] $dateStr',
+      title: '$ticker [${_isKrwMode ? "KRW" : "USD"}] 물타기 · $dateStr',
       content: buf.toString(),
       category: MemoCategory.strategy,
       imageBase64List: imageBase64 != null ? [imageBase64] : null,
