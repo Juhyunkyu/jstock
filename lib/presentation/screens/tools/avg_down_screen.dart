@@ -14,6 +14,7 @@ import '../../../data/models/holding.dart';
 import '../../../data/models/memo.dart';
 import '../../../domain/trading/average_down_calculator.dart';
 import '../../providers/providers.dart';
+import '../../widgets/shared/confirm_dialog.dart';
 import '../../widgets/shared/info_row.dart';
 
 /// 3필드 연동: 마지막 입력 필드 추적
@@ -563,6 +564,14 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     final result = _result;
     if (result == null) return;
 
+    final confirmed = await ConfirmDialog.show(
+      context: context,
+      title: '🧮 메모에 저장',
+      message: '계산 결과가 전략 메모로 저장됩니다.',
+      confirmText: '저장',
+    );
+    if (!confirmed) return;
+
     final ticker = _tickerNameController.text.isNotEmpty
         ? _tickerNameController.text : '종목';
     final now = DateTime.now();
@@ -587,21 +596,62 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
     }
 
     final buf = StringBuffer();
-    buf.writeln('물타기 시뮬레이션 - $ticker');
-    buf.writeln('현재: ${_holdingShares.toStringAsFixed(1)}주 × ${_fmtPrice(_avgPrice)} (MDD ${result.currentMdd.toStringAsFixed(1)}%)');
-    buf.writeln('현재가: ${_fmtPrice(_currentPrice)} | 환율: ₩${exRate.toStringAsFixed(0)}');
+
+    // Section: 현재 보유
+    buf.writeln('━━━ 현재 보유 ━━━');
+    buf.writeln('종목: $ticker [${_isKrwMode ? "KRW" : "USD"}]');
+    buf.writeln('평균단가: ${_fmtPrice(_avgPrice)}');
+    buf.writeln('보유수량: ${_holdingShares.toStringAsFixed(1)}주');
+    buf.writeln('현재가: ${_fmtPrice(_currentPrice)}');
+    if (!_isKrwMode) {
+      buf.writeln('환율: ₩${formatKrwWithComma(exRate)}');
+    }
     buf.writeln('');
 
+    // Section: 추가 매수
     if (_hasAdditionalBuy) {
-      buf.writeln('추가 매수: ${_fmtPrice(_addPrice)} × ${_addShares.toStringAsFixed(1)}주 (₩${formatKrwWithComma(_addShares * _addPrice * exRate)})');
+      buf.writeln('━━━ 추가 매수 ━━━');
+      buf.writeln('매수가: ${_fmtPrice(_addPrice)}');
+      buf.writeln('매수수량: ${_addShares.toStringAsFixed(1)}주');
+      buf.writeln('매수금액: ₩${formatKrwWithComma(_addShares * _addPrice * exRate)}');
+      final targetRetText = _targetReturnController.text;
+      if (targetRetText.isNotEmpty && targetRetText != '-') {
+        buf.writeln('목표손익률: $targetRetText%');
+      }
       buf.writeln('');
     }
 
-    buf.writeln('결과:');
-    buf.writeln('평단: ${_fmtPrice(result.currentAvgPrice)} → ${_fmtPrice(result.newAvgPrice)} (${result.avgPriceReduction >= 0 ? '+' : ''}${result.avgPriceReduction.toStringAsFixed(1)}%)');
-    buf.writeln('MDD: ${result.currentMdd.toStringAsFixed(1)}% → ${result.newMdd.toStringAsFixed(1)}%');
-    buf.writeln('총: ${result.totalShares.toStringAsFixed(1)}주 | 투자 ₩${formatKrwWithComma(result.totalInvestedKrw)}');
+    // Section: 결과
+    buf.writeln('━━━ 결과 ━━━');
+    if (_hasAdditionalBuy) {
+      buf.writeln('현재 평단: ${_fmtPrice(result.currentAvgPrice)}');
+      buf.writeln('→ 새 평단: ${_fmtPrice(result.newAvgPrice)} (${result.avgPriceReduction >= 0 ? '+' : ''}${result.avgPriceReduction.toStringAsFixed(1)}%)');
+      buf.writeln('');
+      buf.writeln('현재 MDD: ${result.currentMdd.toStringAsFixed(1)}%');
+      buf.writeln('→ 물타기 후: ${result.newMdd.toStringAsFixed(1)}%');
+      buf.writeln('개선폭: ${result.mddImprovement >= 0 ? '+' : ''}${result.mddImprovement.toStringAsFixed(1)}%p');
+    } else {
+      buf.writeln('현재 MDD: ${result.currentMdd.toStringAsFixed(1)}%');
+    }
+    buf.writeln('');
+    buf.writeln('총 투자금: ₩${formatKrwWithComma(result.totalInvestedKrw)}');
+    buf.writeln('총 수량: ${result.totalShares.toStringAsFixed(1)}주');
+    buf.writeln('평가금액: ₩${formatKrwWithComma(result.evaluatedAmountKrw)}');
+    buf.writeln('평가손익: ${result.profitLossKrw >= 0 ? '+' : ''}₩${formatKrwWithComma(result.profitLossKrw)}');
+    buf.writeln('손익률: ${result.returnRate >= 0 ? '+' : ''}${result.returnRate.toStringAsFixed(1)}%');
 
+    // Section: 목표가 수익 (있을 때만)
+    if (result.targetPriceResult != null) {
+      buf.writeln('');
+      buf.writeln('━━━ 목표가 수익 ━━━');
+      buf.writeln('목표가: ${_fmtPrice(_targetPrice)}');
+      buf.writeln('현재 기준: ${result.targetPriceResult!.currentProfit >= 0 ? '+' : ''}₩${formatKrwWithComma(result.targetPriceResult!.currentProfit)} (${result.targetPriceResult!.currentReturnRate >= 0 ? '+' : ''}${result.targetPriceResult!.currentReturnRate.toStringAsFixed(1)}%)');
+      if (_hasAdditionalBuy) {
+        buf.writeln('물타기 후: ${result.targetPriceResult!.newProfit >= 0 ? '+' : ''}₩${formatKrwWithComma(result.targetPriceResult!.newProfit)} (${result.targetPriceResult!.newReturnRate >= 0 ? '+' : ''}${result.targetPriceResult!.newReturnRate.toStringAsFixed(1)}%)');
+      }
+    }
+
+    // 이미지 마커
     if (imageBase64 != null) {
       buf.writeln('');
       buf.writeln('[IMG:0]');
@@ -609,7 +659,7 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
 
     final memo = Memo(
       id: 'memo_${now.millisecondsSinceEpoch}',
-      title: '$ticker 물타기 계획 ($dateStr)',
+      title: '🧮 $ticker [${_isKrwMode ? "KRW" : "USD"}] $dateStr',
       content: buf.toString(),
       category: MemoCategory.strategy,
       imageBase64List: imageBase64 != null ? [imageBase64] : null,
@@ -666,79 +716,85 @@ class _AvgDownScreenState extends ConsumerState<AvgDownScreen> {
             ),
         ],
       ),
-      body: RepaintBoundary(
-        key: _screenshotKey,
-        child: ColoredBox(
-          color: context.appBackground,
-          child: isWide ? _buildWideLayout() : _buildNarrowLayout(),
-        ),
-      ),
+      body: isWide ? _buildWideLayout() : _buildNarrowLayout(),
     );
   }
 
   Widget _buildNarrowLayout() {
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Column(
-        children: [
-          _buildInputSection(),
-          const SizedBox(height: 16),
-          if (_hasValidInput) ...[
-            _buildResultCard(),
-            const SizedBox(height: 16),
-            _buildScenarioTable(),
-            const SizedBox(height: 16),
-            _buildTargetPriceSection(),
-            const SizedBox(height: 32),
-          ],
-        ],
+      child: RepaintBoundary(
+        key: _screenshotKey,
+        child: ColoredBox(
+          color: context.appBackground,
+          child: Column(
+            children: [
+              _buildInputSection(),
+              const SizedBox(height: 16),
+              if (_hasValidInput) ...[
+                _buildResultCard(),
+                const SizedBox(height: 16),
+                _buildScenarioTable(),
+                const SizedBox(height: 16),
+                _buildTargetPriceSection(),
+                const SizedBox(height: 32),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildWideLayout() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 좌측: 입력 패널 (고정 폭)
-        SizedBox(
-          width: 380,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: _buildInputSection(),
-          ),
-        ),
-        VerticalDivider(width: 1, color: context.appDivider),
-        // 우측: 결과 패널 (스크롤)
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                if (_hasValidInput) ...[
-                  _buildResultCard(),
-                  const SizedBox(height: 16),
-                  _buildScenarioTable(),
-                  const SizedBox(height: 16),
-                  _buildTargetPriceSection(),
-                ] else
-                  Padding(
-                    padding: const EdgeInsets.only(top: 80),
-                    child: Center(
-                      child: Text(
-                        '보유 정보를 입력하면 결과가 표시됩니다',
-                        style: TextStyle(
-                          color: context.appTextHint,
-                          fontSize: 14,
+    return RepaintBoundary(
+      key: _screenshotKey,
+      child: ColoredBox(
+        color: context.appBackground,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 좌측: 입력 패널 (고정 폭)
+            SizedBox(
+              width: 380,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: _buildInputSection(),
+              ),
+            ),
+            VerticalDivider(width: 1, color: context.appDivider),
+            // 우측: 결과 패널 (스크롤)
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    if (_hasValidInput) ...[
+                      _buildResultCard(),
+                      const SizedBox(height: 16),
+                      _buildScenarioTable(),
+                      const SizedBox(height: 16),
+                      _buildTargetPriceSection(),
+                    ] else
+                      Padding(
+                        padding: const EdgeInsets.only(top: 80),
+                        child: Center(
+                          child: Text(
+                            '보유 정보를 입력하면 결과가 표시됩니다',
+                            style: TextStyle(
+                              color: context.appTextHint,
+                              fontSize: 14,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
