@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:hive/hive.dart';
 import '../../../core/config/app_config.dart';
 import 'finnhub_service.dart';
+import 'proxy_config.dart';
 
 /// MarketAux + Finnhub 뉴스 + DeepL 번역 서비스
 ///
@@ -196,11 +197,11 @@ class NewsService {
   Future<List<NewsItem>> _getGeneralNewsFromFinnhub({int limit = 20}) async {
     try {
       final response = await _dio.get(
-        '${AppConfig.finnhubBaseUrl}/news',
-        queryParameters: {
+        '${ProxyConfig.finnhubBaseUrl}/news',
+        queryParameters: ProxyConfig.finnhubParams({
           'token': AppConfig.finnhubApiKey,
           'category': 'general',
-        },
+        }),
       );
       final items = response.data as List?;
       if (items == null) return [];
@@ -284,15 +285,15 @@ class NewsService {
       final from = now.subtract(const Duration(days: 7));
 
       final response = await _dio.get(
-        '${AppConfig.finnhubBaseUrl}/company-news',
-        queryParameters: {
+        '${ProxyConfig.finnhubBaseUrl}/company-news',
+        queryParameters: ProxyConfig.finnhubParams({
           'token': AppConfig.finnhubApiKey,
           'symbol': symbol.toUpperCase(),
           'from':
               '${from.year}-${from.month.toString().padLeft(2, '0')}-${from.day.toString().padLeft(2, '0')}',
           'to':
               '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}',
-        },
+        }),
       );
 
       final items = response.data as List?;

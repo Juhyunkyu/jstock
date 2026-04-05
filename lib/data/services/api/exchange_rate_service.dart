@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
 import 'api_exception.dart';
+import 'proxy_config.dart';
 
 /// 환율 데이터 모델
 class ExchangeRate {
@@ -48,21 +49,44 @@ class ExchangeRateService {
     required String from,
     required String to,
   }) async {
-    // 1st: Twelve Data forex (실시간)
+    // 1st: Worker proxy (프록시 설정 시)
+    final proxyUrl = ProxyConfig.exchangeRateUrl;
+    if (proxyUrl != null) {
+      try {
+        final response = await _dio.get(
+          proxyUrl,
+          queryParameters: {'from': from, 'to': to},
+        );
+        final data = response.data;
+        return ExchangeRate(
+          fromCurrency: from.toUpperCase(),
+          toCurrency: to.toUpperCase(),
+          rate: (data['rate'] as num).toDouble(),
+          timestamp: DateTime.fromMillisecondsSinceEpoch(
+            ((data['timestamp'] as num?)?.toInt() ?? 0) * 1000,
+          ),
+          source: data['source'] as String?,
+        );
+      } catch (_) {
+        // Worker 실패 → fall through to existing chain
+      }
+    }
+
+    // 2nd: Twelve Data forex (실시간)
     try {
       return await _getTwelveDataRate(from: from, to: to);
     } catch (e) {
       // Twelve Data 실패 → fallback
     }
 
-    // 2nd: open.er-api.com
+    // 3rd: open.er-api.com
     try {
       return await _getOpenErApiRate(from: from, to: to);
     } catch (e) {
       // open.er-api.com 실패 → fallback
     }
 
-    // 3rd: Frankfurter
+    // 4th: Frankfurter
     return _frankfurterFallback(from: from, to: to);
   }
 

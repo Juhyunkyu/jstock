@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
 import '../../models/financial_data.dart';
+import 'proxy_config.dart';
 
 /// 재무제표 API 서비스
 ///
@@ -54,17 +55,11 @@ class FinancialService {
     if (cached != null) return cached;
 
     try {
-      late final String url;
-      final queryParams = <String, dynamic>{};
-
-      if (AppConfig.useProxy) {
-        url = '${AppConfig.proxyBaseUrl}/api/fmp/profile';
-        queryParams['symbol'] = symbol;
-      } else {
-        url = '${AppConfig.fmpBaseUrl}/profile';
-        queryParams['symbol'] = symbol;
-        queryParams['apikey'] = AppConfig.fmpApiKey;
-      }
+      final url = ProxyConfig.fmpUrl('profile');
+      final queryParams = ProxyConfig.fmpParams({
+        'symbol': symbol,
+        'apikey': AppConfig.fmpApiKey,
+      });
 
       final response = await _dio.get(url, queryParameters: queryParams);
       final data = response.data;
@@ -79,7 +74,7 @@ class FinancialService {
       return null;
     } catch (e) {
       // 프록시 실패 시 직접 호출 폴백
-      if (AppConfig.useProxy) {
+      if (ProxyConfig.useProxy) {
         return _getProfileDirect(symbol);
       }
       return null;
@@ -119,7 +114,7 @@ class FinancialService {
   /// Finnhub `/stock/metric?metric=all` — PER, PBR, ROE, ROA, 배당률, 부채비율 등
   /// Finnhub은 프록시를 거치지 않음 (기존 패턴)
   Future<FinancialMetrics?> getMetrics(String symbol) async {
-    if (AppConfig.finnhubApiKey.isEmpty) return null;
+    if (!ProxyConfig.useProxy && AppConfig.finnhubApiKey.isEmpty) return null;
 
     final cacheKey = 'metrics_$symbol';
     final cached = _getCache<FinancialMetrics>(cacheKey);
@@ -127,12 +122,12 @@ class FinancialService {
 
     try {
       final response = await _dio.get(
-        '${AppConfig.finnhubBaseUrl}/stock/metric',
-        queryParameters: {
+        '${ProxyConfig.finnhubBaseUrl}${ProxyConfig.finnhubPath('/stock/metric')}',
+        queryParameters: ProxyConfig.finnhubParams({
           'symbol': symbol.toUpperCase(),
           'metric': 'all',
           'token': AppConfig.finnhubApiKey,
-        },
+        }),
       );
 
       final data = response.data;
@@ -166,20 +161,13 @@ class FinancialService {
     if (cached != null) return cached;
 
     try {
-      late final String url;
-      final queryParams = <String, dynamic>{
+      final url = ProxyConfig.fmpUrl('income-statement');
+      final queryParams = ProxyConfig.fmpParams({
+        'symbol': symbol,
         'period': period,
         'limit': limit,
-      };
-
-      if (AppConfig.useProxy) {
-        url = '${AppConfig.proxyBaseUrl}/api/fmp/income-statement';
-        queryParams['symbol'] = symbol;
-      } else {
-        url = '${AppConfig.fmpBaseUrl}/income-statement';
-        queryParams['symbol'] = symbol;
-        queryParams['apikey'] = AppConfig.fmpApiKey;
-      }
+        'apikey': AppConfig.fmpApiKey,
+      });
 
       final response = await _dio.get(url, queryParameters: queryParams);
       final data = response.data;
@@ -195,7 +183,7 @@ class FinancialService {
       return [];
     } catch (e) {
       // 프록시 실패 시 직접 호출 폴백
-      if (AppConfig.useProxy) {
+      if (ProxyConfig.useProxy) {
         return _getIncomeStatementsDirect(symbol, period: period, limit: limit);
       }
       return [];
@@ -243,7 +231,7 @@ class FinancialService {
   /// Finnhub `/stock/earnings` — 실제/예상 EPS, 서프라이즈 %
   /// Finnhub은 프록시를 거치지 않음 (기존 패턴)
   Future<List<EarningsResult>> getEarnings(String symbol, {int limit = 8}) async {
-    if (AppConfig.finnhubApiKey.isEmpty) return [];
+    if (!ProxyConfig.useProxy && AppConfig.finnhubApiKey.isEmpty) return [];
 
     final cacheKey = 'earnings_${symbol}_$limit';
     final cached = _getCache<List<EarningsResult>>(cacheKey);
@@ -251,12 +239,12 @@ class FinancialService {
 
     try {
       final response = await _dio.get(
-        '${AppConfig.finnhubBaseUrl}/stock/earnings',
-        queryParameters: {
+        '${ProxyConfig.finnhubBaseUrl}${ProxyConfig.finnhubPath('/stock/earnings')}',
+        queryParameters: ProxyConfig.finnhubParams({
           'symbol': symbol.toUpperCase(),
           'limit': limit,
           'token': AppConfig.finnhubApiKey,
-        },
+        }),
       );
 
       final data = response.data;

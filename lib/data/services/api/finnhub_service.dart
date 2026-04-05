@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
 import 'api_exception.dart';
+import 'proxy_config.dart';
 
 /// 검색 결과 모델
 class SearchResult {
@@ -116,12 +117,12 @@ class FinnhubService {
 
   FinnhubService()
       : _dio = Dio(BaseOptions(
-          baseUrl: AppConfig.finnhubBaseUrl,
+          baseUrl: ProxyConfig.finnhubBaseUrl,
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
-          queryParameters: {
-            'token': AppConfig.finnhubApiKey,
-          },
+          queryParameters: ProxyConfig.useProxy
+              ? {}
+              : {'token': AppConfig.finnhubApiKey},
         ));
 
   /// 단일 종목 시세 조회
@@ -459,9 +460,10 @@ class FinnhubService {
   /// 종목 거래소 조회 (profile2)
   Future<String> getExchange(String symbol) async {
     try {
-      final response = await _dio.get('/stock/profile2', queryParameters: {
-        'symbol': symbol,
-      });
+      final response = await _dio.get(
+        ProxyConfig.finnhubPath('/stock/profile2'),
+        queryParameters: {'symbol': symbol},
+      );
       final exchange = response.data['exchange'] as String? ?? '';
       if (exchange.contains('NASDAQ')) return 'NASDAQ';
       if (exchange.contains('NYSE')) return 'NYSE';
@@ -474,9 +476,10 @@ class FinnhubService {
   /// 종목 로고 URL 조회 (profile2)
   Future<String?> getCompanyLogo(String symbol) async {
     try {
-      final response = await _dio.get('/stock/profile2', queryParameters: {
-        'symbol': symbol,
-      });
+      final response = await _dio.get(
+        ProxyConfig.finnhubPath('/stock/profile2'),
+        queryParameters: {'symbol': symbol},
+      );
       final logo = response.data['logo'] as String?;
       if (logo != null && logo.isNotEmpty) return logo;
     } catch (_) {}
