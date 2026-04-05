@@ -1068,7 +1068,7 @@ Future<ExchangeRate> getRate({required String from, required String to}) async {
 ### 4.7 wrangler.toml 완성본
 
 ```toml
-name = "alpha-cycle-api"
+name = "alpha-cycle-proxy"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
@@ -1101,7 +1101,7 @@ crons = [
 
 ```json
 {
-  "name": "alpha-cycle-api",
+  "name": "alpha-cycle-proxy",
   "version": "2.0.0",
   "type": "module",
   "private": true

@@ -2,7 +2,7 @@
 
 ## 개요
 
-알파 사이클 앱은 12개의 외부 API를 조합하여 실시간 시세, 차트, 환율, 뉴스, 시장 심리, 재무제표, 경제 데이터를 제공합니다. 대부분의 API 호출은 **Cloudflare Worker 프록시**(`alpha-cycle-api`)를 경유하며, API 키 보호와 KV 공유 캐시를 통해 무료 한도 내에서 다수 사용자를 지원합니다.
+알파 사이클 앱은 12개의 외부 API를 조합하여 실시간 시세, 차트, 환율, 뉴스, 시장 심리, 재무제표, 경제 데이터를 제공합니다. 대부분의 API 호출은 **Cloudflare Worker 프록시**(`alpha-cycle-proxy`)를 경유하며, API 키 보호와 KV 공유 캐시를 통해 무료 한도 내에서 다수 사용자를 지원합니다.
 
 | API | 역할 | 무료 한도 | 호출 경로 |
 |-----|------|----------|----------|
@@ -74,7 +74,7 @@
                     ▼                        │                       │
           ┌────────────────┐       ┌─────────▼──────────┐           │
           │ 외부 API 서버들  │       │  Cloudflare Worker  │           │
-          │ (공개/키 안전)   │       │  alpha-cycle-api    │           │
+          │ (공개/키 안전)   │       │  alpha-cycle-proxy  │           │
           └────────────────┘       │                     │           │
                                    │  KV 캐시 (영속)     │           │
                                    │  Cache API (빠름)   │           │
@@ -393,7 +393,7 @@ Worker 캐시 덕분에 동일 데이터에 대한 중복 API 호출이 제거�
 
 ### 개요
 
-`cloudflare-worker/` 디렉토리에 모듈화된 Cloudflare Worker가 배포되어 있습니다. Worker 이름은 `alpha-cycle-api`이며, 앱의 대부분의 API 호출을 중계합니다.
+`cloudflare-worker/` 디렉토리에 모듈화된 Cloudflare Worker가 배포되어 있습니다. Worker 이름은 `alpha-cycle-proxy`이며, 앱의 대부분의 API 호출을 중계합니다.
 
 ### 역할
 

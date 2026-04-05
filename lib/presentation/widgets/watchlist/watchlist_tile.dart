@@ -61,7 +61,7 @@ class WatchlistTile extends ConsumerWidget {
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: const EdgeInsets.only(
-                  left: 16, right: 16, top: 10, bottom: 10),
+                  left: 16, right: 16, top: 8, bottom: 8),
               child: Row(
                 children: [
                   // 아바타 (알림 배지 포함)
@@ -98,86 +98,56 @@ class WatchlistTile extends ConsumerWidget {
                   const SizedBox(width: 10),
                   // 종목명 / 거래소
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              item.ticker,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: context.appTickerColor,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 4, vertical: 1),
-                              decoration: BoxDecoration(
-                                color: context.appIconBg,
-                                borderRadius: BorderRadius.circular(3),
-                              ),
-                              child: Text(
-                                formatBadge(item.exchange, item.type),
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w500,
-                                  color: context.appTextHint,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 2),
                         Text(
-                          item.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                          item.ticker,
                           style: TextStyle(
-                            fontSize: 12,
-                            color: context.appTextSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: context.appTickerColor,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: context.appIconBg,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: Text(
+                            formatBadge(item.exchange, item.type),
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w500,
+                              color: context.appTextHint,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  // 현재가 / 등락률
+                  // 현재가 / 등락률 (한 줄)
                   if (quote != null) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          formatPrice(ref.watch(
-                            closingPricesProvider.select(
-                              (map) => map[item.ticker] ?? quote.currentPrice,
-                            ),
-                          )),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: context.appTextPrimary,
-                          ),
+                    Text(
+                      formatPrice(ref.watch(
+                        closingPricesProvider.select(
+                          (map) => map[item.ticker] ?? quote.currentPrice,
                         ),
-                        const SizedBox(height: 2),
-                        ReturnBadge(
-                          value: quote.changePercent,
-                          size: ReturnBadgeSize.small,
-                          colorScheme: ReturnBadgeColorScheme.redBlue,
-                          decimals: 2,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          quote.isMarketOpen
-                              ? formatRelativeTime(quote.timestamp)
-                              : quote.marketStateKorean,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: context.appTextHint,
-                          ),
-                        ),
-                      ],
+                      )),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: context.appTextPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    ReturnBadge(
+                      value: quote.changePercent,
+                      size: ReturnBadgeSize.small,
+                      colorScheme: ReturnBadgeColorScheme.redBlue,
+                      decimals: 2,
                     ),
                   ] else ...[
                     const SizedBox(

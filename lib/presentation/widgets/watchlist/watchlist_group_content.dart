@@ -336,25 +336,52 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
             onTap: widget.onTap,
             behavior: HitTestBehavior.opaque,
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                children: [
-                  TickerLogo(ticker: widget.ticker, size: 38, borderRadius: 7),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      widget.ticker,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: context.appTickerColor,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Builder(
+                builder: (context) {
+                  final watchlistState = ref.watch(watchlistProvider);
+                  final watchlistItem = watchlistState.items
+                      .where((w) => w.ticker == widget.ticker)
+                      .firstOrNull;
+                  final exchange = watchlistItem?.exchange ?? '';
+                  final type = watchlistItem?.type ?? '';
+
+                  return Row(
+                    children: [
+                      TickerLogo(ticker: widget.ticker, size: 38, borderRadius: 7),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Text(
+                              widget.ticker,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: context.appTickerColor,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: context.appIconBg,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: Text(
+                                formatBadge(exchange, type),
+                                style: TextStyle(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                  color: context.appTextHint,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
-                  if (quote != null) ...[
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
+                      if (quote != null) ...[
                         Text(
                           formatPrice(ref.watch(
                             closingPricesProvider.select(
@@ -367,35 +394,25 @@ class _SimpleTickerTileState extends ConsumerState<_SimpleTickerTile> {
                             color: context.appTextPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(width: 6),
                         ReturnBadge(
                           value: quote.changePercent,
                           size: ReturnBadgeSize.small,
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
                         ),
-                        const SizedBox(height: 2),
+                      ] else ...[
                         Text(
-                          quote.isMarketOpen
-                              ? formatRelativeTime(quote.timestamp)
-                              : quote.marketStateKorean,
+                          '—',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: 15,
                             color: context.appTextHint,
                           ),
                         ),
                       ],
-                    ),
-                  ] else ...[
-                    Text(
-                      '—',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: context.appTextHint,
-                      ),
-                    ),
-                  ],
-                ],
+                    ],
+                  );
+                },
               ),
             ),
           ),
