@@ -21,6 +21,7 @@ import { handleExchangeRate } from './handlers/exchange-rate.js';
 import { handleFearGreed } from './handlers/feargreed.js';
 import { handleFRED } from './handlers/fred.js';
 import { handleMarketNews, GLOBAL_RSS_FEEDS, KOREA_RSS_FEEDS } from './handlers/news.js';
+import { handleMarketAux } from './handlers/marketaux.js';
 import { handleTwelveData } from './handlers/twelvedata.js';
 import { runCacheWarming } from './cron/warming.js';
 
@@ -32,6 +33,19 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // ── App token verification (optional — skip if APP_TOKEN not set) ──
+    const APP_TOKEN = env.APP_TOKEN;
+    if (APP_TOKEN) {
+      const clientToken = request.headers.get('X-App-Token');
+      // Allow: OPTIONS (already handled above), public endpoints
+      const isPublicPath =
+        url.pathname === '/api/feargreed' ||
+        url.pathname.startsWith('/api/news/');
+      if (!isPublicPath && request.method !== 'OPTIONS' && clientToken !== APP_TOKEN) {
+        return jsonError('Unauthorized', 401, request);
+      }
+    }
 
     // ── Finnhub REST (NEW — 7개 엔드포인트 통합) ──
     if (url.pathname.startsWith('/api/finnhub/')) {
@@ -78,6 +92,11 @@ export default {
     // FMP 재무제표 (KV + Cache API)
     if (url.pathname.startsWith('/api/fmp/')) {
       return handleFMP(request, env, url);
+    }
+
+    // MarketAux 뉴스 (API 키 서버사이드 주입)
+    if (url.pathname === '/api/marketaux/news') {
+      return handleMarketAux(request, env, url);
     }
 
     return jsonError('Not found', 404, request);

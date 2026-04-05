@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
 
 /// 프록시 URL 라우팅 설정
@@ -57,4 +58,31 @@ class ProxyConfig {
   /// Worker 환율 엔드포인트 (프록시 미사용 시 null)
   static String? get exchangeRateUrl =>
       useProxy ? '$proxyBase/api/exchange-rate' : null;
+
+  // ---------------------------------------------------------------------------
+  // MarketAux
+  // ---------------------------------------------------------------------------
+
+  /// Worker MarketAux 엔드포인트 (프록시 미사용 시 null → 직접 호출 폴백)
+  static String? get marketAuxUrl =>
+      useProxy ? '$proxyBase/api/marketaux/news' : null;
+
+  // ---------------------------------------------------------------------------
+  // Shared Auth Interceptor
+  // ---------------------------------------------------------------------------
+
+  /// Worker 프록시 호출 시 X-App-Token 헤더를 자동 주입하는 인터셉터.
+  /// 각 서비스의 Dio 인스턴스에 추가하면 Worker 요청에만 토큰이 붙음.
+  static void addAuthInterceptor(Dio dio) {
+    if (!useProxy || AppConfig.appToken.isEmpty) return;
+    dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        final uri = options.uri.toString();
+        if (uri.startsWith(proxyBase)) {
+          options.headers['X-App-Token'] = AppConfig.appToken;
+        }
+        handler.next(options);
+      },
+    ));
+  }
 }

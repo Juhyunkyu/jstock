@@ -123,7 +123,9 @@ class FinnhubService {
           queryParameters: ProxyConfig.useProxy
               ? {}
               : {'token': AppConfig.finnhubApiKey},
-        ));
+        )) {
+    ProxyConfig.addAuthInterceptor(_dio);
+  }
 
   /// 단일 종목 시세 조회
   Future<StockQuote> getQuote(String symbol) async {

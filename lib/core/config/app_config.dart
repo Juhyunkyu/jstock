@@ -73,4 +73,11 @@ class AppConfig {
 
   /// FMP API URL (stable — v3는 2025-08-31 이후 가입자 차단됨)
   static const String fmpBaseUrl = 'https://financialmodelingprep.com/stable';
+
+  /// Worker 인증 토큰 (X-App-Token 헤더로 전송)
+  /// 빌드 시 --dart-define=APP_TOKEN=xxx 로 주입
+  static const String appToken = String.fromEnvironment(
+    'APP_TOKEN',
+    defaultValue: '',
+  );
 }

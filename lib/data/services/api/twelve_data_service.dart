@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
 import '../../models/ohlc_data.dart';
+import 'proxy_config.dart';
 // api_exception.dart available for future error handling enhancements
 
 /// Twelve Data REST API 서비스
@@ -67,7 +68,9 @@ class TwelveDataService {
           baseUrl: AppConfig.useProxy ? AppConfig.proxyBaseUrl : '',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
-        ));
+        )) {
+    ProxyConfig.addAuthInterceptor(_proxyDio);
+  }
 
   /// 차트 데이터 조회 (OHLC 캔들스틱)
   ///

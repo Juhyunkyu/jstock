@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../core/config/app_config.dart';
+import 'proxy_config.dart';
 
 /// FRED (Federal Reserve Economic Data) API 서비스
 ///
@@ -16,7 +17,9 @@ class FredService {
           baseUrl: '${AppConfig.proxyBaseUrl}/api/fred',
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
-        ));
+        )) {
+    ProxyConfig.addAuthInterceptor(_dio);
+  }
 
   /// FRED 시계열 최신 값 조회
   ///

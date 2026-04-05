@@ -11,6 +11,7 @@ import '../../providers/providers.dart';
 import '../../providers/fear_greed_providers.dart';
 import '../../providers/notification_history_provider.dart';
 import 'app_title_logo.dart';
+import 'offline_banner.dart';
 import 'update_banner.dart';
 
 /// 메인 쉘 위젯
@@ -129,12 +130,12 @@ class _MainShellState extends ConsumerState<MainShell> {
     }
   }
 
-  /// 업데이트 배너 + 콘텐츠를 Column으로 합성
+  /// 업데이트 배너 + 오프라인 배너 + 콘텐츠를 Column으로 합성
   Widget _wrapWithBanner(Widget child) {
-    if (!_updateAvailable) return child;
     return Column(
       children: [
-        const UpdateBanner(),
+        if (_updateAvailable) const UpdateBanner(),
+        const OfflineBanner(),
         Expanded(child: child),
       ],
     );

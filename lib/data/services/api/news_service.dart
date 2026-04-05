@@ -37,7 +37,9 @@ class NewsService {
       : _dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
-        ));
+        )) {
+    ProxyConfig.addAuthInterceptor(_dio);
+  }
 
   /// 심볼 → 회사명 매핑 (검색 키워드용)
   static const Map<String, String> _symbolToName = {
@@ -234,6 +236,9 @@ class NewsService {
   }
 
   /// MarketAux API에서 뉴스 가져오기 (키워드 검색으로 관련도 높은 기사)
+  ///
+  /// Worker 프록시 사용 시 API 키 없이 Worker 경유 호출.
+  /// 프록시 미사용 시 직접 호출 (클라이언트에 API 키 필요).
   Future<List<NewsItem>> _fetchMarketAux(String symbol) async {
     try {
       // 심볼에 맞는 검색 키워드 사용
@@ -244,19 +249,31 @@ class NewsService {
       final afterStr =
           '${afterDate.year}-${afterDate.month.toString().padLeft(2, '0')}-${afterDate.day.toString().padLeft(2, '0')}';
 
-      final response = await _dio.get(
-        'https://api.marketaux.com/v1/news/all',
-        queryParameters: {
-          'api_token': AppConfig.marketauxApiKey,
-          'search': searchKeyword,
-          'language': 'en',
-          'limit': '3',
-          'sort': 'published_on',
-          'sort_order': 'desc',
-          'published_after': afterStr,
-          'exclude_domains': 'finance.yahoo.com',
-        },
-      );
+      final proxyUrl = ProxyConfig.marketAuxUrl;
+      final queryParams = {
+        'search': searchKeyword,
+        'language': 'en',
+        'limit': '3',
+        'sort': 'published_on',
+        'sort_order': 'desc',
+        'published_after': afterStr,
+        'exclude_domains': 'finance.yahoo.com',
+      };
+
+      final Response response;
+      if (proxyUrl != null) {
+        // Worker 프록시 경유 — API 키 서버사이드 주입
+        response = await _dio.get(proxyUrl, queryParameters: queryParams);
+      } else {
+        // 직접 호출 폴백 (로컬 개발)
+        response = await _dio.get(
+          'https://api.marketaux.com/v1/news/all',
+          queryParameters: {
+            'api_token': AppConfig.marketauxApiKey,
+            ...queryParams,
+          },
+        );
+      }
 
       final newsList = <NewsItem>[];
       final articles = response.data['data'] as List?;

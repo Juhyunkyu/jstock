@@ -37,7 +37,9 @@ class ExchangeRateService {
       : _dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 10),
           receiveTimeout: const Duration(seconds: 10),
-        ));
+        )) {
+    ProxyConfig.addAuthInterceptor(_dio);
+  }
 
   /// USD/KRW 환율 조회
   Future<ExchangeRate> getUsdKrwRate() async {

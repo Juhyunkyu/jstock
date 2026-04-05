@@ -2,6 +2,15 @@ name = "alpha-cycle-api"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
 
+# Secrets (set via `wrangler secret put <NAME>`):
+#   FINNHUB_API_KEY
+#   DEEPL_API_KEY
+#   FRED_API_KEY
+#   TWELVE_DATA_API_KEY
+#   FMP_API_KEY
+#   MARKETAUX_API_KEY
+#   APP_TOKEN          — optional, enables X-App-Token header auth
+
 [[kv_namespaces]]
 binding = "CACHE_KV"
 id = "ff16e8ed00024a5b9bce15eaf280aa5b"

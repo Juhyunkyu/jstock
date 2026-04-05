@@ -230,6 +230,106 @@ void main() {
     });
   });
 
+  // =========================================================================
+  // LRU 방출 (eviction) 테스트
+  // =========================================================================
+  group('LRU 방출 (maxItems 초과 시)', () {
+    test('maxItems 초과 시 가장 빨리 만료되는 항목부터 제거', () {
+      final smallCache = CacheManager(maxItems: 3);
+
+      // 서로 다른 TTL로 삽입 → 만료 시각이 다름
+      smallCache.set('short', 'a', ttl: const Duration(minutes: 1));
+      smallCache.set('medium', 'b', ttl: const Duration(minutes: 10));
+      smallCache.set('long', 'c', ttl: const Duration(minutes: 60));
+
+      // 4번째 삽입 → maxItems(3) 초과 → short(만료 가장 가까움) 제거
+      smallCache.set('newest', 'd', ttl: const Duration(minutes: 30));
+
+      expect(smallCache.get<String>('short'), isNull); // 제거됨
+      expect(smallCache.get<String>('medium'), equals('b'));
+      expect(smallCache.get<String>('long'), equals('c'));
+      expect(smallCache.get<String>('newest'), equals('d'));
+    });
+
+    test('maxItems=1이면 항상 최신 1개만 유지', () {
+      final tinyCache = CacheManager(maxItems: 1);
+
+      tinyCache.set('first', 'a');
+      expect(tinyCache.get<String>('first'), equals('a'));
+
+      tinyCache.set('second', 'b');
+      expect(tinyCache.get<String>('first'), isNull);
+      expect(tinyCache.get<String>('second'), equals('b'));
+    });
+
+    test('같은 키 덮어쓰기는 maxItems에 영향 없음', () {
+      final smallCache = CacheManager(maxItems: 2);
+
+      smallCache.set('key1', 'v1');
+      smallCache.set('key2', 'v2');
+
+      // 같은 키 덮어쓰기 → 항목 수 변화 없음
+      smallCache.set('key1', 'v1_updated');
+
+      expect(smallCache.get<String>('key1'), equals('v1_updated'));
+      expect(smallCache.get<String>('key2'), equals('v2'));
+      expect(smallCache.stats.itemCount, equals(2));
+    });
+
+    test('만료된 항목이 있으면 LRU 전에 먼저 제거', () {
+      final smallCache = CacheManager(maxItems: 3);
+
+      // 이미 만료된 항목 삽입 (과거 시간은 직접 못 넣으므로 극히 짧은 TTL 사용)
+      smallCache.set('expired1', 'a', ttl: Duration.zero);
+      smallCache.set('valid1', 'b', ttl: const Duration(hours: 1));
+      smallCache.set('valid2', 'c', ttl: const Duration(hours: 1));
+
+      // 4번째 삽입 → 만료된 expired1 먼저 제거 → 유효 항목은 보존
+      smallCache.set('valid3', 'd', ttl: const Duration(hours: 1));
+
+      expect(smallCache.get<String>('expired1'), isNull);
+      expect(smallCache.get<String>('valid1'), equals('b'));
+      expect(smallCache.get<String>('valid2'), equals('c'));
+      expect(smallCache.get<String>('valid3'), equals('d'));
+    });
+
+    test('maxItems 내에서는 방출 없음', () {
+      final cache = CacheManager(maxItems: 5);
+
+      for (var i = 0; i < 5; i++) {
+        cache.set('key$i', 'value$i');
+      }
+
+      expect(cache.stats.itemCount, equals(5));
+      for (var i = 0; i < 5; i++) {
+        expect(cache.get<String>('key$i'), equals('value$i'));
+      }
+    });
+
+    test('대량 삽입 시 maxItems 제한 준수', () {
+      final smallCache = CacheManager(maxItems: 10);
+
+      for (var i = 0; i < 50; i++) {
+        smallCache.set('key$i', 'value$i');
+      }
+
+      expect(smallCache.stats.itemCount, equals(10));
+    });
+
+    test('기본 maxItems는 500', () {
+      final defaultCache = CacheManager();
+      // 500개까지는 정상 저장
+      for (var i = 0; i < 500; i++) {
+        defaultCache.set('k$i', i);
+      }
+      expect(defaultCache.stats.itemCount, equals(500));
+
+      // 501번째 → 방출 발생
+      defaultCache.set('overflow', 'x');
+      expect(defaultCache.stats.itemCount, equals(500));
+    });
+  });
+
   group('동시성 시뮬레이션', () {
     test('여러 키 동시 저장', () async {
       final futures = <Future>[];

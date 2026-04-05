@@ -21,7 +21,9 @@ class FinancialService {
       : _dio = Dio(BaseOptions(
           connectTimeout: const Duration(seconds: 15),
           receiveTimeout: const Duration(seconds: 20),
-        ));
+        )) {
+    ProxyConfig.addAuthInterceptor(_dio);
+  }
 
   // ---------------------------------------------------------------------------
   // 캐시 헬퍼

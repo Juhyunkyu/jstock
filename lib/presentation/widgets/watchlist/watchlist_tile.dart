@@ -167,6 +167,16 @@ class WatchlistTile extends ConsumerWidget {
                           colorScheme: ReturnBadgeColorScheme.redBlue,
                           decimals: 2,
                         ),
+                        const SizedBox(height: 2),
+                        Text(
+                          quote.isMarketOpen
+                              ? formatRelativeTime(quote.timestamp)
+                              : quote.marketStateKorean,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: context.appTextHint,
+                          ),
+                        ),
                       ],
                     ),
                   ] else ...[

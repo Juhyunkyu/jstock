@@ -44,3 +44,12 @@ String formatPrice(double price) {
       );
 }
 
+/// 데이터 신선도 상대 시간 표시
+String formatRelativeTime(DateTime timestamp) {
+  final diff = DateTime.now().difference(timestamp);
+  if (diff.inMinutes < 1) return '방금';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}분 전';
+  if (diff.inHours < 24) return '${diff.inHours}시간 전';
+  return '${diff.inDays}일 전';
+}
+
