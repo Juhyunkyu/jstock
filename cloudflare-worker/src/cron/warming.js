@@ -18,7 +18,7 @@ function sleep(ms) {
 
 function getCronType(cron) {
   if (cron.includes('13') && cron.includes('1-5')) return 'pre-market';
-  if (cron.includes('21') && cron.includes('1-5')) return 'post-market';
+  if (cron.includes('22') && cron.includes('1-5')) return 'post-market';
   if (cron.includes('SUN') || cron.includes('0 12')) return 'weekend';
   return 'weekend';
 }
