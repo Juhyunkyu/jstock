@@ -41,18 +41,12 @@ export async function runCacheWarming(event, env) {
     return;
   }
 
-  // 2. Finnhub 시세 워밍 (주말 제외)
-  if (cronType !== 'weekend') {
-    await warmFinnhubQuotes(env, tickers);
-  }
-
-  // 3. FMP 프로필 워밍 (post-market 또는 주말)
-  if (cronType === 'weekend' || cronType === 'post-market') {
-    await warmFMPProfiles(env, tickers);
-  }
-
-  // 4. 글로벌 데이터 워밍 (항상)
-  await warmGlobalData(env);
+  // 2~4. 워밍 병렬 실행 (각각 다른 API를 호출하므로 동시 실행 안전)
+  await Promise.all([
+    cronType !== 'weekend' ? warmFinnhubQuotes(env, tickers) : Promise.resolve(),
+    (cronType === 'weekend' || cronType === 'post-market') ? warmFMPProfiles(env, tickers) : Promise.resolve(),
+    warmGlobalData(env),
+  ]);
 
   // 5. 워밍 완료 기록
   try {
@@ -119,15 +113,18 @@ async function warmFMPProfiles(env, tickers) {
     return;
   }
 
-  // KV에 이미 있으면 건너뜀 (TTL 자동 만료)
-  const tickersToWarm = [];
-  for (const symbol of tickers) {
-    try {
+  // KV에 이미 있으면 건너뜀 (TTL 자동 만료, 병렬 조회)
+  const checks = await Promise.allSettled(
+    tickers.map(async (symbol) => {
       const existing = await env.CACHE_KV.get(`fmp_profile:${symbol}`);
-      if (!existing) tickersToWarm.push(symbol);
-    } catch (e) {
-      tickersToWarm.push(symbol); // KV 에러 시 워밍 시도
-    }
+      return { symbol, exists: !!existing };
+    })
+  );
+  const tickersToWarm = [];
+  for (let i = 0; i < checks.length; i++) {
+    const r = checks[i];
+    if (r.status === 'fulfilled' && r.value.exists) continue;
+    tickersToWarm.push(tickers[i]); // KV 에러 시에도 워밍 시도
   }
 
   if (tickersToWarm.length === 0) {

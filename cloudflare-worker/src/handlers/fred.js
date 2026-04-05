@@ -23,16 +23,20 @@ export async function handleFRED(request, env, url) {
   // API 키 서버사이드 주입
   fredUrl.searchParams.set('api_key', apiKey);
 
-  const resp = await fetch(fredUrl.toString(), {
-    headers: { 'Accept': 'application/json' },
-  });
+  try {
+    const resp = await fetch(fredUrl.toString(), {
+      headers: { 'Accept': 'application/json' },
+    });
 
-  return new Response(resp.body, {
-    status: resp.status,
-    headers: {
-      'Content-Type': resp.headers.get('Content-Type') || 'application/json',
-      'Cache-Control': 'public, max-age=3600',
-      ...corsHeaders(request),
-    },
-  });
+    return new Response(resp.body, {
+      status: resp.status,
+      headers: {
+        'Content-Type': resp.headers.get('Content-Type') || 'application/json',
+        'Cache-Control': 'public, max-age=3600',
+        ...corsHeaders(request),
+      },
+    });
+  } catch (e) {
+    return jsonError(`FRED error: ${e.message}`, 502, request);
+  }
 }

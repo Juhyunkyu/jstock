@@ -56,15 +56,21 @@ class ExchangeRateService {
         final response = await _dio.get(
           proxyUrl,
           queryParameters: {'from': from, 'to': to},
+          options: Options(receiveTimeout: const Duration(seconds: 3)),
         );
         final data = response.data;
+        final rawRate = data['rate'] as num?;
+        if (rawRate == null) {
+          throw const ParseException(message: 'Worker 환율 rate 누락');
+        }
+        final tsInt = (data['timestamp'] as num?)?.toInt();
         return ExchangeRate(
           fromCurrency: from.toUpperCase(),
           toCurrency: to.toUpperCase(),
-          rate: (data['rate'] as num).toDouble(),
-          timestamp: DateTime.fromMillisecondsSinceEpoch(
-            ((data['timestamp'] as num?)?.toInt() ?? 0) * 1000,
-          ),
+          rate: rawRate.toDouble(),
+          timestamp: tsInt != null
+              ? DateTime.fromMillisecondsSinceEpoch(tsInt * 1000)
+              : DateTime.now(),
           source: data['source'] as String?,
         );
       } catch (_) {

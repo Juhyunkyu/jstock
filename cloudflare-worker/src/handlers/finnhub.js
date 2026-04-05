@@ -80,9 +80,11 @@ export async function handleFinnhub(request, env, url) {
   const symbol = (url.searchParams.get('symbol') || '').toUpperCase();
   const config = getCacheConfig(subPath, symbol);
 
-  // Cache API 키 생성 (쿼리 파라미터 포함)
+  // Cache API 키 생성 (token 제외한 sanitized 파라미터)
+  const cacheParams = new URLSearchParams(url.searchParams);
+  cacheParams.delete('token');
   const cacheKey = new Request(
-    `https://cache.finnhub${finnhubPath}?${url.searchParams.toString()}`,
+    `https://cache.finnhub${finnhubPath}?${cacheParams.toString()}`,
     request
   );
 

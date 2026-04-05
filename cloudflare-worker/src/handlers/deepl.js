@@ -44,25 +44,31 @@ export async function handleDeepL(request, env) {
     return jsonError('text array required', 400, request);
   }
 
-  // KV 캐시 확인 (텍스트별)
+  // KV 캐시 확인 (텍스트별, 병렬 조회 + 해시 재사용)
   const results = new Array(texts.length).fill(null);
+  const hashes = new Array(texts.length).fill(null);
   const uncachedTexts = [];
   const uncachedIndices = [];
 
   if (env.CACHE_KV) {
-    for (let i = 0; i < texts.length; i++) {
-      try {
-        const hash = await hashText(texts[i]);
+    const lookups = await Promise.allSettled(
+      texts.map(async (text, i) => {
+        const hash = await hashText(text);
+        hashes[i] = hash;
         const kvKey = `translate:${sourceLang}:${targetLang}:${hash}`;
         const cached = await env.CACHE_KV.get(kvKey);
-        if (cached) {
-          results[i] = { text: cached };
-          continue;
-        }
-      } catch (e) { /* KV 실패 시 번역 진행 */ }
+        return { i, cached };
+      })
+    );
 
-      uncachedTexts.push(texts[i]);
-      uncachedIndices.push(i);
+    for (const result of lookups) {
+      if (result.status === 'fulfilled' && result.value.cached) {
+        results[result.value.i] = { text: result.value.cached };
+      } else {
+        const i = result.status === 'fulfilled' ? result.value.i : lookups.indexOf(result);
+        uncachedTexts.push(texts[i]);
+        uncachedIndices.push(i);
+      }
     }
 
     // 전부 캐시 히트면 즉시 반환
@@ -117,10 +123,10 @@ export async function handleDeepL(request, env) {
     const translated = translations[j];
     results[idx] = translated;
 
-    // KV에 영구 저장 (번역은 변하지 않음)
+    // KV에 영구 저장 (번역은 변하지 않음, lookup에서 계산한 해시 재사용)
     if (env.CACHE_KV && translated?.text) {
       try {
-        const hash = await hashText(texts[idx]);
+        const hash = hashes[idx] || await hashText(texts[idx]);
         const kvKey = `translate:${sourceLang}:${targetLang}:${hash}`;
         await env.CACHE_KV.put(kvKey, translated.text);
       } catch (e) { /* KV 쓰기 실패 무시 */ }

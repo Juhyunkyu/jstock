@@ -24,7 +24,8 @@ class ProxyConfig {
     return directPath.replaceFirst('/stock/', '/');
   }
 
-  /// Finnhub 쿼리 파라미터 정리: 프록시 시 token·metric 제거
+  /// Finnhub 쿼리 파라미터 정리: 프록시 시 token 제거
+  /// Worker가 /metric 엔드포인트에 metric=all을 서버사이드 주입하므로 제거
   static Map<String, dynamic> finnhubParams(Map<String, dynamic> params) {
     if (!useProxy) return params;
     final filtered = Map<String, dynamic>.from(params);
