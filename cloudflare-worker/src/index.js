@@ -10,6 +10,10 @@
  *
  * KV 바인딩:
  *   CACHE_KV            — 통합 캐시 (quotes, profiles, translations...)
+ *
+ * 히트 카운터:
+ *   사용자 조회 티커를 KV에 `hit:<SYMBOL>` 키로 카운트 (7일 TTL).
+ *   주말 Cron에서 상위 50개를 워밍 리스트에 동적 병합.
  */
 
 import { corsHeaders } from './utils/cors.js';
@@ -23,16 +27,48 @@ import { handleFRED } from './handlers/fred.js';
 import { handleMarketNews, GLOBAL_RSS_FEEDS, KOREA_RSS_FEEDS } from './handlers/news.js';
 import { handleMarketAux } from './handlers/marketaux.js';
 import { handleTwelveData } from './handlers/twelvedata.js';
+import { handleCalendar } from './handlers/calendar.js';
 import { runCacheWarming } from './cron/warming.js';
 
+/**
+ * 히트 카운터 — 티커 조회 횟수를 KV에 기록 (비차단)
+ * @param {object} env - Worker 환경 바인딩
+ * @param {string|null} symbol - 티커 심볼
+ */
+async function recordHit(env, symbol) {
+  if (!symbol) return;
+  const key = `hit:${symbol.toUpperCase()}`;
+  const current = parseInt(await env.CACHE_KV.get(key) || '0');
+  await env.CACHE_KV.put(key, String(current + 1), { expirationTtl: 604800 }); // 7일 TTL
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     // Preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(request) });
     }
 
     const url = new URL(request.url);
+
+    // ── 히트 카운터 (비차단) ──
+    const hitSymbol = url.searchParams.get('symbol');
+    if (hitSymbol && (
+      url.pathname.startsWith('/api/finnhub/') ||
+      url.pathname.startsWith('/api/fmp/') ||
+      url.pathname === '/api/twelvedata/chart'
+    )) {
+      ctx.waitUntil(recordHit(env, hitSymbol));
+    }
+    // 실적 캘린더 symbols 파라미터도 히트 카운터 기록
+    if (url.pathname === '/api/calendar/earnings') {
+      const symbols = url.searchParams.get('symbols');
+      if (symbols) {
+        for (const s of symbols.split(',').map(t => t.trim()).filter(Boolean)) {
+          ctx.waitUntil(recordHit(env, s));
+        }
+      }
+    }
 
     // ── App token verification (optional — skip if APP_TOKEN not set) ──
     const APP_TOKEN = env.APP_TOKEN;
@@ -45,6 +81,11 @@ export default {
       if (!isPublicPath && request.method !== 'OPTIONS' && clientToken !== APP_TOKEN) {
         return jsonError('Unauthorized', 401, request);
       }
+    }
+
+    // ── 경제/실적 캘린더 ──
+    if (url.pathname.startsWith('/api/calendar/')) {
+      return handleCalendar(request, env, url);
     }
 
     // ── Finnhub REST (NEW — 7개 엔드포인트 통합) ──

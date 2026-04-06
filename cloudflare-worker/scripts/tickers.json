@@ -1,0 +1,17 @@
+[
+  "AAPL",  "ABBV",  "ABNB",  "ACHR",  "ADBE",  "ADI",   "AFRM",  "AI",    "AMAT",  "AMD",
+  "AMZN",  "ARKK",  "ARM",   "ASML",  "ASTS",  "AVGO",  "AXON",  "BA",    "BABA",  "BIDU",
+  "BLK",   "BULZ",  "CDNS",  "CEG",   "COIN",  "COST",  "CRM",   "CRWD",  "CRWV",  "CVX",
+  "DDOG",  "DELL",  "DIA",   "DIS",   "DUOL",  "DXCM",  "EEM",   "ENPH",  "EPD",   "F",
+  "FNGU",  "FSLR",  "GD",    "GE",    "GLD",   "GM",    "GOOGL", "GS",    "HD",    "HIMS",
+  "HOOD",  "HPE",   "HWM",   "IBIT",  "INTC",  "IONQ",  "ISRG",  "IVV",   "IWM",   "JD",
+  "JEPI",  "JNJ",   "JPM",   "KLAC",  "KO",    "KTOS",  "KWEB",  "LCID",  "LDOS",  "LHX",
+  "LI",    "LLY",   "LMT",   "LRCX",  "LUNR",  "MA",    "MAIN",  "MCD",   "META",  "MO",
+  "MPWR",  "MRK",   "MRNA",  "MRVL",  "MSFT",  "MSTR",  "MU",    "NET",   "NFLX",  "NIO",
+  "NKE",   "NOC",   "NOW",   "NVDA",  "O",     "ON",    "ORCL",  "OXY",   "PANW",  "PDD",
+  "PFE",   "PG",    "PLTR",  "PM",    "QCOM",  "QQQ",   "RDW",   "RIVN",  "RKLB",  "RTX",
+  "SCHD",  "SHOP",  "SLB",   "SLV",   "SMCI",  "SMH",   "SNOW",  "SOFI",  "SOXL",  "SOXX",
+  "SPOT",  "SPXL",  "SPY",   "SQ",    "T",     "TECL",  "TLT",   "TM",    "TME",   "TNA",
+  "TOAST", "TQQQ",  "TSLA",  "TSM",   "UBER",  "UNH",   "UPRO",  "URA",   "V",     "VGT",
+  "VOO",   "VRTX",  "VST",   "VTI",   "VZ",    "WMT",   "XLK",   "XOM",   "XPEV",  "ZS"
+]

@@ -3,14 +3,23 @@
  *
  * 스케줄:
  *   0 13 * * 1-5  — Pre-market (KST 22:00, 미국 개장 전)
- *   0 21 * * 1-5  — Post-market (KST 06:00, 미국 폐장 후)
- *   0 12 * * 0    — Weekend (KST 21:00, 주말 갱신)
+ *   0 22 * * 1-5  — Post-market (KST 07:00, 미국 폐장 후)
+ *   0 12 * * SUN  — Weekend (KST 21:00, 주말 갱신)
  *
  * 워밍 대상:
- *   - Finnhub quotes (100 tickers, 10개씩 배치)
- *   - FMP profiles (신규/만료만)
+ *   - Finnhub quotes (고정 + 동적 티커, 10개씩 배치)
  *   - Global data (Fear&Greed, 환율, FRED)
+ *
+ * 동적 티커 병합:
+ *   - `hit:<SYMBOL>` KV 키로 사용자 조회 횟수 추적 (index.js에서 기록)
+ *   - 주말 Cron 시 상위 50개를 고정 워밍 리스트에 병합
+ *   - 병합 후 히트 카운터 초기화 (7일 TTL이지만 주말에 명시적 리셋)
+ *   - 동적 리스트는 `warm:dynamic_tickers`에 별도 저장 (디버깅용)
+ *
+ * NOTE: FMP profiles are cached on-demand only (250/day limit).
  */
+
+import { warmCalendarData } from '../handlers/calendar.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -23,29 +32,101 @@ function getCronType(cron) {
   return 'weekend';
 }
 
+/**
+ * 동적 티커 병합 — 히트 카운터 기반 상위 50개를 고정 리스트에 합침
+ * @param {object} env - Worker 환경 바인딩
+ * @param {string[]} fixedTickers - KV `warm:tickers`에 저장된 고정 종목 리스트
+ * @param {boolean} resetCounters - true이면 히트 카운터 초기화 (주말 전용)
+ * @returns {Promise<{merged: string[], dynamicCount: number}>}
+ */
+async function getDynamicTickers(env, fixedTickers, resetCounters = false) {
+  // KV list는 페이지네이션 가능 — cursor로 전체 조회
+  let allKeys = [];
+  let cursor = undefined;
+  try {
+    do {
+      const listed = await env.CACHE_KV.list({ prefix: 'hit:', cursor });
+      allKeys = allKeys.concat(listed.keys);
+      cursor = listed.list_complete ? undefined : listed.cursor;
+    } while (cursor);
+  } catch (e) {
+    console.error('[Cron] Failed to list hit keys:', e.message);
+    return { merged: fixedTickers, dynamicCount: 0 };
+  }
+
+  if (!allKeys.length) {
+    return { merged: fixedTickers, dynamicCount: 0 };
+  }
+
+  // 카운트 읽기 (병렬)
+  const counts = await Promise.allSettled(
+    allKeys.map(async (key) => {
+      const count = parseInt(await env.CACHE_KV.get(key.name) || '0');
+      return { symbol: key.name.replace('hit:', ''), count };
+    })
+  );
+
+  // 상위 50개 추출
+  const topDynamic = counts
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 50)
+    .map(r => r.symbol);
+
+  // 고정 리스트와 병합 (중복 제거)
+  const fixedSet = new Set(fixedTickers);
+  const merged = [...fixedTickers];
+  for (const symbol of topDynamic) {
+    if (!fixedSet.has(symbol)) {
+      merged.push(symbol);
+    }
+  }
+
+  // 동적 리스트 저장 (디버깅/참조용)
+  try {
+    await env.CACHE_KV.put('warm:dynamic_tickers', JSON.stringify(topDynamic));
+  } catch (e) { /* 저장 실패 무시 */ }
+
+  // 주말에만 히트 카운터 초기화
+  if (resetCounters) {
+    console.log(`[Cron] Resetting ${allKeys.length} hit counters`);
+    await Promise.allSettled(
+      allKeys.map(key => env.CACHE_KV.delete(key.name))
+    );
+  }
+
+  console.log(`[Cron] Dynamic tickers: ${topDynamic.length} found, ${merged.length - fixedTickers.length} new merged`);
+  return { merged, dynamicCount: topDynamic.length };
+}
+
 export async function runCacheWarming(event, env) {
   const cronType = getCronType(event.cron);
   const startTime = Date.now();
   console.log(`[Cron] Cache warming started: ${cronType}`);
 
-  // 1. 인기 종목 리스트 조회
-  let tickers;
+  // 1. 고정 종목 리스트 조회
+  let fixedTickers;
   try {
-    tickers = await env.CACHE_KV.get('warm:tickers', 'json');
+    fixedTickers = await env.CACHE_KV.get('warm:tickers', 'json');
   } catch (e) {
     console.error('[Cron] Failed to read tickers from KV:', e.message);
     return;
   }
-  if (!tickers || !Array.isArray(tickers)) {
+  if (!fixedTickers || !Array.isArray(fixedTickers)) {
     console.error('[Cron] No tickers found in KV');
     return;
   }
 
-  // 2~4. 워밍 병렬 실행 (각각 다른 API를 호출하므로 동시 실행 안전)
+  // 2. 동적 티커 병합 (주말이면 카운터 리셋)
+  const isWeekend = cronType === 'weekend';
+  const { merged: tickers, dynamicCount } = await getDynamicTickers(env, fixedTickers, isWeekend);
+
+  // 3~4. 워밍 병렬 실행 (각각 다른 API를 호출하므로 동시 실행 안전)
   await Promise.all([
-    cronType !== 'weekend' ? warmFinnhubQuotes(env, tickers) : Promise.resolve(),
-    (cronType === 'weekend' || cronType === 'post-market') ? warmFMPProfiles(env, tickers) : Promise.resolve(),
+    !isWeekend ? warmFinnhubQuotes(env, tickers) : Promise.resolve(),
     warmGlobalData(env),
+    warmCalendarData(env, cronType),
   ]);
 
   // 5. 워밍 완료 기록
@@ -54,11 +135,13 @@ export async function runCacheWarming(event, env) {
       type: cronType,
       timestamp: new Date().toISOString(),
       duration_ms: Date.now() - startTime,
+      fixed_count: fixedTickers.length,
+      dynamic_count: dynamicCount,
       tickers_count: tickers.length,
     }));
   } catch (e) { /* 기록 실패 무시 */ }
 
-  console.log(`[Cron] Cache warming completed in ${Date.now() - startTime}ms`);
+  console.log(`[Cron] Cache warming completed in ${Date.now() - startTime}ms (${tickers.length} tickers)`);
 }
 
 async function warmFinnhubQuotes(env, tickers) {
@@ -104,64 +187,6 @@ async function warmFinnhubQuotes(env, tickers) {
   }
 
   console.log(`[Cron] Finnhub quotes total: ${totalSuccess}/${tickers.length}`);
-}
-
-async function warmFMPProfiles(env, tickers) {
-  const apiKey = env.FMP_API_KEY;
-  if (!apiKey) {
-    console.error('[Cron] FMP_API_KEY not set, skipping profiles');
-    return;
-  }
-
-  // KV에 이미 있으면 건너뜀 (TTL 자동 만료, 병렬 조회)
-  const checks = await Promise.allSettled(
-    tickers.map(async (symbol) => {
-      const existing = await env.CACHE_KV.get(`fmp_profile:${symbol}`);
-      return { symbol, exists: !!existing };
-    })
-  );
-  const tickersToWarm = [];
-  for (let i = 0; i < checks.length; i++) {
-    const r = checks[i];
-    if (r.status === 'fulfilled' && r.value.exists) continue;
-    tickersToWarm.push(tickers[i]); // KV 에러 시에도 워밍 시도
-  }
-
-  if (tickersToWarm.length === 0) {
-    console.log('[Cron] All FMP profiles cached, skipping');
-    return;
-  }
-
-  // 5개씩 배치, 배치 간 1초 대기
-  const batchSize = 5;
-  let totalSuccess = 0;
-
-  for (let i = 0; i < tickersToWarm.length; i += batchSize) {
-    const batch = tickersToWarm.slice(i, i + batchSize);
-
-    const results = await Promise.allSettled(
-      batch.map(async (symbol) => {
-        const resp = await fetch(
-          `https://financialmodelingprep.com/stable/profile?symbol=${encodeURIComponent(symbol)}&apikey=${apiKey}`
-        );
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.text();
-
-        await env.CACHE_KV.put(`fmp_profile:${symbol}`, data, {
-          expirationTtl: 604800, // 7일
-        });
-        return symbol;
-      })
-    );
-
-    totalSuccess += results.filter(r => r.status === 'fulfilled').length;
-
-    if (i + batchSize < tickersToWarm.length) {
-      await sleep(1000);
-    }
-  }
-
-  console.log(`[Cron] FMP profiles warmed: ${totalSuccess}/${tickersToWarm.length}`);
 }
 
 async function warmGlobalData(env) {

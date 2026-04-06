@@ -515,6 +515,14 @@ class AppColors {
   static const Color overlayGreen = Color(0xFF4ADE80);
   static const Color overlayRed = Color(0xFFF87171);
 
+  // 캘린더 카테고리 색상 (GitHub Dark 팔레트 호환, 라이트/다크 공용)
+  static const Color calendarFomc = Color(0xFFF85149);
+  static const Color calendarInflation = Color(0xFFF0883E);
+  static const Color calendarEmployment = Color(0xFF3FB950);
+  static const Color calendarEarnings = Color(0xFF58A6FF);
+  static const Color calendarGdp = Color(0xFFA371F7);
+  static const Color calendarOther = Color(0xFF8B949E);
+
   // 다크 주식 배경색
   static const Color darkStockUp50 = Color(0xFF2D1B1B);
   static const Color darkStockDown50 = Color(0xFF1B2333);

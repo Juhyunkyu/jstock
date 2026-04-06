@@ -13,9 +13,11 @@ import '../../widgets/common/app_title_logo.dart';
 import '../../widgets/common/calculator_button.dart';
 import '../../widgets/common/notification_bell_button.dart';
 import '../../widgets/home/market_news_section.dart';
-import '../../widgets/home/global_indicators_panel.dart';
+import '../../widgets/home/global_indicators_marquee.dart';
+import '../../widgets/home/economic_calendar_card.dart';
 import '../../providers/market_news_providers.dart';
 import '../../providers/global_indicators_provider.dart';
+import '../../providers/calendar_providers.dart';
 
 /// 홈 화면
 ///
@@ -46,6 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ref.read(marketNewsProvider.notifier).fetchNews();
     ref.read(koreaNewsProvider.notifier).fetchNews();
     ref.read(globalIndicatorsProvider.notifier).loadIndicators();
+    ref.read(calendarProvider.notifier).loadEvents();
   }
 
   @override
@@ -135,11 +138,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 8),
+                  const GlobalIndicatorsMarquee(),
+                  const SizedBox(height: 8),
                   const IndexQuoteRow(),
                   const SizedBox(height: 8),
                   const MarketIndexCard(),
                   const SizedBox(height: 10),
-                  // Fear & Greed + 글로벌 지표 (반응형)
+                  // Fear & Greed + 경제 캘린더 (반응형)
                   Builder(builder: (context) {
                     final screenW = MediaQuery.sizeOf(context).width;
                     final isDesktop = screenW >= 600;
@@ -155,18 +160,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     );
 
                     if (isDesktop) {
-                      // 데스크톱: 두 카드 나란히 (2:1), 고정 높이로 동일
-                      final fs = 0.92 + ((screenW - 320) / 1080).clamp(0.0, 1.0) * 0.43;
-                      final cardHeight = 260.0 * fs;
+                      // 데스크톱: Fear&Greed (50%) + Calendar (50%) 나란히
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: SizedBox(
-                          height: cardHeight,
+                        child: IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Expanded(
-                                flex: 2,
                                 child: FearGreedCard(
                                   value: fearGreedState.value,
                                   isLoading: fearGreedState.isLoading,
@@ -178,22 +179,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Expanded(
-                                flex: 1,
-                                child: GlobalIndicatorsCard(),
-                              ),
+                              const Expanded(child: EconomicCalendarCard()),
                             ],
                           ),
                         ),
                       );
                     }
 
-                    // 모바일: 세로 배치
+                    // 모바일: 캘린더 먼저 → Fear&Greed
                     return Column(
                       children: [
-                        fearGreedCard,
+                        const EconomicCalendarCard(),
                         const SizedBox(height: 8),
-                        const GlobalIndicatorsGrid(),
+                        fearGreedCard,
                       ],
                     );
                   }),

@@ -1,0 +1,503 @@
+/**
+ * 경제 캘린더 + 실적 캘린더 핸들러
+ *
+ * 엔드포인트:
+ *   GET /api/calendar/economic?from=YYYY-MM-DD&to=YYYY-MM-DD
+ *     → FRED release dates + TradingView forecast/previous + FOMC 병합
+ *
+ *   GET /api/calendar/earnings?from=YYYY-MM-DD&to=YYYY-MM-DD&symbols=NVDA,TSLA
+ *     → Finnhub earnings calendar 프록시
+ *
+ * 캐시 전략:
+ *   calendar:fred_dates:RELEASE_ID  → KV 30일
+ *   calendar:tv_events:FROM_TO      → KV 24시간
+ *   calendar:earnings:YYYY-MM       → KV 7일
+ */
+
+import { corsHeaders } from '../utils/cors.js';
+import { jsonError } from '../utils/helpers.js';
+
+// ── FRED Release ID 매핑 ──
+
+const FRED_RELEASES = [
+  { id: 10, title: 'CPI 소비자물가지수', titleEn: 'Consumer Price Index', category: 'inflation', unit: '%' },
+  { id: 50, title: '고용보고서', titleEn: 'Employment Situation', category: 'employment', unit: 'K' },
+  { id: 53, title: 'GDP 성장률', titleEn: 'GDP Growth Rate', category: 'gdp', unit: '%' },
+  { id: 46, title: 'PPI 생산자물가지수', titleEn: 'Producer Price Index', category: 'inflation', unit: '%' },
+  { id: 9, title: '소매판매', titleEn: 'Retail Sales', category: 'other', unit: '%' },
+  { id: 54, title: 'PCE 개인소비지출', titleEn: 'Personal Consumption Expenditures', category: 'inflation', unit: '%' },
+];
+
+const FRED_RELEASE_MAP = Object.fromEntries(FRED_RELEASES.map(r => [r.id, r]));
+
+// ── FOMC 2026 일정 (연 1회 수동 업데이트) ──
+
+const FOMC_DATES_2026 = [
+  '2026-01-28', '2026-03-18', '2026-05-06', '2026-06-17',
+  '2026-07-29', '2026-09-16', '2026-11-04', '2026-12-16',
+];
+
+// ── TradingView → FRED 매칭 키워드 ──
+
+const TV_MATCH_KEYWORDS = {
+  10: ['cpi', 'consumer price'],
+  50: ['nonfarm', 'non-farm', 'employment situation', 'payroll'],
+  53: ['gdp', 'gross domestic'],
+  46: ['ppi', 'producer price'],
+  9: ['retail sales'],
+  54: ['pce', 'personal consumption', 'core pce'],
+};
+
+// ── 라우터 ──
+
+export async function handleCalendar(request, env, url) {
+  if (request.method !== 'GET') {
+    return jsonError('GET only', 405, request);
+  }
+
+  const subPath = url.pathname.replace('/api/calendar/', '');
+
+  if (subPath === 'economic' || subPath.startsWith('economic?')) {
+    return handleEconomicCalendar(request, env, url);
+  }
+  if (subPath === 'earnings' || subPath.startsWith('earnings?')) {
+    return handleEarningsCalendar(request, env, url);
+  }
+
+  return jsonError('Not found', 404, request);
+}
+
+// ── JSON 응답 헬퍼 ──
+
+function jsonResponse(data, request, cacheControl = 'public, max-age=1800') {
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': cacheControl,
+      ...corsHeaders(request),
+    },
+  });
+}
+
+// ════════════════════════════════════════════════════
+// 경제 캘린더 (FRED + TradingView + FOMC)
+// ════════════════════════════════════════════════════
+
+async function handleEconomicCalendar(request, env, url) {
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+
+  if (!from || !to) {
+    return jsonError('Missing required params: from, to (YYYY-MM-DD)', 400, request);
+  }
+
+  // 1. FRED release dates (병렬, 개별 캐시)
+  const fredResults = await Promise.allSettled(
+    FRED_RELEASES.map(rel => fetchFredReleaseDates(env, rel, from, to))
+  );
+  const fredEvents = fredResults
+    .filter(r => r.status === 'fulfilled')
+    .flatMap(r => r.value);
+
+  // 2. TradingView events (forecast/previous 보강용)
+  const tvEvents = await fetchTradingViewEvents(env, from, to);
+
+  // 3. FRED 이벤트에 TradingView forecast/previous 병합
+  const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents);
+
+  // 4. FOMC 일정 추가 (from~to 범위 내)
+  const fomcEvents = buildFomcEvents(from, to);
+
+  // 5. TradingView 중 FRED에 매칭 안 된 고중요도 이벤트 추가
+  const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, fredEvents);
+
+  // 6. 합치고 날짜순 정렬
+  const allEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return jsonResponse(allEvents, request);
+}
+
+// ── FRED Release Dates 조회 (개별 KV 캐시, 30일 TTL) ──
+
+async function fetchFredReleaseDates(env, release, from, to) {
+  const kvKey = `calendar:fred_dates:${release.id}`;
+
+  // KV 캐시 확인
+  try {
+    const cached = await env.CACHE_KV.get(kvKey, 'json');
+    if (cached) {
+      // 캐시된 전체 목록에서 from~to 범위 필터
+      return cached.filter(e => e.date >= `${from}T00:00:00.000Z` && e.date <= `${to}T23:59:59.999Z`);
+    }
+  } catch (e) {
+    console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+  }
+
+  const apiKey = env.FRED_API_KEY;
+  if (!apiKey) {
+    console.error('[Calendar] FRED_API_KEY not configured');
+    return [];
+  }
+
+  try {
+    const resp = await fetch(
+      `https://api.stlouisfed.org/fred/release/dates?release_id=${release.id}` +
+      `&api_key=${apiKey}&file_type=json&sort_order=desc` +
+      `&include_release_dates_with_no_data=true&limit=24`
+    );
+    if (!resp.ok) {
+      console.error(`[Calendar] FRED release ${release.id} HTTP ${resp.status}`);
+      return [];
+    }
+
+    const data = await resp.json();
+    const dates = (data.release_dates || []).map(d => ({
+      id: `fred-${release.id}-${d.date}`,
+      title: release.title,
+      titleEn: release.titleEn,
+      date: `${d.date}T00:00:00.000Z`,
+      category: release.category,
+      forecast: null,
+      previous: null,
+      actual: null,
+      unit: release.unit,
+      importance: 2,
+    }));
+
+    // KV 저장 (30일 TTL)
+    try {
+      await env.CACHE_KV.put(kvKey, JSON.stringify(dates), { expirationTtl: 2592000 });
+    } catch (e) {
+      console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
+    }
+
+    // from~to 범위 필터
+    return dates.filter(e => e.date >= `${from}T00:00:00.000Z` && e.date <= `${to}T23:59:59.999Z`);
+  } catch (e) {
+    console.error(`[Calendar] FRED release ${release.id} fetch failed:`, e.message);
+    return [];
+  }
+}
+
+// ── TradingView Economic Calendar 조회 (KV 캐시, 24시간 TTL) ──
+
+async function fetchTradingViewEvents(env, from, to) {
+  const kvKey = `calendar:tv_events:${from}_${to}`;
+
+  // KV 캐시 확인
+  try {
+    const cached = await env.CACHE_KV.get(kvKey, 'json');
+    if (cached) return cached;
+  } catch (e) {
+    console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+  }
+
+  try {
+    const resp = await fetch('https://economic-calendar.tradingview.com/events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Origin': 'https://www.tradingview.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      body: JSON.stringify({
+        from: `${from}T00:00:00.000Z`,
+        to: `${to}T00:00:00.000Z`,
+        countries: ['US'],
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error(`[Calendar] TradingView HTTP ${resp.status}`);
+      return [];
+    }
+
+    const data = await resp.json();
+    // importance >= 0인 US 이벤트만 필터
+    const filtered = (data.result || data || []).filter(
+      e => e.country === 'US' && (e.importance == null || e.importance >= 0)
+    );
+
+    // KV 저장 (24시간 TTL)
+    try {
+      await env.CACHE_KV.put(kvKey, JSON.stringify(filtered), { expirationTtl: 86400 });
+    } catch (e) {
+      console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
+    }
+
+    return filtered;
+  } catch (e) {
+    console.error('[Calendar] TradingView fetch failed:', e.message);
+    return []; // TradingView 실패 시 FRED 날짜만으로 동작
+  }
+}
+
+// ── FRED + TradingView 병합 ──
+
+function mergeFredWithTradingView(fredEvents, tvEvents) {
+  if (!tvEvents.length) return fredEvents;
+
+  return fredEvents.map(fredEvent => {
+    // FRED release ID로 TradingView 키워드 매칭
+    const releaseId = parseInt(fredEvent.id.split('-')[1]);
+    const keywords = TV_MATCH_KEYWORDS[releaseId] || [];
+    if (!keywords.length) return fredEvent;
+
+    // 같은 날짜 + 키워드 매칭되는 TradingView 이벤트 찾기
+    const fredDateStr = fredEvent.date.substring(0, 10); // YYYY-MM-DD
+    const matched = tvEvents.find(tv => {
+      const tvDateStr = (tv.date || '').substring(0, 10);
+      if (tvDateStr !== fredDateStr) return false;
+      const tvTitle = (tv.title || '').toLowerCase();
+      return keywords.some(kw => tvTitle.includes(kw));
+    });
+
+    if (matched) {
+      return {
+        ...fredEvent,
+        forecast: matched.forecast ?? null,
+        previous: matched.previous ?? null,
+        actual: matched.actual ?? null,
+        // TradingView importance가 더 세밀하면 반영 (3 = high)
+        importance: matched.importance >= 3 ? 3 : fredEvent.importance,
+      };
+    }
+
+    return fredEvent;
+  });
+}
+
+// ── FOMC 일정 생성 (from~to 범위 필터) ──
+
+function buildFomcEvents(from, to) {
+  return FOMC_DATES_2026
+    .filter(d => d >= from && d <= to)
+    .map(d => ({
+      id: `fomc-${d}`,
+      title: 'FOMC 금리 결정',
+      titleEn: 'FOMC Rate Decision',
+      date: `${d}T00:00:00.000Z`,
+      category: 'fomc',
+      forecast: null,
+      previous: null,
+      actual: null,
+      unit: '%',
+      importance: 3,
+    }));
+}
+
+// ── TradingView 중 FRED에 매칭 안 된 고중요도(importance >= 2) 이벤트 ──
+
+function buildUnmatchedTvEvents(tvEvents, fredEvents) {
+  if (!tvEvents.length) return [];
+
+  // FRED 이벤트의 날짜 set
+  const fredDateSet = new Set(fredEvents.map(e => e.date.substring(0, 10)));
+
+  // 이미 매칭된 TV 이벤트 제외 — 키워드 매칭 여부 확인
+  const allKeywords = Object.values(TV_MATCH_KEYWORDS).flat();
+
+  return tvEvents
+    .filter(tv => {
+      if ((tv.importance || 0) < 2) return false;
+      const tvTitle = (tv.title || '').toLowerCase();
+      // FRED 키워드에 해당하는 이벤트는 이미 병합됨 → 제외
+      const isFredMatched = allKeywords.some(kw => tvTitle.includes(kw));
+      return !isFredMatched;
+    })
+    .map(tv => ({
+      id: `tv-${(tv.date || '').substring(0, 10)}-${(tv.title || '').replace(/\s+/g, '_').substring(0, 30)}`,
+      title: tv.title || '',
+      titleEn: tv.title || '',
+      date: tv.date || '',
+      category: mapTvCategory(tv.category),
+      forecast: tv.forecast ?? null,
+      previous: tv.previous ?? null,
+      actual: tv.actual ?? null,
+      unit: '',
+      importance: tv.importance >= 3 ? 3 : 2,
+    }));
+}
+
+function mapTvCategory(tvCategory) {
+  if (!tvCategory) return 'other';
+  const cat = tvCategory.toLowerCase();
+  if (cat.includes('price') || cat.includes('inflation')) return 'inflation';
+  if (cat.includes('employ') || cat.includes('labor')) return 'employment';
+  if (cat.includes('gdp') || cat.includes('growth')) return 'gdp';
+  return 'other';
+}
+
+// ════════════════════════════════════════════════════
+// 실적 캘린더 (Finnhub Earnings)
+// ════════════════════════════════════════════════════
+
+async function handleEarningsCalendar(request, env, url) {
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  const symbolsParam = url.searchParams.get('symbols');
+
+  if (!from || !to) {
+    return jsonError('Missing required params: from, to (YYYY-MM-DD)', 400, request);
+  }
+
+  const apiKey = env.FINNHUB_API_KEY;
+  if (!apiKey) return jsonError('FINNHUB_API_KEY not configured', 500, request);
+
+  // KV 캐시 키 (월 단위)
+  const monthKey = from.substring(0, 7); // YYYY-MM
+  const kvKey = `calendar:earnings:${monthKey}`;
+
+  // 1. KV 캐시 확인 (symbols 없을 때만 — symbols 있으면 항상 fresh)
+  if (!symbolsParam) {
+    try {
+      const cached = await env.CACHE_KV.get(kvKey, 'json');
+      if (cached) {
+        // from~to 범위 필터
+        const filtered = cached.filter(e => {
+          const d = e.date.substring(0, 10);
+          return d >= from && d <= to;
+        });
+        return jsonResponse(filtered, request);
+      }
+    } catch (e) {
+      console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+    }
+  }
+
+  // 2. Finnhub API 호출
+  try {
+    const fetchPromises = [];
+
+    // 기본: 전체 earnings calendar
+    fetchPromises.push(
+      fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${apiKey}`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    );
+
+    // symbols 파라미터가 있으면 개별 심볼도 조회
+    if (symbolsParam) {
+      const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+      for (const symbol of symbols.slice(0, 20)) { // 최대 20개 제한
+        fetchPromises.push(
+          fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${symbol}&token=${apiKey}`)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        );
+      }
+    }
+
+    const results = await Promise.allSettled(fetchPromises);
+    const allEarnings = new Map(); // symbol+date → event (중복 제거)
+
+    for (const result of results) {
+      if (result.status !== 'fulfilled' || !result.value) continue;
+      const data = result.value;
+      const calendar = data.earningsCalendar || [];
+      for (const item of calendar) {
+        const key = `${item.symbol}-${item.date}`;
+        if (!allEarnings.has(key)) {
+          allEarnings.set(key, item);
+        }
+      }
+    }
+
+    // 3. 응답 형식 매핑
+    const events = Array.from(allEarnings.values()).map(item => ({
+      id: `earn-${item.symbol}-${item.date}`,
+      title: `${item.symbol} 실적 발표`,
+      titleEn: `${item.symbol} Earnings`,
+      date: `${item.date}T00:00:00.000Z`,
+      category: 'earnings',
+      forecast: item.epsEstimate ?? null,
+      previous: null,
+      actual: item.epsActual ?? null,
+      unit: 'EPS',
+      importance: 2,
+      ticker: item.symbol,
+      hour: item.hour || null,
+      revenueEstimate: item.revenueEstimate ?? null,
+    })).sort((a, b) => a.date.localeCompare(b.date));
+
+    // 4. KV 저장 (symbols 없을 때만 — 전체 캘린더, 7일 TTL)
+    if (!symbolsParam) {
+      try {
+        await env.CACHE_KV.put(kvKey, JSON.stringify(events), { expirationTtl: 604800 });
+      } catch (e) {
+        console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
+      }
+    }
+
+    return jsonResponse(events, request);
+  } catch (e) {
+    console.error('[Calendar] Finnhub earnings fetch failed:', e.message);
+    return jsonError(`Earnings calendar error: ${e.message}`, 502, request);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// Cron 워밍용 — 외부에서 호출 가능하도록 export
+// ════════════════════════════════════════════════════
+
+/**
+ * 캘린더 데이터 워밍 (Cron에서 호출)
+ * @param {object} env - Worker 환경 바인딩
+ * @param {string} cronType - 'pre-market' | 'post-market' | 'weekend'
+ */
+export async function warmCalendarData(env, cronType) {
+  const now = new Date();
+  const today = now.toISOString().substring(0, 10);
+
+  // 이번 주 시작(월)~끝(일) 계산
+  const dayOfWeek = now.getDay(); // 0=Sun
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7));
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const weekFrom = monday.toISOString().substring(0, 10);
+  const weekTo = sunday.toISOString().substring(0, 10);
+
+  if (cronType === 'pre-market' || cronType === 'post-market') {
+    // 평일: TradingView 이벤트 (이번 주) — forecast 값 갱신
+    try {
+      await fetchTradingViewEvents(env, weekFrom, weekTo);
+      console.log('[Cron] Calendar: TradingView events warmed (this week)');
+    } catch (e) {
+      console.error('[Cron] Calendar: TradingView warming failed:', e.message);
+    }
+  }
+
+  if (cronType === 'weekend') {
+    // 주말: FRED release dates (3개월 분) + TradingView (2주)
+    try {
+      // FRED: 각 Release ID별 워밍
+      const threeMonthsLater = new Date(now);
+      threeMonthsLater.setMonth(now.getMonth() + 3);
+      const fredFrom = today;
+      const fredTo = threeMonthsLater.toISOString().substring(0, 10);
+
+      await Promise.allSettled(
+        FRED_RELEASES.map(rel => fetchFredReleaseDates(env, rel, fredFrom, fredTo))
+      );
+      console.log('[Cron] Calendar: FRED release dates warmed (3 months)');
+    } catch (e) {
+      console.error('[Cron] Calendar: FRED warming failed:', e.message);
+    }
+
+    try {
+      // TradingView: 2주분
+      const twoWeeksLater = new Date(now);
+      twoWeeksLater.setDate(now.getDate() + 14);
+      const tvTo = twoWeeksLater.toISOString().substring(0, 10);
+
+      await fetchTradingViewEvents(env, today, tvTo);
+      console.log('[Cron] Calendar: TradingView events warmed (2 weeks)');
+    } catch (e) {
+      console.error('[Cron] Calendar: TradingView warming failed:', e.message);
+    }
+  }
+}
