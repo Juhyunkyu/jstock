@@ -74,19 +74,30 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   Widget _buildHeader(BuildContext context) {
     final title = _isCalendarView
-        ? '📅 ${DateTime.now().month}월'
-        : '📅 주요 일정';
+        ? '${DateTime.now().month}월'
+        : '주요 일정';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: context.appTextPrimary,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.event_note_outlined,
+              size: 16,
+              color: context.appTextSecondary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: context.appTextPrimary,
+              ),
+            ),
+          ],
         ),
         _buildViewToggle(context),
       ],
@@ -402,18 +413,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 월 표시
-        Padding(
-          padding: const EdgeInsets.only(bottom: 4),
-          child: Text(
-            '${now.year}년 ${now.month}월',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: context.appTextPrimary,
-            ),
-          ),
-        ),
         // 요일 헤더
         _buildWeekHeader(context),
         const SizedBox(height: 2),

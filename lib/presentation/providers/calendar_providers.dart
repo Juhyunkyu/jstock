@@ -65,11 +65,11 @@ class CalendarState {
     return map;
   }
 
-  /// 다가오는 이벤트 (오늘 이후 7일)
+  /// 다가오는 이벤트 (오늘 이후 14일)
   List<EconomicEvent> get upcomingEvents {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final weekLater = today.add(const Duration(days: 7));
+    final weekLater = today.add(const Duration(days: 14));
     return events
         .where((e) {
           final d = DateTime(e.date.year, e.date.month, e.date.day);

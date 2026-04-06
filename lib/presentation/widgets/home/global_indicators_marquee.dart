@@ -238,12 +238,6 @@ class _MarqueeItem extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 이모지 아이콘
-            Text(
-              indicator.icon,
-              style: const TextStyle(fontSize: 13),
-            ),
-            const SizedBox(width: 4),
             // 라벨
             Text(
               indicator.label,
