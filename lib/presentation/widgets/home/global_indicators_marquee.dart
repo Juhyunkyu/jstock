@@ -16,113 +16,57 @@ class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
 }
 
 class _GlobalIndicatorsMarqueeState
-    extends ConsumerState<GlobalIndicatorsMarquee>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-
-  /// 1세트(전체 지표 1회)의 렌더링 너비 (layout 후 측정)
-  double _singleSetWidth = 0;
-
-  /// 현재 스크롤 오프셋 (px)
-  double _offset = 0;
-
-  /// 스크롤 속도 (px/s)
-  static const double _speed = 40.0;
-
-  /// 마지막 tick 시간
-  Duration _lastElapsed = Duration.zero;
-
-  /// 포인터가 눌린 상태인지 (일시정지용)
+    extends ConsumerState<GlobalIndicatorsMarquee> {
+  final ScrollController _scrollController = ScrollController();
   bool _paused = false;
-
-  final GlobalKey _singleSetKey = GlobalKey();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController.unbounded(vsync: this)
-      ..addListener(_tick);
-  }
+  bool _scrolling = false;
+  static const double _speed = 40.0; // px/s
 
   @override
   void dispose() {
-    _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  /// 매 프레임 호출 — offset 갱신
-  void _tick() {
-    final now = _controller.lastElapsedDuration ?? Duration.zero;
-    if (_lastElapsed == Duration.zero) {
-      _lastElapsed = now;
-      return;
-    }
-    final dt = (now - _lastElapsed).inMicroseconds / 1e6; // seconds
-    _lastElapsed = now;
+  void _startAutoScroll() async {
+    if (_scrolling) return;
+    _scrolling = true;
 
-    if (_paused || _singleSetWidth <= 0) return;
-
-    setState(() {
-      _offset += _speed * dt;
-      // 1세트 너비만큼 이동하면 0으로 리셋 → 무한 루프
-      if (_offset >= _singleSetWidth) {
-        _offset -= _singleSetWidth;
-      }
-    });
-  }
-
-  void _startScrolling() {
-    _lastElapsed = Duration.zero;
-    _controller.repeat(); // unbounded repeat triggers vsync ticks
-  }
-
-  void _pause() {
-    _paused = true;
-  }
-
-  void _resume() {
-    _paused = false;
-  }
-
-  /// 레이아웃 후 1세트 너비 측정
-  void _measureSingleSet() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final renderBox =
-          _singleSetKey.currentContext?.findRenderObject() as RenderBox?;
-      if (renderBox != null && renderBox.hasSize) {
-        final newWidth = renderBox.size.width;
-        if ((newWidth - _singleSetWidth).abs() > 1) {
-          setState(() {
-            _singleSetWidth = newWidth;
-          });
-          // 아직 애니메이션이 시작되지 않았으면 시작
-          if (!_controller.isAnimating) {
-            _startScrolling();
-          }
+    while (mounted && _scrollController.hasClients) {
+      if (!_paused) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        final currentScroll = _scrollController.offset;
+        // 반절 넘으면 리셋 (무한 루프)
+        if (currentScroll >= maxScroll * 0.5) {
+          _scrollController.jumpTo(0);
         }
+        // 16ms 간격 (≈60fps) 으로 스크롤
+        final delta = _speed * 0.016;
+        _scrollController.jumpTo(_scrollController.offset + delta);
       }
-    });
+      await Future.delayed(const Duration(milliseconds: 16));
+    }
+    _scrolling = false;
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(globalIndicatorsProvider);
 
-    // 로딩 중 (데이터 0건) → 스켈레톤 shimmer
     if (state.isLoading && state.indicators.isEmpty) {
       return _buildShimmer(context);
     }
 
-    // 에러 또는 빈 데이터 → 숨김
     if (state.indicators.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    // 지표 아이템 위젯 목록 생성
     final items = _buildIndicatorItems(context, state.indicators);
 
-    // 너비 측정 트리거
-    _measureSingleSet();
+    // 첫 빌드 후 스크롤 시작
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrolling) _startAutoScroll();
+    });
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -134,31 +78,22 @@ class _GlobalIndicatorsMarqueeState
         ),
         clipBehavior: Clip.hardEdge,
         child: Listener(
-          onPointerDown: (_) => _pause(),
-          onPointerUp: (_) => _resume(),
-          onPointerCancel: (_) => _resume(),
+          onPointerDown: (_) => _paused = true,
+          onPointerUp: (_) => _paused = false,
+          onPointerCancel: (_) => _paused = false,
           child: MouseRegion(
-            onEnter: (_) => _pause(),
-            onExit: (_) => _resume(),
-            child: ClipRect(
-              child: Transform.translate(
-                offset: Offset(-_offset, 0),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 1세트 (측정용 key 부착)
-                    Row(
-                      key: _singleSetKey,
-                      mainAxisSize: MainAxisSize.min,
-                      children: items,
-                    ),
-                    // 2세트 (무한 루프용 복제)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: items,
-                    ),
-                  ],
-                ),
+            onEnter: (_) => _paused = true,
+            onExit: (_) => _paused = false,
+            child: SingleChildScrollView(
+              controller: _scrollController,
+              scrollDirection: Axis.horizontal,
+              physics: const NeverScrollableScrollPhysics(),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 3세트 반복 (무한 루프용)
+                  ...items, ...items, ...items,
+                ],
               ),
             ),
           ),
@@ -441,8 +376,6 @@ void _showIndicatorDetail(BuildContext context, GlobalIndicator indicator) {
           // 헤더
           Row(
             children: [
-              Text(detail.icon, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
               Text(
                 detail.name,
                 style: TextStyle(

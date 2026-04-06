@@ -163,25 +163,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       // 데스크톱: Fear&Greed (50%) + Calendar (50%) 나란히
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Expanded(
-                                child: FearGreedCard(
-                                  value: fearGreedState.value,
-                                  isLoading: fearGreedState.isLoading,
-                                  error: fearGreedState.error,
-                                  onRefresh: () {
-                                    ref.read(fearGreedProvider.notifier).refresh();
-                                  },
-                                  useOuterMargin: false,
-                                ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: FearGreedCard(
+                                value: fearGreedState.value,
+                                isLoading: fearGreedState.isLoading,
+                                error: fearGreedState.error,
+                                onRefresh: () {
+                                  ref.read(fearGreedProvider.notifier).refresh();
+                                },
+                                useOuterMargin: false,
                               ),
-                              const SizedBox(width: 10),
-                              const Expanded(child: EconomicCalendarCard()),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: EconomicCalendarCard(useOuterMargin: false),
+                            ),
+                          ],
                         ),
                       );
                     }
