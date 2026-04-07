@@ -181,17 +181,23 @@ async function fetchFredReleaseDates(env, release, from, to) {
   }
 }
 
-// ── TradingView Economic Calendar 조회 (KV 캐시, 24시간 TTL) ──
+// ── TradingView Economic Calendar 조회 (KV 캐시, 4시간 TTL / 오늘 포함 시 캐시 무시) ──
 
 async function fetchTradingViewEvents(env, from, to) {
   const kvKey = `calendar:tv_events:${from}_${to}`;
 
-  // KV 캐시 확인
-  try {
-    const cached = await env.CACHE_KV.get(kvKey, 'json');
-    if (cached) return cached;
-  } catch (e) {
-    console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+  // 오늘 날짜가 요청 범위에 포함되면 캐시 건너뜀 (actual 값 즉시 반영)
+  const today = new Date().toISOString().substring(0, 10);
+  const todayInRange = from <= today && to >= today;
+
+  // KV 캐시 확인 (오늘 포함 시 건너뜀)
+  if (!todayInRange) {
+    try {
+      const cached = await env.CACHE_KV.get(kvKey, 'json');
+      if (cached) return cached;
+    } catch (e) {
+      console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+    }
   }
 
   try {
@@ -223,9 +229,9 @@ async function fetchTradingViewEvents(env, from, to) {
       )
     );
 
-    // KV 저장 (24시간 TTL)
+    // KV 저장 (4시간 TTL — actual 값 빠른 갱신을 위해)
     try {
-      await env.CACHE_KV.put(kvKey, JSON.stringify(filtered), { expirationTtl: 86400 });
+      await env.CACHE_KV.put(kvKey, JSON.stringify(filtered), { expirationTtl: 14400 });
     } catch (e) {
       console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
     }
