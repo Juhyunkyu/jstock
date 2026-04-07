@@ -161,30 +161,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     if (isDesktop) {
                       // 데스크톱: Fear&Greed (50%) + Calendar (50%) 나란히
-                      // IntrinsicHeight: F&G 자연 높이 기준으로 캘린더 높이 매칭
+                      // 고정 높이로 두 카드 동일하게 맞춤 (게이지 클리핑 방지)
+                      final cardHeight = screenW >= 1200 ? 340.0 : screenW >= 800 ? 300.0 : 280.0;
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: IntrinsicHeight(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: FearGreedCard(
-                                value: fearGreedState.value,
-                                isLoading: fearGreedState.isLoading,
-                                error: fearGreedState.error,
-                                onRefresh: () {
-                                  ref.read(fearGreedProvider.notifier).refresh();
-                                },
-                                useOuterMargin: false,
+                        child: SizedBox(
+                          height: cardHeight,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: FearGreedCard(
+                                  value: fearGreedState.value,
+                                  isLoading: fearGreedState.isLoading,
+                                  error: fearGreedState.error,
+                                  onRefresh: () {
+                                    ref.read(fearGreedProvider.notifier).refresh();
+                                  },
+                                  useOuterMargin: false,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            const Expanded(
-                              child: EconomicCalendarCard(useOuterMargin: false),
-                            ),
-                          ],
-                        ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: EconomicCalendarCard(useOuterMargin: false),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     }
