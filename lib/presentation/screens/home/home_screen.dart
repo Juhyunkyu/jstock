@@ -161,11 +161,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     if (isDesktop) {
                       // 데스크톱: Fear&Greed (50%) + Calendar (50%) 나란히
-                      // CrossAxisAlignment.start로 각 카드가 자연 높이를 유지 (게이지 클리핑 방지)
+                      // IntrinsicHeight: F&G 자연 높이 기준으로 캘린더 높이 매칭
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: IntrinsicHeight(
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Expanded(
                               child: FearGreedCard(
@@ -183,6 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               child: EconomicCalendarCard(useOuterMargin: false),
                             ),
                           ],
+                        ),
                         ),
                       );
                     }

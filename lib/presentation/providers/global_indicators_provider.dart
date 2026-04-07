@@ -87,82 +87,27 @@ class GlobalIndicatorsNotifier extends StateNotifier<GlobalIndicatorsState> {
   GlobalIndicatorsNotifier(this._fredService, this._twelveDataService)
       : super(const GlobalIndicatorsState());
 
-  /// 모든 지표 순차 로드
+  /// 모든 지표 병렬 로드 (FRED + Twelve Data 동시 호출)
   Future<void> loadIndicators() async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final indicators = <GlobalIndicator>[];
+      // 정의: (순서 인덱스, fetch Future) — 순서 보존용
+      final futures = await Future.wait([
+        _fetchFred('DCOILWTICO', 'WTI', '🛢️'),         // 0
+        _fetchTwelveData('XAU/USD', '금', '🥇'),        // 1
+        _fetchTwelveData('BTC/USD', 'BTC', '₿'),        // 2
+        _fetchFredRate('DGS10', '10Y', '📈'),            // 3
+        _fetchFredIndex('VIXCLS', 'VIX', '⚡'),          // 4
+        _fetchFredIndex('DTWEXBGS', 'DXY', '💵'),       // 5
+        _fetchTwelveData('XCU/USD', '구리', '🔶'),       // 6
+        _fetchFred('DHHNGSP', '천연가스', '🔥'),          // 7
+        _fetchTwelveData('XAG/USD', '은', '🥈'),         // 8
+        _fetchTwelveData('NQ', 'NQ선물', '📊'),          // 9
+      ]);
 
-      // 1. WTI 원유 선물 가격 (FRED)
-      final wti = await _fetchFred('DCOILWTICO', 'WTI', '🛢️');
-      if (wti != null) {
-        indicators.add(wti);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 2. 금 현물 가격 (Twelve Data)
-      final gold = await _fetchTwelveData('XAU/USD', '금', '🥇');
-      if (gold != null) {
-        indicators.add(gold);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 3. 비트코인 (Twelve Data)
-      final btc = await _fetchTwelveData('BTC/USD', 'BTC', '₿');
-      if (btc != null) {
-        indicators.add(btc);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 4. 미국 10년 국채 수익률 (FRED)
-      final tenY = await _fetchFredRate('DGS10', '10Y', '📈');
-      if (tenY != null) {
-        indicators.add(tenY);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 5. VIX 변동성 지수 (FRED)
-      final vix = await _fetchFredIndex('VIXCLS', 'VIX', '⚡');
-      if (vix != null) {
-        indicators.add(vix);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 6. DXY 달러 인덱스 (FRED — 무역가중 달러지수)
-      final dxy = await _fetchFredIndex('DTWEXBGS', 'DXY', '💵');
-      if (dxy != null) {
-        indicators.add(dxy);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 7. 구리 (Twelve Data)
-      final copper = await _fetchTwelveData('XCU/USD', '구리', '🔶');
-      if (copper != null) {
-        indicators.add(copper);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 8. 천연가스 (FRED — Henry Hub 현물)
-      final natgas = await _fetchFred('DHHNGSP', '천연가스', '🔥');
-      if (natgas != null) {
-        indicators.add(natgas);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 9. 은 (Twelve Data)
-      final silver = await _fetchTwelveData('XAG/USD', '은', '🥈');
-      if (silver != null) {
-        indicators.add(silver);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
-
-      // 10. NASDAQ 선물 (Twelve Data — E-mini NQ)
-      final nqFutures = await _fetchTwelveData('NQ', 'NQ선물', '📊');
-      if (nqFutures != null) {
-        indicators.add(nqFutures);
-        state = state.copyWith(indicators: List.from(indicators));
-      }
+      // null 제외, 순서 유지
+      final indicators = futures.whereType<GlobalIndicator>().toList();
 
       state = state.copyWith(
         indicators: indicators,
