@@ -181,7 +181,8 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   Widget _buildTimelineView(
       BuildContext context, CalendarState state, double fs) {
-    final events = state.futureEvents;
+    // 전체 이벤트 (과거 actual 포함)
+    final events = state.events;
 
     if (events.isEmpty) {
       return SizedBox(
