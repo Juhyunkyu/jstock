@@ -119,7 +119,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final now = DateTime.now();
-      final from = DateTime(now.year, now.month, 1);
+      final from = DateTime(now.year, 1, 1); // 연초부터 (과거 결과 확인용)
       final to = DateTime(now.year, 12, 31); // 연말까지
 
       final fromStr = _dateStr(from);
