@@ -448,7 +448,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                   child: Text(
                     d,
                     style: TextStyle(
-                      fontSize: 8,
+                      fontSize: 10,
                       color: context.appTextHint,
                     ),
                   ),
@@ -568,7 +568,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               Text(
                 '$day',
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 12,
                   fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
                   color: isDim
                       ? context.appTextHint.withValues(alpha: 0.3)
@@ -578,19 +578,22 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 ),
               ),
               if (dots.isNotEmpty)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: dots
-                      .map((c) => Container(
-                            width: 3,
-                            height: 3,
-                            margin: const EdgeInsets.only(left: 0.5, right: 0.5),
-                            decoration: BoxDecoration(
-                              color: c,
-                              shape: BoxShape.circle,
-                            ),
-                          ))
-                      .toList(),
+                Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: dots
+                        .map((c) => Container(
+                              width: 5,
+                              height: 5,
+                              margin: const EdgeInsets.only(left: 1, right: 1),
+                              decoration: BoxDecoration(
+                                color: c,
+                                shape: BoxShape.circle,
+                              ),
+                            ))
+                        .toList(),
+                  ),
                 ),
             ],
           ),
@@ -609,7 +612,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         child: Center(
           child: Text(
             '이 날짜에 예정된 일정이 없습니다',
-            style: TextStyle(fontSize: 9, color: context.appTextHint),
+            style: TextStyle(fontSize: 11, color: context.appTextHint),
           ),
         ),
       );
@@ -637,7 +640,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 child: Text(
                   event.title,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 11,
                     color: context.appTextPrimary,
                   ),
                   maxLines: 1,
@@ -651,7 +654,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                       ? (_earningsHourText(event.hour) ?? event.hour!)
                       : event.hour!,
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 10,
                     color: context.appTextSecondary,
                   ),
                 ),
@@ -673,25 +676,25 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     ];
 
     return Wrap(
-      spacing: 6,
+      spacing: 8,
       runSpacing: 2,
       children: categories.map((cat) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 4,
-              height: 4,
+              width: 5,
+              height: 5,
               decoration: BoxDecoration(
                 color: cat.color,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 2),
+            const SizedBox(width: 3),
             Text(
               cat.labelKo,
               style: TextStyle(
-                fontSize: 7,
+                fontSize: 9,
                 color: context.appTextSecondary,
               ),
             ),

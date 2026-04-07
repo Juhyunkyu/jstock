@@ -68,16 +68,18 @@ class _MarketNewsSectionState extends ConsumerState<MarketNewsSection> {
     );
 
     if (isDesktop) {
-      // Desktop: side by side
+      // Desktop: side by side, IntrinsicHeight로 높이 통일
       return Container(
         margin: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: globalSection),
-            const SizedBox(width: 12),
-            Expanded(child: koreaSection),
-          ],
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: globalSection),
+              const SizedBox(width: 12),
+              Expanded(child: koreaSection),
+            ],
+          ),
         ),
       );
     }

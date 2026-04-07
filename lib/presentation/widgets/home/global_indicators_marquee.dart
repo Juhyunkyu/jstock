@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../providers/global_indicators_provider.dart';
@@ -7,6 +8,7 @@ import '../../providers/global_indicators_provider.dart';
 ///
 /// WTI, 금, BTC, 10Y, VIX를 좌→우 연속 스크롤로 표시.
 /// 터치/호버 시 일시정지, 탭 시 개별 지표 상세 BottomSheet 표시.
+/// Ticker 기반으로 부드러운 프레임 업데이트.
 class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
   const GlobalIndicatorsMarquee({super.key});
 
@@ -16,43 +18,64 @@ class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
 }
 
 class _GlobalIndicatorsMarqueeState
-    extends ConsumerState<GlobalIndicatorsMarquee> {
+    extends ConsumerState<GlobalIndicatorsMarquee>
+    with SingleTickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
+  Ticker? _ticker;
   bool _paused = false;
-  bool _scrolling = false;
+  bool _tickerStarted = false;
+  Duration _lastElapsed = Duration.zero;
   static const double _speed = 40.0; // px/s
 
   @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_onTick);
+  }
+
+  @override
   void dispose() {
+    _ticker?.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _startAutoScroll() async {
-    if (_scrolling) return;
-    _scrolling = true;
-
-    while (mounted && _scrollController.hasClients) {
-      if (!_paused) {
-        final maxScroll = _scrollController.position.maxScrollExtent;
-        final currentScroll = _scrollController.offset;
-        // 반절 넘으면 리셋 (무한 루프)
-        if (currentScroll >= maxScroll * 0.5) {
-          _scrollController.jumpTo(0);
-        }
-        // 16ms 간격 (≈60fps) 으로 스크롤
-        final delta = _speed * 0.016;
-        _scrollController.jumpTo(_scrollController.offset + delta);
-      }
-      await Future.delayed(const Duration(milliseconds: 16));
+  void _onTick(Duration elapsed) {
+    if (_paused || !_scrollController.hasClients) {
+      _lastElapsed = elapsed;
+      return;
     }
-    _scrolling = false;
+
+    final dt = (elapsed - _lastElapsed).inMicroseconds / 1000000.0;
+    _lastElapsed = elapsed;
+
+    // dt 보호 (탭 복귀 시 큰 delta 방지)
+    if (dt <= 0 || dt > 0.1) return;
+
+    final maxScroll = _scrollController.position.maxScrollExtent;
+    if (maxScroll <= 0) return;
+
+    final current = _scrollController.offset;
+    // 반절 넘으면 리셋 (무한 루프)
+    if (current >= maxScroll * 0.5) {
+      _scrollController.jumpTo(current - maxScroll * 0.5);
+    }
+    _scrollController.jumpTo(_scrollController.offset + _speed * dt);
+  }
+
+  void _ensureTickerStarted() {
+    if (!_tickerStarted) {
+      _tickerStarted = true;
+      _lastElapsed = Duration.zero;
+      _ticker?.start();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(globalIndicatorsProvider);
 
+    // 데이터 로딩 중이면 shimmer 유지 (빌드업 방지)
     if (state.isLoading && state.indicators.isEmpty) {
       return _buildShimmer(context);
     }
@@ -63,9 +86,9 @@ class _GlobalIndicatorsMarqueeState
 
     final items = _buildIndicatorItems(context, state.indicators);
 
-    // 첫 빌드 후 스크롤 시작
+    // 데이터 준비 완료 후 Ticker 시작
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrolling) _startAutoScroll();
+      _ensureTickerStarted();
     });
 
     return Padding(

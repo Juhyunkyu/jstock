@@ -215,9 +215,12 @@ async function fetchTradingViewEvents(env, from, to) {
     }
 
     const data = await resp.json();
-    // importance >= 0인 US 이벤트만 필터
+    // US 이벤트 중 forecast/previous가 있는 이벤트는 importance 무관 포함
     const filtered = (data.result || data || []).filter(
-      e => e.country === 'US' && (e.importance == null || e.importance >= 0)
+      e => e.country === 'US' && (
+        (e.importance == null || e.importance >= 0) ||
+        e.forecast != null || e.previous != null
+      )
     );
 
     // KV 저장 (24시간 TTL)
@@ -239,20 +242,33 @@ async function fetchTradingViewEvents(env, from, to) {
 function mergeFredWithTradingView(fredEvents, tvEvents) {
   if (!tvEvents.length) return fredEvents;
 
+  const today = new Date().toISOString().substring(0, 10);
+
   return fredEvents.map(fredEvent => {
     // FRED release ID로 TradingView 키워드 매칭
     const releaseId = parseInt(fredEvent.id.split('-')[1]);
     const keywords = TV_MATCH_KEYWORDS[releaseId] || [];
     if (!keywords.length) return fredEvent;
 
-    // 같은 날짜 + 키워드 매칭되는 TradingView 이벤트 찾기
     const fredDateStr = fredEvent.date.substring(0, 10); // YYYY-MM-DD
-    const matched = tvEvents.find(tv => {
+
+    // 1차: 같은 날짜 + 키워드 매칭
+    let matched = tvEvents.find(tv => {
       const tvDateStr = (tv.date || '').substring(0, 10);
       if (tvDateStr !== fredDateStr) return false;
       const tvTitle = (tv.title || '').toLowerCase();
       return keywords.some(kw => tvTitle.includes(kw));
     });
+
+    // 2차: 날짜 매칭 실패 시, 오늘/과거 이벤트에 한해 키워드만으로 매칭
+    // (TradingView가 미래 날짜 데이터를 제공하지 않는 경우 대비)
+    if (!matched && fredDateStr <= today) {
+      matched = tvEvents.find(tv => {
+        const tvTitle = (tv.title || '').toLowerCase();
+        return keywords.some(kw => tvTitle.includes(kw)) &&
+               (tv.forecast != null || tv.previous != null);
+      });
+    }
 
     if (matched) {
       return {
@@ -293,19 +309,18 @@ function buildFomcEvents(from, to) {
 function buildUnmatchedTvEvents(tvEvents, fredEvents) {
   if (!tvEvents.length) return [];
 
-  // FRED 이벤트의 날짜 set
-  const fredDateSet = new Set(fredEvents.map(e => e.date.substring(0, 10)));
-
   // 이미 매칭된 TV 이벤트 제외 — 키워드 매칭 여부 확인
   const allKeywords = Object.values(TV_MATCH_KEYWORDS).flat();
 
   return tvEvents
     .filter(tv => {
-      if ((tv.importance || 0) < 2) return false;
       const tvTitle = (tv.title || '').toLowerCase();
       // FRED 키워드에 해당하는 이벤트는 이미 병합됨 → 제외
       const isFredMatched = allKeywords.some(kw => tvTitle.includes(kw));
-      return !isFredMatched;
+      if (isFredMatched) return false;
+      // importance >= 2 또는 forecast/previous 값이 있는 이벤트 포함
+      return (tv.importance || 0) >= 2 ||
+             tv.forecast != null || tv.previous != null;
     })
     .map(tv => ({
       id: `tv-${(tv.date || '').substring(0, 10)}-${(tv.title || '').replace(/\s+/g, '_').substring(0, 30)}`,
