@@ -116,6 +116,10 @@ async function handleEconomicCalendar(request, env, url) {
   const allEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
     .sort((a, b) => a.date.localeCompare(b.date));
 
+  // 7. actual이 있는 이벤트 → KV에 영구 저장 (1년 TTL)
+  //    actual이 없는 과거 이벤트 → KV에서 저장된 actual 복원
+  await syncActuals(env, allEvents);
+
   return jsonResponse(allEvents, request);
 }
 
@@ -240,6 +244,62 @@ async function fetchTradingViewEvents(env, from, to) {
   } catch (e) {
     console.error('[Calendar] TradingView fetch failed:', e.message);
     return []; // TradingView 실패 시 FRED 날짜만으로 동작
+  }
+}
+
+// ── actual 값 영구 저장 & 복원 (1년 TTL) ──
+//
+// TradingView는 발표 후 2~3일만 actual을 제공하고 이후 사라짐.
+// actual이 있을 때 KV에 저장해두면, 이후에도 과거 결과를 볼 수 있음.
+// - 저장: actual != null인 이벤트 → KV에 1년간 보관
+// - 복원: actual == null인 과거 이벤트 → KV에서 찾아서 채움
+
+async function syncActuals(env, events) {
+  const today = new Date().toISOString().substring(0, 10);
+
+  // 1. actual이 있는 이벤트 → KV에 저장
+  const toSave = events.filter(e => e.actual != null);
+  if (toSave.length > 0) {
+    await Promise.allSettled(
+      toSave.map(e => {
+        const kvKey = `calendar:actual:${e.id}`;
+        const data = JSON.stringify({
+          actual: e.actual,
+          forecast: e.forecast,
+          previous: e.previous,
+        });
+        return env.CACHE_KV.put(kvKey, data, { expirationTtl: 31536000 }) // 365일
+          .catch(err => console.error(`[Calendar] Actual save failed for ${e.id}:`, err.message));
+      })
+    );
+  }
+
+  // 2. actual이 없는 과거 이벤트 → KV에서 복원
+  const toRestore = events.filter(e => {
+    if (e.actual != null) return false;
+    const eventDate = (e.date || '').substring(0, 10);
+    return eventDate < today; // 과거 이벤트만
+  });
+
+  if (toRestore.length > 0) {
+    const results = await Promise.allSettled(
+      toRestore.map(e => env.CACHE_KV.get(`calendar:actual:${e.id}`, 'json'))
+    );
+
+    for (let i = 0; i < toRestore.length; i++) {
+      const result = results[i];
+      if (result.status === 'fulfilled' && result.value) {
+        const saved = result.value;
+        toRestore[i].actual = saved.actual;
+        // forecast/previous도 저장된 값이 있으면 보강 (원본이 null일 때만)
+        if (toRestore[i].forecast == null && saved.forecast != null) {
+          toRestore[i].forecast = saved.forecast;
+        }
+        if (toRestore[i].previous == null && saved.previous != null) {
+          toRestore[i].previous = saved.previous;
+        }
+      }
+    }
   }
 }
 
