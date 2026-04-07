@@ -129,6 +129,41 @@ class GlobalIndicatorsNotifier extends StateNotifier<GlobalIndicatorsState> {
         state = state.copyWith(indicators: List.from(indicators));
       }
 
+      // 6. DXY 달러 인덱스 (FRED — 무역가중 달러지수)
+      final dxy = await _fetchFredIndex('DTWEXBGS', 'DXY', '💵');
+      if (dxy != null) {
+        indicators.add(dxy);
+        state = state.copyWith(indicators: List.from(indicators));
+      }
+
+      // 7. 구리 (Twelve Data)
+      final copper = await _fetchTwelveData('XCU/USD', '구리', '🔶');
+      if (copper != null) {
+        indicators.add(copper);
+        state = state.copyWith(indicators: List.from(indicators));
+      }
+
+      // 8. 천연가스 (FRED — Henry Hub 현물)
+      final natgas = await _fetchFred('DHHNGSP', '천연가스', '🔥');
+      if (natgas != null) {
+        indicators.add(natgas);
+        state = state.copyWith(indicators: List.from(indicators));
+      }
+
+      // 9. 은 (Twelve Data)
+      final silver = await _fetchTwelveData('XAG/USD', '은', '🥈');
+      if (silver != null) {
+        indicators.add(silver);
+        state = state.copyWith(indicators: List.from(indicators));
+      }
+
+      // 10. NASDAQ 선물 (Twelve Data — E-mini NQ)
+      final nqFutures = await _fetchTwelveData('NQ', 'NQ선물', '📊');
+      if (nqFutures != null) {
+        indicators.add(nqFutures);
+        state = state.copyWith(indicators: List.from(indicators));
+      }
+
       state = state.copyWith(
         indicators: indicators,
         isLoading: false,

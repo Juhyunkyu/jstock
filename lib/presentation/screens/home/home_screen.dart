@@ -161,7 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     if (isDesktop) {
                       // 데스크톱: Fear&Greed (50%) + Calendar (50%) 나란히
-                      // 각자 자연스러운 높이 유지 (짤림 방지)
+                      // CrossAxisAlignment.start로 각 카드가 자연 높이를 유지 (게이지 클리핑 방지)
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(

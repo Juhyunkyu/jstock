@@ -176,22 +176,17 @@ class FearGreedCard extends ConsumerWidget {
 
             // Gauge + Active zone (responsive layout)
             if (error != null)
-              _wrapContent(
-                useExpanded: !useOuterMargin,
-                child: Center(
-                  child: Text(
-                    error!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: context.appTextSecondary,
-                    ),
+              Center(
+                child: Text(
+                  error!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: context.appTextSecondary,
                   ),
                 ),
               )
             else
-              _wrapContent(
-                useExpanded: !useOuterMargin,
-                child: LayoutBuilder(
+              LayoutBuilder(
                   builder: (context, constraints) {
                     final isWide = constraints.maxWidth >= 600;
                     final activeZoneIdx = getActiveZoneIndex(clampedValue);
@@ -264,16 +259,10 @@ class FearGreedCard extends ConsumerWidget {
                     );
                   },
                 ),
-              ),
           ],
         ),
       ),
     );
-  }
-
-  /// 데스크톱(고정높이)에서는 Expanded, 모바일에서는 그대로
-  static Widget _wrapContent({required bool useExpanded, required Widget child}) {
-    return useExpanded ? Expanded(child: child) : child;
   }
 }
 

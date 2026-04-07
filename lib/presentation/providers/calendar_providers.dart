@@ -78,6 +78,18 @@ class CalendarState {
         .toList();
   }
 
+  /// 오늘 이후 모든 이벤트 (월별 그룹 뷰용)
+  List<EconomicEvent> get futureEvents {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return events
+        .where((e) {
+          final d = DateTime(e.date.year, e.date.month, e.date.day);
+          return !d.isBefore(today);
+        })
+        .toList();
+  }
+
   /// 오늘 이벤트
   List<EconomicEvent> get todayEvents {
     final now = DateTime.now();
@@ -108,7 +120,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     try {
       final now = DateTime.now();
       final from = DateTime(now.year, now.month, 1);
-      final to = DateTime(now.year, now.month + 2, 0); // 다음 달 말
+      final to = DateTime(now.year, 12, 31); // 연말까지
 
       final fromStr = _dateStr(from);
       final toStr = _dateStr(to);

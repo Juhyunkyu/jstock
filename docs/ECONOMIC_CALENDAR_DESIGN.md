@@ -1,8 +1,17 @@
 # 경제 캘린더 + 홈 화면 리디자인 설계서
 
-**문서 버전**: 1.0  
-**작성일**: 2026-04-06  
+**문서 버전**: 2.0  
+**작성일**: 2026-04-06 (v2.0 업데이트: 2026-04-07)  
 **목표**: 홈 화면에 글로벌 지표 마키(전광판) + 경제 캘린더 위젯 추가, 기존 GlobalIndicatorsCard/Grid 교체
+
+> **v2.0 변경 사항**:
+> - 전광판 지표 5개 → 10개 확장 (DXY, 구리, 천연가스, 은, NQ선물 추가)
+> - 전광판 무한 루프 로직 개선 (끊김 해소)
+> - FOMC 하드코딩 제거 → API 날짜 범위를 연말까지 확장하여 커버
+> - 캘린더 목록 뷰: 월별 그룹핑 + 스크롤 가능
+> - 캘린더 달력 뷰: 월 이동 네비게이션 추가
+> - F&G + 캘린더 높이 매칭: IntrinsicHeight 제거 → 각 카드 자연 높이
+> - 반응형 글씨 크기: fontScale(모바일 1.0, 태블릿 1.08, 데스크톱 1.16)
 
 ---
 
@@ -102,38 +111,48 @@ IndexQuoteRow (NDX / SPX)
 
 기존 `globalIndicatorsProvider`와 동일한 데이터를 사용:
 
-| 심볼 | 라벨 | 소스 |
-|------|------|------|
-| DCOILWTICO | WTI | FRED |
-| XAU/USD | 금 | Twelve Data |
-| BTC/USD | BTC | Twelve Data |
-| DGS10 | 10Y | FRED |
-| VIXCLS | VIX | FRED |
+| # | 심볼 | 라벨 | 소스 | 유형 |
+|---|------|------|------|------|
+| 1 | DCOILWTICO | WTI | FRED | 가격 (% 변동) |
+| 2 | XAU/USD | 금 | Twelve Data | 가격 (% 변동) |
+| 3 | BTC/USD | BTC | Twelve Data | 가격 (% 변동) |
+| 4 | DGS10 | 10Y | FRED | 금리 (절대값 변동) |
+| 5 | VIXCLS | VIX | FRED | 지수 (절대값 변동) |
+| 6 | DTWEXBGS | DXY | FRED | 지수 (절대값 변동) |
+| 7 | XCU/USD | 구리 | Twelve Data | 가격 (% 변동) |
+| 8 | DHHNGSP | 천연가스 | FRED | 가격 (% 변동) |
+| 9 | XAG/USD | 은 | Twelve Data | 가격 (% 변동) |
+| 10 | NQ | NQ선물 | Twelve Data | 가격 (% 변동) |
+
+> v2.0 추가 (6~10): DXY(달러인덱스), 구리(경기선행), 천연가스(에너지), 은(안전자산), NASDAQ선물(프리마켓)
+> 각 지표 탭 시 상세 설명 BottomSheet 표시 (`_indicatorDetails` 맵에 정의)
 
 ### 동작
 
-- **연속 스크롤**: `AnimationController`로 좌→우 무한 스크롤
-- **속도**: 초당 30px (사용자가 읽을 수 있는 속도)
-- **터치/호버 시 일시정지**: 사용자 인터랙션 시 스크롤 멈춤
-- **탭**: 개별 지표 탭 시 기존 `_showIndicatorDetail` BottomSheet 표시
-- **높이**: 32~36px (컴팩트)
+- **연속 스크롤**: `Ticker` 기반 프레임별 스크롤 (delta-time 보호 포함)
+- **속도**: 초당 40px (사용자가 읽을 수 있는 속도)
+- **터치/호버 시 일시정지**: `Listener.onPointerDown` / `MouseRegion.onEnter` → pause
+- **탭**: 개별 지표 탭 시 `_showIndicatorDetail` BottomSheet 표시 (10개 모두 설명 포함)
+- **높이**: 32px (컴팩트)
 - **뷰포트 공통**: 모바일/태블릿/데스크톱 동일 레이아웃
 
 ### 구현 방식
 
 ```dart
 class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
-  // AnimationController + SingleTickerProviderStateMixin
-  // 지표 목록을 2번 반복 렌더링하여 무한 루프 효과
-  // Transform.translate으로 x축 이동
+  // Ticker + SingleTickerProviderStateMixin (delta-time 기반)
+  // 지표 목록을 4번 반복 렌더링하여 무한 루프 효과
+  // ScrollController.jumpTo로 프레임별 이동
 }
 ```
 
-스크롤 로직:
-1. 지표 목록을 `Row`로 배치 (2세트 연결)
-2. `AnimationController.repeat()`로 1세트 너비만큼 offset 이동
-3. offset이 1세트 너비에 도달하면 0으로 리셋 → 무한 루프
-4. `Listener.onPointerDown` → pause, `onPointerUp` → resume
+스크롤 로직 (v2.0 개선):
+1. 지표 목록을 `Row`로 배치 (**4세트** 연결)
+2. `Ticker._onTick()`에서 delta-time 기반 `jumpTo(offset + speed * dt)`
+3. **1세트 너비** = `(maxScrollExtent + viewportDimension) / 4`
+4. offset이 1세트 너비에 도달하면 `jumpTo(offset - oneSetWidth)` → **동일 화면 위치이므로 끊김 없음**
+5. `Listener.onPointerDown` → pause, `onPointerUp` → resume
+6. dt > 100ms 보호 (탭 복귀 시 큰 점프 방지)
 
 ---
 
@@ -143,27 +162,32 @@ class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
 
 `[목록 | 달력]` 토글 버튼으로 두 가지 뷰 전환:
 
-#### 목록 (Timeline B)
+#### 목록 (Timeline) — v2.0 월별 그룹핑
 
 ```
 ┌─────────────────────────────────┐
-│  경제 일정      [목록 | 달력]     │
+│  📅 주요 일정    [목록 | 달력]    │
 ├─────────────────────────────────┤
-│  4/10 (목)                      │
-│  🔴 FOMC 의사록 공개      D-4   │
-│  🟠 CPI 소비자물가지수    D-4   │
-│      예상 2.5% | 이전 2.8%      │
-│                                  │
-│  4/11 (금)                      │
-│  🟢 비농업 고용지수       D-5   │
-│      예상 150K | 이전 151K      │
-│  🔵 NVDA 실적발표 (AMC)  D-5   │
-│      EPS 예상 $0.89             │
+│  ── 4월 ──                       │
+│  9  🔴 GDP 성장률         D-2   │
+│  목     예상 2.1% (전월 1.6%)    │
+│  9  🟠 PCE 개인소비지출    D-2   │
+│  목                              │
+│  10 🟠 CPI 소비자물가지수  D-3   │
+│  목                              │
+│  14 🟢 PPI 생산자물가지수  D-7   │
+│  월                              │
+│  ── 5월 ──                       │
+│  2  🟢 비농업 고용지수     D-25  │
+│  금                              │
+│  ...                             │
 └─────────────────────────────────┘
 ```
 
 세부:
-- 날짜별 그룹핑
+- **월별 그룹 헤더** (예: "── 4월 ──") 로 구분
+- 오늘 이후의 **모든** 이벤트 표시 (기존 14일 → 연말까지)
+- 스크롤 가능한 리스트 (`ConstrainedBox(maxHeight: 300)`)
 - 카테고리 컬러 도트 (왼쪽)
 - 이벤트명 + D-day 배지 (오른쪽)
 - forecast/previous 값 (있을 때만)
@@ -191,9 +215,11 @@ class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
 ```
 
 세부:
+- **월 이동 네비게이션**: `◀ 2026년 4월 ▶` (현재 월 이전 불가, 12월까지)
+- `_displayMonth` 상태로 표시 월 관리
 - 월간 그리드 (7열)
 - 이벤트 있는 날짜에 카테고리 컬러 도트 (날짜 아래)
-- 같은 날 복수 이벤트 → 복수 도트 (최대 3개, 이후 `+N`)
+- 같은 날 복수 이벤트 → 복수 도트 (최대 3개)
 - 날짜 탭 → 아래에 해당 날짜 이벤트 목록 표시
 - 기본 선택: 오늘 또는 가장 가까운 이벤트 날짜
 
@@ -269,7 +295,7 @@ String getDdayText(DateTime eventDate) {
 ├──────────────────────────────┤
 │  ┌──────────┬──────────┐     │
 │  │Fear&Greed│ 경제     │     │  ← 50:50 가로 배치
-│  │  (50%)   │ 캘린더   │     │
+│  │  (50%)   │ 캘린더   │     │  ← 각 카드 자연 높이 (v2.0)
 │  │          │  (50%)   │     │
 │  └──────────┴──────────┘     │
 ├──────────────────────────────┤
@@ -285,6 +311,24 @@ String getDdayText(DateTime eventDate) {
 | 태블릿/데스크톱 | >= 600px | 가로 (F&G 50% + 캘린더 50%) |
 
 > 기존 600px 브레이크포인트를 유지. Fear&Greed 비율을 기존 2:1에서 **1:1 (50:50)**로 변경 — 캘린더가 더 많은 정보를 표시해야 하므로 동일 공간 배분.
+
+### 높이 매칭 (v2.0 변경)
+
+- **v1.0**: `IntrinsicHeight` + `CrossAxisAlignment.stretch` → F&G 게이지 짤림 문제
+- **v2.0**: `IntrinsicHeight` 제거, `CrossAxisAlignment.start` → 각 카드 자연 높이
+  - F&G 게이지가 깨지지 않음
+  - 캘린더는 내부 스크롤로 컨텐츠 표시
+
+### 반응형 글씨 크기 (v2.0 추가)
+
+캘린더 카드에 `_fontScale()` 적용:
+| 뷰포트 | 너비 | fontScale |
+|--------|------|-----------|
+| 모바일 | < 600px | 1.0 |
+| 태블릿 | 600~1024px | 1.08 |
+| 데스크톱 | > 1024px | 1.16 |
+
+모든 글씨 크기, 아이콘, 도트, 간격에 `* fs` 적용.
 
 ---
 
@@ -356,22 +400,15 @@ from=2026-04-01&to=2026-04-30&countries=US
 
 **병합 전략**: FRED dates (정확한 날짜) + TradingView (forecast/previous 값) → FRED 날짜를 기준으로 TradingView에서 같은 날짜+유사 이벤트 매칭하여 forecast/previous 보강.
 
-#### FOMC 일정
+#### FOMC 일정 (v2.0 변경)
 
-FOMC 회의 일정은 연 1회 Fed가 공식 발표. 변경이 거의 없으므로 **하드코딩 + 연간 업데이트** 방식:
+~~v1.0: FOMC 하드코딩 + 연간 업데이트 방식~~
 
-```dart
-// FOMC 2026 일정 (예시)
-const fomc2026Dates = [
-  '2026-01-28', '2026-01-29',  // 1월 회의
-  '2026-03-18', '2026-03-19',  // 3월 회의 (점도표)
-  '2026-05-06', '2026-05-07',  // 5월 회의
-  '2026-06-17', '2026-06-18',  // 6월 회의 (점도표)
-  // ...
-];
-```
+**v2.0**: FOMC 하드코딩 **제거**. Worker API(`/api/calendar/economic`)가 FRED release dates를 통해 FOMC 일정을 포함하여 반환하며, 요청 날짜 범위를 **연말(12/31)**까지 확장하여 연간 일정을 모두 커버.
 
-Worker에서 정적 배열로 관리하거나 KV에 `calendar:fomc_dates`로 저장.
+- API 테스트 결과: `from=2026-04-07&to=2026-12-31` 요청 시 74개 이벤트 반환 (4월~12월)
+- FOMC 관련 이벤트도 FRED release dates에 포함됨
+- 하드코딩이 필요 없는 이유: 날짜가 매년 변동하며, API가 정확한 일정을 제공
 
 ### 7.2 실적 캘린더 (Earnings)
 
@@ -942,7 +979,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     try {
       final now = DateTime.now();
       final from = DateTime(now.year, now.month, 1);
-      final to = DateTime(now.year, now.month + 2, 0); // 다음 달 말
+      final to = DateTime(now.year, 12, 31); // v2.0: 연말까지 확장
 
       final fromStr = _dateStr(from);
       final toStr = _dateStr(to);

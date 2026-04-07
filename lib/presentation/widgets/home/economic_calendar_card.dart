@@ -24,19 +24,31 @@ class EconomicCalendarCard extends ConsumerStatefulWidget {
 
 class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   bool _isCalendarView = false; // false=목록, true=달력
+  late DateTime _displayMonth; // 달력 뷰에서 표시할 월
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _displayMonth = DateTime(now.year, now.month, 1);
     // 최초 이벤트 로드
     Future.microtask(() {
       ref.read(calendarProvider.notifier).loadEvents();
     });
   }
 
+  /// 반응형 폰트 스케일: mobile(<600)=1.0, tablet(600-1024)=1.08, desktop(>1024)=1.16
+  double _fontScale(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    if (w >= 1024) return 1.16;
+    if (w >= 600) return 1.08;
+    return 1.0;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(calendarProvider);
+    final fs = _fontScale(context);
 
     return Container(
       margin: widget.useOuterMargin
@@ -49,21 +61,21 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         border: Border.all(color: context.appBorder),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.all(12 * fs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _buildHeader(context),
-            const SizedBox(height: 8),
+            _buildHeader(context, fs),
+            SizedBox(height: 8 * fs),
             if (state.isLoading)
               _buildLoading()
             else if (state.error != null)
-              _buildError(context, state.error!)
+              _buildError(context, state.error!, fs)
             else if (_isCalendarView)
-              _buildCalendarView(context, state)
+              _buildCalendarView(context, state, fs)
             else
-              _buildTimelineView(context, state),
+              _buildTimelineView(context, state, fs),
           ],
         ),
       ),
@@ -72,10 +84,8 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   // ─── 헤더: 제목 + [목록|달력] 토글 ───
 
-  Widget _buildHeader(BuildContext context) {
-    final title = _isCalendarView
-        ? '${DateTime.now().month}월'
-        : '주요 일정';
+  Widget _buildHeader(BuildContext context, double fs) {
+    final title = _isCalendarView ? '경제 캘린더' : '주요 일정';
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -85,35 +95,35 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           children: [
             Icon(
               Icons.event_note_outlined,
-              size: 16,
+              size: 16 * fs,
               color: context.appTextSecondary,
             ),
-            const SizedBox(width: 5),
+            SizedBox(width: 5 * fs),
             Text(
               title,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 13 * fs,
                 fontWeight: FontWeight.w600,
                 color: context.appTextPrimary,
               ),
             ),
           ],
         ),
-        _buildViewToggle(context),
+        _buildViewToggle(context, fs),
       ],
     );
   }
 
-  Widget _buildViewToggle(BuildContext context) {
+  Widget _buildViewToggle(BuildContext context, double fs) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _toggleButton(context, label: '목록', isActive: !_isCalendarView,
+        _toggleButton(context, fs: fs, label: '목록', isActive: !_isCalendarView,
             onTap: () {
           setState(() => _isCalendarView = false);
         }),
-        const SizedBox(width: 2),
-        _toggleButton(context, label: '달력', isActive: _isCalendarView,
+        SizedBox(width: 2 * fs),
+        _toggleButton(context, fs: fs, label: '달력', isActive: _isCalendarView,
             onTap: () {
           setState(() => _isCalendarView = true);
         }),
@@ -123,6 +133,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   Widget _toggleButton(
     BuildContext context, {
+    required double fs,
     required String label,
     required bool isActive,
     required VoidCallback onTap,
@@ -130,7 +141,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        padding: EdgeInsets.symmetric(horizontal: 6 * fs, vertical: 3 * fs),
         decoration: BoxDecoration(
           color: isActive
               ? AppColors.calendarEarnings // #58A6FF
@@ -140,7 +151,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 10 * fs,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
             color: isActive
                 ? const Color(0xFF0D1117) // 다크 텍스트 (활성 상태)
@@ -160,7 +171,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
-  Widget _buildError(BuildContext context, String error) {
+  Widget _buildError(BuildContext context, String error, double fs) {
     return SizedBox(
       height: 120,
       child: Center(
@@ -168,14 +179,14 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(error, style: TextStyle(
-              fontSize: 11,
+              fontSize: 11 * fs,
               color: context.appTextHint,
             )),
-            const SizedBox(height: 8),
+            SizedBox(height: 8 * fs),
             GestureDetector(
               onTap: () => ref.read(calendarProvider.notifier).loadEvents(),
               child: Text('다시 시도',
-                  style: TextStyle(fontSize: 11, color: context.appAccent)),
+                  style: TextStyle(fontSize: 11 * fs, color: context.appAccent)),
             ),
           ],
         ),
@@ -184,57 +195,109 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 목록 뷰 (Timeline)
+  // 목록 뷰 (Timeline) — 월별 그룹
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildTimelineView(BuildContext context, CalendarState state) {
-    final events = state.upcomingEvents;
+  Widget _buildTimelineView(BuildContext context, CalendarState state, double fs) {
+    final events = state.futureEvents;
 
     if (events.isEmpty) {
       return SizedBox(
         height: 80,
         child: Center(
           child: Text(
-            '이번 주 예정된 일정이 없습니다',
-            style: TextStyle(fontSize: 11, color: context.appTextHint),
+            '예정된 일정이 없습니다',
+            style: TextStyle(fontSize: 11 * fs, color: context.appTextHint),
           ),
         ),
       );
     }
 
-    // 최대 6개 표시
-    final displayEvents = events.length > 6 ? events.sublist(0, 6) : events;
+    // 월별 그룹화
+    final grouped = <int, List<EconomicEvent>>{};
+    for (final e in events) {
+      final key = e.date.year * 100 + e.date.month; // YYYYMM
+      (grouped[key] ??= []).add(e);
+    }
+    final sortedKeys = grouped.keys.toList()..sort();
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    // 스크롤 가능한 목록 (최대 높이 제한)
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 300),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: EdgeInsets.zero,
+        itemCount: sortedKeys.length,
+        itemBuilder: (context, groupIdx) {
+          final key = sortedKeys[groupIdx];
+          final month = key % 100;
+          final monthEvents = grouped[key]!;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 월 헤더
+              if (groupIdx > 0) SizedBox(height: 8 * fs),
+              _buildMonthHeader(context, month, fs),
+              SizedBox(height: 4 * fs),
+              // 해당 월 이벤트들
+              for (int i = 0; i < monthEvents.length; i++) ...[
+                _buildTimelineItem(context, monthEvents[i], fs),
+                if (i < monthEvents.length - 1)
+                  Divider(height: 1, color: context.appDivider),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMonthHeader(BuildContext context, int month, double fs) {
+    return Row(
       children: [
-        for (int i = 0; i < displayEvents.length; i++) ...[
-          _buildTimelineItem(context, displayEvents[i]),
-          if (i < displayEvents.length - 1)
-            Divider(height: 1, color: context.appDivider),
-        ],
+        Container(
+          padding: EdgeInsets.symmetric(horizontal: 6 * fs, vertical: 2 * fs),
+          decoration: BoxDecoration(
+            color: context.appAccent.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            '$month월',
+            style: TextStyle(
+              fontSize: 11 * fs,
+              fontWeight: FontWeight.w700,
+              color: context.appAccent,
+            ),
+          ),
+        ),
+        SizedBox(width: 6 * fs),
+        Expanded(
+          child: Divider(height: 1, color: context.appDivider),
+        ),
       ],
     );
   }
 
-  Widget _buildTimelineItem(BuildContext context, EconomicEvent event) {
+  Widget _buildTimelineItem(BuildContext context, EconomicEvent event, double fs) {
     final weekdays = ['월', '화', '수', '목', '금', '토', '일'];
     final weekday = weekdays[event.date.weekday - 1];
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
+      padding: EdgeInsets.symmetric(vertical: 5 * fs),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 날짜 컬럼 (일 + 요일)
           SizedBox(
-            width: 26,
+            width: 26 * fs,
             child: Column(
               children: [
                 Text(
                   '${event.date.day}',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: 13 * fs,
                     fontWeight: FontWeight.w700,
                     color: context.appTextPrimary,
                   ),
@@ -242,7 +305,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 Text(
                   weekday,
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: 8 * fs,
                     color: context.appTextSecondary,
                   ),
                 ),
@@ -251,13 +314,13 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           ),
           // 도트 컬럼
           Padding(
-            padding: const EdgeInsets.only(top: 5),
+            padding: EdgeInsets.only(top: 5 * fs),
             child: SizedBox(
-              width: 10,
+              width: 10 * fs,
               child: Center(
                 child: Container(
-                  width: 5,
-                  height: 5,
+                  width: 5 * fs,
+                  height: 5 * fs,
                   decoration: BoxDecoration(
                     color: event.category.color,
                     shape: BoxShape.circle,
@@ -266,7 +329,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4 * fs),
           // 이벤트 정보
           Expanded(
             child: Column(
@@ -275,18 +338,18 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 Text(
                   event.title,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11 * fs,
                     fontWeight: FontWeight.w600,
                     color: context.appTextPrimary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 1),
+                SizedBox(height: 1 * fs),
                 Text(
                   _buildSubtitle(event),
                   style: TextStyle(
-                    fontSize: 9,
+                    fontSize: 9 * fs,
                     color: context.appTextSecondary,
                   ),
                   maxLines: 1,
@@ -295,9 +358,9 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               ],
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4 * fs),
           // D-day 배지
-          _buildDdayBadge(context, event),
+          _buildDdayBadge(context, event, fs),
         ],
       ),
     );
@@ -354,7 +417,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// D-day 배지 위젯
-  Widget _buildDdayBadge(BuildContext context, EconomicEvent event) {
+  Widget _buildDdayBadge(BuildContext context, EconomicEvent event, double fs) {
     final text = event.ddayText;
     final dday = _parseDday(text);
 
@@ -362,7 +425,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     final isUrgent = dday != null && dday >= 0 && dday <= 3;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+      padding: EdgeInsets.symmetric(horizontal: 4 * fs, vertical: 1 * fs),
       decoration: BoxDecoration(
         color: isUrgent
             ? AppColors.calendarFomc.withValues(alpha: 0.15)
@@ -372,7 +435,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       child: Text(
         text,
         style: TextStyle(
-          fontSize: 8,
+          fontSize: 8 * fs,
           fontWeight: FontWeight.w600,
           color: isUrgent ? AppColors.calendarFomc : context.appTextSecondary,
         ),
@@ -391,34 +454,45 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // 달력 뷰 (Mini Calendar)
+  // 달력 뷰 (Mini Calendar) — 월 네비게이션
   // ═══════════════════════════════════════════════════════════════
 
-  Widget _buildCalendarView(BuildContext context, CalendarState state) {
+  Widget _buildCalendarView(BuildContext context, CalendarState state, double fs) {
     final now = DateTime.now();
     final selectedDate = state.selectedDate;
     final eventsByDate = state.eventsByDate;
 
-    // 현재 달 기준 그리드 계산
-    final firstOfMonth = DateTime(now.year, now.month, 1);
-    final lastOfMonth = DateTime(now.year, now.month + 1, 0);
+    // _displayMonth 기준 그리드 계산
+    final firstOfMonth = DateTime(_displayMonth.year, _displayMonth.month, 1);
+    final lastOfMonth = DateTime(_displayMonth.year, _displayMonth.month + 1, 0);
     // 일요일=0 시작 (DateTime.weekday: 월=1 ~ 일=7)
     final startWeekday = firstOfMonth.weekday % 7; // 일=0, 월=1 ... 토=6
     final daysInMonth = lastOfMonth.day;
 
     // 이전 달 마지막 날
-    final prevMonthLast = DateTime(now.year, now.month, 0);
+    final prevMonthLast = DateTime(_displayMonth.year, _displayMonth.month, 0);
     final prevMonthDays = prevMonthLast.day;
+
+    // 현재 월 판별 (뒤로가기 제한용)
+    final currentMonth = DateTime(now.year, now.month, 1);
+    final canGoPrev = _displayMonth.isAfter(currentMonth);
+    // 연말까지만 허용
+    final lastMonth = DateTime(now.year, 12, 1);
+    final canGoNext = _displayMonth.isBefore(lastMonth);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        // 월 네비게이션 헤더
+        _buildMonthNav(context, fs, canGoPrev: canGoPrev, canGoNext: canGoNext),
+        SizedBox(height: 4 * fs),
         // 요일 헤더
-        _buildWeekHeader(context),
-        const SizedBox(height: 2),
+        _buildWeekHeader(context, fs),
+        SizedBox(height: 2 * fs),
         // 날짜 그리드
         _buildDayGrid(
           context,
+          fs: fs,
           firstOfMonth: firstOfMonth,
           daysInMonth: daysInMonth,
           startWeekday: startWeekday,
@@ -428,18 +502,77 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           now: now,
         ),
         // 선택 날짜 이벤트 목록
-        const SizedBox(height: 4),
+        SizedBox(height: 4 * fs),
         Divider(height: 1, color: context.appDivider),
-        const SizedBox(height: 4),
-        _buildSelectedDateEvents(context, state),
+        SizedBox(height: 4 * fs),
+        _buildSelectedDateEvents(context, state, fs),
         // 범례
-        const SizedBox(height: 6),
-        _buildLegend(context),
+        SizedBox(height: 6 * fs),
+        _buildLegend(context, fs),
       ],
     );
   }
 
-  Widget _buildWeekHeader(BuildContext context) {
+  Widget _buildMonthNav(BuildContext context, double fs,
+      {required bool canGoPrev, required bool canGoNext}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        GestureDetector(
+          onTap: canGoPrev
+              ? () {
+                  setState(() {
+                    _displayMonth = DateTime(
+                        _displayMonth.year, _displayMonth.month - 1, 1);
+                  });
+                }
+              : null,
+          child: Padding(
+            padding: EdgeInsets.all(4 * fs),
+            child: Icon(
+              Icons.chevron_left_rounded,
+              size: 18 * fs,
+              color: canGoPrev
+                  ? context.appTextSecondary
+                  : context.appTextHint.withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+        SizedBox(width: 8 * fs),
+        Text(
+          '${_displayMonth.year}년 ${_displayMonth.month}월',
+          style: TextStyle(
+            fontSize: 13 * fs,
+            fontWeight: FontWeight.w600,
+            color: context.appTextPrimary,
+          ),
+        ),
+        SizedBox(width: 8 * fs),
+        GestureDetector(
+          onTap: canGoNext
+              ? () {
+                  setState(() {
+                    _displayMonth = DateTime(
+                        _displayMonth.year, _displayMonth.month + 1, 1);
+                  });
+                }
+              : null,
+          child: Padding(
+            padding: EdgeInsets.all(4 * fs),
+            child: Icon(
+              Icons.chevron_right_rounded,
+              size: 18 * fs,
+              color: canGoNext
+                  ? context.appTextSecondary
+                  : context.appTextHint.withValues(alpha: 0.3),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeekHeader(BuildContext context, double fs) {
     const days = ['일', '월', '화', '수', '목', '금', '토'];
     return Row(
       children: days
@@ -448,7 +581,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                   child: Text(
                     d,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 10 * fs,
                       color: context.appTextHint,
                     ),
                   ),
@@ -460,6 +593,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   Widget _buildDayGrid(
     BuildContext context, {
+    required double fs,
     required DateTime firstOfMonth,
     required int daysInMonth,
     required int startWeekday,
@@ -485,6 +619,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           final day = prevMonthDays - startWeekday + cellIndex + 1;
           cells.add(_buildDayCell(
             context,
+            fs: fs,
             day: day,
             isDim: true,
             isToday: false,
@@ -510,6 +645,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
           cells.add(_buildDayCell(
             context,
+            fs: fs,
             day: day,
             isDim: false,
             isToday: isToday,
@@ -524,6 +660,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           // 다음 달
           cells.add(_buildDayCell(
             context,
+            fs: fs,
             day: nextMonthDay++,
             isDim: true,
             isToday: false,
@@ -541,6 +678,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   Widget _buildDayCell(
     BuildContext context, {
+    required double fs,
     required int day,
     required bool isDim,
     required bool isToday,
@@ -553,7 +691,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          padding: EdgeInsets.symmetric(vertical: 2 * fs),
           decoration: BoxDecoration(
             color: isSelected
                 ? context.appAccent.withValues(alpha: 0.15)
@@ -568,7 +706,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               Text(
                 '$day',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 12 * fs,
                   fontWeight: isToday ? FontWeight.w700 : FontWeight.normal,
                   color: isDim
                       ? context.appTextHint.withValues(alpha: 0.3)
@@ -579,14 +717,14 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               ),
               if (dots.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(top: 1),
+                  padding: EdgeInsets.only(top: 1 * fs),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: dots
                         .map((c) => Container(
-                              width: 5,
-                              height: 5,
-                              margin: const EdgeInsets.only(left: 1, right: 1),
+                              width: 5 * fs,
+                              height: 5 * fs,
+                              margin: EdgeInsets.only(left: 1 * fs, right: 1 * fs),
                               decoration: BoxDecoration(
                                 color: c,
                                 shape: BoxShape.circle,
@@ -603,16 +741,16 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// 선택 날짜 이벤트 목록
-  Widget _buildSelectedDateEvents(BuildContext context, CalendarState state) {
+  Widget _buildSelectedDateEvents(BuildContext context, CalendarState state, double fs) {
     final events = state.selectedDateEvents;
 
     if (events.isEmpty) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
+        padding: EdgeInsets.symmetric(vertical: 4 * fs),
         child: Center(
           child: Text(
             '이 날짜에 예정된 일정이 없습니다',
-            style: TextStyle(fontSize: 11, color: context.appTextHint),
+            style: TextStyle(fontSize: 11 * fs, color: context.appTextHint),
           ),
         ),
       );
@@ -622,25 +760,25 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       mainAxisSize: MainAxisSize.min,
       children: events.map((event) {
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
+          padding: EdgeInsets.symmetric(vertical: 2 * fs),
           child: Row(
             children: [
               // 컬러 도트
               Container(
-                width: 5,
-                height: 5,
+                width: 5 * fs,
+                height: 5 * fs,
                 decoration: BoxDecoration(
                   color: event.category.color,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 4),
+              SizedBox(width: 4 * fs),
               // 이벤트명
               Expanded(
                 child: Text(
                   event.title,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 11 * fs,
                     color: context.appTextPrimary,
                   ),
                   maxLines: 1,
@@ -654,7 +792,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                       ? (_earningsHourText(event.hour) ?? event.hour!)
                       : event.hour!,
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 10 * fs,
                     color: context.appTextSecondary,
                   ),
                 ),
@@ -666,7 +804,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// 범례 (FOMC, 물가, 고용, 실적, GDP)
-  Widget _buildLegend(BuildContext context) {
+  Widget _buildLegend(BuildContext context, double fs) {
     const categories = [
       EventCategory.fomc,
       EventCategory.inflation,
@@ -676,25 +814,25 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     ];
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 2,
+      spacing: 8 * fs,
+      runSpacing: 2 * fs,
       children: categories.map((cat) {
         return Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 5,
-              height: 5,
+              width: 5 * fs,
+              height: 5 * fs,
               decoration: BoxDecoration(
                 color: cat.color,
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 3),
+            SizedBox(width: 3 * fs),
             Text(
               cat.labelKo,
               style: TextStyle(
-                fontSize: 9,
+                fontSize: 9 * fs,
                 color: context.appTextSecondary,
               ),
             ),

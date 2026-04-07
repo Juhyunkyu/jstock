@@ -6,7 +6,7 @@ import '../../providers/global_indicators_provider.dart';
 
 /// 글로벌 지표 마키 (전광판) — 수평 무한 스크롤 티커
 ///
-/// WTI, 금, BTC, 10Y, VIX를 좌→우 연속 스크롤로 표시.
+/// WTI, 금, BTC, 10Y, VIX, DXY, 구리, 천연가스, 은, NQ선물을 좌→우 연속 스크롤로 표시.
 /// 터치/호버 시 일시정지, 탭 시 개별 지표 상세 BottomSheet 표시.
 /// Ticker 기반으로 부드러운 프레임 업데이트.
 class GlobalIndicatorsMarquee extends ConsumerStatefulWidget {
@@ -56,9 +56,11 @@ class _GlobalIndicatorsMarqueeState
     if (maxScroll <= 0) return;
 
     final current = _scrollController.offset;
-    // 반절 넘으면 리셋 (무한 루프)
-    if (current >= maxScroll * 0.5) {
-      _scrollController.jumpTo(current - maxScroll * 0.5);
+    // 4세트 중 1세트 폭만큼 스크롤 시 정확히 되감기 (시각적 끊김 없음)
+    final viewport = _scrollController.position.viewportDimension;
+    final oneSetWidth = (maxScroll + viewport) / 4;
+    if (current >= oneSetWidth) {
+      _scrollController.jumpTo(current - oneSetWidth);
     }
     _scrollController.jumpTo(_scrollController.offset + _speed * dt);
   }
@@ -114,8 +116,8 @@ class _GlobalIndicatorsMarqueeState
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // 3세트 반복 (무한 루프용)
-                  ...items, ...items, ...items,
+                  // 4세트 반복 (무한 루프용 — 1세트 폭 되감기 시 3세트 여유)
+                  ...items, ...items, ...items, ...items,
                 ],
               ),
             ),
@@ -375,6 +377,43 @@ final _indicatorDetails = <String, _IndicatorDetail>{
       (range: '25~30', desc: '공포. 급매도 동반 가능, 반등 기회도 존재', color: Color(0xFFF97316)),
       (range: '40 이상', desc: '금융 위기 수준 (2008년 80, 2020년 82)', color: Color(0xFFEF4444)),
     ],
+  ),
+  'DTWEXBGS': const _IndicatorDetail(
+    icon: '💵',
+    name: 'DXY (달러 인덱스)',
+    summary: '무역가중 미국 달러 지수. 주요 교역국 통화 대비 달러 가치를 반영. 상승 시 신흥국·원자재 약세, 하락 시 수출기업·원자재에 호재.',
+    thresholds: [
+      (range: '95 이하', desc: '달러 약세. 원자재·신흥국 자산 강세, 수출 경쟁력 약화', color: Color(0xFF22C55E)),
+      (range: '95~105', desc: '중립 구간. 통화정책 방향성에 따라 변동', color: Color(0xFF3B82F6)),
+      (range: '105~115', desc: '달러 강세. 원자재·수입 비용 하락, 신흥국 자금 이탈', color: Color(0xFFEAB308)),
+      (range: '115 이상', desc: '극단적 강세. 글로벌 유동성 경색 우려', color: Color(0xFFEF4444)),
+    ],
+  ),
+  'XCU/USD': const _IndicatorDetail(
+    icon: '🔶',
+    name: '구리',
+    summary: '산업금속 대표. "닥터 코퍼"라 불리며 경기 선행 지표 역할. 건설·전자·재생에너지 수요와 직결. 상승 시 경기 확장 기대, 하락 시 둔화 신호.',
+  ),
+  'DHHNGSP': const _IndicatorDetail(
+    icon: '🔥',
+    name: '천연가스',
+    summary: 'Henry Hub 기준 천연가스 현물 가격. 난방·발전 수요와 계절성 영향. 급등 시 유틸리티·제조업 비용 압박, 에너지 인플레이션 촉발 가능.',
+    thresholds: [
+      (range: '\$2 이하', desc: '공급 과잉. 에너지주 실적 타격, 소비자에겐 호재', color: Color(0xFF22C55E)),
+      (range: '\$2~4', desc: '정상 범위. 수급 균형 상태', color: Color(0xFF3B82F6)),
+      (range: '\$4~6', desc: '수급 타이트. 한파·폭염 시 급등 가능', color: Color(0xFFEAB308)),
+      (range: '\$6 이상', desc: '에너지 위기 수준. 산업·가계 모두 타격', color: Color(0xFFEF4444)),
+    ],
+  ),
+  'XAG/USD': const _IndicatorDetail(
+    icon: '🥈',
+    name: '은 (XAG)',
+    summary: '귀금속이자 산업금속. 금과 함께 안전자산 역할을 하면서도 태양광·전자기기 산업 수요 영향. 금/은 비율(GSR)은 경기 판단 지표.',
+  ),
+  'NQ': const _IndicatorDetail(
+    icon: '📊',
+    name: 'NASDAQ 선물 (NQ)',
+    summary: 'NASDAQ 100 E-mini 선물. 정규장 외 시간에도 거래되어 프리마켓 방향성 확인에 유용. 기술주 심리 바로미터.',
   ),
 };
 
