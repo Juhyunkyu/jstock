@@ -336,7 +336,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.title,
+                  event.displayTitle,
                   style: TextStyle(
                     fontSize: 11 * fs,
                     fontWeight: FontWeight.w600,
@@ -776,7 +776,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               // 이벤트명
               Expanded(
                 child: Text(
-                  event.title,
+                  event.displayTitle,
                   style: TextStyle(
                     fontSize: 11 * fs,
                     color: context.appTextPrimary,

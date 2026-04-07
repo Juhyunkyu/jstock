@@ -87,6 +87,70 @@ enum EventCategory {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 영→한 타이틀 매핑 (TradingView 이벤트용, API 호출 없음)
+// ═══════════════════════════════════════════════════════════════
+
+const _titleKoMap = <String, String>{
+  // 고용
+  'ADP Employment Change Weekly': 'ADP 주간 고용변동',
+  'ADP Nonfarm Employment Change': 'ADP 비농업 고용변동',
+  'Initial Jobless Claims': '신규 실업수당 청구건수',
+  'Continuing Jobless Claims': '계속 실업수당 청구건수',
+  'Nonfarm Payrolls': '비농업 고용자수',
+  'Unemployment Rate': '실업률',
+  'JOLTs Job Openings': 'JOLTs 구인건수',
+
+  // GDP / 경기
+  'Durable Goods Orders MoM': '내구재주문 전월비',
+  'Durable Goods Orders Ex Transp MoM': '내구재주문(운송제외) 전월비',
+  'Durable Goods Orders ex Defense MoM': '내구재주문(국방제외) 전월비',
+  'Non Defense Goods Orders Ex Air': '비국방자본재주문(항공제외)',
+  'Consumer Credit Change': '소비자신용 변동',
+  'Consumer Inflation Expectations': '소비자 인플레이션 기대',
+  'RCM/TIPP Economic Optimism Index': 'RCM/TIPP 경기낙관지수',
+  'Retail Sales MoM': '소매판매 전월비',
+  'Retail Sales Ex Autos MoM': '소매판매(자동차제외) 전월비',
+  'Industrial Production MoM': '산업생산 전월비',
+  'ISM Manufacturing PMI': 'ISM 제조업 PMI',
+  'ISM Services PMI': 'ISM 서비스업 PMI',
+  'Michigan Consumer Sentiment': '미시간 소비자심리지수',
+
+  // 물가
+  'CPI MoM': 'CPI 전월비',
+  'CPI YoY': 'CPI 전년비',
+  'Core CPI MoM': '근원 CPI 전월비',
+  'Core CPI YoY': '근원 CPI 전년비',
+  'Core PCE Price Index MoM': '근원 PCE 물가지수 전월비',
+  'Core PCE Price Index YoY': '근원 PCE 물가지수 전년비',
+  'PPI MoM': 'PPI 전월비',
+  'PPI YoY': 'PPI 전년비',
+
+  // 에너지 / 원자재
+  'API Crude Oil Stock Change': 'API 원유재고 변동',
+  'EIA Crude Oil Stocks Change': 'EIA 원유재고 변동',
+  'Crude Oil Inventories': '원유재고',
+
+  // 물류 / 기타
+  'LMI Logistics Managers Index': '물류관리자지수(LMI)',
+  'Redbook YoY': '레드북 소매판매 전년비',
+
+  // 금리 / 국채
+  '3-Year Note Auction': '3년물 국채 입찰',
+  '10-Year Note Auction': '10년물 국채 입찰',
+  '30-Year Bond Auction': '30년물 국채 입찰',
+  '2-Year Note Auction': '2년물 국채 입찰',
+  '5-Year Note Auction': '5년물 국채 입찰',
+  '7-Year Note Auction': '7년물 국채 입찰',
+  'NY Fed Bill Purchases 1 to 4 months': 'NY연준 단기국채 매입(1~4개월)',
+
+  // FOMC
+  'FOMC Meeting Minutes': 'FOMC 의사록',
+  'FOMC Rate Decision': 'FOMC 금리결정',
+  'Fed Interest Rate Decision': '연준 금리결정',
+  'Fed Press Conference': '연준 기자회견',
+};
+
+// ═══════════════════════════════════════════════════════════════
 // 경제 캘린더 이벤트 모델
 // ═══════════════════════════════════════════════════════════════
 
@@ -170,6 +234,9 @@ class EconomicEvent {
     if (diff > 0) return 'D-$diff';
     return 'D+${diff.abs()}';
   }
+
+  /// 한국어 표시용 타이틀 (매핑 있으면 한국어, 없으면 원본)
+  String get displayTitle => _titleKoMap[titleEn] ?? _titleKoMap[title] ?? title;
 
   /// 실적 이벤트 여부
   bool get isEarnings => category == EventCategory.earnings;
