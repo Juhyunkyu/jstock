@@ -156,7 +156,7 @@ class NewsService {
   /// Worker에서 제공하는 '/api/news/korea' 엔드포인트를 호출합니다.
   ///
   /// 프록시 미설정 시 빈 리스트 반환 (로컬 개발 환경)
-  Future<List<NewsItem>> getKoreaNews({int limit = 10}) async {
+  Future<List<NewsItem>> getKoreaNews({int limit = 20}) async {
     try {
       final baseUrl = AppConfig.proxyBaseUrl;
       if (baseUrl.isEmpty) {
