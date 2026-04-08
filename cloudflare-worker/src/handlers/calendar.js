@@ -109,16 +109,17 @@ async function handleEconomicCalendar(request, env, url) {
   // 4. FOMC 일정 추가 (from~to 범위 내)
   const fomcEvents = buildFomcEvents(from, to);
 
-  // 5. TradingView 중 FRED에 매칭 안 된 고중요도 이벤트 추가
-  const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, fredEvents);
+  // 5. TradingView 중 FRED에 매칭 안 된 고중요도 이벤트 추가 (from~to 범위 필터)
+  const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, fredEvents, from, to);
 
   // 6. 합치고 날짜순 정렬
-  const allEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
+  const liveEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // 7. actual이 있는 이벤트 → KV에 영구 저장 (1년 TTL)
-  //    actual이 없는 과거 이벤트 → KV에서 저장된 actual 복원
-  await syncActuals(env, allEvents);
+  // 7. 오늘 기준 과거 이벤트 → KV에 날짜별 영구 저장 (1년 TTL)
+  //    TradingView가 과거 이벤트를 삭제하므로, 매일 그날의 이벤트를 보존
+  // 8. API에 없는 과거 날짜 → KV에서 복원하여 합침
+  const allEvents = await syncAndRestoreEvents(env, liveEvents, from, to);
 
   return jsonResponse(allEvents, request);
 }
@@ -247,60 +248,100 @@ async function fetchTradingViewEvents(env, from, to) {
   }
 }
 
-// ── actual 값 영구 저장 & 복원 (1년 TTL) ──
+// ── 이벤트 영구 저장 & 과거 복원 (1년 TTL) ──
 //
-// TradingView는 발표 후 2~3일만 actual을 제공하고 이후 사라짐.
-// actual이 있을 때 KV에 저장해두면, 이후에도 과거 결과를 볼 수 있음.
-// - 저장: actual != null인 이벤트 → KV에 1년간 보관
-// - 복원: actual == null인 과거 이벤트 → KV에서 찾아서 채움
+// TradingView는 과거 이벤트를 빠르게 삭제 (당일~1일 후 사라짐).
+// 매일 해당 날짜의 전체 이벤트 목록을 KV에 보존하면,
+// 과거로 스크롤해도 어떤 발표가 있었고 결과가 어땠는지 확인 가능.
+//
+// 저장 단위: calendar:day:YYYY-MM-DD → 해당 날짜의 이벤트 배열 (1년 TTL)
+// 복원: from~to 범위 중 API 응답에 없는 과거 날짜 → KV에서 복원
 
-async function syncActuals(env, events) {
+async function syncAndRestoreEvents(env, liveEvents, from, to) {
   const today = new Date().toISOString().substring(0, 10);
 
-  // 1. actual이 있는 이벤트 → KV에 저장
-  const toSave = events.filter(e => e.actual != null);
-  if (toSave.length > 0) {
-    await Promise.allSettled(
-      toSave.map(e => {
-        const kvKey = `calendar:actual:${e.id}`;
-        const data = JSON.stringify({
-          actual: e.actual,
-          forecast: e.forecast,
-          previous: e.previous,
-        });
-        return env.CACHE_KV.put(kvKey, data, { expirationTtl: 31536000 }) // 365일
-          .catch(err => console.error(`[Calendar] Actual save failed for ${e.id}:`, err.message));
-      })
-    );
+  // ── 1. 현재 API 응답의 이벤트를 날짜별로 KV에 저장 ──
+  // 오늘 이전 날짜 + 오늘 날짜의 이벤트를 보존 (미래는 변동 가능하므로 저장 안 함)
+  const byDate = {};
+  for (const e of liveEvents) {
+    const d = (e.date || '').substring(0, 10);
+    if (d <= today) {
+      (byDate[d] ??= []).push(e);
+    }
   }
 
-  // 2. actual이 없는 과거 이벤트 → KV에서 복원
-  const toRestore = events.filter(e => {
-    if (e.actual != null) return false;
-    const eventDate = (e.date || '').substring(0, 10);
-    return eventDate < today; // 과거 이벤트만
-  });
-
-  if (toRestore.length > 0) {
-    const results = await Promise.allSettled(
-      toRestore.map(e => env.CACHE_KV.get(`calendar:actual:${e.id}`, 'json'))
+  // 날짜별 KV 저장 (기존 데이터와 병합)
+  const datesToSave = Object.keys(byDate);
+  if (datesToSave.length > 0) {
+    // 기존 저장된 데이터 읽기
+    const existingResults = await Promise.allSettled(
+      datesToSave.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
     );
 
-    for (let i = 0; i < toRestore.length; i++) {
-      const result = results[i];
-      if (result.status === 'fulfilled' && result.value) {
-        const saved = result.value;
-        toRestore[i].actual = saved.actual;
-        // forecast/previous도 저장된 값이 있으면 보강 (원본이 null일 때만)
-        if (toRestore[i].forecast == null && saved.forecast != null) {
-          toRestore[i].forecast = saved.forecast;
-        }
-        if (toRestore[i].previous == null && saved.previous != null) {
-          toRestore[i].previous = saved.previous;
-        }
+    const writeTasks = [];
+    for (let i = 0; i < datesToSave.length; i++) {
+      const dateKey = datesToSave[i];
+      const newEvents = byDate[dateKey];
+      const existing = existingResults[i].status === 'fulfilled' ? existingResults[i].value : null;
+
+      // 기존 저장 이벤트와 새 이벤트 병합 (id 기준 dedup, 새 데이터 우선)
+      let merged;
+      if (existing && Array.isArray(existing)) {
+        const byId = new Map();
+        for (const e of existing) byId.set(e.id, e);
+        for (const e of newEvents) byId.set(e.id, e); // 새 데이터가 덮어쓰기
+        merged = [...byId.values()];
+      } else {
+        merged = newEvents;
+      }
+
+      writeTasks.push(
+        env.CACHE_KV.put(`calendar:day:${dateKey}`, JSON.stringify(merged), { expirationTtl: 31536000 })
+          .catch(err => console.error(`[Calendar] Day save failed for ${dateKey}:`, err.message))
+      );
+    }
+    if (writeTasks.length > 0) {
+      await Promise.allSettled(writeTasks);
+    }
+  }
+
+  // ── 2. API 응답에 없는 과거 날짜 → KV에서 복원 ──
+  // from~어제까지의 날짜 중 liveEvents에 없는 날짜를 찾아 KV에서 가져옴
+  const liveDates = new Set(liveEvents.map(e => (e.date || '').substring(0, 10)));
+  const yesterday = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
+  const restoreEnd = yesterday < to ? yesterday : to; // 어제까지만 복원
+
+  // from~restoreEnd 범위의 날짜 생성
+  const missingDates = [];
+  const d = new Date(from + 'T00:00:00Z');
+  const endD = new Date(restoreEnd + 'T00:00:00Z');
+  while (d <= endD) {
+    const ds = d.toISOString().substring(0, 10);
+    if (!liveDates.has(ds)) {
+      missingDates.push(ds);
+    }
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+
+  // 빠진 날짜를 KV에서 복원 (최대 90일분, 너무 많으면 성능 이슈)
+  let restoredEvents = [];
+  const datesToRestore = missingDates.slice(-90); // 최근 90일 우선
+  if (datesToRestore.length > 0) {
+    const results = await Promise.allSettled(
+      datesToRestore.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
+    );
+    for (const result of results) {
+      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+        restoredEvents.push(...result.value);
       }
     }
   }
+
+  // ── 3. live + restored 합치고 정렬 ──
+  const allEvents = [...liveEvents, ...restoredEvents]
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return allEvents;
 }
 
 // ── FRED + TradingView 병합 ──
@@ -372,19 +413,21 @@ function buildFomcEvents(from, to) {
 
 // ── TradingView 중 FRED에 매칭 안 된 고중요도(importance >= 2) 이벤트 ──
 
-function buildUnmatchedTvEvents(tvEvents, fredEvents) {
+function buildUnmatchedTvEvents(tvEvents, fredEvents, from, to) {
   if (!tvEvents.length) return [];
 
-  // 이미 매칭된 TV 이벤트 제외 — 키워드 매칭 여부 확인
   const allKeywords = Object.values(TV_MATCH_KEYWORDS).flat();
+  const fromDate = `${from}T00:00:00.000Z`;
+  const toDate = `${to}T23:59:59.999Z`;
 
   return tvEvents
     .filter(tv => {
+      // 요청 범위 밖 이벤트 제외 (TV API가 범위 밖 데이터를 반환하는 경우 대비)
+      const tvDate = tv.date || '';
+      if (tvDate < fromDate || tvDate > toDate) return false;
       const tvTitle = (tv.title || '').toLowerCase();
-      // FRED 키워드에 해당하는 이벤트는 이미 병합됨 → 제외
       const isFredMatched = allKeywords.some(kw => tvTitle.includes(kw));
       if (isFredMatched) return false;
-      // importance >= 2 또는 forecast/previous 값이 있는 이벤트 포함
       return (tv.importance || 0) >= 2 ||
              tv.forecast != null || tv.previous != null;
     })

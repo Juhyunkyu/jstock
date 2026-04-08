@@ -232,6 +232,78 @@ const _eventDescriptions = <String, ({String desc, String higher, String lower})
     higher: '매파적 발언 → 긴축 지속 → 시장 하락 압력',
     lower: '비둘기파적 발언 → 완화 기대 → 시장 상승 기대',
   ),
+  // ─── 에너지 (EIA 주간) ───
+  'EIA 원유재고 변동': (
+    desc: 'EIA(미국에너지정보청) 주간 원유재고 변동. 유가에 직접적인 영향.',
+    higher: '재고 증가 → 수요 둔화 → 유가 하락 압력',
+    lower: '재고 감소 → 수요 강세 → 유가 상승 압력',
+  ),
+  'EIA 원유수입 변동': (
+    desc: '미국의 주간 원유 수입량 변동. 공급 측면의 유가 영향 요인.',
+    higher: '수입 증가 → 공급 확대 → 유가 하락 압력',
+    lower: '수입 감소 → 공급 축소 → 유가 상승 압력',
+  ),
+  'EIA 쿠싱 원유재고 변동': (
+    desc: '오클라호마 쿠싱 저장기지 원유재고. WTI 선물 인도 기준점으로 유가에 민감.',
+    higher: '재고 증가 → WTI 하락 압력',
+    lower: '재고 감소 → WTI 상승 압력',
+  ),
+  'EIA 가솔린 재고 변동': (
+    desc: '주간 가솔린 재고 변동. 드라이빙 시즌 등 소비 패턴과 연계.',
+    higher: '재고 증가 → 수요 둔화 → 가솔린 가격 하락',
+    lower: '재고 감소 → 수요 강세 → 가솔린 가격 상승',
+  ),
+  'EIA 가솔린 생산 변동': (
+    desc: '주간 가솔린 생산량 변동. 정유소 가동률과 연계.',
+    higher: '생산 증가 → 공급 확대 → 가격 안정',
+    lower: '생산 감소 → 공급 축소 → 가격 상승 압력',
+  ),
+  'EIA 증류유 재고 변동': (
+    desc: '디젤, 난방유 등 증류유 재고 변동. 산업/운송 수요 반영.',
+    higher: '재고 증가 → 수요 둔화',
+    lower: '재고 감소 → 수요 강세',
+  ),
+  'EIA 증류유 생산 변동': (
+    desc: '주간 증류유 생산량 변동. 정유소 생산 활동 수준을 반영.',
+    higher: '생산 증가 → 공급 확대',
+    lower: '생산 감소 → 공급 축소',
+  ),
+  'EIA 난방유 재고 변동': (
+    desc: '주간 난방유 재고 변동. 겨울철 수요와 밀접.',
+    higher: '재고 증가 → 가격 안정',
+    lower: '재고 감소 → 가격 상승 압력',
+  ),
+  'EIA 정유소 가동 변동': (
+    desc: '정유소의 원유 처리량 변동. 정제 능력과 석유제품 공급량을 반영.',
+    higher: '가동 증가 → 석유제품 공급 확대',
+    lower: '가동 감소 → 공급 축소 → 제품 가격 상승',
+  ),
+  // ─── 주택 / 모기지 (MBA 주간) ───
+  'MBA 모기지 신청건수': (
+    desc: '주간 모기지 신청건수 변동. 주택시장 수요의 선행지표.',
+    higher: '신청 증가 → 주택 수요 강세 → 경기 활력',
+    lower: '신청 감소 → 주택 수요 약화 → 경기 둔화',
+  ),
+  'MBA 모기지 시장지수': (
+    desc: '모기지 시장 전체 활동을 측정하는 종합지수.',
+    higher: '활동 증가 → 주택시장 활성화',
+    lower: '활동 감소 → 주택시장 둔화',
+  ),
+  'MBA 모기지 리파이낸싱지수': (
+    desc: '기존 모기지 재융자 활동. 금리 변동에 매우 민감.',
+    higher: '재융자 증가 → 금리 하락 반영 → 소비 여력 확대',
+    lower: '재융자 감소 → 금리 상승 반영 → 소비 여력 축소',
+  ),
+  'MBA 주택구매지수': (
+    desc: '신규 주택 구매 목적의 모기지 신청. 실수요를 반영.',
+    higher: '구매 증가 → 주택 실수요 강세',
+    lower: '구매 감소 → 주택 실수요 약화',
+  ),
+  'MBA 30년 모기지 금리': (
+    desc: '30년 고정금리 모기지 평균 금리. 주택시장의 핵심 비용 지표.',
+    higher: '금리 상승 → 주택 구매 비용 증가 → 수요 억제',
+    lower: '금리 하락 → 주택 구매 비용 감소 → 수요 촉진',
+  ),
 };
 
 class EconomicCalendarCard extends ConsumerStatefulWidget {
@@ -252,6 +324,11 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   late DateTime _displayMonth;
   final ScrollController _timelineScrollController = ScrollController();
   bool _initialScrollDone = false;
+
+  // 날짜별 그룹화 캐시 (타임라인 뷰 + 스크롤 공유)
+  Map<String, List<EconomicEvent>> _cachedGrouped = {};
+  List<String> _cachedSortedKeys = [];
+  int _cachedEventsHash = 0;
 
   @override
   void initState() {
@@ -387,22 +464,13 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     final events = state.events;
     if (events.isEmpty) return;
 
-    final grouped = <String, List<EconomicEvent>>{};
-    for (final e in events) {
-      final key =
-          '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}';
-      (grouped[key] ??= []).add(e);
-    }
-    final sortedDateKeys = grouped.keys.toList()..sort();
-
-    final now = DateTime.now();
-    final todayKey =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    final (:grouped, :sortedKeys) = _groupEventsByDate(events);
+    final todayKey = _dateKey(DateTime.now());
 
     // 오늘 또는 이후 가장 가까운 날짜의 인덱스 찾기
-    int targetIdx = sortedDateKeys.length - 1;
-    for (int i = 0; i < sortedDateKeys.length; i++) {
-      if (sortedDateKeys[i].compareTo(todayKey) >= 0) {
+    int targetIdx = sortedKeys.length - 1;
+    for (int i = 0; i < sortedKeys.length; i++) {
+      if (sortedKeys[i].compareTo(todayKey) >= 0) {
         targetIdx = i;
         break;
       }
@@ -412,7 +480,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     // 날짜 헤더 ~26px + 이벤트 행 ~22px * 개수 + 간격 ~4px
     double offset = 0;
     for (int i = 0; i < targetIdx; i++) {
-      final dateEvents = grouped[sortedDateKeys[i]]!;
+      final dateEvents = grouped[sortedKeys[i]]!;
       offset += 26 + (dateEvents.length * 22) + 4;
     }
 
@@ -508,14 +576,9 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       );
     }
 
-    // 날짜별 그룹화
-    final grouped = <String, List<EconomicEvent>>{};
-    for (final e in events) {
-      final key =
-          '${e.date.year}-${e.date.month.toString().padLeft(2, '0')}-${e.date.day.toString().padLeft(2, '0')}';
-      (grouped[key] ??= []).add(e);
-    }
-    final sortedDateKeys = grouped.keys.toList()..sort();
+    final (:grouped, :sortedKeys) = _groupEventsByDate(events);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
     // 첫 빌드 후 오늘로 자동 스크롤
     if (!_initialScrollDone) {
@@ -531,9 +594,9 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         controller: _timelineScrollController,
         shrinkWrap: true,
         padding: EdgeInsets.zero,
-        itemCount: sortedDateKeys.length,
+        itemCount: sortedKeys.length,
         itemBuilder: (context, idx) {
-          final dateKey = sortedDateKeys[idx];
+          final dateKey = sortedKeys[idx];
           final dateEvents = grouped[dateKey]!;
           final date = dateEvents.first.date;
 
@@ -544,11 +607,12 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 날짜 헤더
-              _buildDateHeader(context, date, weekday, dateEvents.length, fs),
+              _buildDateHeader(
+                  context, date, weekday, dateEvents.length,
+                  dateEvents.first.ddayText, fs),
               // 해당 날짜 이벤트들
               for (final event in dateEvents)
-                _buildEventRow(context, event, fs),
+                _buildEventRow(context, event, fs, today),
               SizedBox(height: 4 * fs),
             ],
           );
@@ -557,10 +621,8 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
-  /// 날짜 헤더: "4/7 (화) ━━━━ 5건 ━━━━ D-DAY"
   Widget _buildDateHeader(BuildContext context, DateTime date, String weekday,
-      int eventCount, double fs) {
-    final dday = _ddayFromDate(date);
+      int eventCount, String dday, double fs) {
 
     return Padding(
       padding: EdgeInsets.only(top: 2 * fs, bottom: 2 * fs),
@@ -601,9 +663,13 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// 이벤트 행 (서프라이즈 표시 포함, 탭 → 설명 바텀시트)
-  Widget _buildEventRow(BuildContext context, EconomicEvent event, double fs) {
-    final isPast = _isPastEvent(event);
+  Widget _buildEventRow(
+      BuildContext context, EconomicEvent event, double fs, DateTime today) {
+    final isPast = _isPastDate(event.date, today);
     final hasActual = event.actual != null;
+
+    // 부제를 한 번만 생성
+    final subtitle = (!isPast || !hasActual) ? _buildSubtitle(event) : '';
 
     return GestureDetector(
       onTap: () => _showEventExplanation(context, event, fs),
@@ -613,7 +679,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 카테고리 도트
             Padding(
               padding: EdgeInsets.only(top: 4 * fs),
               child: Container(
@@ -626,7 +691,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               ),
             ),
             SizedBox(width: 6 * fs),
-            // 이벤트 정보
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,12 +705,11 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  // 부제: 미래=예상/전월, 과거=actual 서프라이즈
                   if (isPast && hasActual)
                     _buildActualRow(context, event, fs)
-                  else if (_hasSubtitle(event))
+                  else if (subtitle.isNotEmpty)
                     Text(
-                      _buildSubtitle(event),
+                      subtitle,
                       style: TextStyle(
                           fontSize: 9 * fs, color: context.appTextSecondary),
                       maxLines: 1,
@@ -964,16 +1027,29 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
   // ─── 헬퍼 ───
 
-  bool _isPastEvent(EconomicEvent event) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final eventDate = DateTime(event.date.year, event.date.month, event.date.day);
-    return eventDate.isBefore(today);
+  static String _dateKey(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  /// 날짜별 그룹화 (타임라인 뷰 + 스크롤 공유, 이벤트 변경 시만 재계산)
+  ({Map<String, List<EconomicEvent>> grouped, List<String> sortedKeys})
+      _groupEventsByDate(List<EconomicEvent> events) {
+    final hash = events.length; // 간단한 변경 감지
+    if (hash == _cachedEventsHash && _cachedGrouped.isNotEmpty) {
+      return (grouped: _cachedGrouped, sortedKeys: _cachedSortedKeys);
+    }
+    final grouped = <String, List<EconomicEvent>>{};
+    for (final e in events) {
+      (grouped[_dateKey(e.date)] ??= []).add(e);
+    }
+    final sortedKeys = grouped.keys.toList()..sort();
+    _cachedGrouped = grouped;
+    _cachedSortedKeys = sortedKeys;
+    _cachedEventsHash = hash;
+    return (grouped: grouped, sortedKeys: sortedKeys);
   }
 
-  bool _hasSubtitle(EconomicEvent event) {
-    return _buildSubtitle(event).isNotEmpty;
-  }
+  bool _isPastDate(DateTime date, DateTime today) =>
+      DateTime(date.year, date.month, date.day).isBefore(today);
 
   String _buildSubtitle(EconomicEvent event) {
     final parts = <String>[];
@@ -1004,16 +1080,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   String _fmtVal(double v) {
     if (v == v.truncateToDouble()) return v.toInt().toString();
     return v.toStringAsFixed(1);
-  }
-
-  String _ddayFromDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final eventDate = DateTime(date.year, date.month, date.day);
-    final diff = eventDate.difference(today).inDays;
-    if (diff == 0) return 'D-DAY';
-    if (diff > 0) return 'D-$diff';
-    return 'D+${diff.abs()}';
   }
 
   Widget _buildDdayChip(BuildContext context, String text, double fs) {
@@ -1318,11 +1384,15 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       );
     }
 
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: events.map((event) {
-        final isPast = _isPastEvent(event);
+        final isPast = _isPastDate(event.date, today);
         final hasActual = event.actual != null;
+        final subtitle = (!isPast || !hasActual) ? _buildSubtitle(event) : '';
 
         return GestureDetector(
           onTap: () => _showEventExplanation(context, event, fs),
@@ -1352,17 +1422,16 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                     ),
                   ],
                 ),
-                // 과거 actual 서프라이즈 or 미래 예상값
                 if (isPast && hasActual)
                   Padding(
                     padding: EdgeInsets.only(left: 9 * fs),
                     child: _buildActualRow(context, event, fs),
                   )
-                else if (_hasSubtitle(event))
+                else if (subtitle.isNotEmpty)
                   Padding(
                     padding: EdgeInsets.only(left: 9 * fs),
                     child: Text(
-                      _buildSubtitle(event),
+                      subtitle,
                       style: TextStyle(
                           fontSize: 9 * fs, color: context.appTextSecondary),
                     ),
