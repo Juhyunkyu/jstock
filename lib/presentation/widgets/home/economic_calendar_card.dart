@@ -1158,9 +1158,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildLegend(context, fs),
-        SizedBox(height: 6 * fs),
-        _buildMonthNav(context, fs,
+        _buildMonthNavWithLegend(context, fs,
             canGoPrev: canGoPrev, canGoNext: canGoNext),
         SizedBox(height: 4 * fs),
         _buildWeekHeader(context, fs),
@@ -1182,10 +1180,24 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
+  Widget _buildMonthNavWithLegend(BuildContext context, double fs,
+      {required bool canGoPrev, required bool canGoNext}) {
+    return Row(
+      children: [
+        // 월 네비게이션 (왼쪽)
+        _buildMonthNav(context, fs,
+            canGoPrev: canGoPrev, canGoNext: canGoNext),
+        const Spacer(),
+        // 범례 (오른쪽)
+        _buildLegend(context, fs),
+      ],
+    );
+  }
+
   Widget _buildMonthNav(BuildContext context, double fs,
       {required bool canGoPrev, required bool canGoNext}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: [
         GestureDetector(
           onTap: canGoPrev
