@@ -415,22 +415,27 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // "오늘" 버튼
+            // "오늘" 버튼 (최소 터치 영역 44px 보장)
             GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: _scrollToToday,
-              child: Container(
+              child: Padding(
                 padding: EdgeInsets.symmetric(
-                    horizontal: 6 * fs, vertical: 3 * fs),
-                decoration: BoxDecoration(
-                  color: AppColors.calendarFomc.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  '오늘',
-                  style: TextStyle(
-                    fontSize: 10 * fs,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.calendarFomc,
+                    horizontal: 4 * fs, vertical: 8 * fs),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 8 * fs, vertical: 4 * fs),
+                  decoration: BoxDecoration(
+                    color: AppColors.calendarFomc.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    '오늘',
+                    style: TextStyle(
+                      fontSize: 10 * fs,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.calendarFomc,
+                    ),
                   ),
                 ),
               ),
@@ -476,12 +481,19 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       }
     }
 
-    // 각 날짜 그룹의 높이를 대략적으로 계산
-    // 날짜 헤더 ~26px + 이벤트 행 ~22px * 개수 + 간격 ~4px
+    // fs 기반 높이 계산 (모바일/데스크톱 동일하게 작동)
+    final fs = _fontScale(context);
+    // 날짜 헤더: top(2*fs) + text(11*fs) + bottom(2*fs) = ~15*fs
+    // 이벤트 행: top(2*fs) + dot+text(~14*fs) + bottom(2*fs) = ~18*fs
+    // 그룹 간격: 4*fs
+    final headerH = 15 * fs;
+    final eventH = 18 * fs;
+    final gapH = 4 * fs;
+
     double offset = 0;
     for (int i = 0; i < targetIdx; i++) {
       final dateEvents = grouped[sortedKeys[i]]!;
-      offset += 26 + (dateEvents.length * 22) + 4;
+      offset += headerH + (dateEvents.length * eventH) + gapH;
     }
 
     if (_timelineScrollController.hasClients) {
@@ -516,21 +528,25 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       required bool isActive,
       required VoidCallback onTap}) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 6 * fs, vertical: 3 * fs),
-        decoration: BoxDecoration(
-          color: isActive ? AppColors.calendarEarnings : context.appIconBg,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 10 * fs,
-            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-            color: isActive
-                ? const Color(0xFF0D1117)
-                : context.appTextSecondary,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 2 * fs, vertical: 8 * fs),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 4 * fs),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.calendarEarnings : context.appIconBg,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10 * fs,
+              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              color: isActive
+                  ? const Color(0xFF0D1117)
+                  : context.appTextSecondary,
+            ),
           ),
         ),
       ),
