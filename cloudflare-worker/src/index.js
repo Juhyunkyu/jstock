@@ -122,7 +122,7 @@ export default {
 
     // 국내 경제 뉴스
     if (url.pathname === '/api/news/korea') {
-      return handleMarketNews(request, KOREA_RSS_FEEDS, 10);
+      return handleMarketNews(request, KOREA_RSS_FEEDS, 20);
     }
 
     // Twelve Data 차트 데이터 (캐시 프록시)
