@@ -320,7 +320,7 @@ class EconomicCalendarCard extends ConsumerStatefulWidget {
 }
 
 class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
-  bool _isCalendarView = false;
+  bool _isCalendarView = true;
   late DateTime _displayMonth;
   final ScrollController _timelineScrollController = ScrollController();
   bool _initialScrollDone = false;
@@ -372,7 +372,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         padding: EdgeInsets.all(12 * fs),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(context, fs),
             SizedBox(height: 8 * fs),
@@ -381,7 +380,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
             else if (state.error != null)
               _buildError(context, state.error!, fs)
             else if (_isCalendarView)
-              _buildCalendarView(context, state, fs)
+              Expanded(child: _buildCalendarView(context, state, fs))
             else
               _buildTimelineView(context, state, fs),
           ],
@@ -495,7 +494,10 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _toggleBtn(context, fs: fs, label: '목록', isActive: !_isCalendarView,
-            onTap: () => setState(() => _isCalendarView = false)),
+            onTap: () => setState(() {
+              _isCalendarView = false;
+              _initialScrollDone = false;
+            })),
         SizedBox(width: 2 * fs),
         _toggleBtn(context, fs: fs, label: '달력', isActive: _isCalendarView,
             onTap: () => setState(() => _isCalendarView = true)),
@@ -1173,9 +1175,18 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         SizedBox(height: 4 * fs),
         Divider(height: 1, color: context.appDivider),
         SizedBox(height: 4 * fs),
-        _buildSelectedDateEvents(context, state, fs),
-        SizedBox(height: 6 * fs),
-        _buildLegend(context, fs),
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildSelectedDateEvents(context, state, fs),
+                SizedBox(height: 6 * fs),
+                _buildLegend(context, fs),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

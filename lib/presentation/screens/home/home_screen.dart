@@ -161,7 +161,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                     if (isDesktop) {
                       // 데스크톱: Fear&Greed (50%) + Calendar (50%) 나란히
-                      // 고정 높이로 두 카드 동일하게 맞춤 (게이지 클리핑 방지)
+                      // 동일 높이 유지, Calendar 이벤트는 내부 스크롤
                       final cardHeight = screenW >= 1200 ? 340.0 : screenW >= 800 ? 300.0 : 280.0;
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
