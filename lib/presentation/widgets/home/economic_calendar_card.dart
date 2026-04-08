@@ -1471,41 +1471,47 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     showModalBottomSheet(
       context: context,
       backgroundColor: context.appCardBackground,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
-        return SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(20 * fs, 16 * fs, 20 * fs, 24 * fs),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // 드래그 핸들
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: context.appDivider,
-                      borderRadius: BorderRadius.circular(2),
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding:
+                  EdgeInsets.fromLTRB(20 * fs, 16 * fs, 20 * fs, 24 * fs),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: context.appDivider,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(height: 12 * fs),
-                Text(
-                  '$dateLabel 경제 일정 (${sortedEvents.length}건)',
-                  style: TextStyle(
-                    fontSize: 14 * fs,
-                    fontWeight: FontWeight.w700,
-                    color: context.appTextPrimary,
+                  SizedBox(height: 12 * fs),
+                  Text(
+                    '$dateLabel 경제 일정 (${sortedEvents.length}건)',
+                    style: TextStyle(
+                      fontSize: 14 * fs,
+                      fontWeight: FontWeight.w700,
+                      color: context.appTextPrimary,
+                    ),
                   ),
-                ),
-                SizedBox(height: 8 * fs),
-                ...sortedEvents.map(
-                    (event) => _buildEventRow(context, event, fs, today)),
-              ],
+                  SizedBox(height: 8 * fs),
+                  ...sortedEvents.map(
+                      (event) => _buildEventRow(context, event, fs, today)),
+                ],
+              ),
             ),
           ),
         );
