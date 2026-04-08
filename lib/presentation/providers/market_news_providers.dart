@@ -122,7 +122,7 @@ class KoreaNewsNotifier extends StateNotifier<MarketNewsState> {
 
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final news = await _newsService.getKoreaNews(limit: 10);
+      final news = await _newsService.getKoreaNews(limit: 20);
       _cache.set(cacheKey, news, ttl: _cacheTtl);
       state = state.copyWith(
         news: news,
