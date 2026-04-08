@@ -324,6 +324,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   late DateTime _displayMonth;
   final ScrollController _timelineScrollController = ScrollController();
   bool _initialScrollDone = false;
+  DateTime? _scrollTarget; // 목록 전환 시 스크롤할 날짜
 
   // 날짜별 그룹화 캐시 (타임라인 뷰 + 스크롤 공유)
   Map<String, List<EconomicEvent>> _cachedGrouped = {};
@@ -454,22 +455,22 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
           .selectDate(DateTime(now.year, now.month, now.day));
     } else {
       // 타임라인 뷰: 오늘로 스크롤
-      _doScrollToToday();
+      _doScrollToDate();
     }
   }
 
-  void _doScrollToToday() {
+  void _doScrollToDate([DateTime? target]) {
     final state = ref.read(calendarProvider);
     final events = state.events;
     if (events.isEmpty) return;
 
     final (:grouped, :sortedKeys) = _groupEventsByDate(events);
-    final todayKey = _dateKey(DateTime.now());
+    final targetKey = _dateKey(target ?? DateTime.now());
 
-    // 오늘 또는 이후 가장 가까운 날짜의 인덱스 찾기
+    // 타겟 또는 이후 가장 가까운 날짜의 인덱스 찾기
     int targetIdx = sortedKeys.length - 1;
     for (int i = 0; i < sortedKeys.length; i++) {
-      if (sortedKeys[i].compareTo(todayKey) >= 0) {
+      if (sortedKeys[i].compareTo(targetKey) >= 0) {
         targetIdx = i;
         break;
       }
@@ -494,10 +495,14 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _toggleBtn(context, fs: fs, label: '목록', isActive: !_isCalendarView,
-            onTap: () => setState(() {
-              _isCalendarView = false;
-              _initialScrollDone = false;
-            })),
+            onTap: () {
+              // 달력에서 선택한 날짜를 목록 스크롤 타겟으로 저장
+              _scrollTarget = ref.read(calendarProvider).selectedDate;
+              setState(() {
+                _isCalendarView = false;
+                _initialScrollDone = false;
+              });
+            }),
         SizedBox(width: 2 * fs),
         _toggleBtn(context, fs: fs, label: '달력', isActive: _isCalendarView,
             onTap: () => setState(() => _isCalendarView = true)),
@@ -582,11 +587,13 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
-    // 첫 빌드 후 오늘로 자동 스크롤
+    // 첫 빌드 후 타겟 날짜로 자동 스크롤 (달력 선택 날짜 또는 오늘)
     if (!_initialScrollDone) {
       _initialScrollDone = true;
+      final target = _scrollTarget;
+      _scrollTarget = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _doScrollToToday();
+        _doScrollToDate(target);
       });
     }
 
