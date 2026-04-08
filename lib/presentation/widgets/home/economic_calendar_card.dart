@@ -810,7 +810,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 드래그 핸들
                 Center(
                   child: Container(
                     width: 36,
@@ -823,7 +822,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 ),
                 SizedBox(height: 16 * fs),
 
-                // 제목 + 카테고리 배지
                 Row(
                   children: [
                     Container(
@@ -865,7 +863,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 ),
                 SizedBox(height: 12 * fs),
 
-                // 설명
                 Text(
                   hasDesc
                       ? info.desc
@@ -880,7 +877,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                 if (hasDesc) ...[
                   SizedBox(height: 16 * fs),
 
-                  // 예상보다 높으면
                   _buildImpactSection(
                     context,
                     fs: fs,
@@ -891,7 +887,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                   ),
                   SizedBox(height: 10 * fs),
 
-                  // 예상보다 낮으면
                   _buildImpactSection(
                     context,
                     fs: fs,
@@ -902,7 +897,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                   ),
                 ],
 
-                // 최근 결과 (actual이 있을 때만)
                 if (event.actual != null) ...[
                   SizedBox(height: 16 * fs),
                   Divider(height: 1, color: context.appDivider),
@@ -1048,7 +1042,9 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   /// 날짜별 그룹화 (타임라인 뷰 + 스크롤 공유, 이벤트 변경 시만 재계산)
   ({Map<String, List<EconomicEvent>> grouped, List<String> sortedKeys})
       _groupEventsByDate(List<EconomicEvent> events) {
-    final hash = events.length; // 간단한 변경 감지
+    // 길이 + 첫/마지막 이벤트 날짜로 변경 감지
+    final hash = events.length ^
+        (events.isNotEmpty ? events.first.date.hashCode ^ events.last.date.hashCode : 0);
     if (hash == _cachedEventsHash && _cachedGrouped.isNotEmpty) {
       return (grouped: _cachedGrouped, sortedKeys: _cachedSortedKeys);
     }
@@ -1446,7 +1442,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         ...visible.map((event) => _buildEventRow(context, event, fs, today)),
         if (remainCount > 0)
           GestureDetector(
-            onTap: () => _showAllEventsSheet(context, sorted, fs),
+            onTap: () => _showAllEventsSheet(context, sorted, fs, today),
             behavior: HitTestBehavior.opaque,
             child: Padding(
               padding: EdgeInsets.only(top: 4 * fs),
@@ -1467,10 +1463,8 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// 전체 이벤트 바텀시트
-  void _showAllEventsSheet(
-      BuildContext context, List<EconomicEvent> sortedEvents, double fs) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  void _showAllEventsSheet(BuildContext context,
+      List<EconomicEvent> sortedEvents, double fs, DateTime today) {
     final date = sortedEvents.first.date;
     final dateLabel = '${date.month}/${date.day}';
 
