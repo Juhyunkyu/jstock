@@ -477,12 +477,9 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       }
     }
 
-    // fs 기반 높이 계산 (모바일/데스크톱 동일하게 작동)
+    // fs 기반 높이 계산
     final fs = _fontScale(context);
-    // 날짜 헤더: Padding(4*fs) + Row(text 11*fs lineHeight ~1.3) ≈ 19*fs
-    // 이벤트 행: Padding(4*fs) + Row(dot+text 11*fs lineHeight) ≈ 20*fs
-    // 그룹 간격: SizedBox(4*fs)
-    final headerH = 19 * fs;
+    final headerH = 20 * fs;
     final eventH = 20 * fs;
     final gapH = 4 * fs;
 
