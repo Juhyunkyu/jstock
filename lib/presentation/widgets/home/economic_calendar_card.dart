@@ -1158,6 +1158,8 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _buildLegend(context, fs),
+        SizedBox(height: 6 * fs),
         _buildMonthNav(context, fs,
             canGoPrev: canGoPrev, canGoNext: canGoNext),
         SizedBox(height: 4 * fs),
@@ -1175,18 +1177,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         SizedBox(height: 4 * fs),
         Divider(height: 1, color: context.appDivider),
         SizedBox(height: 4 * fs),
-        Expanded(
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildSelectedDateEvents(context, state, fs),
-                SizedBox(height: 6 * fs),
-                _buildLegend(context, fs),
-              ],
-            ),
-          ),
-        ),
+        _buildSelectedDateEvents(context, state, fs),
       ],
     );
   }
@@ -1380,7 +1371,29 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
-  /// 선택 날짜 이벤트 목록 (달력 뷰) — 서프라이즈 표시 + 탭 → 설명
+  /// 카테고리별 정렬 우선순위 (낮을수록 먼저)
+  static const _categoryPriority = <EventCategory, int>{
+    EventCategory.fomc: 0,
+    EventCategory.inflation: 1,
+    EventCategory.employment: 2,
+    EventCategory.gdp: 3,
+    EventCategory.earnings: 4,
+    EventCategory.other: 5,
+  };
+
+  /// 이벤트를 카테고리 우선순위 → importance 내림차순으로 정렬
+  List<EconomicEvent> _sortEvents(List<EconomicEvent> events) {
+    final sorted = List<EconomicEvent>.from(events);
+    sorted.sort((a, b) {
+      final catCmp = (_categoryPriority[a.category] ?? 5)
+          .compareTo(_categoryPriority[b.category] ?? 5);
+      if (catCmp != 0) return catCmp;
+      return b.importance.compareTo(a.importance);
+    });
+    return sorted;
+  }
+
+  /// 선택 날짜 이벤트 목록 (달력 뷰) — 상위 2건 + 더보기
   Widget _buildSelectedDateEvents(
       BuildContext context, CalendarState state, double fs) {
     final events = state.selectedDateEvents;
@@ -1395,63 +1408,89 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
       );
     }
 
+    final sorted = _sortEvents(events);
+    final visible = sorted.take(2).toList();
+    final remainCount = sorted.length - visible.length;
+
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: events.map((event) {
-        final isPast = _isPastDate(event.date, today);
-        final hasActual = event.actual != null;
-        final subtitle = (!isPast || !hasActual) ? _buildSubtitle(event) : '';
+      children: [
+        ...visible.map((event) => _buildEventRow(context, event, fs, today)),
+        if (remainCount > 0)
+          GestureDetector(
+            onTap: () => _showAllEventsSheet(context, sorted, fs),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: EdgeInsets.only(top: 4 * fs),
+              child: Center(
+                child: Text(
+                  '더보기 ($remainCount건)',
+                  style: TextStyle(
+                    fontSize: 11 * fs,
+                    color: context.appAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
-        return GestureDetector(
-          onTap: () => _showEventExplanation(context, event, fs),
-          behavior: HitTestBehavior.opaque,
+  /// 전체 이벤트 바텀시트
+  void _showAllEventsSheet(
+      BuildContext context, List<EconomicEvent> sortedEvents, double fs) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final date = sortedEvents.first.date;
+    final dateLabel = '${date.month}/${date.day}';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: context.appCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 2 * fs),
+            padding: EdgeInsets.fromLTRB(20 * fs, 16 * fs, 20 * fs, 24 * fs),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 5 * fs,
-                      height: 5 * fs,
-                      decoration: BoxDecoration(
-                          color: event.category.color, shape: BoxShape.circle),
-                    ),
-                    SizedBox(width: 4 * fs),
-                    Expanded(
-                      child: Text(
-                        event.displayTitle,
-                        style: TextStyle(
-                            fontSize: 11 * fs, color: context.appTextPrimary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
-                if (isPast && hasActual)
-                  Padding(
-                    padding: EdgeInsets.only(left: 9 * fs),
-                    child: _buildActualRow(context, event, fs),
-                  )
-                else if (subtitle.isNotEmpty)
-                  Padding(
-                    padding: EdgeInsets.only(left: 9 * fs),
-                    child: Text(
-                      subtitle,
-                      style: TextStyle(
-                          fontSize: 9 * fs, color: context.appTextSecondary),
+                // 드래그 핸들
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: context.appDivider,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
+                ),
+                SizedBox(height: 12 * fs),
+                Text(
+                  '$dateLabel 경제 일정 (${sortedEvents.length}건)',
+                  style: TextStyle(
+                    fontSize: 14 * fs,
+                    fontWeight: FontWeight.w700,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                SizedBox(height: 8 * fs),
+                ...sortedEvents.map(
+                    (event) => _buildEventRow(context, event, fs, today)),
               ],
             ),
           ),
         );
-      }).toList(),
+      },
     );
   }
 
