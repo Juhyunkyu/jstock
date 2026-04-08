@@ -415,27 +415,23 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // "오늘" 버튼 (최소 터치 영역 44px 보장)
+            // "오늘" 버튼
             GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _scrollToToday,
-              child: Padding(
+              child: Container(
                 padding: EdgeInsets.symmetric(
-                    horizontal: 4 * fs, vertical: 8 * fs),
-                child: Container(
-                  padding: EdgeInsets.symmetric(
-                      horizontal: 8 * fs, vertical: 4 * fs),
-                  decoration: BoxDecoration(
-                    color: AppColors.calendarFomc.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '오늘',
-                    style: TextStyle(
-                      fontSize: 10 * fs,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.calendarFomc,
-                    ),
+                    horizontal: 8 * fs, vertical: 6 * fs),
+                decoration: BoxDecoration(
+                  color: AppColors.calendarFomc.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '오늘',
+                  style: TextStyle(
+                    fontSize: 10 * fs,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.calendarFomc,
                   ),
                 ),
               ),
@@ -483,11 +479,11 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
     // fs 기반 높이 계산 (모바일/데스크톱 동일하게 작동)
     final fs = _fontScale(context);
-    // 날짜 헤더: top(2*fs) + text(11*fs) + bottom(2*fs) = ~15*fs
-    // 이벤트 행: top(2*fs) + dot+text(~14*fs) + bottom(2*fs) = ~18*fs
-    // 그룹 간격: 4*fs
-    final headerH = 15 * fs;
-    final eventH = 18 * fs;
+    // 날짜 헤더: Padding(4*fs) + Row(text 11*fs lineHeight ~1.3) ≈ 19*fs
+    // 이벤트 행: Padding(4*fs) + Row(dot+text 11*fs lineHeight) ≈ 20*fs
+    // 그룹 간격: SizedBox(4*fs)
+    final headerH = 19 * fs;
+    final eventH = 20 * fs;
     final gapH = 4 * fs;
 
     double offset = 0;
@@ -530,23 +526,20 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 2 * fs, vertical: 8 * fs),
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 4 * fs),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.calendarEarnings : context.appIconBg,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 10 * fs,
-              fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-              color: isActive
-                  ? const Color(0xFF0D1117)
-                  : context.appTextSecondary,
-            ),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 8 * fs, vertical: 6 * fs),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.calendarEarnings : context.appIconBg,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10 * fs,
+            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+            color: isActive
+                ? const Color(0xFF0D1117)
+                : context.appTextSecondary,
           ),
         ),
       ),
