@@ -61,6 +61,8 @@ const TV_MATCH_KEYWORDS = {
   54: ['pce', 'personal consumption', 'core pce'],
 };
 
+const ALL_TV_KEYWORDS = Object.values(TV_MATCH_KEYWORDS).flat();
+
 // ── 라우터 ──
 
 export async function handleCalendar(request, env, url) {
@@ -105,24 +107,22 @@ async function handleEconomicCalendar(request, env, url) {
     return jsonError('Missing required params: from, to (YYYY-MM-DD)', 400, request);
   }
 
+  const today = new Date().toISOString().substring(0, 10);
+
   // 1. FRED release dates + FRED series + TradingView (모두 병렬)
   const [fredResults, tvEvents, seriesDataMap] = await Promise.all([
-    // 1a. FRED release dates (개별 캐시)
     Promise.allSettled(
       FRED_RELEASES.map(rel => fetchFredReleaseDates(env, rel, from, to))
     ),
-    // 1b. TradingView events (forecast 보강용)
     fetchTradingViewEvents(env, from, to),
-    // 1c. FRED series data (actual/previous 확보)
-    fetchAllFredSeries(env, from, to),
+    fetchAllFredSeries(env, from, to, today),
   ]);
 
   const fredEvents = fredResults
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value);
 
-  // 2. FRED 이벤트에 TradingView forecast + FRED series actual/previous 병합
-  const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap);
+  const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
 
   // 4. FOMC 일정 추가 (from~to 범위 내)
   const fomcEvents = buildFomcEvents(from, to);
@@ -210,25 +210,22 @@ async function fetchFredReleaseDates(env, release, from, to) {
  * 모든 FRED release의 시계열 데이터를 병렬로 가져옴
  * @returns {Map<releaseId, Map<releaseDateStr, {actual, previous}>>}
  */
-async function fetchAllFredSeries(env, from, to) {
+async function fetchAllFredSeries(env, from, to, today) {
   const apiKey = env.FRED_API_KEY;
   if (!apiKey) return {};
 
-  const today = new Date().toISOString().substring(0, 10);
+  today = today || new Date().toISOString().substring(0, 10);
   const todayInRange = from <= today && to >= today;
 
+  const releaseIds = Object.keys(FRED_SERIES).map(Number);
   const results = await Promise.allSettled(
-    FRED_RELEASES.map(rel =>
-      fetchFredSeriesForRelease(env, apiKey, rel.id, todayInRange)
-    )
+    releaseIds.map(id => fetchFredSeriesForRelease(env, apiKey, id, todayInRange))
   );
 
-  // releaseId → {observations: [...]} 형태로 수집
   const seriesMap = {};
-  for (let i = 0; i < FRED_RELEASES.length; i++) {
-    const releaseId = FRED_RELEASES[i].id;
+  for (let i = 0; i < releaseIds.length; i++) {
     if (results[i].status === 'fulfilled' && results[i].value) {
-      seriesMap[releaseId] = results[i].value;
+      seriesMap[releaseIds[i]] = results[i].value;
     }
   }
 
@@ -293,31 +290,23 @@ async function fetchFredSeriesForRelease(env, apiKey, releaseId, skipCache) {
 
 /**
  * FRED release dates와 series observations를 매칭하여 actual/previous 반환
- * @param {Array} releaseDates - FRED release date 이벤트 (desc 정렬)
+ * @param {Array} releaseDates - FRED release date 문자열 목록
  * @param {Array} observations - FRED series 관측값 (desc 정렬)
- * @param {number} releaseId - FRED release ID
+ * @param {string} today - YYYY-MM-DD
  * @returns {Map<releaseDateStr, {actual, previous}>}
  */
-function matchReleaseDatesToObservations(releaseDates, observations, releaseId) {
+function matchReleaseDatesToObservations(releaseDates, observations, today) {
   if (!observations || !observations.length) return {};
 
-  const today = new Date().toISOString().substring(0, 10);
-
-  // release dates를 desc 정렬
   const sortedDates = [...releaseDates].sort((a, b) => b.localeCompare(a));
   const result = {};
 
-  // 월간 지표: release date와 observation을 순서대로 1:1 매칭
-  // 오늘 발표일: FRED 시계열이 아직 갱신 안 됐을 수 있으므로 actual=null 처리
-  // (TradingView가 더 빨리 actual을 제공하면 merge에서 TV 값이 사용됨)
+  // 오늘/미래: FRED 시계열 지연 대비 actual=null (TV가 더 빨리 제공하면 merge에서 사용)
   let obsIdx = 0;
   for (const relDate of sortedDates) {
     if (relDate >= today) {
-      // 오늘 또는 미래 발표: actual 없음, previous만 (FRED 시계열 지연 대비)
       result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
-      // obsIdx 전진 안 함
     } else {
-      // 과거 발표: FRED 데이터 확정됨
       result[relDate] = {
         actual: observations[obsIdx]?.value ?? null,
         previous: observations[obsIdx + 1]?.value ?? null,
@@ -491,10 +480,7 @@ async function syncAndRestoreEvents(env, liveEvents, from, to) {
 //
 // 우선순위: forecast → TV만 / actual,previous → TV > FRED시계열
 
-function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap) {
-  const today = new Date().toISOString().substring(0, 10);
-
-  // FRED release dates를 releaseId별로 그룹핑 (시계열 매칭용)
+function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
   const datesByRelease = {};
   for (const e of fredEvents) {
     const releaseId = parseInt(e.id.split('-')[1]);
@@ -502,15 +488,12 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap) {
     (datesByRelease[releaseId] ??= []).push(dateStr);
   }
 
-  // 각 releaseId별로 시계열 관측값과 매칭
-  const seriesMatchMap = {}; // releaseId → {dateStr → {actual, previous}}
+  const seriesMatchMap = {};
   for (const [releaseIdStr, dates] of Object.entries(datesByRelease)) {
     const releaseId = parseInt(releaseIdStr);
     const observations = seriesDataMap[releaseId];
     if (observations && observations.length) {
-      seriesMatchMap[releaseId] = matchReleaseDatesToObservations(
-        dates, observations, releaseId
-      );
+      seriesMatchMap[releaseId] = matchReleaseDatesToObservations(dates, observations, today);
     }
   }
 
@@ -582,7 +565,7 @@ function buildFomcEvents(from, to) {
 function buildUnmatchedTvEvents(tvEvents, fredEvents, from, to) {
   if (!tvEvents.length) return [];
 
-  const allKeywords = Object.values(TV_MATCH_KEYWORDS).flat();
+  const allKeywords = ALL_TV_KEYWORDS;
   const fromDate = `${from}T00:00:00.000Z`;
   const toDate = `${to}T23:59:59.999Z`;
 
