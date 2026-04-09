@@ -308,13 +308,16 @@ function matchReleaseDatesToObservations(releaseDates, observations, releaseId) 
   const result = {};
 
   // 월간 지표: release date와 observation을 순서대로 1:1 매칭
+  // 오늘 발표일: FRED 시계열이 아직 갱신 안 됐을 수 있으므로 actual=null 처리
+  // (TradingView가 더 빨리 actual을 제공하면 merge에서 TV 값이 사용됨)
   let obsIdx = 0;
   for (const relDate of sortedDates) {
-    if (relDate > today) {
-      // 미래 발표: actual 없음, previous만
+    if (relDate >= today) {
+      // 오늘 또는 미래 발표: actual 없음, previous만 (FRED 시계열 지연 대비)
       result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
       // obsIdx 전진 안 함
     } else {
+      // 과거 발표: FRED 데이터 확정됨
       result[relDate] = {
         actual: observations[obsIdx]?.value ?? null,
         previous: observations[obsIdx + 1]?.value ?? null,
