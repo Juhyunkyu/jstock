@@ -17,6 +17,7 @@
 
 import { corsHeaders } from '../utils/cors.js';
 import { jsonError } from '../utils/helpers.js';
+import { getCached, setCached } from '../utils/cache.js';
 
 // ── FRED Release ID 매핑 ──
 
@@ -65,7 +66,7 @@ const ALL_TV_KEYWORDS = Object.values(TV_MATCH_KEYWORDS).flat();
 
 // ── 라우터 ──
 
-export async function handleCalendar(request, env, url) {
+export async function handleCalendar(request, env, url, ctx) {
   if (request.method !== 'GET') {
     return jsonError('GET only', 405, request);
   }
@@ -73,7 +74,7 @@ export async function handleCalendar(request, env, url) {
   const subPath = url.pathname.replace('/api/calendar/', '');
 
   if (subPath === 'economic' || subPath.startsWith('economic?')) {
-    return handleEconomicCalendar(request, env, url);
+    return handleEconomicCalendar(request, env, url, ctx);
   }
   if (subPath === 'earnings' || subPath.startsWith('earnings?')) {
     return handleEarningsCalendar(request, env, url);
@@ -99,7 +100,7 @@ function jsonResponse(data, request, cacheControl = 'public, max-age=1800') {
 // 경제 캘린더 (FRED + TradingView + FOMC)
 // ════════════════════════════════════════════════════
 
-async function handleEconomicCalendar(request, env, url) {
+async function handleEconomicCalendar(request, env, url, ctx) {
   const from = url.searchParams.get('from');
   const to = url.searchParams.get('to');
 
@@ -134,10 +135,11 @@ async function handleEconomicCalendar(request, env, url) {
   const liveEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // 7. 오늘 기준 과거 이벤트 → KV에 날짜별 영구 저장 (1년 TTL)
-  //    TradingView가 과거 이벤트를 삭제하므로, 매일 그날의 이벤트를 보존
-  // 8. API에 없는 과거 날짜 → KV에서 복원하여 합침
-  const allEvents = await syncAndRestoreEvents(env, liveEvents, from, to);
+  // 7. API에 없는 과거 날짜 → KV에서 복원하여 합침
+  const allEvents = await restoreEvents(env, liveEvents, from, to, today);
+
+  // 8. 오늘 기준 과거 이벤트 → KV에 날짜별 영구 저장 (1년 TTL, non-blocking)
+  if (ctx) ctx.waitUntil(persistEvents(env, liveEvents, today));
 
   return jsonResponse(allEvents, request);
 }
@@ -148,14 +150,9 @@ async function fetchFredReleaseDates(env, release, from, to) {
   const kvKey = `calendar:fred_dates:${release.id}`;
 
   // KV 캐시 확인
-  try {
-    const cached = await env.CACHE_KV.get(kvKey, 'json');
-    if (cached) {
-      // 캐시된 전체 목록에서 from~to 범위 필터
-      return cached.filter(e => e.date >= `${from}T00:00:00.000Z` && e.date <= `${to}T23:59:59.999Z`);
-    }
-  } catch (e) {
-    console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+  const { data: cached } = await getCached(env, kvKey, null);
+  if (cached) {
+    return JSON.parse(cached).filter(e => e.date >= `${from}T00:00:00.000Z` && e.date <= `${to}T23:59:59.999Z`);
   }
 
   const apiKey = env.FRED_API_KEY;
@@ -189,12 +186,8 @@ async function fetchFredReleaseDates(env, release, from, to) {
       importance: 2,
     }));
 
-    // KV 저장 (30일 TTL)
-    try {
-      await env.CACHE_KV.put(kvKey, JSON.stringify(dates), { expirationTtl: 2592000 });
-    } catch (e) {
-      console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
-    }
+    // KV 저장 (30일 TTL, fire-and-forget)
+    setCached(env, kvKey, 2592000, null, 0, JSON.stringify(dates));
 
     // from~to 범위 필터
     return dates.filter(e => e.date >= `${from}T00:00:00.000Z` && e.date <= `${to}T23:59:59.999Z`);
@@ -244,12 +237,8 @@ async function fetchFredSeriesForRelease(env, apiKey, releaseId, skipCache) {
 
   // KV 캐시 확인 (오늘이 범위에 포함되면 건너뜀 — 발표일 actual 즉시 반영)
   if (!skipCache) {
-    try {
-      const cached = await env.CACHE_KV.get(kvKey, 'json');
-      if (cached) return cached;
-    } catch (e) {
-      console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
-    }
+    const { data: cached } = await getCached(env, kvKey, null);
+    if (cached) return JSON.parse(cached);
   }
 
   try {
@@ -274,12 +263,8 @@ async function fetchFredSeriesForRelease(env, apiKey, releaseId, skipCache) {
         value: parseFloat(parseFloat(obs.value).toFixed(series.decimals)),
       }));
 
-    // KV 저장 (24시간 TTL)
-    try {
-      await env.CACHE_KV.put(kvKey, JSON.stringify(observations), { expirationTtl: 86400 });
-    } catch (e) {
-      console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
-    }
+    // KV 저장 (24시간 TTL, fire-and-forget)
+    setCached(env, kvKey, 86400, null, 0, JSON.stringify(observations));
 
     return observations;
   } catch (e) {
@@ -329,12 +314,8 @@ async function fetchTradingViewEvents(env, from, to) {
 
   // KV 캐시 확인 (오늘 포함 시 건너뜀)
   if (!todayInRange) {
-    try {
-      const cached = await env.CACHE_KV.get(kvKey, 'json');
-      if (cached) return cached;
-    } catch (e) {
-      console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
-    }
+    const { data: cached } = await getCached(env, kvKey, null);
+    if (cached) return JSON.parse(cached);
   }
 
   try {
@@ -366,12 +347,8 @@ async function fetchTradingViewEvents(env, from, to) {
       )
     );
 
-    // KV 저장 (4시간 TTL — actual 값 빠른 갱신을 위해)
-    try {
-      await env.CACHE_KV.put(kvKey, JSON.stringify(filtered), { expirationTtl: 14400 });
-    } catch (e) {
-      console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
-    }
+    // KV 저장 (4시간 TTL, fire-and-forget)
+    setCached(env, kvKey, 14400, null, 0, JSON.stringify(filtered));
 
     return filtered;
   } catch (e) {
@@ -389,56 +366,10 @@ async function fetchTradingViewEvents(env, from, to) {
 // 저장 단위: calendar:day:YYYY-MM-DD → 해당 날짜의 이벤트 배열 (1년 TTL)
 // 복원: from~to 범위 중 API 응답에 없는 과거 날짜 → KV에서 복원
 
-async function syncAndRestoreEvents(env, liveEvents, from, to) {
-  const today = new Date().toISOString().substring(0, 10);
-
-  // ── 1. 현재 API 응답의 이벤트를 날짜별로 KV에 저장 ──
-  // 오늘 이전 날짜 + 오늘 날짜의 이벤트를 보존 (미래는 변동 가능하므로 저장 안 함)
-  const byDate = {};
-  for (const e of liveEvents) {
-    const d = (e.date || '').substring(0, 10);
-    if (d <= today) {
-      (byDate[d] ??= []).push(e);
-    }
-  }
-
-  // 날짜별 KV 저장 (기존 데이터와 병합)
-  const datesToSave = Object.keys(byDate);
-  if (datesToSave.length > 0) {
-    // 기존 저장된 데이터 읽기
-    const existingResults = await Promise.allSettled(
-      datesToSave.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
-    );
-
-    const writeTasks = [];
-    for (let i = 0; i < datesToSave.length; i++) {
-      const dateKey = datesToSave[i];
-      const newEvents = byDate[dateKey];
-      const existing = existingResults[i].status === 'fulfilled' ? existingResults[i].value : null;
-
-      // 기존 저장 이벤트와 새 이벤트 병합 (id 기준 dedup, 새 데이터 우선)
-      let merged;
-      if (existing && Array.isArray(existing)) {
-        const byId = new Map();
-        for (const e of existing) byId.set(e.id, e);
-        for (const e of newEvents) byId.set(e.id, e); // 새 데이터가 덮어쓰기
-        merged = [...byId.values()];
-      } else {
-        merged = newEvents;
-      }
-
-      writeTasks.push(
-        env.CACHE_KV.put(`calendar:day:${dateKey}`, JSON.stringify(merged), { expirationTtl: 31536000 })
-          .catch(err => console.error(`[Calendar] Day save failed for ${dateKey}:`, err.message))
-      );
-    }
-    if (writeTasks.length > 0) {
-      await Promise.allSettled(writeTasks);
-    }
-  }
-
-  // ── 2. API 응답에 없는 과거 날짜 → KV에서 복원 ──
-  // from~어제까지의 날짜 중 liveEvents에 없는 날짜를 찾아 KV에서 가져옴
+/**
+ * API 응답에 없는 과거 날짜를 KV에서 복원하여 병합 (must be awaited)
+ */
+async function restoreEvents(env, liveEvents, from, to, today) {
   const liveDates = new Set(liveEvents.map(e => (e.date || '').substring(0, 10)));
   const yesterday = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
   const restoreEnd = yesterday < to ? yesterday : to; // 어제까지만 복원
@@ -469,11 +400,58 @@ async function syncAndRestoreEvents(env, liveEvents, from, to) {
     }
   }
 
-  // ── 3. live + restored 합치고 정렬 ──
-  const allEvents = [...liveEvents, ...restoredEvents]
+  // live + restored 합치고 정렬
+  return [...liveEvents, ...restoredEvents]
     .sort((a, b) => a.date.localeCompare(b.date));
+}
 
-  return allEvents;
+/**
+ * 오늘/과거 이벤트를 KV에 날짜별 영구 저장 — fire-and-forget via ctx.waitUntil
+ */
+async function persistEvents(env, liveEvents, today) {
+  // 오늘 이전 날짜 + 오늘 날짜의 이벤트를 보존 (미래는 변동 가능하므로 저장 안 함)
+  const byDate = {};
+  for (const e of liveEvents) {
+    const d = (e.date || '').substring(0, 10);
+    if (d <= today) {
+      (byDate[d] ??= []).push(e);
+    }
+  }
+
+  // 날짜별 KV 저장 (기존 데이터와 병합)
+  const datesToSave = Object.keys(byDate);
+  if (datesToSave.length === 0) return;
+
+  // 기존 저장된 데이터 읽기
+  const existingResults = await Promise.allSettled(
+    datesToSave.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
+  );
+
+  const writeTasks = [];
+  for (let i = 0; i < datesToSave.length; i++) {
+    const dateKey = datesToSave[i];
+    const newEvents = byDate[dateKey];
+    const existing = existingResults[i].status === 'fulfilled' ? existingResults[i].value : null;
+
+    // 기존 저장 이벤트와 새 이벤트 병합 (id 기준 dedup, 새 데이터 우선)
+    let merged;
+    if (existing && Array.isArray(existing)) {
+      const byId = new Map();
+      for (const e of existing) byId.set(e.id, e);
+      for (const e of newEvents) byId.set(e.id, e); // 새 데이터가 덮어쓰기
+      merged = [...byId.values()];
+    } else {
+      merged = newEvents;
+    }
+
+    writeTasks.push(
+      env.CACHE_KV.put(`calendar:day:${dateKey}`, JSON.stringify(merged), { expirationTtl: 31536000 })
+        .catch(err => console.error(`[Calendar] Day save failed for ${dateKey}:`, err.message))
+    );
+  }
+  if (writeTasks.length > 0) {
+    await Promise.allSettled(writeTasks);
+  }
 }
 
 // ── FRED + TradingView + FRED Series 병합 ──
@@ -625,18 +603,13 @@ async function handleEarningsCalendar(request, env, url) {
 
   // 1. KV 캐시 확인 (symbols 없을 때만 — symbols 있으면 항상 fresh)
   if (!symbolsParam) {
-    try {
-      const cached = await env.CACHE_KV.get(kvKey, 'json');
-      if (cached) {
-        // from~to 범위 필터
-        const filtered = cached.filter(e => {
-          const d = e.date.substring(0, 10);
-          return d >= from && d <= to;
-        });
-        return jsonResponse(filtered, request);
-      }
-    } catch (e) {
-      console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+    const { data: cached } = await getCached(env, kvKey, null);
+    if (cached) {
+      const filtered = JSON.parse(cached).filter(e => {
+        const d = e.date.substring(0, 10);
+        return d >= from && d <= to;
+      });
+      return jsonResponse(filtered, request);
     }
   }
 
@@ -695,13 +668,9 @@ async function handleEarningsCalendar(request, env, url) {
       revenueEstimate: item.revenueEstimate ?? null,
     })).sort((a, b) => a.date.localeCompare(b.date));
 
-    // 4. KV 저장 (symbols 없을 때만 — 전체 캘린더, 7일 TTL)
+    // 4. KV 저장 (symbols 없을 때만 — 전체 캘린더, 7일 TTL, fire-and-forget)
     if (!symbolsParam) {
-      try {
-        await env.CACHE_KV.put(kvKey, JSON.stringify(events), { expirationTtl: 604800 });
-      } catch (e) {
-        console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
-      }
+      setCached(env, kvKey, 604800, null, 0, JSON.stringify(events));
     }
 
     return jsonResponse(events, request);

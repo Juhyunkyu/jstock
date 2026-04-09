@@ -85,7 +85,7 @@ export default {
 
     // ── 경제/실적 캘린더 ──
     if (url.pathname.startsWith('/api/calendar/')) {
-      return handleCalendar(request, env, url);
+      return handleCalendar(request, env, url, ctx);
     }
 
     // ── Finnhub REST (NEW — 7개 엔드포인트 통합) ──
