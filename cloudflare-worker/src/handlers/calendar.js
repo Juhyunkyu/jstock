@@ -43,7 +43,8 @@ const FOMC_DATES_2026 = [
 const FRED_SERIES = {
   10: { seriesId: 'CPIAUCSL', units: 'pch', decimals: 1 },   // CPI MoM %
   50: { seriesId: 'PAYEMS', units: 'chg', decimals: 0 },      // Nonfarm Payrolls 변동 (K)
-  53: { seriesId: 'A191RL1Q225SBEA', units: null, decimals: 1 }, // GDP 성장률 (이미 %)
+  // 53 (GDP) 제외: 분기 데이터는 advance/second/third 발표 주기와 관측값이 1:1 매칭 불가
+  // GDP는 TradingView forecast/actual에만 의존
   46: { seriesId: 'PPIACO', units: 'pch', decimals: 1 },      // PPI MoM %
   9:  { seriesId: 'RSAFS', units: 'pch', decimals: 1 },       // 소매판매 MoM %
   54: { seriesId: 'PCEPI', units: 'pch', decimals: 1 },       // PCE 물가 MoM %
@@ -301,39 +302,24 @@ function matchReleaseDatesToObservations(releaseDates, observations, releaseId) 
   if (!observations || !observations.length) return {};
 
   const today = new Date().toISOString().substring(0, 10);
-  const isQuarterly = releaseId === 53; // GDP
 
   // release dates를 desc 정렬
   const sortedDates = [...releaseDates].sort((a, b) => b.localeCompare(a));
   const result = {};
 
-  if (isQuarterly) {
-    // GDP: 모든 release date에 최신 관측값 사용 (advance/second/third 모두 같은 분기)
-    for (const relDate of sortedDates) {
-      if (relDate > today) {
-        result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
-      } else {
-        result[relDate] = {
-          actual: observations[0]?.value ?? null,
-          previous: observations[1]?.value ?? null,
-        };
-      }
-    }
-  } else {
-    // 월간 지표: release date와 observation을 순서대로 1:1 매칭
-    let obsIdx = 0;
-    for (const relDate of sortedDates) {
-      if (relDate > today) {
-        // 미래 발표: actual 없음, previous만
-        result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
-        // obsIdx 전진 안 함
-      } else {
-        result[relDate] = {
-          actual: observations[obsIdx]?.value ?? null,
-          previous: observations[obsIdx + 1]?.value ?? null,
-        };
-        obsIdx++;
-      }
+  // 월간 지표: release date와 observation을 순서대로 1:1 매칭
+  let obsIdx = 0;
+  for (const relDate of sortedDates) {
+    if (relDate > today) {
+      // 미래 발표: actual 없음, previous만
+      result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
+      // obsIdx 전진 안 함
+    } else {
+      result[relDate] = {
+        actual: observations[obsIdx]?.value ?? null,
+        previous: observations[obsIdx + 1]?.value ?? null,
+      };
+      obsIdx++;
     }
   }
 
