@@ -45,7 +45,7 @@ const FRED_SERIES = {
   50: { seriesId: 'PAYEMS', units: 'chg', decimals: 0 },      // Nonfarm Payrolls 변동 (K)
   // 53 (GDP) 제외: 분기 데이터는 advance/second/third 발표 주기와 관측값이 1:1 매칭 불가
   // GDP는 TradingView forecast/actual에만 의존
-  46: { seriesId: 'PPIACO', units: 'pch', decimals: 1 },      // PPI MoM %
+  46: { seriesId: 'PPIFIS', units: 'pch', decimals: 1 },      // PPI Final Demand MoM % (뉴스 보도 기준)
   9:  { seriesId: 'RSAFS', units: 'pch', decimals: 1 },       // 소매판매 MoM %
   54: { seriesId: 'PCEPI', units: 'pch', decimals: 1 },       // PCE 물가 MoM %
 };
