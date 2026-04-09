@@ -3,15 +3,16 @@
  *
  * 엔드포인트:
  *   GET /api/calendar/economic?from=YYYY-MM-DD&to=YYYY-MM-DD
- *     → FRED release dates + TradingView forecast/previous + FOMC 병합
+ *     → FRED release dates + FRED series actual/previous + TradingView forecast + FOMC 병합
  *
  *   GET /api/calendar/earnings?from=YYYY-MM-DD&to=YYYY-MM-DD&symbols=NVDA,TSLA
  *     → Finnhub earnings calendar 프록시
  *
  * 캐시 전략:
- *   calendar:fred_dates:RELEASE_ID  → KV 30일
- *   calendar:tv_events:FROM_TO      → KV 24시간
- *   calendar:earnings:YYYY-MM       → KV 7일
+ *   calendar:fred_dates:RELEASE_ID   → KV 30일
+ *   calendar:fred_series:SERIES_ID   → KV 24시간 (오늘 포함 시 바이패스)
+ *   calendar:tv_events:FROM_TO       → KV 4시간 (오늘 포함 시 바이패스)
+ *   calendar:earnings:YYYY-MM        → KV 7일
  */
 
 import { corsHeaders } from '../utils/cors.js';
@@ -36,6 +37,17 @@ const FOMC_DATES_2026 = [
   '2026-01-28', '2026-03-18', '2026-05-06', '2026-06-17',
   '2026-07-29', '2026-09-16', '2026-11-04', '2026-12-16',
 ];
+
+// ── FRED Series ID 매핑 (actual/previous 값 조회용) ──
+
+const FRED_SERIES = {
+  10: { seriesId: 'CPIAUCSL', units: 'pch', decimals: 1 },   // CPI MoM %
+  50: { seriesId: 'PAYEMS', units: 'chg', decimals: 0 },      // Nonfarm Payrolls 변동 (K)
+  53: { seriesId: 'A191RL1Q225SBEA', units: null, decimals: 1 }, // GDP 성장률 (이미 %)
+  46: { seriesId: 'PPIACO', units: 'pch', decimals: 1 },      // PPI MoM %
+  9:  { seriesId: 'RSAFS', units: 'pch', decimals: 1 },       // 소매판매 MoM %
+  54: { seriesId: 'PCEPI', units: 'pch', decimals: 1 },       // PCE 물가 MoM %
+};
 
 // ── TradingView → FRED 매칭 키워드 ──
 
@@ -92,19 +104,24 @@ async function handleEconomicCalendar(request, env, url) {
     return jsonError('Missing required params: from, to (YYYY-MM-DD)', 400, request);
   }
 
-  // 1. FRED release dates (병렬, 개별 캐시)
-  const fredResults = await Promise.allSettled(
-    FRED_RELEASES.map(rel => fetchFredReleaseDates(env, rel, from, to))
-  );
+  // 1. FRED release dates + FRED series + TradingView (모두 병렬)
+  const [fredResults, tvEvents, seriesDataMap] = await Promise.all([
+    // 1a. FRED release dates (개별 캐시)
+    Promise.allSettled(
+      FRED_RELEASES.map(rel => fetchFredReleaseDates(env, rel, from, to))
+    ),
+    // 1b. TradingView events (forecast 보강용)
+    fetchTradingViewEvents(env, from, to),
+    // 1c. FRED series data (actual/previous 확보)
+    fetchAllFredSeries(env, from, to),
+  ]);
+
   const fredEvents = fredResults
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value);
 
-  // 2. TradingView events (forecast/previous 보강용)
-  const tvEvents = await fetchTradingViewEvents(env, from, to);
-
-  // 3. FRED 이벤트에 TradingView forecast/previous 병합
-  const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents);
+  // 2. FRED 이벤트에 TradingView forecast + FRED series actual/previous 병합
+  const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap);
 
   // 4. FOMC 일정 추가 (from~to 범위 내)
   const fomcEvents = buildFomcEvents(from, to);
@@ -184,6 +201,143 @@ async function fetchFredReleaseDates(env, release, from, to) {
     console.error(`[Calendar] FRED release ${release.id} fetch failed:`, e.message);
     return [];
   }
+}
+
+// ── FRED Series 관측값 조회 (actual/previous 확보) ──
+
+/**
+ * 모든 FRED release의 시계열 데이터를 병렬로 가져옴
+ * @returns {Map<releaseId, Map<releaseDateStr, {actual, previous}>>}
+ */
+async function fetchAllFredSeries(env, from, to) {
+  const apiKey = env.FRED_API_KEY;
+  if (!apiKey) return {};
+
+  const today = new Date().toISOString().substring(0, 10);
+  const todayInRange = from <= today && to >= today;
+
+  const results = await Promise.allSettled(
+    FRED_RELEASES.map(rel =>
+      fetchFredSeriesForRelease(env, apiKey, rel.id, todayInRange)
+    )
+  );
+
+  // releaseId → {observations: [...]} 형태로 수집
+  const seriesMap = {};
+  for (let i = 0; i < FRED_RELEASES.length; i++) {
+    const releaseId = FRED_RELEASES[i].id;
+    if (results[i].status === 'fulfilled' && results[i].value) {
+      seriesMap[releaseId] = results[i].value;
+    }
+  }
+
+  return seriesMap;
+}
+
+/**
+ * 개별 FRED series 관측값 조회 (KV 캐시, 24시간 TTL)
+ * @returns {Array<{date, value}>} 최신순 정렬된 관측값
+ */
+async function fetchFredSeriesForRelease(env, apiKey, releaseId, skipCache) {
+  const series = FRED_SERIES[releaseId];
+  if (!series) return null;
+
+  const kvKey = `calendar:fred_series:${series.seriesId}`;
+
+  // KV 캐시 확인 (오늘이 범위에 포함되면 건너뜀 — 발표일 actual 즉시 반영)
+  if (!skipCache) {
+    try {
+      const cached = await env.CACHE_KV.get(kvKey, 'json');
+      if (cached) return cached;
+    } catch (e) {
+      console.error(`[Calendar] KV read failed for ${kvKey}:`, e.message);
+    }
+  }
+
+  try {
+    let url = `https://api.stlouisfed.org/fred/series/observations` +
+      `?series_id=${series.seriesId}&api_key=${apiKey}&file_type=json` +
+      `&sort_order=desc&limit=24`;
+    if (series.units) {
+      url += `&units=${series.units}`;
+    }
+
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      console.error(`[Calendar] FRED series ${series.seriesId} HTTP ${resp.status}`);
+      return null;
+    }
+
+    const data = await resp.json();
+    const observations = (data.observations || [])
+      .filter(obs => obs.value !== '.' && obs.value != null) // FRED uses '.' for missing
+      .map(obs => ({
+        date: obs.date,
+        value: parseFloat(parseFloat(obs.value).toFixed(series.decimals)),
+      }));
+
+    // KV 저장 (24시간 TTL)
+    try {
+      await env.CACHE_KV.put(kvKey, JSON.stringify(observations), { expirationTtl: 86400 });
+    } catch (e) {
+      console.error(`[Calendar] KV write failed for ${kvKey}:`, e.message);
+    }
+
+    return observations;
+  } catch (e) {
+    console.error(`[Calendar] FRED series ${series.seriesId} fetch failed:`, e.message);
+    return null;
+  }
+}
+
+/**
+ * FRED release dates와 series observations를 매칭하여 actual/previous 반환
+ * @param {Array} releaseDates - FRED release date 이벤트 (desc 정렬)
+ * @param {Array} observations - FRED series 관측값 (desc 정렬)
+ * @param {number} releaseId - FRED release ID
+ * @returns {Map<releaseDateStr, {actual, previous}>}
+ */
+function matchReleaseDatesToObservations(releaseDates, observations, releaseId) {
+  if (!observations || !observations.length) return {};
+
+  const today = new Date().toISOString().substring(0, 10);
+  const isQuarterly = releaseId === 53; // GDP
+
+  // release dates를 desc 정렬
+  const sortedDates = [...releaseDates].sort((a, b) => b.localeCompare(a));
+  const result = {};
+
+  if (isQuarterly) {
+    // GDP: 모든 release date에 최신 관측값 사용 (advance/second/third 모두 같은 분기)
+    for (const relDate of sortedDates) {
+      if (relDate > today) {
+        result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
+      } else {
+        result[relDate] = {
+          actual: observations[0]?.value ?? null,
+          previous: observations[1]?.value ?? null,
+        };
+      }
+    }
+  } else {
+    // 월간 지표: release date와 observation을 순서대로 1:1 매칭
+    let obsIdx = 0;
+    for (const relDate of sortedDates) {
+      if (relDate > today) {
+        // 미래 발표: actual 없음, previous만
+        result[relDate] = { actual: null, previous: observations[0]?.value ?? null };
+        // obsIdx 전진 안 함
+      } else {
+        result[relDate] = {
+          actual: observations[obsIdx]?.value ?? null,
+          previous: observations[obsIdx + 1]?.value ?? null,
+        };
+        obsIdx++;
+      }
+    }
+  }
+
+  return result;
 }
 
 // ── TradingView Economic Calendar 조회 (KV 캐시, 4시간 TTL / 오늘 포함 시 캐시 무시) ──
@@ -344,48 +498,71 @@ async function syncAndRestoreEvents(env, liveEvents, from, to) {
   return allEvents;
 }
 
-// ── FRED + TradingView 병합 ──
+// ── FRED + TradingView + FRED Series 병합 ──
+//
+// 우선순위: forecast → TV만 / actual,previous → TV > FRED시계열
 
-function mergeFredWithTradingView(fredEvents, tvEvents) {
-  if (!tvEvents.length) return fredEvents;
-
+function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap) {
   const today = new Date().toISOString().substring(0, 10);
 
+  // FRED release dates를 releaseId별로 그룹핑 (시계열 매칭용)
+  const datesByRelease = {};
+  for (const e of fredEvents) {
+    const releaseId = parseInt(e.id.split('-')[1]);
+    const dateStr = e.date.substring(0, 10);
+    (datesByRelease[releaseId] ??= []).push(dateStr);
+  }
+
+  // 각 releaseId별로 시계열 관측값과 매칭
+  const seriesMatchMap = {}; // releaseId → {dateStr → {actual, previous}}
+  for (const [releaseIdStr, dates] of Object.entries(datesByRelease)) {
+    const releaseId = parseInt(releaseIdStr);
+    const observations = seriesDataMap[releaseId];
+    if (observations && observations.length) {
+      seriesMatchMap[releaseId] = matchReleaseDatesToObservations(
+        dates, observations, releaseId
+      );
+    }
+  }
+
   return fredEvents.map(fredEvent => {
-    // FRED release ID로 TradingView 키워드 매칭
     const releaseId = parseInt(fredEvent.id.split('-')[1]);
+    const fredDateStr = fredEvent.date.substring(0, 10);
+
+    // ── TradingView 매칭 (forecast 확보용) ──
     const keywords = TV_MATCH_KEYWORDS[releaseId] || [];
-    if (!keywords.length) return fredEvent;
+    let tvMatched = null;
 
-    const fredDateStr = fredEvent.date.substring(0, 10); // YYYY-MM-DD
-
-    // 1차: 같은 날짜 + 키워드 매칭
-    let matched = tvEvents.find(tv => {
-      const tvDateStr = (tv.date || '').substring(0, 10);
-      if (tvDateStr !== fredDateStr) return false;
-      const tvTitle = (tv.title || '').toLowerCase();
-      return keywords.some(kw => tvTitle.includes(kw));
-    });
-
-    // 2차: 날짜 매칭 실패 시, 오늘/과거 이벤트에 한해 키워드만으로 매칭
-    // (TradingView가 미래 날짜 데이터를 제공하지 않는 경우 대비)
-    if (!matched && fredDateStr <= today) {
-      matched = tvEvents.find(tv => {
+    if (keywords.length && tvEvents.length) {
+      // 1차: 같은 날짜 + 키워드
+      tvMatched = tvEvents.find(tv => {
+        const tvDateStr = (tv.date || '').substring(0, 10);
+        if (tvDateStr !== fredDateStr) return false;
         const tvTitle = (tv.title || '').toLowerCase();
-        return keywords.some(kw => tvTitle.includes(kw)) &&
-               (tv.forecast != null || tv.previous != null);
+        return keywords.some(kw => tvTitle.includes(kw));
       });
+
+      // 2차: 날짜 실패 시, 과거 이벤트에 한해 키워드만
+      if (!tvMatched && fredDateStr <= today) {
+        tvMatched = tvEvents.find(tv => {
+          const tvTitle = (tv.title || '').toLowerCase();
+          return keywords.some(kw => tvTitle.includes(kw)) &&
+                 (tv.forecast != null || tv.previous != null);
+        });
+      }
     }
 
-    if (matched) {
-      return {
-        ...fredEvent,
-        forecast: matched.forecast ?? null,
-        previous: matched.previous ?? null,
-        actual: matched.actual ?? null,
-        // TradingView importance가 더 세밀하면 반영 (3 = high)
-        importance: matched.importance >= 3 ? 3 : fredEvent.importance,
-      };
+    // ── FRED 시계열 매칭 ──
+    const seriesMatch = seriesMatchMap[releaseId]?.[fredDateStr];
+
+    // ── 병합: TV forecast > null / actual,previous: TV > FRED시계열 ──
+    const forecast = tvMatched?.forecast ?? null;
+    const actual = tvMatched?.actual ?? seriesMatch?.actual ?? null;
+    const previous = tvMatched?.previous ?? seriesMatch?.previous ?? null;
+    const importance = (tvMatched?.importance >= 3) ? 3 : fredEvent.importance;
+
+    if (forecast !== null || actual !== null || previous !== null || importance !== fredEvent.importance) {
+      return { ...fredEvent, forecast, actual, previous, importance };
     }
 
     return fredEvent;
@@ -593,10 +770,18 @@ export async function warmCalendarData(env, cronType) {
     } catch (e) {
       console.error('[Cron] Calendar: TradingView warming failed:', e.message);
     }
+
+    // 평일: FRED 시계열 워밍 — actual/previous 갱신 (발표일 대비)
+    try {
+      await fetchAllFredSeries(env, weekFrom, weekTo);
+      console.log('[Cron] Calendar: FRED series data warmed');
+    } catch (e) {
+      console.error('[Cron] Calendar: FRED series warming failed:', e.message);
+    }
   }
 
   if (cronType === 'weekend') {
-    // 주말: FRED release dates (3개월 분) + TradingView (2주)
+    // 주말: FRED release dates (3개월 분) + TradingView (2주) + FRED 시계열
     try {
       // FRED: 각 Release ID별 워밍
       const threeMonthsLater = new Date(now);
@@ -622,6 +807,14 @@ export async function warmCalendarData(env, cronType) {
       console.log('[Cron] Calendar: TradingView events warmed (2 weeks)');
     } catch (e) {
       console.error('[Cron] Calendar: TradingView warming failed:', e.message);
+    }
+
+    // 주말: FRED 시계열 워밍
+    try {
+      await fetchAllFredSeries(env, today, today);
+      console.log('[Cron] Calendar: FRED series data warmed (weekend)');
+    } catch (e) {
+      console.error('[Cron] Calendar: FRED series warming failed:', e.message);
     }
   }
 }
