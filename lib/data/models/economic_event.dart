@@ -172,8 +172,14 @@ const _titleKoMap = <String, String>{
   'Personal Spending MoM': '개인지출 전월비',
   'Import Prices MoM': '수입물가 전월비',
   'Export Prices MoM': '수출물가 전월비',
+  'Real Personal Spending MoM': '실질 개인지출 전월비',
+  'Real Consumer Spending QoQ Final': '실질 소비지출 전분기비(최종)',
+  'Corporate Profits QoQ': '기업이익 전분기비',
+  'Jobless Claims 4-week Average': '실업수당 4주 이동평균',
 
   // 금리 / 국채
+  '15-Year Mortgage Rate': '15년 모기지 금리',
+  '30-Year Mortgage Rate': '30년 모기지 금리',
   '2-Year Note Auction': '2년물 국채 입찰',
   '3-Year Note Auction': '3년물 국채 입찰',
   '5-Year Note Auction': '5년물 국채 입찰',
@@ -195,6 +201,7 @@ const _titleKoMap = <String, String>{
   'FOMC Rate Decision': 'FOMC 금리결정',
   'Fed Interest Rate Decision': '연준 금리결정',
   'Fed Press Conference': '연준 기자회견',
+  'Fed Balance Sheet': '연준 대차대조표',
   'Fed Waller Speech': '연준 월러 연설',
   'Fed Daly Speech': '연준 데일리 연설',
   'Fed Williams Speech': '연준 윌리엄스 연설',

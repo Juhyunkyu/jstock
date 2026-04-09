@@ -798,6 +798,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: context.appCardBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -1470,6 +1471,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
       backgroundColor: context.appCardBackground,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
