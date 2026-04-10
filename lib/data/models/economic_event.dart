@@ -177,6 +177,47 @@ const _titleKoMap = <String, String>{
   'Corporate Profits QoQ': '기업이익 전분기비',
   'Jobless Claims 4-week Average': '실업수당 4주 이동평균',
 
+  // 인플레이션 (CPI/PCE 세부)
+  'Core Inflation Rate MoM': '근원 인플레이션율 전월비',
+  'Core Inflation Rate YoY': '근원 인플레이션율 전년비',
+  'Inflation Rate MoM': '인플레이션율 전월비',
+  'Inflation Rate YoY': '인플레이션율 전년비',
+  'PCE Price Index MoM': 'PCE 물가지수 전월비',
+  'PCE Price Index YoY': 'PCE 물가지수 전년비',
+  'Core PCE Price Index Annual Change': '근원 PCE 물가지수 연간변동',
+
+  // 미시간 소비자지수
+  'Michigan Consumer Sentiment Prel': '미시간 소비자심리지수(속보)',
+  'Michigan Consumer Sentiment Final': '미시간 소비자심리지수(확정)',
+  'Michigan Current Conditions Prel': '미시간 현재경기지수(속보)',
+  'Michigan Current Conditions Final': '미시간 현재경기지수(확정)',
+  'Michigan Consumer Expectations Prel': '미시간 소비자기대지수(속보)',
+  'Michigan Consumer Expectations Final': '미시간 소비자기대지수(확정)',
+  'Michigan Inflation Expectations Prel': '미시간 인플레이션 기대(속보)',
+  'Michigan Inflation Expectations Final': '미시간 인플레이션 기대(확정)',
+  'Michigan 5 Year Inflation Expectations Prel': '미시간 5년 인플레이션 기대(속보)',
+  'Michigan 5 Year Inflation Expectations Final': '미시간 5년 인플레이션 기대(확정)',
+
+  // 공장주문 / 제조
+  'Factory Orders ex Transportation': '공장주문(운송제외)',
+  'Capacity Utilization': '설비가동률',
+  'Manufacturing Production MoM': '제조업 생산 전월비',
+  'Manufacturing Production YoY': '제조업 생산 전년비',
+
+  // 에너지 / 원자재 (Baker Hughes)
+  'Baker Hughes Oil Rig Count': '베이커휴즈 원유시추기수',
+  'Baker Hughes Total Rigs Count': '베이커휴즈 총시추기수',
+
+  // 재정
+  'Monthly Budget Statement': '월간 재정수지',
+  'Government Payrolls': '정부부문 고용자수',
+  'Private Nonfarm Payrolls': '민간 비농업 고용자수',
+  'Average Hourly Earnings MoM': '평균시간당임금 전월비',
+  'Average Hourly Earnings YoY': '평균시간당임금 전년비',
+  'Average Weekly Hours': '주간 평균근로시간',
+  'Participation Rate': '경제활동참가율',
+  'U6 Unemployment Rate': 'U6 실업률',
+
   // 금리 / 국채
   '15-Year Mortgage Rate': '15년 모기지 금리',
   '30-Year Mortgage Rate': '30년 모기지 금리',

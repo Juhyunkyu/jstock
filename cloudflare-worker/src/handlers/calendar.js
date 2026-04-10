@@ -367,42 +367,44 @@ async function fetchTradingViewEvents(env, from, to) {
 // 복원: from~to 범위 중 API 응답에 없는 과거 날짜 → KV에서 복원
 
 /**
- * API 응답에 없는 과거 날짜를 KV에서 복원하여 병합 (must be awaited)
+ * 과거 날짜를 KV에서 복원하여 live 이벤트와 병합 (must be awaited)
+ *
+ * 핵심: 과거 날짜는 live 이벤트가 있더라도 항상 KV에서 복원한다.
+ * TradingView 이벤트는 1~2일 후 사라지므로, FRED 이벤트만 남은 날짜에
+ * KV에 보존된 TV 이벤트(actual 포함)를 병합해야 완전한 데이터를 제공.
+ * id 기준 dedup — live 데이터가 KV 데이터보다 우선.
  */
 async function restoreEvents(env, liveEvents, from, to, today) {
-  const liveDates = new Set(liveEvents.map(e => (e.date || '').substring(0, 10)));
   const yesterday = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
   const restoreEnd = yesterday < to ? yesterday : to; // 어제까지만 복원
 
-  // from~restoreEnd 범위의 날짜 생성
-  const missingDates = [];
+  // from~restoreEnd 범위의 모든 과거 날짜 생성
+  const pastDates = [];
   const d = new Date(from + 'T00:00:00Z');
   const endD = new Date(restoreEnd + 'T00:00:00Z');
   while (d <= endD) {
-    const ds = d.toISOString().substring(0, 10);
-    if (!liveDates.has(ds)) {
-      missingDates.push(ds);
-    }
+    pastDates.push(d.toISOString().substring(0, 10));
     d.setUTCDate(d.getUTCDate() + 1);
   }
 
-  // 빠진 날짜를 KV에서 복원 (최대 90일분, 너무 많으면 성능 이슈)
-  let restoredEvents = [];
-  const datesToRestore = missingDates.slice(-90); // 최근 90일 우선
-  if (datesToRestore.length > 0) {
-    const results = await Promise.allSettled(
-      datesToRestore.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
-    );
-    for (const result of results) {
-      if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
-        restoredEvents.push(...result.value);
-      }
+  // 과거 날짜를 KV에서 복원 (최대 90일분)
+  const datesToRestore = pastDates.slice(-90);
+  if (datesToRestore.length === 0) return liveEvents;
+
+  const results = await Promise.allSettled(
+    datesToRestore.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
+  );
+
+  // id 기준 병합: KV 먼저 넣고 → live로 덮어쓰기 (live 우선)
+  const byId = new Map();
+  for (const result of results) {
+    if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
+      for (const e of result.value) byId.set(e.id, e);
     }
   }
+  for (const e of liveEvents) byId.set(e.id, e); // live가 KV를 덮어씀
 
-  // live + restored 합치고 정렬
-  return [...liveEvents, ...restoredEvents]
-    .sort((a, b) => a.date.localeCompare(b.date));
+  return [...byId.values()].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 }
 
 /**
@@ -705,8 +707,9 @@ export async function warmCalendarData(env, cronType) {
 
   if (cronType === 'pre-market' || cronType === 'post-market') {
     // 평일: TradingView 이벤트 (이번 주) — forecast 값 갱신
+    let tvEvents = [];
     try {
-      await fetchTradingViewEvents(env, weekFrom, weekTo);
+      tvEvents = await fetchTradingViewEvents(env, weekFrom, weekTo);
       console.log('[Cron] Calendar: TradingView events warmed (this week)');
     } catch (e) {
       console.error('[Cron] Calendar: TradingView warming failed:', e.message);
@@ -718,6 +721,32 @@ export async function warmCalendarData(env, cronType) {
       console.log('[Cron] Calendar: FRED series data warmed');
     } catch (e) {
       console.error('[Cron] Calendar: FRED series warming failed:', e.message);
+    }
+
+    // post-market: 오늘 이벤트를 날짜별 KV에 영구 보존 (actual 값 포함)
+    // TV는 1~2일 후 과거 이벤트를 삭제하므로, 장 마감 후 actual 확정된 상태로 저장
+    if (cronType === 'post-market' && tvEvents.length > 0) {
+      try {
+        // FRED release dates + series도 가져와서 완전한 이벤트 목록 생성
+        const [fredResults, seriesDataMap] = await Promise.all([
+          Promise.allSettled(
+            FRED_RELEASES.map(rel => fetchFredReleaseDates(env, rel, today, today))
+          ),
+          fetchAllFredSeries(env, today, today, today),
+        ]);
+        const fredEvents = fredResults
+          .filter(r => r.status === 'fulfilled')
+          .flatMap(r => r.value);
+        const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
+        const fomcEvents = buildFomcEvents(today, today);
+        const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, fredEvents, today, today);
+        const allTodayEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents];
+
+        await persistEvents(env, allTodayEvents, today);
+        console.log(`[Cron] Calendar: ${allTodayEvents.length} events persisted for ${today}`);
+      } catch (e) {
+        console.error('[Cron] Calendar: post-market persist failed:', e.message);
+      }
     }
   }
 
