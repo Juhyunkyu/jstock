@@ -143,8 +143,22 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
+    final isTopLevel = _isTopLevelTab(context);
+    final selectedIndex = _getSelectedIndex(context);
+    // "Back to home first" 패턴:
+    // - 홈이 아닌 최상위 탭 → 뒤로가기 시 홈으로 이동 (앱 종료 방지)
+    // - 홈 탭 또는 서브페이지 → 기본 뒤로가기 동작 허용
+    final shouldInterceptBack = isTopLevel && selectedIndex != 0;
+
+    return PopScope(
+      canPop: !shouldInterceptBack,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop && shouldInterceptBack) {
+          Router.neglect(context, () => context.go(AppRouter.home));
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
         final width = constraints.maxWidth;
 
         // Desktop (>=1200px): Extended NavigationRail + 좌측 정렬 콘텐츠
@@ -198,6 +212,7 @@ class _MainShellState extends ConsumerState<MainShell> {
           bottomNavigationBar: const _BottomNavBar(),
         );
       },
+      ),
     );
   }
 
@@ -261,6 +276,22 @@ class _MainShellState extends ConsumerState<MainShell> {
       ),
     );
   }
+}
+
+/// 6개 메인 탭의 최상위 경로 (서브페이지 제외)
+const _topLevelTabRoutes = {
+  AppRouter.home,       // '/'
+  AppRouter.watchlist,  // '/watchlist'
+  AppRouter.stocks,     // '/stocks'
+  AppRouter.history,    // '/history'
+  AppRouter.memo,       // '/memo'
+  AppRouter.settings,   // '/settings'
+};
+
+/// 현재 경로가 6개 메인 탭 중 하나인지 (서브페이지가 아닌 정확한 탭 경로)
+bool _isTopLevelTab(BuildContext context) {
+  final location = GoRouterState.of(context).uri.path;
+  return _topLevelTabRoutes.contains(location);
 }
 
 int _getSelectedIndex(BuildContext context) {
