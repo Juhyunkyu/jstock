@@ -177,6 +177,10 @@ const _titleKoMap = <String, String>{
   'Corporate Profits QoQ': '기업이익 전분기비',
   'Jobless Claims 4-week Average': '실업수당 4주 이동평균',
 
+  // CPI 세부
+  'CPI': 'CPI 지수',
+  'CPI s.a': 'CPI 계절조정 지수',
+
   // 인플레이션 (CPI/PCE 세부)
   'Core Inflation Rate MoM': '근원 인플레이션율 전월비',
   'Core Inflation Rate YoY': '근원 인플레이션율 전년비',

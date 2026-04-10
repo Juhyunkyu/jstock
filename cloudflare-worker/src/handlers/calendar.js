@@ -54,15 +54,17 @@ const FRED_SERIES = {
 // ── TradingView → FRED 매칭 키워드 ──
 
 const TV_MATCH_KEYWORDS = {
-  10: ['cpi', 'consumer price'],
+  // CPI: 'inflation rate'으로 매칭 — TV 'CPI' 이벤트는 지수 원값(330)을 보내므로
+  // 'inflation rate mom/yoy'(% 변동)과 매칭해야 FRED pch 단위와 일치
+  10: ['inflation rate'],
   50: ['nonfarm', 'non-farm', 'employment situation', 'payroll'],
   53: ['gdp', 'gross domestic'],
-  46: ['ppi', 'producer price'],
+  // PPI: TV 'PPI MoM'/'PPI YoY' 타이틀과 매칭 (단순 'ppi'는 지수 원값 이벤트도 잡을 수 있음)
+  46: ['ppi mom', 'ppi yoy', 'producer price'],
   9: ['retail sales'],
-  54: ['pce', 'personal consumption', 'core pce'],
+  54: ['pce price', 'core pce'],
 };
 
-const ALL_TV_KEYWORDS = Object.values(TV_MATCH_KEYWORDS).flat();
 
 // ── 라우터 ──
 
@@ -123,13 +125,13 @@ async function handleEconomicCalendar(request, env, url, ctx) {
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value);
 
-  const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
+  const { events: mergedEvents, matchedTvIds } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
 
   // 4. FOMC 일정 추가 (from~to 범위 내)
   const fomcEvents = buildFomcEvents(from, to);
 
-  // 5. TradingView 중 FRED에 매칭 안 된 고중요도 이벤트 추가 (from~to 범위 필터)
-  const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, fredEvents, from, to);
+  // 5. TradingView 중 FRED에 실제 매칭되지 않은 고중요도 이벤트 추가
+  const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, matchedTvIds, from, to);
 
   // 6. 합치고 날짜순 정렬
   const liveEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
@@ -477,7 +479,10 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
     }
   }
 
-  return fredEvents.map(fredEvent => {
+  // 실제 매칭된 TV 이벤트를 추적 (unmatched 필터용)
+  const matchedTvIds = new Set();
+
+  const events = fredEvents.map(fredEvent => {
     const releaseId = parseInt(fredEvent.id.split('-')[1]);
     const fredDateStr = fredEvent.date.substring(0, 10);
 
@@ -504,6 +509,12 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
       }
     }
 
+    // 매칭된 TV 이벤트 기록
+    if (tvMatched) {
+      const tvId = tvMatched.title + '|' + (tvMatched.date || '').substring(0, 10);
+      matchedTvIds.add(tvId);
+    }
+
     // ── FRED 시계열 매칭 ──
     const seriesMatch = seriesMatchMap[releaseId]?.[fredDateStr];
 
@@ -519,6 +530,8 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
 
     return fredEvent;
   });
+
+  return { events, matchedTvIds };
 }
 
 // ── FOMC 일정 생성 (from~to 범위 필터) ──
@@ -542,10 +555,9 @@ function buildFomcEvents(from, to) {
 
 // ── TradingView 중 FRED에 매칭 안 된 고중요도(importance >= 2) 이벤트 ──
 
-function buildUnmatchedTvEvents(tvEvents, fredEvents, from, to) {
+function buildUnmatchedTvEvents(tvEvents, matchedTvIds, from, to) {
   if (!tvEvents.length) return [];
 
-  const allKeywords = ALL_TV_KEYWORDS;
   const fromDate = `${from}T00:00:00.000Z`;
   const toDate = `${to}T23:59:59.999Z`;
 
@@ -554,9 +566,9 @@ function buildUnmatchedTvEvents(tvEvents, fredEvents, from, to) {
       // 요청 범위 밖 이벤트 제외 (TV API가 범위 밖 데이터를 반환하는 경우 대비)
       const tvDate = tv.date || '';
       if (tvDate < fromDate || tvDate > toDate) return false;
-      const tvTitle = (tv.title || '').toLowerCase();
-      const isFredMatched = allKeywords.some(kw => tvTitle.includes(kw));
-      if (isFredMatched) return false;
+      // FRED 이벤트에 실제로 매칭된 TV 이벤트는 제외 (키워드가 아닌 실제 매칭 기준)
+      const tvId = tv.title + '|' + (tv.date || '').substring(0, 10);
+      if (matchedTvIds.has(tvId)) return false;
       return (tv.importance || 0) >= 2 ||
              tv.forecast != null || tv.previous != null;
     })
@@ -737,9 +749,9 @@ export async function warmCalendarData(env, cronType) {
         const fredEvents = fredResults
           .filter(r => r.status === 'fulfilled')
           .flatMap(r => r.value);
-        const mergedEvents = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
+        const { events: mergedEvents, matchedTvIds } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
         const fomcEvents = buildFomcEvents(today, today);
-        const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, fredEvents, today, today);
+        const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, matchedTvIds, today, today);
         const allTodayEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents];
 
         await persistEvents(env, allTodayEvents, today);
