@@ -286,25 +286,18 @@ void _navigateTo(int index, BuildContext context) {
     }
   }
 
-  switch (index) {
-    case 0:
-      context.go(AppRouter.home);
-      break;
-    case 1:
-      context.go(AppRouter.watchlist);
-      break;
-    case 2:
-      context.go(AppRouter.stocks);
-      break;
-    case 3:
-      context.go(AppRouter.history);
-      break;
-    case 4:
-      context.go(AppRouter.memo);
-      break;
-    case 5:
-      context.go(AppRouter.settings);
-      break;
+  // Router.neglect: 탭 전환 시 브라우저 히스토리에 쌓지 않음
+  // → 뒤로가기 시 방문한 탭을 역순으로 돌아가지 않음 (업계 표준)
+  final routes = [
+    AppRouter.home,
+    AppRouter.watchlist,
+    AppRouter.stocks,
+    AppRouter.history,
+    AppRouter.memo,
+    AppRouter.settings,
+  ];
+  if (index >= 0 && index < routes.length) {
+    Router.neglect(context, () => context.go(routes[index]));
   }
 }
 
