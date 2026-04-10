@@ -374,9 +374,9 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
 
   void _goBack() {
     if (_isEditMode) {
-      context.go('/memo/detail/${widget.memoId}');
+      context.pushReplacement('/memo/detail/${widget.memoId}');
     } else {
-      context.go('/memo');
+      context.pushReplacement('/memo');
     }
   }
 
@@ -452,7 +452,8 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
         context,
         _isEditMode ? '메모가 수정되었습니다' : '메모가 저장되었습니다',
       );
-      context.go('/memo');
+      // pushReplacement로 create/edit 히스토리를 교체 → 뒤로가기 시 작성화면 안 돌아감
+      context.pushReplacement('/memo');
     }
   }
 
@@ -468,7 +469,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     if (confirmed && mounted) {
       await ref.read(memoListProvider.notifier).delete(_originalMemo!.id);
       _hasUnsavedChanges = false;
-      context.go('/memo');
+      context.pushReplacement('/memo');
     }
   }
 
