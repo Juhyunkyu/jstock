@@ -553,6 +553,13 @@ function buildFomcEvents(from, to) {
     }));
 }
 
+// ── FRED 이벤트와 중복되는 TV 지수 원값 이벤트 필터 ──
+// TV가 "CPI"(지수 330), "CPI s.a"(계절조정), "PPI"(지수) 등을 보내지만
+// FRED 이벤트에 이미 % 변동값이 합쳐져 있으므로 지수 원값은 혼란만 줌
+const TV_REDUNDANT_TITLES = new Set([
+  'cpi', 'cpi s.a', 'ppi',
+]);
+
 // ── TradingView 중 FRED에 매칭 안 된 고중요도(importance >= 2) 이벤트 ──
 
 function buildUnmatchedTvEvents(tvEvents, matchedTvIds, from, to) {
@@ -566,9 +573,11 @@ function buildUnmatchedTvEvents(tvEvents, matchedTvIds, from, to) {
       // 요청 범위 밖 이벤트 제외 (TV API가 범위 밖 데이터를 반환하는 경우 대비)
       const tvDate = tv.date || '';
       if (tvDate < fromDate || tvDate > toDate) return false;
-      // FRED 이벤트에 실제로 매칭된 TV 이벤트는 제외 (키워드가 아닌 실제 매칭 기준)
+      // FRED 이벤트에 실제로 매칭된 TV 이벤트는 제외
       const tvId = tv.title + '|' + (tv.date || '').substring(0, 10);
       if (matchedTvIds.has(tvId)) return false;
+      // FRED 이벤트와 중복되는 지수 원값 이벤트 제외 (CPI 330, PPI 지수 등)
+      if (TV_REDUNDANT_TITLES.has((tv.title || '').toLowerCase())) return false;
       return (tv.importance || 0) >= 2 ||
              tv.forecast != null || tv.previous != null;
     })
