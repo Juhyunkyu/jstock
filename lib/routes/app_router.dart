@@ -220,7 +220,10 @@ class AppRouter {
           ),
           GoRoute(
             path: memoCreate,
-            builder: (context, state) => const MemoCreateEditScreen(),
+            builder: (context, state) {
+              final categoryName = state.uri.queryParameters['category'];
+              return MemoCreateEditScreen(initialCategory: categoryName);
+            },
           ),
           GoRoute(
             path: memoDetail,

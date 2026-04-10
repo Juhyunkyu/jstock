@@ -25,10 +25,17 @@ class MemoDetailScreen extends ConsumerWidget {
     final memo =
         memoState.memos.where((m) => m.id == memoId).firstOrNull;
 
-    // 새로고침 시 memos가 빈 상태 → 자동 로드 트리거
-    if (memo == null && memoState.memos.isEmpty && !memoState.isLoading) {
-      Future.microtask(
-          () => ref.read(memoListProvider.notifier).load());
+    // memo가 없는 경우: 로드 필요 또는 필터에 의해 숨겨진 상태
+    if (memo == null && !memoState.isLoading) {
+      if (memoState.memos.isEmpty) {
+        // 새로고침 시 memos가 빈 상태 → 자동 로드 트리거
+        Future.microtask(
+            () => ref.read(memoListProvider.notifier).load());
+      } else {
+        // memos는 있지만 해당 메모 미발견 → 카테고리 필터 해제
+        Future.microtask(
+            () => ref.read(memoListProvider.notifier).setFilterCategory(null));
+      }
       return Scaffold(
         backgroundColor: context.appBackground,
         body: const Center(child: CircularProgressIndicator()),

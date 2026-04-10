@@ -55,8 +55,9 @@ class _ImageSegment extends _ContentSegment {
 /// 저장 시 [IMG:N] 마커 형식으로 직렬화하여 Memo 모델에 저장.
 class MemoCreateEditScreen extends ConsumerStatefulWidget {
   final String? memoId;
+  final String? initialCategory;
 
-  const MemoCreateEditScreen({super.key, this.memoId});
+  const MemoCreateEditScreen({super.key, this.memoId, this.initialCategory});
 
   @override
   ConsumerState<MemoCreateEditScreen> createState() =>
@@ -97,7 +98,13 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     if (_isEditMode) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _loadMemo());
     } else {
-      // 새 메모: 빈 텍스트 세그먼트 하나
+      // 새 메모: 전달된 카테고리가 있으면 미리 선택
+      if (widget.initialCategory != null) {
+        _category = MemoCategory.values.firstWhere(
+          (c) => c.name == widget.initialCategory,
+          orElse: () => MemoCategory.general,
+        );
+      }
       _segments = [_TextSegment()];
       _attachListeners();
     }
@@ -441,7 +448,11 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     _hasUnsavedChanges = false;
 
     if (mounted) {
-      context.go('/memo/detail/${memo.id}');
+      showSuccessToast(
+        context,
+        _isEditMode ? '메모가 수정되었습니다' : '메모가 저장되었습니다',
+      );
+      context.go('/memo');
     }
   }
 

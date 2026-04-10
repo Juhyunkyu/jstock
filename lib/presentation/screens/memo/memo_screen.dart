@@ -57,6 +57,15 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
     });
   }
 
+  void _navigateToCreate() {
+    final filterCategory = ref.read(memoListProvider).filterCategory;
+    if (filterCategory != null) {
+      context.go('/memo/create?category=${filterCategory.name}');
+    } else {
+      context.go('/memo/create');
+    }
+  }
+
   void _toggleSearch() {
     setState(() {
       _isSearchMode = !_isSearchMode;
@@ -99,7 +108,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
             ),
       floatingActionButton: isDesktop
           ? FloatingActionButton.extended(
-              onPressed: () => context.go('/memo/create'),
+              onPressed: () => _navigateToCreate(),
               backgroundColor: context.appAccent,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add),
@@ -109,7 +118,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
               ),
             )
           : FloatingActionButton.small(
-              onPressed: () => context.go('/memo/create'),
+              onPressed: () => _navigateToCreate(),
               backgroundColor: context.appAccent,
               child: const Icon(Icons.add, color: Colors.white),
             ),
