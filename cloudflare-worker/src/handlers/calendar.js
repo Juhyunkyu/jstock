@@ -540,10 +540,12 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
     // ── FRED 시계열 매칭 ──
     const seriesMatch = seriesMatchMap[releaseId]?.[fredDateStr];
 
-    // ── 병합: TV forecast > null / actual,previous: TV > FRED시계열 ──
+    // ── 병합: forecast → TV만 / actual,previous → FRED 우선 > TV 보조 ──
+    // FRED 시계열이 공식 데이터이므로 actual/previous는 FRED를 신뢰
+    // TV는 forecast(예상)만 제공 + FRED에 없는 경우 actual/previous 보조
     const forecast = tvMatched?.forecast ?? null;
-    const actual = tvMatched?.actual ?? seriesMatch?.actual ?? null;
-    const previous = tvMatched?.previous ?? seriesMatch?.previous ?? null;
+    const actual = seriesMatch?.actual ?? tvMatched?.actual ?? null;
+    const previous = seriesMatch?.previous ?? tvMatched?.previous ?? null;
     const importance = (tvMatched?.importance >= 3) ? 3 : fredEvent.importance;
 
     if (forecast !== null || actual !== null || previous !== null || importance !== fredEvent.importance) {
