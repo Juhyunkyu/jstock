@@ -369,12 +369,28 @@ async function fetchTradingViewEvents(env, from, to) {
 // 복원: from~to 범위 중 API 응답에 없는 과거 날짜 → KV에서 복원
 
 /**
+ * 이벤트 필드별 best-merge: incoming의 non-null 값만 덮어쓰고,
+ * null인 필드는 기존 값을 보존한다.
+ * 예: KV {forecast: 0.3, actual: null} + live {forecast: null, actual: 0.9}
+ *   → {forecast: 0.3, actual: 0.9}
+ */
+function bestMergeEvent(existing, incoming) {
+  return {
+    ...existing,
+    ...incoming,
+    forecast:  incoming.forecast  ?? existing.forecast,
+    previous:  incoming.previous  ?? existing.previous,
+    actual:    incoming.actual    ?? existing.actual,
+  };
+}
+
+/**
  * 과거 날짜를 KV에서 복원하여 live 이벤트와 병합 (must be awaited)
  *
  * 핵심: 과거 날짜는 live 이벤트가 있더라도 항상 KV에서 복원한다.
  * TradingView 이벤트는 1~2일 후 사라지므로, FRED 이벤트만 남은 날짜에
  * KV에 보존된 TV 이벤트(actual 포함)를 병합해야 완전한 데이터를 제공.
- * id 기준 dedup — live 데이터가 KV 데이터보다 우선.
+ * id 기준 dedup — 필드별 non-null 값 보존 (best-merge).
  */
 async function restoreEvents(env, liveEvents, from, to, today) {
   const yesterday = new Date(Date.now() - 86400000).toISOString().substring(0, 10);
@@ -397,14 +413,17 @@ async function restoreEvents(env, liveEvents, from, to, today) {
     datesToRestore.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
   );
 
-  // id 기준 병합: KV 먼저 넣고 → live로 덮어쓰기 (live 우선)
+  // id 기준 병합: KV 먼저 넣고 → live와 best-merge (non-null 값 보존)
   const byId = new Map();
   for (const result of results) {
     if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
       for (const e of result.value) byId.set(e.id, e);
     }
   }
-  for (const e of liveEvents) byId.set(e.id, e); // live가 KV를 덮어씀
+  for (const e of liveEvents) {
+    const kvEvent = byId.get(e.id);
+    byId.set(e.id, kvEvent ? bestMergeEvent(kvEvent, e) : e);
+  }
 
   return [...byId.values()].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 }
@@ -437,12 +456,15 @@ async function persistEvents(env, liveEvents, today) {
     const newEvents = byDate[dateKey];
     const existing = existingResults[i].status === 'fulfilled' ? existingResults[i].value : null;
 
-    // 기존 저장 이벤트와 새 이벤트 병합 (id 기준 dedup, 새 데이터 우선)
+    // 기존 저장 이벤트와 새 이벤트 병합 (id 기준 dedup, 필드별 non-null 값 보존)
     let merged;
     if (existing && Array.isArray(existing)) {
       const byId = new Map();
       for (const e of existing) byId.set(e.id, e);
-      for (const e of newEvents) byId.set(e.id, e); // 새 데이터가 덮어쓰기
+      for (const e of newEvents) {
+        const existingEvent = byId.get(e.id);
+        byId.set(e.id, existingEvent ? bestMergeEvent(existingEvent, e) : e);
+      }
       merged = [...byId.values()];
     } else {
       merged = newEvents;

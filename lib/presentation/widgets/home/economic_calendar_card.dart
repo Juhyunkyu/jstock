@@ -677,14 +677,11 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
-  /// 이벤트 행 (서프라이즈 표시 포함, 탭 → 설명 바텀시트)
+  /// 이벤트 행 (3-value 표시, 탭 → 설명 바텀시트)
   Widget _buildEventRow(
       BuildContext context, EconomicEvent event, double fs, DateTime today) {
-    final isPast = _isPastDate(event.date, today);
-    final hasActual = event.actual != null;
-
-    // 부제를 한 번만 생성
-    final subtitle = (!isPast || !hasActual) ? _buildSubtitle(event) : '';
+    // 어닝스 이벤트는 별도 부제 로직
+    final earningsSubtitle = event.isEarnings ? _buildEarningsSubtitle(event) : null;
 
     return GestureDetector(
       onTap: () => _showEventExplanation(context, event, fs),
@@ -720,16 +717,16 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (isPast && hasActual)
-                    _buildActualRow(context, event, fs)
-                  else if (subtitle.isNotEmpty)
+                  if (event.isEarnings && earningsSubtitle != null && earningsSubtitle.isNotEmpty)
                     Text(
-                      subtitle,
+                      earningsSubtitle,
                       style: TextStyle(
                           fontSize: 9 * fs, color: context.appTextSecondary),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                    ),
+                    )
+                  else if (!event.isEarnings)
+                    _buildThreeValueRow(context, event, fs),
                 ],
               ),
             ),
@@ -739,50 +736,54 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
-  /// 과거 이벤트: actual 서프라이즈 행
-  Widget _buildActualRow(
+  /// 경제지표 3-value 행: 예상 | 전월 | 실제
+  Widget _buildThreeValueRow(
       BuildContext context, EconomicEvent event, double fs) {
-    final actual = event.actual!;
-    final forecast = event.forecast;
     final unit = event.unit ?? '';
+    final forecastStr = event.forecast != null ? _fmtVal(event.forecast!) + unit : '--';
+    final previousStr = event.previous != null ? _fmtVal(event.previous!) + unit : '--';
+    final actualStr = event.actual != null ? _fmtVal(event.actual!) + unit : '--';
 
-    // 서프라이즈 계산
-    String surpriseText = '';
-    Color surpriseColor = context.appTextSecondary;
-
-    if (forecast != null && forecast != 0) {
-      final diff = actual - forecast;
-      final sign = diff >= 0 ? '+' : '';
-      surpriseText = ' ($sign${_fmtVal(diff)}$unit)';
-
-      if (diff > 0) {
-        surpriseColor = AppColors.red500; // beat = 상승 = 빨간 (한국 관례)
-      } else if (diff < 0) {
-        surpriseColor = AppColors.blue500; // miss = 하락 = 파란
+    // actual 색상: actual vs forecast 비교
+    Color actualColor = context.appTextSecondary;
+    FontWeight actualWeight = FontWeight.normal;
+    if (event.actual != null && event.forecast != null) {
+      if (event.actual! > event.forecast!) {
+        actualColor = AppColors.red500;
+      } else if (event.actual! < event.forecast!) {
+        actualColor = AppColors.blue500;
       }
+      actualWeight = FontWeight.w600;
+    } else if (event.actual != null) {
+      actualWeight = FontWeight.w600;
     }
 
     return Row(
       children: [
-        if (forecast != null) ...[
-          Text(
-            '예상 ${_fmtVal(forecast)}$unit → ',
-            style: TextStyle(fontSize: 9 * fs, color: context.appTextHint),
-          ),
-        ],
         Text(
-          '실제 ${_fmtVal(actual)}$unit',
+          '예상 $forecastStr',
+          style: TextStyle(fontSize: 9 * fs, color: context.appTextSecondary),
+        ),
+        Text(
+          '  |  ',
+          style: TextStyle(fontSize: 9 * fs, color: context.appTextHint),
+        ),
+        Text(
+          '전월 $previousStr',
+          style: TextStyle(fontSize: 9 * fs, color: context.appTextSecondary),
+        ),
+        Text(
+          '  |  ',
+          style: TextStyle(fontSize: 9 * fs, color: context.appTextHint),
+        ),
+        Text(
+          '실제 $actualStr',
           style: TextStyle(
             fontSize: 9 * fs,
-            fontWeight: FontWeight.w600,
-            color: surpriseColor,
+            fontWeight: actualWeight,
+            color: actualColor,
           ),
         ),
-        if (surpriseText.isNotEmpty)
-          Text(
-            surpriseText,
-            style: TextStyle(fontSize: 9 * fs, color: surpriseColor),
-          ),
       ],
     );
   }
@@ -898,13 +899,13 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                   ),
                 ],
 
-                if (event.actual != null) ...[
+                if (!event.isEarnings) ...[
                   SizedBox(height: 16 * fs),
                   Divider(height: 1, color: context.appDivider),
                   SizedBox(height: 12 * fs),
                   Center(
                     child: Text(
-                      '최근 결과',
+                      '발표 수치',
                       style: TextStyle(
                         fontSize: 10 * fs,
                         fontWeight: FontWeight.w600,
@@ -913,7 +914,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                     ),
                   ),
                   SizedBox(height: 8 * fs),
-                  _buildActualComparisonRow(context, event, fs, unit),
+                  _buildDetailThreeValueRow(context, event, fs, unit),
                 ],
               ],
             ),
@@ -964,71 +965,108 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     );
   }
 
-  Widget _buildActualComparisonRow(
+  /// 디테일 팝업용 3-value 표시: 예상 | 전월 | 실제 (+ 서프라이즈)
+  Widget _buildDetailThreeValueRow(
       BuildContext context, EconomicEvent event, double fs, String unit) {
-    final actual = event.actual!;
-    final forecast = event.forecast;
+    final forecastStr = event.forecast != null ? _fmtVal(event.forecast!) + unit : '--';
+    final previousStr = event.previous != null ? _fmtVal(event.previous!) + unit : '--';
+    final actualStr = event.actual != null ? _fmtVal(event.actual!) + unit : '--';
 
-    if (forecast == null) {
-      return Center(
-        child: Text(
-          '실제 ${_fmtVal(actual)}$unit',
-          style: TextStyle(
-            fontSize: 13 * fs,
-            fontWeight: FontWeight.w700,
-            color: context.appTextPrimary,
-          ),
-        ),
-      );
+    // actual 색상
+    Color actualColor = context.appTextPrimary;
+    if (event.actual != null && event.forecast != null) {
+      if (event.actual! > event.forecast!) {
+        actualColor = AppColors.red500;
+      } else if (event.actual! < event.forecast!) {
+        actualColor = AppColors.blue500;
+      }
     }
-
-    final diff = actual - forecast;
-    final sign = diff >= 0 ? '+' : '';
-    final isBeat = diff > 0;
-    final isMiss = diff < 0;
-    final surpriseColor = isBeat
-        ? AppColors.red500
-        : isMiss
-            ? AppColors.blue500
-            : context.appTextSecondary;
-    final surpriseLabel = isBeat
-        ? 'beat'
-        : isMiss
-            ? 'miss'
-            : 'inline';
 
     return Column(
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              '예상 ${_fmtVal(forecast)}$unit',
-              style: TextStyle(
-                  fontSize: 12 * fs, color: context.appTextSecondary),
+            Expanded(
+              child: _buildDetailValueColumn(
+                context, fs, '예상', forecastStr, context.appTextSecondary,
+              ),
             ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8 * fs),
-              child: Icon(Icons.arrow_forward_rounded,
-                  size: 14 * fs, color: context.appTextHint),
+            Container(
+              width: 1,
+              height: 28 * fs,
+              color: context.appDivider,
             ),
-            Text(
-              '실제 ${_fmtVal(actual)}$unit',
-              style: TextStyle(
-                fontSize: 12 * fs,
-                fontWeight: FontWeight.w700,
-                color: surpriseColor,
+            Expanded(
+              child: _buildDetailValueColumn(
+                context, fs, '전월', previousStr, context.appTextSecondary,
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 28 * fs,
+              color: context.appDivider,
+            ),
+            Expanded(
+              child: _buildDetailValueColumn(
+                context, fs, '실제', actualStr, actualColor,
+                bold: event.actual != null,
               ),
             ),
           ],
         ),
-        SizedBox(height: 4 * fs),
+        // 서프라이즈 행 (actual과 forecast 둘 다 있을 때만)
+        if (event.actual != null && event.forecast != null) ...[
+          SizedBox(height: 6 * fs),
+          Builder(builder: (_) {
+            final diff = event.actual! - event.forecast!;
+            final sign = diff >= 0 ? '+' : '';
+            final isBeat = diff > 0;
+            final isMiss = diff < 0;
+            final surpriseColor = isBeat
+                ? AppColors.red500
+                : isMiss
+                    ? AppColors.blue500
+                    : context.appTextSecondary;
+            final surpriseLabel = isBeat ? 'beat' : isMiss ? 'miss' : 'inline';
+            return Text(
+              '${isBeat ? "▲" : isMiss ? "▼" : "─"} 서프라이즈 $sign${_fmtVal(diff)}$unit ($surpriseLabel)',
+              style: TextStyle(
+                fontSize: 10 * fs,
+                fontWeight: FontWeight.w600,
+                color: surpriseColor,
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDetailValueColumn(
+    BuildContext context,
+    double fs,
+    String label,
+    String value,
+    Color valueColor, {
+    bool bold = false,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
         Text(
-          '${isBeat ? "▲" : isMiss ? "▼" : "─"} 서프라이즈 $sign${_fmtVal(diff)}$unit ($surpriseLabel)',
+          label,
           style: TextStyle(
             fontSize: 10 * fs,
-            fontWeight: FontWeight.w600,
-            color: surpriseColor,
+            color: context.appTextHint,
+          ),
+        ),
+        SizedBox(height: 2 * fs),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13 * fs,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+            color: valueColor,
           ),
         ),
       ],
@@ -1063,21 +1101,13 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   bool _isPastDate(DateTime date, DateTime today) =>
       DateTime(date.year, date.month, date.day).isBefore(today);
 
-  String _buildSubtitle(EconomicEvent event) {
+  String _buildEarningsSubtitle(EconomicEvent event) {
     final parts = <String>[];
-    if (event.isEarnings) {
-      if (event.forecast != null) {
-        parts.add('EPS \$${event.forecast!.toStringAsFixed(2)}');
-      }
-      final hourText = _earningsHourText(event.hour);
-      if (hourText != null) parts.add(hourText);
-    } else {
-      if (event.forecast != null && event.previous != null) {
-        final unit = event.unit ?? '';
-        parts.add(
-            '예상 ${_fmtVal(event.forecast!)}$unit (전월 ${_fmtVal(event.previous!)}$unit)');
-      }
+    if (event.forecast != null) {
+      parts.add('EPS \$${event.forecast!.toStringAsFixed(2)}');
     }
+    final hourText = _earningsHourText(event.hour);
+    if (hourText != null) parts.add(hourText);
     return parts.join(' · ');
   }
 
