@@ -136,7 +136,8 @@ async function handleEconomicCalendar(request, env, url, ctx) {
 
   // 4. NYSE 휴장일 + 네 마녀의 날 추가
   const holidayEvents = buildNYSEHolidays(from, to);
-  const witchingEvents = buildWitchingDays(from, to);
+  const holidayDates = new Set(holidayEvents.map(e => e.date.substring(0, 10)));
+  const witchingEvents = buildWitchingDays(from, to, holidayDates);
 
   // 5. 합치고 날짜순 정렬
   const liveEvents = [...mergedEvents, ...holidayEvents, ...witchingEvents]
@@ -610,16 +611,26 @@ function lastWeekday(year, month, weekday) {
 }
 
 const NYSE_HOLIDAYS = [
-  { name: '신년', nameEn: "New Year's Day", fixed: [0, 1] },           // Jan 1
-  { name: 'MLK의 날', nameEn: 'MLK Day', nth: [0, 1, 3] },           // 3rd Mon Jan
-  { name: '대통령의 날', nameEn: "Presidents' Day", nth: [1, 1, 3] }, // 3rd Mon Feb
-  { name: '성금요일', nameEn: 'Good Friday', easter: true },
-  { name: '현충일', nameEn: 'Memorial Day', last: [4, 1] },           // Last Mon May
-  { name: '준틴스', nameEn: 'Juneteenth', fixed: [5, 19] },           // Jun 19
-  { name: '독립기념일', nameEn: 'Independence Day', fixed: [6, 4] },  // Jul 4
-  { name: '노동절', nameEn: 'Labor Day', nth: [8, 1, 1] },           // 1st Mon Sep
-  { name: '추수감사절', nameEn: 'Thanksgiving', nth: [10, 4, 4] },    // 4th Thu Nov
-  { name: '크리스마스', nameEn: 'Christmas', fixed: [11, 25] },       // Dec 25
+  { name: '신년', nameEn: "New Year's Day", fixed: [0, 1],
+    desc: '새해 첫날. 전 세계 금융시장 휴장.' },
+  { name: 'MLK의 날', nameEn: 'MLK Day', nth: [0, 1, 3],
+    desc: '마틴 루터 킹 주니어 기념일. 미국 민권 운동의 지도자를 기리는 연방 공휴일.' },
+  { name: '대통령의 날', nameEn: "Presidents' Day", nth: [1, 1, 3],
+    desc: '미국 역대 대통령을 기리는 연방 공휴일. 원래 조지 워싱턴 생일 기념.' },
+  { name: '성금요일', nameEn: 'Good Friday', easter: true,
+    desc: '부활절 전 금요일. 예수 그리스도의 수난을 기념하는 날. NYSE 휴장.' },
+  { name: '현충일', nameEn: 'Memorial Day', last: [4, 1],
+    desc: '미국 전몰장병 추모일. 여름 시작을 알리는 연방 공휴일.' },
+  { name: '준틴스', nameEn: 'Juneteenth', fixed: [5, 19],
+    desc: '미국 노예해방 기념일 (6월 19일). 1865년 텍사스에서 마지막 노예 해방 선언. 2021년부터 연방 공휴일.' },
+  { name: '독립기념일', nameEn: 'Independence Day', fixed: [6, 4],
+    desc: '미국 독립선언일 (7월 4일). 1776년 영국으로부터 독립을 선언한 날.' },
+  { name: '노동절', nameEn: 'Labor Day', nth: [8, 1, 1],
+    desc: '미국 노동자의 날. 여름 시즌 종료를 알리는 연방 공휴일.' },
+  { name: '추수감사절', nameEn: 'Thanksgiving', nth: [10, 4, 4],
+    desc: '미국 추수감사절. 연말 쇼핑 시즌(블랙프라이데이) 시작. 단축거래일(금)이 뒤따름.' },
+  { name: '크리스마스', nameEn: 'Christmas', fixed: [11, 25],
+    desc: '크리스마스. 전 세계 금융시장 휴장. 연말 유동성 감소 시기.' },
 ];
 
 function buildNYSEHolidays(from, to) {
@@ -654,6 +665,7 @@ function buildNYSEHolidays(from, to) {
         actual: null,
         unit: '',
         importance: 1,
+        description: h.desc,
       });
     }
   }
@@ -663,7 +675,7 @@ function buildNYSEHolidays(from, to) {
 
 // ── 네 마녀의 날 (Quadruple Witching) ──
 
-function buildWitchingDays(from, to) {
+function buildWitchingDays(from, to, holidayDates = new Set()) {
   const fromYear = parseInt(from.substring(0, 4));
   const toYear = parseInt(to.substring(0, 4));
   const events = [];
@@ -672,7 +684,15 @@ function buildWitchingDays(from, to) {
   for (let year = fromYear; year <= toYear; year++) {
     for (const month of witchingMonths) {
       const date = nthWeekday(year, month, 5, 3); // 3rd Friday
-      const dateStr = date.toISOString().substring(0, 10);
+      let dateStr = date.toISOString().substring(0, 10);
+
+      // 휴장일과 겹치면 전 거래일(목요일)로 이동
+      if (holidayDates.has(dateStr)) {
+        const prev = new Date(date);
+        prev.setUTCDate(prev.getUTCDate() - 1); // Thursday
+        dateStr = prev.toISOString().substring(0, 10);
+      }
+
       if (dateStr < from || dateStr > to) continue;
 
       events.push({
@@ -860,7 +880,9 @@ export async function warmCalendarData(env, cronType) {
           .filter(r => r.status === 'fulfilled')
           .flatMap(r => r.value);
         const { events: mergedEvents } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
-        const allTodayEvents = [...mergedEvents, ...buildNYSEHolidays(today, today), ...buildWitchingDays(today, today)];
+        const todayHolidays = buildNYSEHolidays(today, today);
+        const todayHolidayDates = new Set(todayHolidays.map(e => e.date.substring(0, 10)));
+        const allTodayEvents = [...mergedEvents, ...todayHolidays, ...buildWitchingDays(today, today, todayHolidayDates)];
 
         await persistEvents(env, allTodayEvents, today);
         console.log(`[Cron] Calendar: ${allTodayEvents.length} events persisted for ${today}`);

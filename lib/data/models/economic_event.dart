@@ -115,6 +115,7 @@ class EconomicEvent {
   final String? hour;
   final double? revenueEstimate;
   final double? revenueActual;
+  final String? description;
 
   const EconomicEvent({
     required this.id,
@@ -131,6 +132,7 @@ class EconomicEvent {
     this.hour,
     this.revenueEstimate,
     this.revenueActual,
+    this.description,
   });
 
   /// JSON 역직렬화
@@ -150,6 +152,7 @@ class EconomicEvent {
       hour: json['hour'] as String?,
       revenueEstimate: (json['revenueEstimate'] as num?)?.toDouble(),
       revenueActual: (json['revenueActual'] as num?)?.toDouble(),
+      description: json['description'] as String?,
     );
   }
 
@@ -170,6 +173,7 @@ class EconomicEvent {
       'hour': hour,
       'revenueEstimate': revenueEstimate,
       'revenueActual': revenueActual,
+      if (description != null) 'description': description,
     };
   }
 

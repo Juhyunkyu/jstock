@@ -643,7 +643,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
 
                 Text(
                   event.category == EventCategory.holiday
-                      ? '뉴욕증시 휴장일입니다. 거래가 불가합니다.'
+                      ? (event.description ?? '뉴욕증시 휴장일')
                       : hasDesc
                           ? info.desc
                           : '이 지표에 대한 설명이 아직 준비되지 않았습니다.',
