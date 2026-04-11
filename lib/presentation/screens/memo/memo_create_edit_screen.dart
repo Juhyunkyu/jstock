@@ -447,6 +447,8 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
           );
 
     await ref.read(memoListProvider.notifier).save(memo);
+    // 저장한 메모의 카테고리로 필터 변경 → 목록에서 바로 보이도록
+    ref.read(memoListProvider.notifier).setFilterCategory(memo.category);
     _hasUnsavedChanges = false;
 
     if (mounted) {
