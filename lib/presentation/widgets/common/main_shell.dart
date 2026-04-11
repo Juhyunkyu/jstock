@@ -143,21 +143,7 @@ class _MainShellState extends ConsumerState<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    final isTopLevel = _isTopLevelTab(context);
-    final selectedIndex = _getSelectedIndex(context);
-    // "Back to home first" 패턴:
-    // - 홈이 아닌 최상위 탭 → 뒤로가기 시 홈으로 이동 (앱 종료 방지)
-    // - 홈 탭 또는 서브페이지 → 기본 뒤로가기 동작 허용
-    final shouldInterceptBack = isTopLevel && selectedIndex != 0;
-
-    return PopScope(
-      canPop: !shouldInterceptBack,
-      onPopInvokedWithResult: (didPop, result) {
-        if (!didPop && shouldInterceptBack) {
-          Router.neglect(context, () => context.go(AppRouter.home));
-        }
-      },
-      child: LayoutBuilder(
+    return LayoutBuilder(
         builder: (context, constraints) {
         final width = constraints.maxWidth;
 
@@ -212,7 +198,6 @@ class _MainShellState extends ConsumerState<MainShell> {
           bottomNavigationBar: const _BottomNavBar(),
         );
       },
-      ),
     );
   }
 
@@ -317,8 +302,10 @@ void _navigateTo(int index, BuildContext context) {
     }
   }
 
-  // Router.neglect: 탭 전환 시 브라우저 히스토리에 쌓지 않음
-  // → 뒤로가기 시 방문한 탭을 역순으로 돌아가지 않음 (업계 표준)
+  // 탭 전환 히스토리 전략:
+  // - 홈 → 비홈: push (뒤로가기 시 홈으로 돌아감)
+  // - 비홈 → 비홈: replace (뒤로가기 시 여전히 홈으로)
+  // - 비홈 → 홈: replace (홈에서 뒤로가기 시 앱 종료)
   final routes = [
     AppRouter.home,
     AppRouter.watchlist,
@@ -327,7 +314,17 @@ void _navigateTo(int index, BuildContext context) {
     AppRouter.memo,
     AppRouter.settings,
   ];
-  if (index >= 0 && index < routes.length) {
+  if (index < 0 || index >= routes.length) return;
+
+  final currentIndex = _getSelectedIndex(context);
+  final goingFromHome = currentIndex == 0;
+  final goingToNonHome = index != 0;
+
+  if (goingFromHome && goingToNonHome) {
+    // 홈 → 비홈: 히스토리에 push → 뒤로가기로 홈 복귀 가능
+    context.go(routes[index]);
+  } else {
+    // 비홈 → 비홈 or 비홈 → 홈: replace → 히스토리 안 쌓임
     Router.neglect(context, () => context.go(routes[index]));
   }
 }
