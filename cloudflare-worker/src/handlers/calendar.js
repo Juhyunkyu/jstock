@@ -419,11 +419,14 @@ async function restoreEvents(env, liveEvents, from, to, today) {
     datesToRestore.map(d => env.CACHE_KV.get(`calendar:day:${d}`, 'json'))
   );
 
-  // id 기준 병합: KV 먼저 넣고 → live와 best-merge (non-null 값 보존)
+  // id 기준 병합: KV에서 FRED/holiday/witching 이벤트만 복원 (구 TV 이벤트 무시)
+  const isValidId = (id) => id.startsWith('fred-') || id.startsWith('holiday-') || id.startsWith('witching-');
   const byId = new Map();
   for (const result of results) {
     if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
-      for (const e of result.value) byId.set(e.id, e);
+      for (const e of result.value) {
+        if (isValidId(e.id)) byId.set(e.id, e);
+      }
     }
   }
   for (const e of liveEvents) {

@@ -1224,7 +1224,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     return sorted;
   }
 
-  /// 선택 날짜 이벤트 목록 (달력 뷰) — 상위 2건 + 더보기
+  /// 선택 날짜 이벤트 목록 (달력 뷰) — 상위 3건 + 더보기
   Widget _buildSelectedDateEvents(
       BuildContext context, CalendarState state, double fs) {
     final events = state.selectedDateEvents;
@@ -1240,7 +1240,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     }
 
     final sorted = _sortEvents(events);
-    final visible = sorted.take(2).toList();
+    final visible = sorted.take(3).toList();
     final remainCount = sorted.length - visible.length;
 
     final now = DateTime.now();
