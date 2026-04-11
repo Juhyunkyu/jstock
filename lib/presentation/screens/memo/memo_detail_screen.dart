@@ -50,7 +50,13 @@ class MemoDetailScreen extends ConsumerWidget {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back, color: context.appTextPrimary),
-            onPressed: () => context.go('/memo'),
+            onPressed: () {
+              if (context.canPop()) {
+                context.pop();
+              } else {
+                context.go('/memo');
+              }
+            },
           ),
         ),
         body: Center(
@@ -78,7 +84,13 @@ class MemoDetailScreen extends ConsumerWidget {
         toolbarHeight: 64,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: context.appTextPrimary),
-          onPressed: () => context.go('/memo'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/memo');
+            }
+          },
         ),
         title: const SizedBox.shrink(),
         actions: [
@@ -107,7 +119,7 @@ class MemoDetailScreen extends ConsumerWidget {
               size: 22,
             ),
             tooltip: '편집',
-            onPressed: () => context.go('/memo/edit/$memoId'),
+            onPressed: () => context.push('/memo/edit/$memoId'),
           ),
           // 더보기 메뉴
           PopupMenuButton<String>(

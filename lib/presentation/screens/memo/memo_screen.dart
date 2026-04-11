@@ -60,9 +60,9 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
   void _navigateToCreate() {
     final filterCategory = ref.read(memoListProvider).filterCategory;
     if (filterCategory != null) {
-      context.go('/memo/create?category=${filterCategory.name}');
+      context.push('/memo/create?category=${filterCategory.name}');
     } else {
-      context.go('/memo/create');
+      context.push('/memo/create');
     }
   }
 
@@ -265,7 +265,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
         return _DismissibleMemoCard(
           key: ValueKey(memo.id),
           memo: memo,
-          onTap: () => context.go('/memo/detail/${memo.id}'),
+          onTap: () => context.push('/memo/detail/${memo.id}'),
           onDismissed: () {
             ref.read(memoListProvider.notifier).delete(memo.id);
             showTopToast(context, '"${memo.title}" 삭제됨');
@@ -295,7 +295,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
               Expanded(
                 child: MemoCard(
                   memo: leftMemo,
-                  onTap: () => context.go('/memo/detail/${leftMemo.id}'),
+                  onTap: () => context.push('/memo/detail/${leftMemo.id}'),
                 ),
               ),
               const SizedBox(width: 10),
@@ -303,7 +303,7 @@ class _MemoScreenState extends ConsumerState<MemoScreen> {
                 child: rightMemo != null
                     ? MemoCard(
                         memo: rightMemo,
-                        onTap: () => context.go('/memo/detail/${rightMemo.id}'),
+                        onTap: () => context.push('/memo/detail/${rightMemo.id}'),
                       )
                     : const SizedBox.shrink(),
               ),

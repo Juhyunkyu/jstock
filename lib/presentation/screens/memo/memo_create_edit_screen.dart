@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import 'package:web/web.dart' as web;
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/memo.dart';
@@ -373,13 +374,9 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
   }
 
   void _goBack() {
-    if (context.canPop()) {
-      context.pop();
-    } else if (_isEditMode) {
-      context.go('/memo/detail/${widget.memoId}');
-    } else {
-      context.go('/memo');
-    }
+    // 브라우저 history.back()으로 push된 엔트리를 정확히 제거
+    // context.pop()은 Flutter 스택만 정리하고 브라우저 히스토리는 오히려 추가함
+    web.window.history.back();
   }
 
   Future<bool> _onWillPop() async {
@@ -456,12 +453,8 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
         context,
         _isEditMode ? '메모가 수정되었습니다' : '메모가 저장되었습니다',
       );
-      // pop으로 create/edit 화면을 스택에서 제거 → 히스토리도 자동 정리
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/memo');
-      }
+      // 브라우저 history.back()으로 create/edit 엔트리를 정확히 제거
+      web.window.history.back();
     }
   }
 
@@ -477,11 +470,7 @@ class _MemoCreateEditScreenState extends ConsumerState<MemoCreateEditScreen> {
     if (confirmed && mounted) {
       await ref.read(memoListProvider.notifier).delete(_originalMemo!.id);
       _hasUnsavedChanges = false;
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        context.go('/memo');
-      }
+      web.window.history.back();
     }
   }
 
