@@ -521,6 +521,7 @@ class AppColors {
   static const Color calendarEmployment = Color(0xFF3FB950);
   static const Color calendarEarnings = Color(0xFF58A6FF);
   static const Color calendarGdp = Color(0xFFA371F7);
+  static const Color calendarHoliday = Color(0xFFDA3633);
   static const Color calendarOther = Color(0xFF8B949E);
 
   // 다크 주식 배경색

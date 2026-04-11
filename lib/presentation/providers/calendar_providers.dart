@@ -5,6 +5,20 @@ import 'cycle_providers.dart';
 import 'watchlist_providers.dart';
 
 // ═══════════════════════════════════════════════════════════════
+// 주요 실적 발표 기업 (관심종목 여부와 무관하게 상시 표시)
+// ═══════════════════════════════════════════════════════════════
+
+const kMajorEarningsTickers = <String>{
+  // Mag 7
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA',
+  // 반도체 (한국 투자자 선호)
+  'AMD', 'AVGO', 'INTC', 'NFLX', 'CRM', 'ADBE', 'ORCL',
+  'QCOM', 'MU', 'MRVL', 'ARM',
+  // 금융/헬스케어/소비재
+  'JPM', 'BAC', 'GS', 'UNH', 'JNJ', 'PG', 'KO',
+};
+
+// ═══════════════════════════════════════════════════════════════
 // CalendarService Provider
 // ═══════════════════════════════════════════════════════════════
 
@@ -138,11 +152,15 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
       final economic = results[0];
       var earnings = results[1];
 
-      // 실적: 관심종목/사이클 종목만 필터
-      if (_watchlistTickers.isNotEmpty) {
+      // 실적: 관심종목/사이클 종목 + 주요 기업 필터
+      final allRelevantTickers = <String>{
+        ..._watchlistTickers,
+        ...kMajorEarningsTickers,
+      };
+      if (allRelevantTickers.isNotEmpty) {
         earnings = earnings
             .where(
-                (e) => e.ticker != null && _watchlistTickers.contains(e.ticker))
+                (e) => e.ticker != null && allRelevantTickers.contains(e.ticker))
             .toList();
       }
 

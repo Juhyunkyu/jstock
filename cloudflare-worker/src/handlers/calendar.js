@@ -1,12 +1,12 @@
 /**
- * 경제 캘린더 + 실적 캘린더 핸들러
+ * 경제 캘린더 + 실적 캘린더 핸들러 (V2)
  *
  * 엔드포인트:
  *   GET /api/calendar/economic?from=YYYY-MM-DD&to=YYYY-MM-DD
- *     → FRED release dates + FRED series actual/previous + TradingView forecast + FOMC 병합
+ *     → FRED 10개 핵심 지표 + TV forecast 매칭 + NYSE 휴장일 + 네 마녀의 날
  *
  *   GET /api/calendar/earnings?from=YYYY-MM-DD&to=YYYY-MM-DD&symbols=NVDA,TSLA
- *     → Finnhub earnings calendar 프록시
+ *     → Finnhub earnings calendar 프록시 (주요 25개 + 관심종목)
  *
  * 캐시 전략:
  *   calendar:fred_dates:RELEASE_ID   → KV 30일
@@ -28,16 +28,14 @@ const FRED_RELEASES = [
   { id: 46, title: 'PPI 생산자물가지수', titleEn: 'Producer Price Index', category: 'inflation', unit: '%' },
   { id: 9, title: '소매판매', titleEn: 'Retail Sales', category: 'other', unit: '%' },
   { id: 54, title: 'PCE 개인소비지출', titleEn: 'Personal Consumption Expenditures', category: 'inflation', unit: '%' },
+  { id: 28, title: 'ISM 제조업 PMI', titleEn: 'ISM Manufacturing PMI', category: 'other', unit: '' },
+  { id: 29, title: 'ISM 서비스업 PMI', titleEn: 'ISM Services PMI', category: 'other', unit: '' },
+  { id: 320, title: '미시간 소비자심리지수', titleEn: 'Michigan Consumer Sentiment', category: 'other', unit: '' },
+  { id: 86, title: '내구재 주문', titleEn: 'Durable Goods Orders', category: 'other', unit: '%' },
+  { id: 21, title: 'FOMC 금리결정', titleEn: 'FOMC Rate Decision', category: 'fomc', unit: '%' },
 ];
 
 const FRED_RELEASE_MAP = Object.fromEntries(FRED_RELEASES.map(r => [r.id, r]));
-
-// ── FOMC 2026 일정 (연 1회 수동 업데이트) ──
-
-const FOMC_DATES_2026 = [
-  '2026-01-28', '2026-03-18', '2026-05-06', '2026-06-17',
-  '2026-07-29', '2026-09-16', '2026-11-04', '2026-12-16',
-];
 
 // ── FRED Series ID 매핑 (actual/previous 값 조회용) ──
 
@@ -49,6 +47,10 @@ const FRED_SERIES = {
   46: { seriesId: 'PPIFIS', units: 'pch', decimals: 1 },      // PPI Final Demand MoM % (뉴스 보도 기준)
   9:  { seriesId: 'RSAFS', units: 'pch', decimals: 1 },       // 소매판매 MoM %
   54: { seriesId: 'PCEPI', units: 'pch', decimals: 1 },       // PCE 물가 MoM %
+  28: { seriesId: 'NAPM', units: 'lin', decimals: 1 },        // ISM Manufacturing PMI
+  29: { seriesId: 'NMFCI', units: 'lin', decimals: 1 },       // ISM Services PMI
+  320: { seriesId: 'UMCSENT', units: 'lin', decimals: 1 },    // Michigan Consumer Sentiment
+  86: { seriesId: 'DGORDER', units: 'pch', decimals: 1 },     // Durable Goods Orders MoM %
 };
 
 // ── TradingView → FRED 매칭 키워드 ──
@@ -63,6 +65,11 @@ const TV_MATCH_KEYWORDS = {
   46: ['ppi mom', 'ppi yoy', 'producer price'],
   9: ['retail sales'],
   54: ['pce price', 'core pce'],
+  28: ['ism manufacturing', 'ism mfg pmi'],
+  29: ['ism services', 'ism non-manufacturing'],
+  320: ['michigan consumer sentiment'],
+  86: ['durable goods'],
+  21: ['fomc', 'fed interest rate', 'federal funds rate'],
 };
 
 
@@ -99,7 +106,7 @@ function jsonResponse(data, request, cacheControl = 'public, max-age=1800') {
 }
 
 // ════════════════════════════════════════════════════
-// 경제 캘린더 (FRED + TradingView + FOMC)
+// 경제 캘린더 (FRED 10개 + TradingView forecast + 휴장일 + 네 마녀의 날)
 // ════════════════════════════════════════════════════
 
 async function handleEconomicCalendar(request, env, url, ctx) {
@@ -125,16 +132,14 @@ async function handleEconomicCalendar(request, env, url, ctx) {
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value);
 
-  const { events: mergedEvents, matchedTvIds } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
+  const { events: mergedEvents } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
 
-  // 4. FOMC 일정 추가 (from~to 범위 내)
-  const fomcEvents = buildFomcEvents(from, to);
+  // 4. NYSE 휴장일 + 네 마녀의 날 추가
+  const holidayEvents = buildNYSEHolidays(from, to);
+  const witchingEvents = buildWitchingDays(from, to);
 
-  // 5. TradingView 중 FRED에 실제 매칭되지 않은 고중요도 이벤트 추가
-  const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, matchedTvIds, from, to);
-
-  // 6. 합치고 날짜순 정렬
-  const liveEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents]
+  // 5. 합치고 날짜순 정렬
+  const liveEvents = [...mergedEvents, ...holidayEvents, ...witchingEvents]
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // 7. API에 없는 과거 날짜 → KV에서 복원하여 합침
@@ -501,9 +506,6 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
     }
   }
 
-  // 실제 매칭된 TV 이벤트를 추적 (unmatched 필터용)
-  const matchedTvIds = new Set();
-
   const events = fredEvents.map(fredEvent => {
     const releaseId = parseInt(fredEvent.id.split('-')[1]);
     const fredDateStr = fredEvent.date.substring(0, 10);
@@ -531,12 +533,6 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
       }
     }
 
-    // 매칭된 TV 이벤트 기록
-    if (tvMatched) {
-      const tvId = tvMatched.title + '|' + (tvMatched.date || '').substring(0, 10);
-      matchedTvIds.add(tvId);
-    }
-
     // ── FRED 시계열 매칭 ──
     const seriesMatch = seriesMatchMap[releaseId]?.[fredDateStr];
 
@@ -555,82 +551,158 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
     return fredEvent;
   });
 
-  return { events, matchedTvIds };
+  return { events };
 }
 
-// ── FOMC 일정 생성 (from~to 범위 필터) ──
+// ── NYSE 휴장일 계산 ──
 
-function buildFomcEvents(from, to) {
-  return FOMC_DATES_2026
-    .filter(d => d >= from && d <= to)
-    .map(d => ({
-      id: `fomc-${d}`,
-      title: 'FOMC 금리 결정',
-      titleEn: 'FOMC Rate Decision',
-      date: `${d}T00:00:00.000Z`,
-      category: 'fomc',
-      forecast: null,
-      previous: null,
-      actual: null,
-      unit: '%',
-      importance: 3,
-    }));
+/**
+ * 부활절 날짜 계산 (Anonymous Gregorian Easter algorithm)
+ * @returns {Date} 부활절 일요일 UTC 날짜
+ */
+function getEasterSunday(year) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31); // 3=March, 4=April
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(year, month - 1, day));
 }
 
-// ── FRED 이벤트와 중복되는 TV 지수 원값 이벤트 필터 ──
-// TV가 "CPI"(지수 330), "CPI s.a"(계절조정), "PPI"(지수) 등을 보내지만
-// FRED 이벤트에 이미 % 변동값이 합쳐져 있으므로 지수 원값은 혼란만 줌
-const TV_REDUNDANT_TITLES = new Set([
-  'cpi', 'cpi s.a', 'ppi',
-]);
-
-// ── TradingView 중 FRED에 매칭 안 된 고중요도(importance >= 2) 이벤트 ──
-
-function buildUnmatchedTvEvents(tvEvents, matchedTvIds, from, to) {
-  if (!tvEvents.length) return [];
-
-  const fromDate = `${from}T00:00:00.000Z`;
-  const toDate = `${to}T23:59:59.999Z`;
-
-  return tvEvents
-    .filter(tv => {
-      // 요청 범위 밖 이벤트 제외 (TV API가 범위 밖 데이터를 반환하는 경우 대비)
-      const tvDate = tv.date || '';
-      if (tvDate < fromDate || tvDate > toDate) return false;
-      // FRED 이벤트에 실제로 매칭된 TV 이벤트는 제외
-      const tvId = tv.title + '|' + (tv.date || '').substring(0, 10);
-      if (matchedTvIds.has(tvId)) return false;
-      // FRED 이벤트와 중복되는 지수 원값 이벤트 제외 (CPI 330, PPI 지수 등)
-      if (TV_REDUNDANT_TITLES.has((tv.title || '').toLowerCase())) return false;
-      return (tv.importance || 0) >= 2 ||
-             tv.forecast != null || tv.previous != null;
-    })
-    .map(tv => ({
-      id: `tv-${(tv.date || '').substring(0, 10)}-${(tv.title || '').replace(/\s+/g, '_').substring(0, 30)}`,
-      title: tv.title || '',
-      titleEn: tv.title || '',
-      date: tv.date || '',
-      category: mapTvCategory(tv.category),
-      forecast: tv.forecast ?? null,
-      previous: tv.previous ?? null,
-      actual: tv.actual ?? null,
-      unit: '',
-      importance: tv.importance >= 3 ? 3 : 2,
-    }));
+/**
+ * Good Friday = Easter Sunday - 2 days
+ */
+function getGoodFriday(year) {
+  const easter = getEasterSunday(year);
+  easter.setUTCDate(easter.getUTCDate() - 2);
+  return easter;
 }
 
-function mapTvCategory(tvCategory) {
-  if (!tvCategory) return 'other';
-  const cat = tvCategory.toLowerCase();
-  if (cat.includes('price') || cat.includes('inflation')) return 'inflation';
-  if (cat.includes('employ') || cat.includes('labor')) return 'employment';
-  if (cat.includes('gdp') || cat.includes('growth')) return 'gdp';
-  return 'other';
+/**
+ * N번째 특정 요일 찾기
+ * @param {number} weekday - 0=Sun, 1=Mon, ..., 5=Fri
+ * @param {number} n - 1-based (1=첫째, 2=둘째, ...)
+ */
+function nthWeekday(year, month, weekday, n) {
+  const first = new Date(Date.UTC(year, month, 1));
+  let day = 1 + ((weekday - first.getUTCDay() + 7) % 7);
+  day += (n - 1) * 7;
+  return new Date(Date.UTC(year, month, day));
+}
+
+/**
+ * 해당 월의 마지막 특정 요일 찾기
+ */
+function lastWeekday(year, month, weekday) {
+  const last = new Date(Date.UTC(year, month + 1, 0)); // 해당 월 마지막 날
+  const diff = (last.getUTCDay() - weekday + 7) % 7;
+  last.setUTCDate(last.getUTCDate() - diff);
+  return last;
+}
+
+const NYSE_HOLIDAYS = [
+  { name: '신년', nameEn: "New Year's Day", fixed: [0, 1] },           // Jan 1
+  { name: 'MLK의 날', nameEn: 'MLK Day', nth: [0, 1, 3] },           // 3rd Mon Jan
+  { name: '대통령의 날', nameEn: "Presidents' Day", nth: [1, 1, 3] }, // 3rd Mon Feb
+  { name: '성금요일', nameEn: 'Good Friday', easter: true },
+  { name: '현충일', nameEn: 'Memorial Day', last: [4, 1] },           // Last Mon May
+  { name: '준틴스', nameEn: 'Juneteenth', fixed: [5, 19] },           // Jun 19
+  { name: '독립기념일', nameEn: 'Independence Day', fixed: [6, 4] },  // Jul 4
+  { name: '노동절', nameEn: 'Labor Day', nth: [8, 1, 1] },           // 1st Mon Sep
+  { name: '추수감사절', nameEn: 'Thanksgiving', nth: [10, 4, 4] },    // 4th Thu Nov
+  { name: '크리스마스', nameEn: 'Christmas', fixed: [11, 25] },       // Dec 25
+];
+
+function buildNYSEHolidays(from, to) {
+  const fromYear = parseInt(from.substring(0, 4));
+  const toYear = parseInt(to.substring(0, 4));
+  const events = [];
+
+  for (let year = fromYear; year <= toYear; year++) {
+    for (const h of NYSE_HOLIDAYS) {
+      let date;
+      if (h.fixed) {
+        date = new Date(Date.UTC(year, h.fixed[0], h.fixed[1]));
+      } else if (h.nth) {
+        date = nthWeekday(year, h.nth[0], h.nth[1], h.nth[2]);
+      } else if (h.last) {
+        date = lastWeekday(year, h.last[0], h.last[1]);
+      } else if (h.easter) {
+        date = getGoodFriday(year);
+      }
+
+      const dateStr = date.toISOString().substring(0, 10);
+      if (dateStr < from || dateStr > to) continue;
+
+      events.push({
+        id: `holiday-${dateStr}`,
+        title: h.name,
+        titleEn: h.nameEn,
+        date: `${dateStr}T00:00:00.000Z`,
+        category: 'holiday',
+        forecast: null,
+        previous: null,
+        actual: null,
+        unit: '',
+        importance: 1,
+      });
+    }
+  }
+
+  return events;
+}
+
+// ── 네 마녀의 날 (Quadruple Witching) ──
+
+function buildWitchingDays(from, to) {
+  const fromYear = parseInt(from.substring(0, 4));
+  const toYear = parseInt(to.substring(0, 4));
+  const events = [];
+  const witchingMonths = [2, 5, 8, 11]; // 0-indexed: Mar, Jun, Sep, Dec
+
+  for (let year = fromYear; year <= toYear; year++) {
+    for (const month of witchingMonths) {
+      const date = nthWeekday(year, month, 5, 3); // 3rd Friday
+      const dateStr = date.toISOString().substring(0, 10);
+      if (dateStr < from || dateStr > to) continue;
+
+      events.push({
+        id: `witching-${dateStr}`,
+        title: '네 마녀의 날',
+        titleEn: 'Quadruple Witching',
+        date: `${dateStr}T00:00:00.000Z`,
+        category: 'other',
+        forecast: null,
+        previous: null,
+        actual: null,
+        unit: '',
+        importance: 2,
+      });
+    }
+  }
+
+  return events;
 }
 
 // ════════════════════════════════════════════════════
 // 실적 캘린더 (Finnhub Earnings)
 // ════════════════════════════════════════════════════
+
+const MAJOR_EARNINGS_SYMBOLS = [
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA',
+  'AMD', 'AVGO', 'INTC', 'NFLX', 'CRM', 'ADBE', 'ORCL',
+  'QCOM', 'MU', 'MRVL', 'ARM',
+  'JPM', 'BAC', 'GS', 'UNH', 'JNJ', 'PG', 'KO',
+];
 
 async function handleEarningsCalendar(request, env, url) {
   const from = url.searchParams.get('from');
@@ -671,10 +743,14 @@ async function handleEarningsCalendar(request, env, url) {
         .catch(() => null)
     );
 
-    // symbols 파라미터가 있으면 개별 심볼도 조회
-    if (symbolsParam) {
-      const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-      for (const symbol of symbols.slice(0, 20)) { // 최대 20개 제한
+    // 주요 기업 + 사용자 심볼 병합
+    const userSymbols = symbolsParam
+      ? symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+      : [];
+    const allSymbols = [...new Set([...MAJOR_EARNINGS_SYMBOLS, ...userSymbols])];
+
+    if (allSymbols.length > 0) {
+      for (const symbol of allSymbols.slice(0, 50)) { // 최대 50개 제한
         fetchPromises.push(
           fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${symbol}&token=${apiKey}`)
             .then(r => r.ok ? r.json() : null)
@@ -713,6 +789,7 @@ async function handleEarningsCalendar(request, env, url) {
       ticker: item.symbol,
       hour: item.hour || null,
       revenueEstimate: item.revenueEstimate ?? null,
+      revenueActual: item.revenueActual ?? null,
     })).sort((a, b) => a.date.localeCompare(b.date));
 
     // 4. KV 저장 (symbols 없을 때만 — 전체 캘린더, 7일 TTL, fire-and-forget)
@@ -782,10 +859,8 @@ export async function warmCalendarData(env, cronType) {
         const fredEvents = fredResults
           .filter(r => r.status === 'fulfilled')
           .flatMap(r => r.value);
-        const { events: mergedEvents, matchedTvIds } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
-        const fomcEvents = buildFomcEvents(today, today);
-        const unmatchedTvEvents = buildUnmatchedTvEvents(tvEvents, matchedTvIds, today, today);
-        const allTodayEvents = [...mergedEvents, ...fomcEvents, ...unmatchedTvEvents];
+        const { events: mergedEvents } = mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today);
+        const allTodayEvents = [...mergedEvents, ...buildNYSEHolidays(today, today), ...buildWitchingDays(today, today)];
 
         await persistEvents(env, allTodayEvents, today);
         console.log(`[Cron] Calendar: ${allTodayEvents.length} events persisted for ${today}`);
