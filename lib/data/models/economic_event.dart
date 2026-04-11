@@ -263,6 +263,103 @@ const _titleKoMap = <String, String>{
 };
 
 // ═══════════════════════════════════════════════════════════════
+// 패턴 기반 영→한 자동 번역 (매핑에 없는 이벤트 대응)
+// ═══════════════════════════════════════════════════════════════
+
+/// 연준 위원 이름 영→한 매핑
+const _fedNamesMap = <String, String>{
+  'Powell': '파월',
+  'Williams': '윌리엄스',
+  'Waller': '월러',
+  'Daly': '데일리',
+  'Barkin': '바킨',
+  'Bostic': '보스틱',
+  'Bowman': '보우먼',
+  'Collins': '콜린스',
+  'Cook': '쿡',
+  'Goolsbee': '굴스비',
+  'Harker': '하커',
+  'Jefferson': '제퍼슨',
+  'Kashkari': '카시카리',
+  'Kugler': '쿠글러',
+  'Logan': '로건',
+  'Musalem': '무살렘',
+  'Schmid': '슈미드',
+};
+
+/// 국채 타입 영→한 매핑
+const _bondTypeMap = <String, String>{
+  'Bond': '국채',
+  'Note': '국채',
+  'Bill': '국채',
+};
+
+/// 영어 패턴을 감지하여 한국어로 자동 변환. 매칭 실패 시 null 반환.
+String? _autoTranslate(String en) {
+  // ── 연준 연설: "Fed X Speech" ──
+  final fedSpeech = RegExp(r'^Fed\s+(\w+)\s+Speech$').firstMatch(en);
+  if (fedSpeech != null) {
+    final name = fedSpeech.group(1)!;
+    final koName = _fedNamesMap[name] ?? name;
+    return '연준 $koName 연설';
+  }
+
+  // ── 국채 입찰: "N-Year/Month Bond/Note/Bill Auction" ──
+  final auction = RegExp(
+    r'^(\d+)-(Year|Month|Week)\s+(Bond|Note|Bill)\s+Auction$',
+  ).firstMatch(en);
+  if (auction != null) {
+    final n = auction.group(1)!;
+    final period = auction.group(2)!;
+    final type = _bondTypeMap[auction.group(3)!] ?? '국채';
+    final koPeriod = switch (period) {
+      'Year' => '년물',
+      'Month' => '개월물',
+      'Week' => '주물',
+      _ => '물',
+    };
+    return '$n$koPeriod $type 입찰';
+  }
+
+  // ── 접미사 패턴 (MoM, YoY, QoQ, Prel, Final) ──
+  // 우선 Preliminary/Prel/Final을 처리 (복합: "X MoM Prel" 등)
+  var result = en;
+  var suffix = '';
+
+  // Preliminary / Prel → (속보)
+  if (result.endsWith(' Preliminary')) {
+    suffix = '(속보)';
+    result = result.substring(0, result.length - ' Preliminary'.length);
+  } else if (result.endsWith(' Prel')) {
+    suffix = '(속보)';
+    result = result.substring(0, result.length - ' Prel'.length);
+  } else if (result.endsWith(' Final')) {
+    suffix = '(확정)';
+    result = result.substring(0, result.length - ' Final'.length);
+  }
+
+  // MoM / YoY / QoQ
+  var periodSuffix = '';
+  if (result.endsWith(' MoM')) {
+    periodSuffix = ' 전월비';
+    result = result.substring(0, result.length - ' MoM'.length);
+  } else if (result.endsWith(' YoY')) {
+    periodSuffix = ' 전년비';
+    result = result.substring(0, result.length - ' YoY'.length);
+  } else if (result.endsWith(' QoQ')) {
+    periodSuffix = ' 전분기비';
+    result = result.substring(0, result.length - ' QoQ'.length);
+  }
+
+  // 패턴이 하나라도 매칭된 경우에만 반환
+  if (periodSuffix.isNotEmpty || suffix.isNotEmpty) {
+    return '$result$periodSuffix$suffix';
+  }
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 경제 캘린더 이벤트 모델
 // ═══════════════════════════════════════════════════════════════
 
@@ -347,8 +444,9 @@ class EconomicEvent {
     return 'D+${diff.abs()}';
   }
 
-  /// 한국어 표시용 타이틀 (매핑 있으면 한국어, 없으면 원본)
-  String get displayTitle => _titleKoMap[titleEn] ?? _titleKoMap[title] ?? title;
+  /// 한국어 표시용 타이틀 (매핑 → 자동번역 → 원본 순)
+  String get displayTitle =>
+      _titleKoMap[titleEn] ?? _titleKoMap[title] ?? _autoTranslate(titleEn) ?? title;
 
   /// 실적 이벤트 여부
   bool get isEarnings => category == EventCategory.earnings;
