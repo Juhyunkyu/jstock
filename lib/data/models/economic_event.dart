@@ -15,24 +15,11 @@ enum EventCategory {
   other;
 
   /// Worker 응답 문자열 → enum 변환
-  static EventCategory fromString(String value) {
-    switch (value.toLowerCase()) {
-      case 'fomc':
-        return EventCategory.fomc;
-      case 'inflation':
-        return EventCategory.inflation;
-      case 'employment':
-        return EventCategory.employment;
-      case 'earnings':
-        return EventCategory.earnings;
-      case 'gdp':
-        return EventCategory.gdp;
-      case 'holiday':
-        return EventCategory.holiday;
-      default:
-        return EventCategory.other;
-    }
-  }
+  static EventCategory fromString(String value) =>
+      EventCategory.values.firstWhere(
+        (e) => e.name == value.toLowerCase(),
+        orElse: () => EventCategory.other,
+      );
 
   /// 카테고리별 컬러 (app_colors.dart에 정의)
   Color get color {

@@ -303,7 +303,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
             fontSize: 10 * fs,
             fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
             color: isActive
-                ? const Color(0xFF0D1117)
+                ? (context.isDarkMode ? Colors.white : Colors.black)
                 : context.appTextSecondary,
           ),
         ),
@@ -875,9 +875,6 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
     _cachedEventsHash = hash;
     return (grouped: grouped, sortedKeys: sortedKeys);
   }
-
-  bool _isPastDate(DateTime date, DateTime today) =>
-      DateTime(date.year, date.month, date.day).isBefore(today);
 
   String _buildEarningsSubtitle(EconomicEvent event) {
     final parts = <String>[];
