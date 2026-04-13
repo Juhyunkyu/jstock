@@ -203,7 +203,7 @@ class _SteadyCombinedTradeSheetState
                   ? '${widget.cycle.ticker} 거래 기록 수정'
                   : '${widget.cycle.ticker} 오늘의 거래 기록',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: context.appTextPrimary,
               ),
@@ -214,16 +214,17 @@ class _SteadyCombinedTradeSheetState
                   Text(
                     '\$${price.toStringAsFixed(2)}',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                       color: context.appTextSecondary,
                     ),
                   ),
                   if (changePercent != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Text(
                       '${changePercent >= 0 ? '+' : ''}${changePercent.toStringAsFixed(2)}%',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: changePercent >= 0
                             ? AppColors.red500
@@ -237,7 +238,7 @@ class _SteadyCombinedTradeSheetState
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -246,28 +247,29 @@ class _SteadyCombinedTradeSheetState
             const SizedBox(height: 16),
 
             // === 매수 체결 결과 ===
-            _buildSectionHeader(context, '매수 체결 결과', AppColors.blue500),
-            const SizedBox(height: 8),
+            _buildSectionHeader(context, '매수 체결 결과', AppColors.red500),
+            const SizedBox(height: 10),
             _buildBuySection(context, _isEditMode ? null : guide),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // === 매도 체결 결과 ===
-            _buildSectionHeader(context, '매도 체결 결과', AppColors.green500),
-            const SizedBox(height: 8),
+            _buildSectionHeader(context, '매도 체결 결과', AppColors.blue500),
+            const SizedBox(height: 10),
             _buildSellSection(context, _isEditMode ? null : guide),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // === 요약 ===
             _buildSummary(context),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // === 거래일 + 메모 ===
             _buildDateAndMemo(context),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
 
             // === 저장 버튼 ===
             SizedBox(
               width: double.infinity,
+              height: 50,
               child: ElevatedButton(
                 onPressed: _hasAnyOrder && !_isSubmitting ? _onSave : null,
                 style: ElevatedButton.styleFrom(
@@ -291,8 +293,8 @@ class _SteadyCombinedTradeSheetState
                     : Text(
                         _isEditMode ? '수정 완료' : '기록 저장',
                         style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
               ),
@@ -315,20 +317,20 @@ class _SteadyCombinedTradeSheetState
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: context.appBackground,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(Icons.assignment_outlined, size: 16, color: context.appAccent),
-          const SizedBox(width: 8),
+          Icon(Icons.assignment_outlined, size: 18, color: context.appAccent),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               'T: ${guide.tValue.toStringAsFixed(1)}  $halfLabel  오프셋 ${guide.locOffsetPercent >= 0 ? '+' : ''}${guide.locOffsetPercent.toStringAsFixed(1)}%',
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: halfColor,
               ),
@@ -336,7 +338,7 @@ class _SteadyCombinedTradeSheetState
           ),
           if (guide.isQuarterMode)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color:
                     AppColors.amber500.withValues(alpha: context.isDarkMode ? 0.15 : 0.08),
@@ -345,7 +347,7 @@ class _SteadyCombinedTradeSheetState
               child: Text(
                 '쿼터모드',
                 style: TextStyle(
-                  fontSize: 10,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.amber500,
                 ),
@@ -365,8 +367,8 @@ class _SteadyCombinedTradeSheetState
     return Row(
       children: [
         Container(
-          width: 3,
-          height: 14,
+          width: 4,
+          height: 16,
           decoration: BoxDecoration(
             color: color,
             borderRadius: BorderRadius.circular(2),
@@ -376,7 +378,7 @@ class _SteadyCombinedTradeSheetState
         Text(
           title,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             color: color,
           ),
@@ -395,14 +397,14 @@ class _SteadyCombinedTradeSheetState
       if (_editHasLocAB) {
         // 전반전 A+B
         return Column(children: [
-          _buildOrderInput(context: context, label: 'LOC A', labelColor: AppColors.blue500,
+          _buildOrderInput(context: context, label: 'LOC A', labelColor: AppColors.red500,
               priceCtrl: _buyAPriceCtrl, sharesCtrl: _buyASharesCtrl),
-          const SizedBox(height: 12),
-          _buildOrderInput(context: context, label: 'LOC B', labelColor: AppColors.blue500,
+          const SizedBox(height: 14),
+          _buildOrderInput(context: context, label: 'LOC B', labelColor: AppColors.red500,
               priceCtrl: _buyBPriceCtrl, sharesCtrl: _buyBSharesCtrl),
         ]);
       } else if (_editHasSingle) {
-        return _buildOrderInput(context: context, label: '매수', labelColor: AppColors.blue500,
+        return _buildOrderInput(context: context, label: '매수', labelColor: AppColors.red500,
             priceCtrl: _buySinglePriceCtrl, sharesCtrl: _buySingleSharesCtrl);
       }
       // 매수 거래 없는 경우 (매도만 수정)
@@ -419,7 +421,7 @@ class _SteadyCombinedTradeSheetState
       return _buildOrderInput(
         context: context,
         label: guide.isFirstBuy ? '첫 매수' : '쿼터 매수',
-        labelColor: AppColors.blue500,
+        labelColor: AppColors.red500,
         priceCtrl: _buySinglePriceCtrl,
         sharesCtrl: _buySingleSharesCtrl,
         recommendedPrice: singleOrder?.price,
@@ -436,7 +438,7 @@ class _SteadyCombinedTradeSheetState
       return _buildOrderInput(
         context: context,
         label: '후반전 매수',
-        labelColor: AppColors.blue500,
+        labelColor: AppColors.red500,
         priceCtrl: _buySinglePriceCtrl,
         sharesCtrl: _buySingleSharesCtrl,
         recommendedPrice: singleOrder?.price,
@@ -466,17 +468,17 @@ class _SteadyCombinedTradeSheetState
         _buildOrderInput(
           context: context,
           label: orderA?.label ?? 'LOC A',
-          labelColor: AppColors.blue500,
+          labelColor: AppColors.red500,
           priceCtrl: _buyAPriceCtrl,
           sharesCtrl: _buyASharesCtrl,
           recommendedPrice: orderA?.price,
           recommendedShares: orderA?.shares,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         _buildOrderInput(
           context: context,
           label: orderB?.label ?? 'LOC B',
-          labelColor: AppColors.blue500,
+          labelColor: AppColors.red500,
           priceCtrl: _buyBPriceCtrl,
           sharesCtrl: _buyBSharesCtrl,
           recommendedPrice: orderB?.price,
@@ -494,10 +496,10 @@ class _SteadyCombinedTradeSheetState
     // ─── 편집 모드: 매도 입력란 항상 표시 (매도 추가 가능) ───
     if (_isEditMode) {
       return Column(children: [
-        _buildOrderInput(context: context, label: 'LOC 매도', labelColor: AppColors.green500,
+        _buildOrderInput(context: context, label: 'LOC 매도', labelColor: AppColors.blue500,
             priceCtrl: _sellLocPriceCtrl, sharesCtrl: _sellLocSharesCtrl, isSell: true),
-        const SizedBox(height: 12),
-        _buildOrderInput(context: context, label: '지정가 매도', labelColor: AppColors.green500,
+        const SizedBox(height: 14),
+        _buildOrderInput(context: context, label: '지정가 매도', labelColor: AppColors.blue500,
             priceCtrl: _sellLimitPriceCtrl, sharesCtrl: _sellLimitSharesCtrl, isSell: true),
       ]);
     }
@@ -521,19 +523,19 @@ class _SteadyCombinedTradeSheetState
           _buildOrderInput(
             context: context,
             label: sellLoc.label,
-            labelColor: AppColors.green500,
+            labelColor: AppColors.blue500,
             priceCtrl: _sellLocPriceCtrl,
             sharesCtrl: _sellLocSharesCtrl,
             recommendedPrice: sellLoc.price,
             recommendedShares: sellLoc.shares,
             isSell: true,
           ),
-        if (sellLoc != null && sellLimit != null) const SizedBox(height: 12),
+        if (sellLoc != null && sellLimit != null) const SizedBox(height: 14),
         if (sellLimit != null)
           _buildOrderInput(
             context: context,
             label: sellLimit.label,
-            labelColor: AppColors.green500,
+            labelColor: AppColors.blue500,
             priceCtrl: _sellLimitPriceCtrl,
             sharesCtrl: _sellLimitSharesCtrl,
             recommendedPrice: sellLimit.price,
@@ -568,7 +570,7 @@ class _SteadyCombinedTradeSheetState
             Text(
               label,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 color: labelColor,
               ),
@@ -583,21 +585,21 @@ class _SteadyCombinedTradeSheetState
                 },
                 child: Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: labelColor.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     '추천 \$${recommendedPrice.toStringAsFixed(2)} x $intShares주 (${recommendedShares!.toStringAsFixed(1)})',
-                    style: TextStyle(fontSize: 10, color: labelColor),
+                    style: TextStyle(fontSize: 13, color: labelColor, fontWeight: FontWeight.w500),
                   ),
                 ),
               ),
             ],
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
           children: [
             Expanded(flex: 3, child: _priceField(context, priceCtrl)),
@@ -616,14 +618,14 @@ class _SteadyCombinedTradeSheetState
       inputFormatters: [
         FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
       ],
-      style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+      style: TextStyle(fontSize: 16, color: context.appTextPrimary, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         prefixText: '\$ ',
-        prefixStyle: TextStyle(fontSize: 14, color: context.appTextHint),
+        prefixStyle: TextStyle(fontSize: 16, color: context.appTextHint),
         hintText: '가격',
-        hintStyle: TextStyle(fontSize: 13, color: context.appTextHint),
+        hintStyle: TextStyle(fontSize: 14, color: context.appTextHint),
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
         isDense: true,
         filled: true,
         fillColor: context.appBackground,
@@ -701,16 +703,16 @@ class _SteadyCombinedTradeSheetState
             controller: ctrl,
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: TextStyle(fontSize: 14, color: context.appTextPrimary),
+            style: TextStyle(fontSize: 16, color: context.appTextPrimary, fontWeight: FontWeight.w500),
             decoration: InputDecoration(
               suffixText: '주',
               suffixStyle:
-                  TextStyle(fontSize: 13, color: context.appTextHint),
+                  TextStyle(fontSize: 14, color: context.appTextHint),
               hintText: '수량',
               hintStyle:
-                  TextStyle(fontSize: 13, color: context.appTextHint),
+                  TextStyle(fontSize: 14, color: context.appTextHint),
               contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 13),
               isDense: true,
               filled: true,
               fillColor: context.appBackground,
@@ -752,14 +754,14 @@ class _SteadyCombinedTradeSheetState
   Widget _buildInfoChip(BuildContext context, String message) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: context.appBackground,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         message,
-        style: TextStyle(fontSize: 12, color: context.appTextHint),
+        style: TextStyle(fontSize: 14, color: context.appTextHint),
       ),
     );
   }
@@ -801,7 +803,7 @@ class _SteadyCombinedTradeSheetState
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: context.appBackground,
         borderRadius: BorderRadius.circular(10),
@@ -813,43 +815,43 @@ class _SteadyCombinedTradeSheetState
           Text(
             '요약',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
               color: context.appTextPrimary,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
             children: [
               Text(
                 '매수',
-                style: TextStyle(fontSize: 12, color: AppColors.blue500),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.red500),
               ),
               const Spacer(),
               Text(
                 '${totalBuyShares.toInt()}주 / ${formatKrwWithComma(totalBuyKrw)}원',
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.red500,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
             children: [
               Text(
                 '매도',
-                style: TextStyle(fontSize: 12, color: AppColors.green500),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.blue500),
               ),
               const Spacer(),
               Text(
                 '${totalSellShares.toInt()}주 / ${formatKrwWithComma(totalSellKrw)}원',
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: context.appTextPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.blue500,
                 ),
               ),
             ],
@@ -872,7 +874,7 @@ class _SteadyCombinedTradeSheetState
           onTap: () => _showDatePicker(context),
           borderRadius: BorderRadius.circular(8),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             decoration: BoxDecoration(
               color: context.appBackground,
               borderRadius: BorderRadius.circular(8),
@@ -881,12 +883,12 @@ class _SteadyCombinedTradeSheetState
             child: Row(
               children: [
                 Icon(Icons.calendar_today,
-                    size: 16, color: context.appTextHint),
-                const SizedBox(width: 8),
+                    size: 18, color: context.appTextHint),
+                const SizedBox(width: 10),
                 Text(
                   '거래일: ${_formatDate(_selectedDate)}',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: context.appTextPrimary,
                   ),
@@ -895,16 +897,16 @@ class _SteadyCombinedTradeSheetState
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         // 메모
         TextField(
           controller: _memoController,
-          style: TextStyle(fontSize: 13, color: context.appTextPrimary),
+          style: TextStyle(fontSize: 15, color: context.appTextPrimary),
           decoration: InputDecoration(
             hintText: '메모 (선택)',
-            hintStyle: TextStyle(fontSize: 13, color: context.appTextHint),
+            hintStyle: TextStyle(fontSize: 14, color: context.appTextHint),
             contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             isDense: true,
             filled: true,
             fillColor: context.appBackground,
@@ -1130,15 +1132,15 @@ class _StepperButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 36,
-      height: 36,
+      width: 40,
+      height: 44,
       child: Material(
         color: context.appBackground,
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(8),
-          child: Icon(icon, size: 18, color: context.appTextSecondary),
+          child: Icon(icon, size: 20, color: context.appTextSecondary),
         ),
       ),
     );
