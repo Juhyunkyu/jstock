@@ -143,10 +143,10 @@ async function handleEconomicCalendar(request, env, url, ctx) {
   const liveEvents = [...mergedEvents, ...holidayEvents, ...witchingEvents]
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // 7. API에 없는 과거 날짜 → KV에서 복원하여 합침
+  // 6. 과거 날짜 KV 복원
   const allEvents = await restoreEvents(env, liveEvents, from, to, today);
 
-  // 8. 오늘 기준 과거 이벤트 → KV에 날짜별 영구 저장 (1년 TTL, non-blocking)
+  // 7. 오늘 이벤트 KV 영구 저장 (non-blocking)
   if (ctx) ctx.waitUntil(persistEvents(env, liveEvents, today));
 
   return jsonResponse(allEvents, request);
@@ -441,11 +441,12 @@ async function restoreEvents(env, liveEvents, from, to, today) {
  * 오늘/과거 이벤트를 KV에 날짜별 영구 저장 — fire-and-forget via ctx.waitUntil
  */
 async function persistEvents(env, liveEvents, today) {
-  // 오늘 이전 날짜 + 오늘 날짜의 이벤트를 보존 (미래는 변동 가능하므로 저장 안 함)
+  // 오늘 날짜의 이벤트만 보존 (과거는 이미 저장됨, 미래는 변동 가능)
+  // 전체 과거 날짜를 매번 읽고 쓰면 KV 부하가 큼 → 오늘만 persist
   const byDate = {};
   for (const e of liveEvents) {
     const d = (e.date || '').substring(0, 10);
-    if (d <= today) {
+    if (d === today) {
       (byDate[d] ??= []).push(e);
     }
   }
@@ -755,44 +756,48 @@ async function handleEarningsCalendar(request, env, url) {
     }
   }
 
-  // 2. Finnhub API 호출
+  // 2. Finnhub API 호출 (벌크 먼저 → 누락 심볼만 개별 조회)
   try {
-    const fetchPromises = [];
-
-    // 기본: 전체 earnings calendar
-    fetchPromises.push(
-      fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${apiKey}`)
-        .then(r => r.ok ? r.json() : null)
-        .catch(() => null)
-    );
-
-    // 주요 기업 + 사용자 심볼 병합
     const userSymbols = symbolsParam
       ? symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
       : [];
-    const allSymbols = [...new Set([...MAJOR_EARNINGS_SYMBOLS, ...userSymbols])];
+    const wantedSymbols = new Set([...MAJOR_EARNINGS_SYMBOLS, ...userSymbols]);
 
-    if (allSymbols.length > 0) {
-      for (const symbol of allSymbols.slice(0, 50)) { // 최대 50개 제한
-        fetchPromises.push(
-          fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${symbol}&token=${apiKey}`)
-            .then(r => r.ok ? r.json() : null)
-            .catch(() => null)
-        );
-      }
-    }
+    // 벌크 조회 (전체 earnings calendar)
+    const bulkResp = await fetch(
+      `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${apiKey}`
+    ).then(r => r.ok ? r.json() : null).catch(() => null);
 
-    const results = await Promise.allSettled(fetchPromises);
-    const allEarnings = new Map(); // symbol+date → event (중복 제거)
+    const allEarnings = new Map();
+    const foundSymbols = new Set();
 
-    for (const result of results) {
-      if (result.status !== 'fulfilled' || !result.value) continue;
-      const data = result.value;
-      const calendar = data.earningsCalendar || [];
-      for (const item of calendar) {
+    if (bulkResp) {
+      for (const item of (bulkResp.earningsCalendar || [])) {
         const key = `${item.symbol}-${item.date}`;
         if (!allEarnings.has(key)) {
           allEarnings.set(key, item);
+          foundSymbols.add(item.symbol);
+        }
+      }
+    }
+
+    // 벌크에서 누락된 주요 심볼만 개별 조회
+    const missingSymbols = [...wantedSymbols].filter(s => !foundSymbols.has(s));
+    if (missingSymbols.length > 0) {
+      const results = await Promise.allSettled(
+        missingSymbols.slice(0, 20).map(symbol =>
+          fetch(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${symbol}&token=${apiKey}`)
+            .then(r => r.ok ? r.json() : null)
+            .catch(() => null)
+        )
+      );
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value) continue;
+        for (const item of (result.value.earningsCalendar || [])) {
+          const key = `${item.symbol}-${item.date}`;
+          if (!allEarnings.has(key)) {
+            allEarnings.set(key, item);
+          }
         }
       }
     }

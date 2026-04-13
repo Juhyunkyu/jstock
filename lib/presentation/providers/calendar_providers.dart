@@ -59,21 +59,19 @@ class CalendarState {
     );
   }
 
+  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
   /// 선택 날짜의 이벤트
   List<EconomicEvent> get selectedDateEvents {
-    return events
-        .where((e) =>
-            e.date.year == selectedDate.year &&
-            e.date.month == selectedDate.month &&
-            e.date.day == selectedDate.day)
-        .toList();
+    final sd = _dateOnly(selectedDate);
+    return events.where((e) => _dateOnly(e.date) == sd).toList();
   }
 
   /// 날짜별 이벤트 맵 (달력 뷰용)
   Map<DateTime, List<EconomicEvent>> get eventsByDate {
     final map = <DateTime, List<EconomicEvent>>{};
     for (final event in events) {
-      final key = DateTime(event.date.year, event.date.month, event.date.day);
+      final key = _dateOnly(event.date);
       (map[key] ??= []).add(event);
     }
     return map;
@@ -81,38 +79,24 @@ class CalendarState {
 
   /// 다가오는 이벤트 (오늘 이후 14일)
   List<EconomicEvent> get upcomingEvents {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekLater = today.add(const Duration(days: 14));
-    return events
-        .where((e) {
-          final d = DateTime(e.date.year, e.date.month, e.date.day);
-          return !d.isBefore(today) && d.isBefore(weekLater);
-        })
-        .toList();
+    final today = _dateOnly(DateTime.now());
+    final limit = today.add(const Duration(days: 14));
+    return events.where((e) {
+      final d = _dateOnly(e.date);
+      return !d.isBefore(today) && d.isBefore(limit);
+    }).toList();
   }
 
-  /// 오늘 이후 모든 이벤트 (월별 그룹 뷰용)
+  /// 오늘 이후 모든 이벤트
   List<EconomicEvent> get futureEvents {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    return events
-        .where((e) {
-          final d = DateTime(e.date.year, e.date.month, e.date.day);
-          return !d.isBefore(today);
-        })
-        .toList();
+    final today = _dateOnly(DateTime.now());
+    return events.where((e) => !_dateOnly(e.date).isBefore(today)).toList();
   }
 
   /// 오늘 이벤트
   List<EconomicEvent> get todayEvents {
-    final now = DateTime.now();
-    return events
-        .where((e) =>
-            e.date.year == now.year &&
-            e.date.month == now.month &&
-            e.date.day == now.day)
-        .toList();
+    final today = _dateOnly(DateTime.now());
+    return events.where((e) => _dateOnly(e.date) == today).toList();
   }
 }
 
@@ -133,8 +117,9 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final now = DateTime.now();
-      final from = DateTime(now.year, 1, 1); // 연초부터 (과거 결과 확인용)
-      final to = DateTime(now.year, 12, 31); // 연말까지
+      // 현재월 기준 전후 2개월 범위 (전체 연도 불필요 — 서버 부하 감소)
+      final from = DateTime(now.year, now.month - 2, 1);
+      final to = DateTime(now.year, now.month + 3, 0); // 2개월 뒤 말일
 
       final fromStr = _dateStr(from);
       final toStr = _dateStr(to);
@@ -152,15 +137,13 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
       final economic = results[0];
       var earnings = results[1];
 
-      // 실적: 관심종목/사이클 종목 + 주요 기업 필터
-      final allRelevantTickers = <String>{
-        ..._watchlistTickers,
-        ...kMajorEarningsTickers,
-      };
-      if (allRelevantTickers.isNotEmpty) {
+      // 실적: 서버가 주요 기업(MAJOR_EARNINGS_SYMBOLS)을 이미 포함
+      // 클라이언트는 관심종목 추가 필터만 적용 (서버에 없는 watchlist 종목 표시용)
+      if (_watchlistTickers.isNotEmpty) {
+        final relevantTickers = {..._watchlistTickers, ...kMajorEarningsTickers};
         earnings = earnings
             .where(
-                (e) => e.ticker != null && allRelevantTickers.contains(e.ticker))
+                (e) => e.ticker != null && relevantTickers.contains(e.ticker))
             .toList();
       }
 
