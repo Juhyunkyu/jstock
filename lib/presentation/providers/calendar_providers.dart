@@ -112,7 +112,7 @@ class CalendarNotifier extends StateNotifier<CalendarState> {
   CalendarNotifier(this._service, this._watchlistTickers)
       : super(CalendarState(selectedDate: DateTime.now()));
 
-  /// 이벤트 로드 (현재 달 + 다음 달)
+  /// 이벤트 로드 (연간 — 과거 결과 + 미래 일정 확인용)
   Future<void> loadEvents() async {
     state = state.copyWith(isLoading: true, error: null);
     try {

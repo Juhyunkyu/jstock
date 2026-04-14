@@ -493,7 +493,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     )
-                  else if (event.id.startsWith('witching-'))
+                  else if (event.isWitching)
                     Text(
                       '\u{26A0}\u{FE0F} 선물·옵션 동시 만기 — 변동성 주의',
                       style: TextStyle(
@@ -685,7 +685,7 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
                   ),
                 ],
 
-                if (!event.isEarnings && event.category != EventCategory.holiday && !event.id.startsWith('witching-')) ...[
+                if (!event.isEarnings && event.category != EventCategory.holiday && !event.isWitching) ...[
                   SizedBox(height: 16 * fs),
                   Divider(height: 1, color: context.appDivider),
                   SizedBox(height: 12 * fs),

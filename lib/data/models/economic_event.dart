@@ -181,6 +181,9 @@ class EconomicEvent {
   /// 실적 이벤트 여부
   bool get isEarnings => category == EventCategory.earnings;
 
+  /// 네 마녀의 날 여부
+  bool get isWitching => id.startsWith('witching-');
+
   /// 서프라이즈 여부 (actual 발표 후)
   String? get surprise {
     if (actual == null || forecast == null) return null;
