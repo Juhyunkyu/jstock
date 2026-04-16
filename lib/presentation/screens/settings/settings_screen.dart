@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/services/notification/web_notification_service.dart';
 import '../../../data/services/data/web_file_service.dart';
 import '../../providers/providers.dart';
 import '../../widgets/settings/settings_section.dart';
@@ -112,6 +113,7 @@ class SettingsScreen extends ConsumerWidget {
     final muted = settings.notificationMuted as bool;
     final isDesktop = MediaQuery.sizeOf(context).width >= 768;
     final iconBoxSize = isDesktop ? 40.0 : 34.0;
+    final permissionDenied = !WebNotificationService.isPermissionGranted && !muted;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -132,31 +134,235 @@ class SettingsScreen extends ConsumerWidget {
             color: context.appSurface,
             borderRadius: BorderRadius.circular(12),
           ),
-          child: SwitchListTile(
-            dense: !isDesktop,
-            secondary: Container(
-              width: iconBoxSize,
-              height: iconBoxSize,
-              decoration: BoxDecoration(
-                color: context.appIconBg,
-                borderRadius: BorderRadius.circular(isDesktop ? 10 : 8),
+          child: Column(
+            children: [
+              SwitchListTile(
+                dense: !isDesktop,
+                secondary: Container(
+                  width: iconBoxSize,
+                  height: iconBoxSize,
+                  decoration: BoxDecoration(
+                    color: context.appIconBg,
+                    borderRadius: BorderRadius.circular(isDesktop ? 10 : 8),
+                  ),
+                  child: Icon(
+                    muted ? Icons.notifications_off_outlined : Icons.notifications_outlined,
+                    color: context.appTextSecondary,
+                    size: isDesktop ? 22 : 18,
+                  ),
+                ),
+                title: Text(
+                  '알림',
+                  style: TextStyle(fontSize: isDesktop ? 15 : 14, color: context.appTextPrimary),
+                ),
+                value: !muted,
+                onChanged: (value) {
+                  ref.read(settingsProvider.notifier).toggleNotificationMuted(!value);
+                },
               ),
-              child: Icon(
-                muted ? Icons.notifications_off_outlined : Icons.notifications_outlined,
-                color: context.appTextSecondary,
-                size: isDesktop ? 22 : 18,
-              ),
-            ),
-            title: Text(
-              '알림',
-              style: TextStyle(fontSize: isDesktop ? 15 : 14, color: context.appTextPrimary),
-            ),
-            value: !muted,
-            onChanged: (value) {
-              ref.read(settingsProvider.notifier).toggleNotificationMuted(!value);
-            },
+              // 브라우저 알림 권한 차단 경고
+              if (permissionDenied)
+                InkWell(
+                  onTap: () => _showNotificationPermissionGuide(context),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded,
+                            size: 16, color: AppColors.calendarInflation),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '브라우저 알림이 차단되어 있습니다',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppColors.calendarInflation,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '해결 방법',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: context.appAccent,
+                          ),
+                        ),
+                        Icon(Icons.chevron_right,
+                            size: 16, color: context.appAccent),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
+      ],
+    );
+  }
+
+  /// 브라우저 알림 권한 설정 안내 바텀시트
+  void _showNotificationPermissionGuide(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: context.appCardBackground,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: context.appDivider,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  '알림 권한 설정 방법',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: context.appTextPrimary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '브라우저에서 알림을 차단한 상태입니다.\n아래 안내에 따라 알림을 허용해주세요.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: context.appTextSecondary,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Android Chrome
+                _buildGuideSection(
+                  context,
+                  icon: Icons.android,
+                  title: 'Android (Chrome)',
+                  steps: [
+                    '주소창 왼쪽의 자물쇠 또는 튜닝 아이콘을 탭합니다',
+                    '"권한" 또는 "사이트 설정"을 탭합니다',
+                    '"알림"을 찾아 "허용"으로 변경합니다',
+                    '페이지를 새로고침하면 알림이 활성화됩니다',
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // iPhone Safari
+                _buildGuideSection(
+                  context,
+                  icon: Icons.phone_iphone,
+                  title: 'iPhone (Safari)',
+                  steps: [
+                    '홈 화면에 Alpha Cycle이 추가되어 있어야 합니다',
+                    'iPhone 설정 앱을 엽니다',
+                    'Safari > 고급 > 웹사이트 데이터에서 알림을 허용합니다',
+                    'iOS 16.4 이상이 필요합니다',
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // Desktop
+                _buildGuideSection(
+                  context,
+                  icon: Icons.desktop_windows,
+                  title: 'PC (Chrome/Edge)',
+                  steps: [
+                    '주소창 왼쪽의 자물쇠 아이콘을 클릭합니다',
+                    '"사이트 설정"을 클릭합니다',
+                    '"알림"을 "허용"으로 변경합니다',
+                    '페이지를 새로고침합니다',
+                  ],
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('닫기'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGuideSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required List<String> steps,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 20, color: context.appAccent),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: context.appTextPrimary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...steps.asMap().entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.only(left: 28, bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: context.appIconBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${entry.key + 1}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: context.appAccent,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    entry.value,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: context.appTextSecondary,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }
