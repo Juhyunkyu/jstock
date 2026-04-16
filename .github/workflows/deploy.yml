@@ -39,7 +39,9 @@ jobs:
             --dart-define=FRED_API_KEY=${{ secrets.FRED_API_KEY }} \
             --dart-define=FMP_API_KEY=${{ secrets.FMP_API_KEY }} \
             --dart-define=PROXY_BASE_URL=${{ secrets.PROXY_BASE_URL }} \
-            --dart-define=APP_TOKEN=${{ secrets.APP_TOKEN }}
+            --dart-define=APP_TOKEN=${{ secrets.APP_TOKEN }} \
+            --dart-define=VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+          cat web/push-sw-handlers.js >> build/web/flutter_service_worker.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

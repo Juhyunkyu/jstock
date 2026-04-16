@@ -80,4 +80,11 @@ class AppConfig {
     'APP_TOKEN',
     defaultValue: '',
   );
+
+  /// VAPID Public Key (Web Push 구독용)
+  /// 빌드 시 --dart-define=VAPID_PUBLIC_KEY=xxx 로 주입
+  static const String vapidPublicKey = String.fromEnvironment(
+    'VAPID_PUBLIC_KEY',
+    defaultValue: '',
+  );
 }

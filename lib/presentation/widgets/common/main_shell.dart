@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/notification_record.dart';
+import '../../../data/services/notification/push_subscription_service.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../../data/services/pwa/pwa_update_service.dart';
 import '../../../routes/app_router.dart';
@@ -47,6 +48,9 @@ class _MainShellState extends ConsumerState<MainShell> {
 
       // 전역: 브라우저 알림 권한 요청 (비동기, 대화상자 응답을 기다리지 않음)
       WebNotificationService.requestPermission();
+
+      // Web Push 구독 보장 (앱 열릴 때마다 확인/갱신)
+      PushSubscriptionService.ensureSubscribed();
 
       // 전역 초기화: 알림 저장소 + 관심종목을 병렬 로드 후 완료 대기
       // → 알림 저장소 미초기화 상태에서 알림 트리거 시 저장 실패 방지

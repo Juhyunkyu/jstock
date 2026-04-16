@@ -30,6 +30,13 @@ echo "Building Alpha Cycle (release)..."
   --dart-define=FRED_API_KEY=$FRED_API_KEY \
   --dart-define=FMP_API_KEY=$FMP_API_KEY \
   ${PROXY_BASE_URL:+--dart-define=PROXY_BASE_URL=$PROXY_BASE_URL} \
-  ${APP_TOKEN:+--dart-define=APP_TOKEN=$APP_TOKEN}
+  ${APP_TOKEN:+--dart-define=APP_TOKEN=$APP_TOKEN} \
+  ${VAPID_PUBLIC_KEY:+--dart-define=VAPID_PUBLIC_KEY=$VAPID_PUBLIC_KEY}
+
+# Push notification 핸들러를 Service Worker에 추가
+if [ -f web/push-sw-handlers.js ]; then
+  cat web/push-sw-handlers.js >> build/web/flutter_service_worker.js
+  echo "Push handlers appended to flutter_service_worker.js"
+fi
 
 echo "Build complete! Run with: python3 serve_nocache.py 8080"

@@ -28,6 +28,8 @@ import { handleMarketNews, GLOBAL_RSS_FEEDS, KOREA_RSS_FEEDS } from './handlers/
 import { handleMarketAux } from './handlers/marketaux.js';
 import { handleTwelveData } from './handlers/twelvedata.js';
 import { handleCalendar } from './handlers/calendar.js';
+import { handlePushSubscribe } from './handlers/push.js';
+import { handleAlerts } from './handlers/alerts.js';
 import { runCacheWarming } from './cron/warming.js';
 
 /**
@@ -138,6 +140,16 @@ export default {
     // MarketAux 뉴스 (API 키 서버사이드 주입)
     if (url.pathname === '/api/marketaux/news') {
       return handleMarketAux(request, env, url);
+    }
+
+    // ── Web Push 구독 관리 ──
+    if (url.pathname === '/api/push/subscribe') {
+      return handlePushSubscribe(request, env, url);
+    }
+
+    // ── 알림 조건 관리 ──
+    if (url.pathname.startsWith('/api/alerts/')) {
+      return handleAlerts(request, env, url);
     }
 
     return jsonError('Not found', 404, request);
