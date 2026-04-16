@@ -50,41 +50,40 @@
 
 ## 3. 알림 조건 (Alert Conditions)
 
-### 3.1 목표가 알림
+### 3.1 목표가 알림 — **Crossing 방식**
 ```json
 {
   "type": "target_price",
   "ticker": "AAPL",
   "targetPrice": 156.0,
-  "direction": 0,           // 0=above(이상), 1=below(이하) — Hive alertTargetDirection과 동일
-  "cooldownMinutes": 60
+  "direction": 0           // 0=above(이상), 1=below(이하) — Hive alertTargetDirection과 동일
 }
 ```
-> `enabled` 필드 없음: `targetPrice != null`이면 활성 (Hive 패턴과 동일)
+> **Crossing**: 이전 상태(above/below)에서 반대로 전환될 때만 발동.
+> 예: $155(below) → $157(above) = 알림! / $157 → $158 = skip (이미 above)
+> 알림 후에도 조건 유지 — 가격이 되돌아갔다 다시 돌파하면 재발동.
 
-### 3.2 등락률 알림
+### 3.2 등락률 알림 — **1회 발동 → 자동 OFF**
 ```json
 {
   "type": "percent_change",
   "ticker": "TSLA",
   "basePrice": 250.0,
   "percent": 5.0,
-  "direction": 0,           // 0=both(양방향), 1=up(상승만), 2=down(하락만) — Hive alertDirection과 동일
-  "cooldownMinutes": 60
+  "direction": 0           // 0=both(양방향), 1=up(상승만), 2=down(하락만) — Hive alertDirection과 동일
 }
 ```
-> `enabled` 필드 없음: `alertPercent != null`이면 활성
+> 조건 충족 시 1회 알림 후 **서버 알림 배열에서 자동 제거**. 다시 받으려면 앱에서 재설정.
 
-### 3.3 공포탐욕지수 알림
+### 3.3 공포탐욕지수 알림 — **1회 발동 → 자동 OFF**
 ```json
 {
   "type": "fear_greed",
   "threshold": 25,
-  "direction": 0,           // 0=below(이하), 1=above(이상) — Hive fearGreedAlertDirection과 동일
-  "cooldownMinutes": 60
+  "direction": 0           // 0=below(이하), 1=above(이상) — Hive fearGreedAlertDirection과 동일
 }
 ```
-> `enabled` 필드 없음: 배열에 포함되면 활성, 비활성 시 배열에서 제거
+> 조건 충족 시 1회 알림 후 **서버 알림 배열에서 자동 제거**. 다시 받으려면 앱에서 재설정.
 
 **Direction 값 매핑**: Worker KV에 Hive int 값 그대로 저장 (문자열 변환 없음). 클라이언트와 서버가 동일한 int 규약 사용.
 
@@ -94,9 +93,9 @@ Key: alerts:config
 Value: { alerts: [...위 조건들], updatedAt: ISO8601 }
 TTL: 없음 (영구)
 
-Key: alerts:cooldown:<type>:<ticker|global>
-Value: ISO8601 (마지막 발동 시각)
-TTL: 3600 (1시간, 자동 만료)
+Key: alerts:state:target:<TICKER>
+Value: "above" | "below" (목표가 crossing 상태 추적)
+TTL: 604800 (7일)
 
 Key: push:subscription
 Value: { endpoint, keys: { p256dh, auth }, createdAt }
