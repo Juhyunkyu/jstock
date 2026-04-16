@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../data/models/notification_record.dart';
+import '../../../data/services/notification/alert_sync_service.dart';
 import '../../../data/services/notification/push_subscription_service.dart';
 import '../../../data/services/notification/web_notification_service.dart';
 import '../../../data/services/pwa/pwa_update_service.dart';
@@ -73,6 +74,15 @@ class _MainShellState extends ConsumerState<MainShell> {
         if (next == null) return;
         _handleFearGreedAlert(next);
       }, fireImmediately: true);
+
+      // 서버 알림 동기화: 초기 + 변경 시 자동
+      _syncAlertsToServer();
+      ref.listenManual(watchlistProvider, (prev, next) {
+        _syncAlertsToServer();
+      });
+      ref.listenManual(settingsProvider, (prev, next) {
+        _syncAlertsToServer();
+      });
     });
   }
 
@@ -107,6 +117,16 @@ class _MainShellState extends ConsumerState<MainShell> {
     } catch (e) {
       debugPrint('[AlertError] Watchlist alert failed: $e');
     }
+  }
+
+  /// 알림 조건을 서버에 동기화 (debounce 불필요 — 변경 빈도 낮음)
+  void _syncAlertsToServer() {
+    final watchlistState = ref.read(watchlistProvider);
+    final settings = ref.read(settingsProvider);
+    AlertSyncService.syncAlerts(
+      watchlistItems: watchlistState.items,
+      settings: settings,
+    );
   }
 
   /// 공포탐욕지수 알림 처리 (빌드 밖에서 안전하게 실행)

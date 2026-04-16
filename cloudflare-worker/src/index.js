@@ -31,6 +31,7 @@ import { handleCalendar } from './handlers/calendar.js';
 import { handlePushSubscribe } from './handlers/push.js';
 import { handleAlerts } from './handlers/alerts.js';
 import { runCacheWarming } from './cron/warming.js';
+import { runAlertCheck } from './cron/alert-check.js';
 
 /**
  * 히트 카운터 — 티커 조회 횟수를 KV에 기록 (비차단)
@@ -155,8 +156,15 @@ export default {
     return jsonError('Not found', 404, request);
   },
 
-  // Cron 캐시 워밍
+  // Cron 핸들러
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runCacheWarming(event, env));
+    const cron = event.cron;
+    // 정규장 알림 체크 (2분마다, UTC 14-20 = ET 10-16)
+    if (cron.startsWith('*/2')) {
+      ctx.waitUntil(runAlertCheck(env));
+    } else {
+      // 캐시 워밍 (프리마켓/포스트마켓/주말)
+      ctx.waitUntil(runCacheWarming(event, env));
+    }
   },
 };
