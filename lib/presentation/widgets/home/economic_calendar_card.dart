@@ -521,29 +521,82 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// 경제지표 3-value 행: 예상 | 전월 | 실제
+  /// 인플레이션 지표(CPI/PPI/PCE): YoY(기본) + MoM(보조) 2행 표시
   Widget _buildThreeValueRow(
       BuildContext context, EconomicEvent event, double fs) {
-    final unit = event.unit ?? '';
-    final forecastStr = event.forecast != null ? _fmtVal(event.forecast!) + unit : '--';
-    final previousStr = event.previous != null ? _fmtVal(event.previous!) + unit : '--';
-    final actualStr = event.actual != null ? _fmtVal(event.actual!) + unit : '--';
+    if (event.hasMomData) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMetricLine(
+            context, fs,
+            label: '연간',
+            forecast: event.forecast,
+            previous: event.previous,
+            actual: event.actual,
+            unit: event.unit ?? '',
+          ),
+          SizedBox(height: 2 * fs),
+          _buildMetricLine(
+            context, fs,
+            label: '월간',
+            forecast: event.forecastMom,
+            previous: event.previousMom,
+            actual: event.actualMom,
+            unit: event.unit ?? '',
+          ),
+        ],
+      );
+    }
+    return _buildMetricLine(
+      context, fs,
+      label: null,
+      forecast: event.forecast,
+      previous: event.previous,
+      actual: event.actual,
+      unit: event.unit ?? '',
+    );
+  }
 
-    // actual 색상: actual vs forecast 비교
+  Widget _buildMetricLine(
+    BuildContext context,
+    double fs, {
+    required String? label,
+    required double? forecast,
+    required double? previous,
+    required double? actual,
+    required String unit,
+  }) {
+    final forecastStr = forecast != null ? _fmtVal(forecast) + unit : '--';
+    final previousStr = previous != null ? _fmtVal(previous) + unit : '--';
+    final actualStr = actual != null ? _fmtVal(actual) + unit : '--';
+
     Color actualColor = context.appTextSecondary;
     FontWeight actualWeight = FontWeight.normal;
-    if (event.actual != null && event.forecast != null) {
-      if (event.actual! > event.forecast!) {
+    if (actual != null && forecast != null) {
+      if (actual > forecast) {
         actualColor = AppColors.red500;
-      } else if (event.actual! < event.forecast!) {
+      } else if (actual < forecast) {
         actualColor = AppColors.blue500;
       }
       actualWeight = FontWeight.w600;
-    } else if (event.actual != null) {
+    } else if (actual != null) {
       actualWeight = FontWeight.w600;
     }
 
     return Row(
       children: [
+        if (label != null) ...[
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9 * fs,
+              color: context.appTextHint,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          SizedBox(width: 4 * fs),
+        ],
         Text(
           '예상 $forecastStr',
           style: TextStyle(fontSize: 9 * fs, color: context.appTextSecondary),
@@ -752,24 +805,77 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
   }
 
   /// 디테일 팝업용 3-value 표시: 예상 | 전월 | 실제 (+ 서프라이즈)
+  /// 인플레이션 지표: YoY(기본) + MoM(보조) 2블록 표시
   Widget _buildDetailThreeValueRow(
       BuildContext context, EconomicEvent event, double fs, String unit) {
-    final forecastStr = event.forecast != null ? _fmtVal(event.forecast!) + unit : '--';
-    final previousStr = event.previous != null ? _fmtVal(event.previous!) + unit : '--';
-    final actualStr = event.actual != null ? _fmtVal(event.actual!) + unit : '--';
+    if (event.hasMomData) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildDetailMetricBlock(
+            context, fs, '연간 (YoY)',
+            forecast: event.forecast,
+            previous: event.previous,
+            actual: event.actual,
+            unit: unit,
+          ),
+          SizedBox(height: 12 * fs),
+          _buildDetailMetricBlock(
+            context, fs, '월간 (MoM)',
+            forecast: event.forecastMom,
+            previous: event.previousMom,
+            actual: event.actualMom,
+            unit: unit,
+          ),
+        ],
+      );
+    }
+    return _buildDetailMetricBlock(
+      context, fs, null,
+      forecast: event.forecast,
+      previous: event.previous,
+      actual: event.actual,
+      unit: unit,
+    );
+  }
 
-    // actual 색상
+  Widget _buildDetailMetricBlock(
+    BuildContext context,
+    double fs,
+    String? sectionLabel, {
+    required double? forecast,
+    required double? previous,
+    required double? actual,
+    required String unit,
+  }) {
+    final forecastStr = forecast != null ? _fmtVal(forecast) + unit : '--';
+    final previousStr = previous != null ? _fmtVal(previous) + unit : '--';
+    final actualStr = actual != null ? _fmtVal(actual) + unit : '--';
+
     Color actualColor = context.appTextPrimary;
-    if (event.actual != null && event.forecast != null) {
-      if (event.actual! > event.forecast!) {
+    if (actual != null && forecast != null) {
+      if (actual > forecast) {
         actualColor = AppColors.red500;
-      } else if (event.actual! < event.forecast!) {
+      } else if (actual < forecast) {
         actualColor = AppColors.blue500;
       }
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (sectionLabel != null) ...[
+          Text(
+            sectionLabel,
+            style: TextStyle(
+              fontSize: 10 * fs,
+              fontWeight: FontWeight.w700,
+              color: context.appTextSecondary,
+              letterSpacing: 0.3,
+            ),
+          ),
+          SizedBox(height: 6 * fs),
+        ],
         Row(
           children: [
             Expanded(
@@ -795,16 +901,16 @@ class _EconomicCalendarCardState extends ConsumerState<EconomicCalendarCard> {
             Expanded(
               child: _buildDetailValueColumn(
                 context, fs, '실제', actualStr, actualColor,
-                bold: event.actual != null,
+                bold: actual != null,
               ),
             ),
           ],
         ),
         // 서프라이즈 행 (actual과 forecast 둘 다 있을 때만)
-        if (event.actual != null && event.forecast != null) ...[
+        if (actual != null && forecast != null) ...[
           SizedBox(height: 6 * fs),
           Builder(builder: (_) {
-            final diff = event.actual! - event.forecast!;
+            final diff = actual - forecast;
             final sign = diff >= 0 ? '+' : '';
             final isBeat = diff > 0;
             final isMiss = diff < 0;

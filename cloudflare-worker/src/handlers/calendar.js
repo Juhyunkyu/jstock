@@ -28,47 +28,81 @@ const FRED_RELEASES = [
   { id: 46, title: 'PPI 생산자물가지수', titleEn: 'Producer Price Index', category: 'inflation', unit: '%' },
   { id: 9, title: '소매판매', titleEn: 'Retail Sales', category: 'other', unit: '%' },
   { id: 54, title: 'PCE 개인소비지출', titleEn: 'Personal Consumption Expenditures', category: 'inflation', unit: '%' },
-  { id: 28, title: 'ISM 제조업 PMI', titleEn: 'ISM Manufacturing PMI', category: 'other', unit: '' },
-  { id: 29, title: 'ISM 서비스업 PMI', titleEn: 'ISM Services PMI', category: 'other', unit: '' },
-  { id: 320, title: '미시간 소비자심리지수', titleEn: 'Michigan Consumer Sentiment', category: 'other', unit: '' },
-  { id: 86, title: '내구재 주문', titleEn: 'Durable Goods Orders', category: 'other', unit: '%' },
+  { id: 91, title: '미시간 소비자심리지수', titleEn: 'Michigan Consumer Sentiment', category: 'other', unit: '' },
+  { id: 95, title: '내구재 주문', titleEn: 'Durable Goods Orders', category: 'other', unit: '%' },
   { id: 21, title: 'FOMC 금리결정', titleEn: 'FOMC Rate Decision', category: 'fomc', unit: '%' },
 ];
 
 const FRED_RELEASE_MAP = Object.fromEntries(FRED_RELEASES.map(r => [r.id, r]));
 
 // ── FRED Series ID 매핑 (actual/previous 값 조회용) ──
+//
+// 인플레이션 지표(CPI/PPI/PCE)는 MoM과 YoY 둘 다 표시하므로 두 단위를 각각 조회.
+// units: 'pch' = 전월대비(%), 'pc1' = 전년동월대비(%), 'lin' = 원값, 'chg' = 절대 변화
+//
+// 구조: primary = 기본(보통 YoY, 뉴스 보도 기준), secondary = 보조(MoM)
 
 const FRED_SERIES = {
-  10: { seriesId: 'CPIAUCSL', units: 'pch', decimals: 1 },   // CPI MoM %
-  50: { seriesId: 'PAYEMS', units: 'chg', decimals: 0 },      // Nonfarm Payrolls 변동 (K)
+  10: {
+    seriesId: 'CPIAUCSL',
+    primary: { units: 'pc1', decimals: 1, type: 'yoy' },  // CPI YoY % (뉴스 보도 기준)
+    secondary: { units: 'pch', decimals: 1, type: 'mom' }, // CPI MoM %
+  },
+  50: {
+    seriesId: 'PAYEMS',
+    primary: { units: 'chg', decimals: 0, type: null },    // Nonfarm Payrolls 변동 (K)
+  },
   // 53 (GDP) 제외: 분기 데이터는 advance/second/third 발표 주기와 관측값이 1:1 매칭 불가
   // GDP는 TradingView forecast/actual에만 의존
-  46: { seriesId: 'PPIFIS', units: 'pch', decimals: 1 },      // PPI Final Demand MoM % (뉴스 보도 기준)
-  9:  { seriesId: 'RSAFS', units: 'pch', decimals: 1 },       // 소매판매 MoM %
-  54: { seriesId: 'PCEPI', units: 'pch', decimals: 1 },       // PCE 물가 MoM %
-  28: { seriesId: 'NAPM', units: 'lin', decimals: 1 },        // ISM Manufacturing PMI
-  29: { seriesId: 'NMFCI', units: 'lin', decimals: 1 },       // ISM Services PMI
-  320: { seriesId: 'UMCSENT', units: 'lin', decimals: 1 },    // Michigan Consumer Sentiment
-  86: { seriesId: 'DGORDER', units: 'pch', decimals: 1 },     // Durable Goods Orders MoM %
+  46: {
+    seriesId: 'PPIFIS',
+    primary: { units: 'pc1', decimals: 1, type: 'yoy' },   // PPI YoY %
+    secondary: { units: 'pch', decimals: 1, type: 'mom' }, // PPI MoM %
+  },
+  9: {
+    seriesId: 'RSAFS',
+    primary: { units: 'pch', decimals: 1, type: null },    // 소매판매 MoM %
+  },
+  54: {
+    seriesId: 'PCEPI',
+    primary: { units: 'pc1', decimals: 1, type: 'yoy' },   // PCE YoY %
+    secondary: { units: 'pch', decimals: 1, type: 'mom' }, // PCE MoM %
+  },
+  91: {
+    seriesId: 'UMCSENT',
+    primary: { units: 'lin', decimals: 1, type: null },    // Michigan Consumer Sentiment
+  },
+  95: {
+    seriesId: 'DGORDER',
+    primary: { units: 'pch', decimals: 1, type: null },    // Durable Goods Orders MoM %
+  },
 };
 
 // ── TradingView → FRED 매칭 키워드 ──
+//
+// 인플레이션 지표는 TV에 MoM/YoY 이벤트가 별도로 존재.
+// primary(YoY) / secondary(MoM) 구조로 분리 매칭하여 각각 forecast를 가져옴.
+// 단일 키워드 구조는 비인플레이션 지표용.
 
 const TV_MATCH_KEYWORDS = {
-  // CPI: 'inflation rate'으로 매칭 — TV 'CPI' 이벤트는 지수 원값(330)을 보내므로
-  // 'inflation rate mom/yoy'(% 변동)과 매칭해야 FRED pch 단위와 일치
-  10: ['inflation rate'],
+  10: {
+    yoy: ['inflation rate yoy', 'cpi yoy'],
+    mom: ['inflation rate mom', 'cpi mom'],
+  },
+  46: {
+    yoy: ['ppi yoy', 'producer price index yoy'],
+    mom: ['ppi mom', 'producer price index mom'],
+  },
+  54: {
+    yoy: ['pce price index yoy', 'core pce price index yoy'],
+    mom: ['pce price index mom', 'core pce price index mom'],
+  },
+  // 비인플레이션: 단일 키워드 리스트
   50: ['nonfarm', 'non-farm', 'employment situation', 'payroll'],
   53: ['gdp', 'gross domestic'],
-  // PPI: TV 'PPI MoM'/'PPI YoY' 타이틀과 매칭 (단순 'ppi'는 지수 원값 이벤트도 잡을 수 있음)
-  46: ['ppi mom', 'ppi yoy', 'producer price'],
   9: ['retail sales'],
-  54: ['pce price', 'core pce'],
-  28: ['ism manufacturing', 'ism mfg pmi'],
-  29: ['ism services', 'ism non-manufacturing'],
-  320: ['michigan consumer sentiment'],
-  86: ['durable goods'],
+  91: ['michigan consumer sentiment'],
+  95: ['durable goods'],
   21: ['fomc', 'fed interest rate', 'federal funds rate'],
 };
 
@@ -235,50 +269,56 @@ async function fetchAllFredSeries(env, from, to, today) {
 
 /**
  * 개별 FRED series 관측값 조회 (KV 캐시, 24시간 TTL)
- * @returns {Array<{date, value}>} 최신순 정렬된 관측값
+ * primary + secondary(있으면) 둘 다 가져와 각각 관측값 배열 반환
+ * @returns {{primary: Array<{date,value}>, secondary?: Array<{date,value}>}}
  */
 async function fetchFredSeriesForRelease(env, apiKey, releaseId, skipCache) {
-  const series = FRED_SERIES[releaseId];
-  if (!series) return null;
+  const config = FRED_SERIES[releaseId];
+  if (!config) return null;
 
-  const kvKey = `calendar:fred_series:${series.seriesId}`;
+  const fetchVariant = async (variant) => {
+    if (!variant) return null;
+    const kvKey = `calendar:fred_series:${config.seriesId}:${variant.units}`;
 
-  // KV 캐시 확인 (오늘이 범위에 포함되면 건너뜀 — 발표일 actual 즉시 반영)
-  if (!skipCache) {
-    const { data: cached } = await getCached(env, kvKey, null);
-    if (cached) return JSON.parse(cached);
-  }
-
-  try {
-    let url = `https://api.stlouisfed.org/fred/series/observations` +
-      `?series_id=${series.seriesId}&api_key=${apiKey}&file_type=json` +
-      `&sort_order=desc&limit=24`;
-    if (series.units) {
-      url += `&units=${series.units}`;
+    if (!skipCache) {
+      const { data: cached } = await getCached(env, kvKey, null);
+      if (cached) return JSON.parse(cached);
     }
 
-    const resp = await fetch(url);
-    if (!resp.ok) {
-      console.error(`[Calendar] FRED series ${series.seriesId} HTTP ${resp.status}`);
+    try {
+      const url = `https://api.stlouisfed.org/fred/series/observations` +
+        `?series_id=${config.seriesId}&api_key=${apiKey}&file_type=json` +
+        `&sort_order=desc&limit=24&units=${variant.units}`;
+
+      const resp = await fetch(url);
+      if (!resp.ok) {
+        console.error(`[Calendar] FRED series ${config.seriesId} (${variant.units}) HTTP ${resp.status}`);
+        return null;
+      }
+
+      const data = await resp.json();
+      const observations = (data.observations || [])
+        .filter(obs => obs.value !== '.' && obs.value != null)
+        .map(obs => ({
+          date: obs.date,
+          value: parseFloat(parseFloat(obs.value).toFixed(variant.decimals)),
+        }));
+
+      setCached(env, kvKey, 86400, null, 0, JSON.stringify(observations));
+      return observations;
+    } catch (e) {
+      console.error(`[Calendar] FRED series ${config.seriesId} (${variant.units}) fetch failed:`, e.message);
       return null;
     }
+  };
 
-    const data = await resp.json();
-    const observations = (data.observations || [])
-      .filter(obs => obs.value !== '.' && obs.value != null) // FRED uses '.' for missing
-      .map(obs => ({
-        date: obs.date,
-        value: parseFloat(parseFloat(obs.value).toFixed(series.decimals)),
-      }));
+  const [primary, secondary] = await Promise.all([
+    fetchVariant(config.primary),
+    fetchVariant(config.secondary),
+  ]);
 
-    // KV 저장 (24시간 TTL, fire-and-forget)
-    setCached(env, kvKey, 86400, null, 0, JSON.stringify(observations));
-
-    return observations;
-  } catch (e) {
-    console.error(`[Calendar] FRED series ${series.seriesId} fetch failed:`, e.message);
-    return null;
-  }
+  if (!primary && !secondary) return null;
+  return { primary: primary || [], secondary: secondary || null };
 }
 
 /**
@@ -309,6 +349,31 @@ function matchReleaseDatesToObservations(releaseDates, observations, today) {
   }
 
   return result;
+}
+
+/**
+ * primary + secondary 양쪽 관측값을 release date와 매칭
+ * @returns {Map<releaseDateStr, {actual, previous, actualMom?, previousMom?}>}
+ *
+ * 인플레이션 지표처럼 primary=YoY, secondary=MoM인 경우:
+ *   { actual, previous } = YoY (뉴스 보도 기준)
+ *   { actualMom, previousMom } = MoM (보조 정보)
+ */
+function matchDualSeriesToReleaseDates(releaseDates, seriesResult, today) {
+  if (!seriesResult) return {};
+  const primaryMatch = matchReleaseDatesToObservations(releaseDates, seriesResult.primary, today);
+  if (!seriesResult.secondary) return primaryMatch;
+
+  const secondaryMatch = matchReleaseDatesToObservations(releaseDates, seriesResult.secondary, today);
+  const merged = {};
+  for (const date of Object.keys(primaryMatch)) {
+    merged[date] = {
+      ...primaryMatch[date],
+      actualMom: secondaryMatch[date]?.actual ?? null,
+      previousMom: secondaryMatch[date]?.previous ?? null,
+    };
+  }
+  return merged;
 }
 
 // ── TradingView Economic Calendar 조회 (KV 캐시, 4시간 TTL / 오늘 포함 시 캐시 무시) ──
@@ -384,9 +449,12 @@ function bestMergeEvent(existing, incoming) {
   return {
     ...existing,
     ...incoming,
-    forecast:  incoming.forecast  ?? existing.forecast,
-    previous:  incoming.previous  ?? existing.previous,
-    actual:    incoming.actual    ?? existing.actual,
+    forecast:     incoming.forecast     ?? existing.forecast,
+    previous:     incoming.previous     ?? existing.previous,
+    actual:       incoming.actual       ?? existing.actual,
+    forecastMom:  incoming.forecastMom  ?? existing.forecastMom,
+    previousMom:  incoming.previousMom  ?? existing.previousMom,
+    actualMom:    incoming.actualMom    ?? existing.actualMom,
   };
 }
 
@@ -420,7 +488,15 @@ async function restoreEvents(env, liveEvents, from, to, today) {
   );
 
   // id 기준 병합: KV에서 FRED/holiday/witching 이벤트만 복원 (구 TV 이벤트 무시)
-  const isValidId = (id) => id.startsWith('fred-') || id.startsWith('holiday-') || id.startsWith('witching-');
+  // FRED는 현재 설정된 release id만 허용 (config에서 제거된 구 release는 KV에 남아있어도 무시)
+  const isValidId = (id) => {
+    if (id.startsWith('holiday-') || id.startsWith('witching-')) return true;
+    if (id.startsWith('fred-')) {
+      const releaseId = parseInt(id.split('-')[1]);
+      return releaseId in FRED_RELEASE_MAP;
+    }
+    return false;
+  };
   const byId = new Map();
   for (const result of results) {
     if (result.status === 'fulfilled' && result.value && Array.isArray(result.value)) {
@@ -492,7 +568,33 @@ async function persistEvents(env, liveEvents, today) {
 
 // ── FRED + TradingView + FRED Series 병합 ──
 //
-// 우선순위: forecast → TV만 / actual,previous → TV > FRED시계열
+// 인플레이션 지표(CPI/PPI/PCE): YoY(기본) + MoM(보조) 둘 다 포함
+//   - forecast/actual/previous = YoY (뉴스 보도 기준)
+//   - forecastMom/actualMom/previousMom = MoM
+// 기타 지표: 단일 단위 (actual/forecast/previous만 사용)
+
+function findTvMatch(tvEvents, fredDateStr, keywords, today) {
+  if (!keywords || !keywords.length || !tvEvents.length) return null;
+
+  // 1차: 같은 날짜 + 키워드
+  let matched = tvEvents.find(tv => {
+    const tvDateStr = (tv.date || '').substring(0, 10);
+    if (tvDateStr !== fredDateStr) return false;
+    const tvTitle = (tv.title || '').toLowerCase();
+    return keywords.some(kw => tvTitle.includes(kw));
+  });
+
+  // 2차: 날짜 실패 시, 과거 이벤트에 한해 키워드만
+  if (!matched && fredDateStr <= today) {
+    matched = tvEvents.find(tv => {
+      const tvTitle = (tv.title || '').toLowerCase();
+      return keywords.some(kw => tvTitle.includes(kw)) &&
+             (tv.forecast != null || tv.previous != null);
+    });
+  }
+
+  return matched;
+}
 
 function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
   const datesByRelease = {};
@@ -505,9 +607,9 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
   const seriesMatchMap = {};
   for (const [releaseIdStr, dates] of Object.entries(datesByRelease)) {
     const releaseId = parseInt(releaseIdStr);
-    const observations = seriesDataMap[releaseId];
-    if (observations && observations.length) {
-      seriesMatchMap[releaseId] = matchReleaseDatesToObservations(dates, observations, today);
+    const seriesResult = seriesDataMap[releaseId];
+    if (seriesResult && seriesResult.primary && seriesResult.primary.length) {
+      seriesMatchMap[releaseId] = matchDualSeriesToReleaseDates(dates, seriesResult, today);
     }
   }
 
@@ -515,42 +617,44 @@ function mergeFredWithTradingView(fredEvents, tvEvents, seriesDataMap, today) {
     const releaseId = parseInt(fredEvent.id.split('-')[1]);
     const fredDateStr = fredEvent.date.substring(0, 10);
 
-    // ── TradingView 매칭 (forecast 확보용) ──
-    const keywords = TV_MATCH_KEYWORDS[releaseId] || [];
-    let tvMatched = null;
+    // ── TradingView 매칭 — MoM/YoY 분리 구조 지원 ──
+    const kwEntry = TV_MATCH_KEYWORDS[releaseId];
+    const isDualUnit = kwEntry && !Array.isArray(kwEntry); // {yoy, mom} 구조
+    const keywordsYoy = isDualUnit ? kwEntry.yoy : (kwEntry || []);
+    const keywordsMom = isDualUnit ? kwEntry.mom : null;
 
-    if (keywords.length && tvEvents.length) {
-      // 1차: 같은 날짜 + 키워드
-      tvMatched = tvEvents.find(tv => {
-        const tvDateStr = (tv.date || '').substring(0, 10);
-        if (tvDateStr !== fredDateStr) return false;
-        const tvTitle = (tv.title || '').toLowerCase();
-        return keywords.some(kw => tvTitle.includes(kw));
-      });
-
-      // 2차: 날짜 실패 시, 과거 이벤트에 한해 키워드만
-      if (!tvMatched && fredDateStr <= today) {
-        tvMatched = tvEvents.find(tv => {
-          const tvTitle = (tv.title || '').toLowerCase();
-          return keywords.some(kw => tvTitle.includes(kw)) &&
-                 (tv.forecast != null || tv.previous != null);
-        });
-      }
-    }
+    const tvYoy = findTvMatch(tvEvents, fredDateStr, keywordsYoy, today);
+    const tvMom = keywordsMom ? findTvMatch(tvEvents, fredDateStr, keywordsMom, today) : null;
 
     // ── FRED 시계열 매칭 ──
     const seriesMatch = seriesMatchMap[releaseId]?.[fredDateStr];
 
-    // ── 병합: forecast → TV만 / actual,previous → FRED 우선 > TV 보조 ──
-    // FRED 시계열이 공식 데이터이므로 actual/previous는 FRED를 신뢰
-    // TV는 forecast(예상)만 제공 + FRED에 없는 경우 actual/previous 보조
-    const forecast = tvMatched?.forecast ?? null;
-    const actual = seriesMatch?.actual ?? tvMatched?.actual ?? null;
-    const previous = seriesMatch?.previous ?? tvMatched?.previous ?? null;
-    const importance = (tvMatched?.importance >= 3) ? 3 : fredEvent.importance;
+    // ── 병합 ──
+    // primary (YoY for inflation, single-unit for others):
+    //   forecast ← TV, actual/previous ← FRED series > TV
+    const forecast = tvYoy?.forecast ?? null;
+    const actual = seriesMatch?.actual ?? tvYoy?.actual ?? null;
+    const previous = seriesMatch?.previous ?? tvYoy?.previous ?? null;
 
-    if (forecast !== null || actual !== null || previous !== null || importance !== fredEvent.importance) {
-      return { ...fredEvent, forecast, actual, previous, importance };
+    // secondary (MoM, only for inflation dual-unit releases)
+    const forecastMom = isDualUnit ? (tvMom?.forecast ?? null) : null;
+    const actualMom = isDualUnit ? (seriesMatch?.actualMom ?? tvMom?.actual ?? null) : null;
+    const previousMom = isDualUnit ? (seriesMatch?.previousMom ?? tvMom?.previous ?? null) : null;
+
+    const importance = (tvYoy?.importance >= 3 || tvMom?.importance >= 3) ? 3 : fredEvent.importance;
+
+    const hasAnyValue =
+      forecast !== null || actual !== null || previous !== null ||
+      forecastMom !== null || actualMom !== null || previousMom !== null ||
+      importance !== fredEvent.importance;
+
+    if (hasAnyValue) {
+      return {
+        ...fredEvent,
+        forecast, actual, previous,
+        ...(isDualUnit ? { forecastMom, actualMom, previousMom } : {}),
+        importance,
+      };
     }
 
     return fredEvent;

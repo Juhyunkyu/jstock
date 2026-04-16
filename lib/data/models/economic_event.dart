@@ -87,6 +87,11 @@ enum EventCategory {
 // ═══════════════════════════════════════════════════════════════
 
 /// 경제 캘린더 이벤트 (경제지표 + 실적)
+///
+/// 인플레이션 지표(CPI/PPI/PCE)는 YoY(기본)와 MoM(보조) 두 단위를 모두 가짐:
+///   - forecast/actual/previous = YoY (전년동월대비, 뉴스 보도 기준)
+///   - forecastMom/actualMom/previousMom = MoM (전월대비)
+/// 기타 지표는 forecast/actual/previous만 사용 (단일 단위).
 class EconomicEvent {
   final String id;
   final String title;
@@ -96,6 +101,9 @@ class EconomicEvent {
   final double? forecast;
   final double? previous;
   final double? actual;
+  final double? forecastMom;
+  final double? previousMom;
+  final double? actualMom;
   final String? unit;
   final int importance;
   final String? ticker;
@@ -113,6 +121,9 @@ class EconomicEvent {
     this.forecast,
     this.previous,
     this.actual,
+    this.forecastMom,
+    this.previousMom,
+    this.actualMom,
     this.unit,
     this.importance = 2,
     this.ticker,
@@ -121,6 +132,10 @@ class EconomicEvent {
     this.revenueActual,
     this.description,
   });
+
+  /// MoM 데이터가 하나라도 있는지 (dual-unit 이벤트 판정용)
+  bool get hasMomData =>
+      forecastMom != null || actualMom != null || previousMom != null;
 
   /// JSON 역직렬화
   factory EconomicEvent.fromJson(Map<String, dynamic> json) {
@@ -133,6 +148,9 @@ class EconomicEvent {
       forecast: (json['forecast'] as num?)?.toDouble(),
       previous: (json['previous'] as num?)?.toDouble(),
       actual: (json['actual'] as num?)?.toDouble(),
+      forecastMom: (json['forecastMom'] as num?)?.toDouble(),
+      previousMom: (json['previousMom'] as num?)?.toDouble(),
+      actualMom: (json['actualMom'] as num?)?.toDouble(),
       unit: json['unit'] as String?,
       importance: json['importance'] as int? ?? 2,
       ticker: json['ticker'] as String?,
@@ -154,6 +172,9 @@ class EconomicEvent {
       'forecast': forecast,
       'previous': previous,
       'actual': actual,
+      if (forecastMom != null) 'forecastMom': forecastMom,
+      if (previousMom != null) 'previousMom': previousMom,
+      if (actualMom != null) 'actualMom': actualMom,
       'unit': unit,
       'importance': importance,
       'ticker': ticker,
