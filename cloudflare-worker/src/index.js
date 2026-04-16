@@ -31,7 +31,7 @@ import { handleCalendar } from './handlers/calendar.js';
 import { handlePushSubscribe } from './handlers/push.js';
 import { handleAlerts } from './handlers/alerts.js';
 import { runCacheWarming } from './cron/warming.js';
-import { runAlertCheck } from './cron/alert-check.js';
+import { runAlertCheck, runAlertCheckDebug } from './cron/alert-check.js';
 
 /**
  * 히트 카운터 — 티커 조회 횟수를 KV에 기록 (비차단)
@@ -150,6 +150,17 @@ export default {
 
     // ── 알림 조건 관리 ──
     if (url.pathname.startsWith('/api/alerts/')) {
+      // 디버그: 수동 알림 체크 트리거 (디버그 정보 반환)
+      if (url.pathname === '/api/alerts/test-check') {
+        try {
+          const debugInfo = await runAlertCheckDebug(env);
+          return new Response(JSON.stringify({ ok: true, ...debugInfo }), {
+            headers: { 'Content-Type': 'application/json', ...corsHeaders(request) },
+          });
+        } catch (e) {
+          return jsonError(`Alert check failed: ${e.message}\n${e.stack}`, 500, request);
+        }
+      }
       return handleAlerts(request, env, url);
     }
 

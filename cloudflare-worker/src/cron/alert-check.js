@@ -14,6 +14,70 @@ const ALERTS_KV_KEY = 'alerts:config';
 const PUSH_SUB_KV_KEY = 'push:subscription';
 
 /**
+ * 디버그 버전 — 진행 상황을 반환
+ */
+export async function runAlertCheckDebug(env) {
+  const debug = { steps: [] };
+  try {
+    const [configRaw, subscription] = await Promise.all([
+      env.CACHE_KV.get(ALERTS_KV_KEY, 'json'),
+      env.CACHE_KV.get(PUSH_SUB_KV_KEY, 'json'),
+    ]);
+    debug.alertCount = configRaw?.alerts?.length ?? 0;
+    debug.hasSubscription = !!subscription?.endpoint;
+
+    if (!configRaw?.alerts?.length) { debug.steps.push('No alerts'); return debug; }
+    if (!subscription?.endpoint) { debug.steps.push('No push subscription'); return debug; }
+
+    // Fear&Greed
+    const hasFG = configRaw.alerts.some(a => a.type === 'fear_greed');
+    if (hasFG) {
+      const cached = await env.CACHE_KV.get('fear_greed:latest', 'json');
+      debug.fgCached = cached?.fear_and_greed?.score ?? 'MISS';
+      if (debug.fgCached === 'MISS') {
+        const fgResp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata/', {
+          headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://edition.cnn.com/' },
+        });
+        debug.fgFetchStatus = fgResp.status;
+        if (fgResp.ok) {
+          const data = await fgResp.json();
+          debug.fgFetchScore = data?.fear_and_greed?.score;
+        }
+      }
+    }
+
+    // Prices
+    const tickers = [...new Set(configRaw.alerts.filter(a => a.ticker).map(a => a.ticker))];
+    if (tickers.length && env.FINNHUB_API_KEY) {
+      for (const t of tickers) {
+        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${t}&token=${env.FINNHUB_API_KEY}`);
+        if (r.ok) { const d = await r.json(); debug[`price_${t}`] = d.c; }
+      }
+    }
+
+    // States
+    for (const a of configRaw.alerts) {
+      if (a.type === 'target_price') {
+        const s = await env.CACHE_KV.get(`alerts:state:target:${a.ticker}:${a.targetPrice}`);
+        debug[`state_${a.ticker}_${a.targetPrice}`] = s;
+      }
+    }
+
+    debug.steps.push('Debug complete — run actual check now');
+    await runAlertCheck(env);
+    debug.steps.push('runAlertCheck completed');
+
+    // Post-check alerts
+    const postConfig = await env.CACHE_KV.get(ALERTS_KV_KEY, 'json');
+    debug.alertCountAfter = postConfig?.alerts?.length ?? 0;
+  } catch (e) {
+    debug.error = e.message;
+    debug.stack = e.stack;
+  }
+  return debug;
+}
+
+/**
  * 알림 체크 메인 로직
  */
 export async function runAlertCheck(env) {
@@ -61,13 +125,37 @@ export async function runAlertCheck(env) {
     }
   }
 
-  // 4. Fear&Greed 캐시 읽기 (별도 API 호출 불필요 — 워밍 cron에서 이미 캐시됨)
+  // 4. Fear&Greed 값 조회 (KV 캐시 → 미스 시 CNN 직접 호출)
   let fearGreedValue = null;
   const hasFearGreedAlert = alerts.some(a => a.type === 'fear_greed');
   if (hasFearGreedAlert) {
+    // KV 캐시 먼저 시도
     const cached = await env.CACHE_KV.get('fear_greed:latest', 'json');
-    if (cached && cached.value != null) {
-      fearGreedValue = cached.value;
+    if (cached?.fear_and_greed?.score != null) {
+      fearGreedValue = Math.round(cached.fear_and_greed.score);
+    } else {
+      // 캐시 미스 — CNN 직접 호출
+      try {
+        const fgResp = await fetch(
+          'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/',
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': 'https://edition.cnn.com/',
+            },
+          }
+        );
+        if (fgResp.ok) {
+          const data = await fgResp.json();
+          if (data?.fear_and_greed?.score != null) {
+            fearGreedValue = Math.round(data.fear_and_greed.score);
+            // KV 캐시 갱신 (1시간 TTL)
+            await env.CACHE_KV.put('fear_greed:latest', JSON.stringify(data), { expirationTtl: 3600 });
+          }
+        }
+      } catch (e) {
+        console.error('[AlertCheck] Fear&Greed fetch failed:', e.message);
+      }
     }
   }
 
@@ -94,7 +182,7 @@ export async function runAlertCheck(env) {
       if (price == null) continue;
 
       const direction = alert.direction ?? 0; // 0=above, 1=below
-      const stateKey = `alerts:state:target:${alert.ticker}`;
+      const stateKey = `alerts:state:target:${alert.ticker}:${alert.targetPrice}`;
       const prevState = await env.CACHE_KV.get(stateKey); // "above" | "below" | null
 
       let currentState;
