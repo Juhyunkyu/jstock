@@ -72,37 +72,54 @@ export async function runAlertCheck(env) {
   }
 
   // 5. 조건 매칭 + Push 전송
+  //
+  // 알림 패턴:
+  //   목표가    → Crossing: 이전 상태(above/below)가 전환될 때만 발동
+  //   등락률    → 1회 발동 → 자동 OFF (alerts 배열에서 제거)
+  //   공포탐욕  → 1회 발동 → 자동 OFF (alerts 배열에서 제거)
+  //
   const notifications = [];
+  const alertsToRemove = []; // 1회 발동 후 제거할 알림 인덱스
 
-  for (const alert of alerts) {
-    // 쿨다운 체크
-    const cooldownKey = getCooldownKey(alert);
-    const lastTriggered = await env.CACHE_KV.get(cooldownKey);
-    if (lastTriggered) continue; // 아직 쿨다운 중
-
+  for (let i = 0; i < alerts.length; i++) {
+    const alert = alerts[i];
     let triggered = false;
     let title = '';
     let body = '';
     let tag = '';
 
+    // ── 목표가: Crossing 방식 ──
     if (alert.type === 'target_price') {
       const price = prices[alert.ticker];
       if (price == null) continue;
 
       const direction = alert.direction ?? 0; // 0=above, 1=below
-      if (direction === 0 && price >= alert.targetPrice) {
-        triggered = true;
+      const stateKey = `alerts:state:target:${alert.ticker}`;
+      const prevState = await env.CACHE_KV.get(stateKey); // "above" | "below" | null
+
+      let currentState;
+      if (direction === 0) {
+        // 이상 알림: above/below 판정
+        currentState = price >= alert.targetPrice ? 'above' : 'below';
+        triggered = prevState === 'below' && currentState === 'above';
+      } else {
+        // 이하 알림: above/below 판정
+        currentState = price <= alert.targetPrice ? 'below' : 'above';
+        triggered = prevState === 'above' && currentState === 'below';
+      }
+
+      // 상태 저장 (7일 TTL — 충분히 긴 기간)
+      await env.CACHE_KV.put(stateKey, currentState, { expirationTtl: 604800 });
+
+      if (triggered) {
+        const dirLabel = direction === 0 ? '이상' : '이하';
         title = `${alert.ticker} 목표가 도달`;
-        body = `현재 $${price.toFixed(2)} (목표 $${alert.targetPrice.toFixed(2)} 이상)`;
-        tag = `target-${alert.ticker}`;
-      } else if (direction === 1 && price <= alert.targetPrice) {
-        triggered = true;
-        title = `${alert.ticker} 목표가 도달`;
-        body = `현재 $${price.toFixed(2)} (목표 $${alert.targetPrice.toFixed(2)} 이하)`;
+        body = `현재 $${price.toFixed(2)} (목표 $${alert.targetPrice.toFixed(2)} ${dirLabel})`;
         tag = `target-${alert.ticker}`;
       }
     }
 
+    // ── 등락률: 1회 발동 → 자동 OFF ──
     if (alert.type === 'percent_change') {
       const price = prices[alert.ticker];
       if (price == null || !alert.basePrice || !alert.percent) continue;
@@ -119,10 +136,12 @@ export async function runAlertCheck(env) {
           title = `${alert.ticker} ${arrow}${absChange.toFixed(1)}% 변동`;
           body = `현재 $${price.toFixed(2)} (기준 $${alert.basePrice.toFixed(2)})`;
           tag = `percent-${alert.ticker}`;
+          alertsToRemove.push(i); // 1회 발동 후 제거
         }
       }
     }
 
+    // ── 공포탐욕: 1회 발동 → 자동 OFF ──
     if (alert.type === 'fear_greed' && fearGreedValue != null) {
       const direction = alert.direction ?? 0; // 0=below, 1=above
       if (direction === 0 && fearGreedValue <= alert.threshold) {
@@ -130,22 +149,29 @@ export async function runAlertCheck(env) {
         title = '공포탐욕지수 알림';
         body = `현재 ${fearGreedValue} (${alert.threshold} 이하)`;
         tag = 'fear-greed';
+        alertsToRemove.push(i); // 1회 발동 후 제거
       } else if (direction === 1 && fearGreedValue >= alert.threshold) {
         triggered = true;
         title = '공포탐욕지수 알림';
         body = `현재 ${fearGreedValue} (${alert.threshold} 이상)`;
         tag = 'fear-greed';
+        alertsToRemove.push(i); // 1회 발동 후 제거
       }
     }
 
     if (triggered) {
       notifications.push({ title, body, tag });
-      // 쿨다운 설정 (기본 1시간)
-      const cooldownSeconds = (alert.cooldownMinutes || 60) * 60;
-      await env.CACHE_KV.put(cooldownKey, new Date().toISOString(), {
-        expirationTtl: cooldownSeconds,
-      });
     }
+  }
+
+  // 1회 발동 알림 제거 (등락률, 공포탐욕)
+  if (alertsToRemove.length > 0) {
+    const remaining = alerts.filter((_, idx) => !alertsToRemove.includes(idx));
+    await env.CACHE_KV.put(ALERTS_KV_KEY, JSON.stringify({
+      alerts: remaining,
+      updatedAt: new Date().toISOString(),
+    }));
+    console.log(`[AlertCheck] Removed ${alertsToRemove.length} one-shot alert(s), ${remaining.length} remaining`);
   }
 
   // 6. Web Push 전송
@@ -157,10 +183,7 @@ export async function runAlertCheck(env) {
   }
 }
 
-function getCooldownKey(alert) {
-  if (alert.type === 'fear_greed') return 'alerts:cooldown:fear_greed:global';
-  return `alerts:cooldown:${alert.type}:${alert.ticker}`;
-}
+// getCooldownKey 제거 — 목표가는 crossing 방식, 등락률/공포탐욕은 1회 발동 후 자동 제거
 
 /**
  * Web Push 전송 (RFC 8291 — web-push 프로토콜)
