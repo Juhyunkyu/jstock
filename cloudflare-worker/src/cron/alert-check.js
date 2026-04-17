@@ -10,6 +10,13 @@
  *   4. 쿨다운 기록 (KV, 1시간 TTL)
  */
 
+import {
+  encryptPayload,
+  base64UrlToArrayBuffer,
+  arrayBufferToBase64Url,
+  rawP256PrivateToJwk,
+} from './push-crypto.js';
+
 const ALERTS_KV_KEY = 'alerts:config';
 const PUSH_SUB_KV_KEY = 'push:subscription';
 
@@ -305,7 +312,7 @@ async function sendWebPush(env, subscription, notification) {
 
     // JWT 생성 (VAPID)
     const audience = new URL(subscription.endpoint).origin;
-    const jwt = await createVapidJWT(audience, vapidSubject, vapidPrivateKey);
+    const jwt = await createVapidJWT(audience, vapidSubject, vapidPrivateKey, vapidPublicKey);
 
     // 페이로드 암호화 (aes128gcm)
     const payload = JSON.stringify(notification);
@@ -343,8 +350,11 @@ async function sendWebPush(env, subscription, notification) {
 }
 
 // ── VAPID JWT 생성 (ES256) ──
-
-async function createVapidJWT(audience, subject, privateKeyBase64) {
+//
+// WebCrypto spec: ECDSA private key는 'raw' 형식 import 불가 (공개키만 허용).
+// 'jwk' 또는 'pkcs8' 형식 필요 → JWK 형식 사용 (이식성 높음).
+// 공개키는 uncompressed P-256 (65바이트, 0x04 || X(32) || Y(32)) 형식의 base64url.
+export async function createVapidJWT(audience, subject, privateKeyBase64, publicKeyBase64) {
   const header = { typ: 'JWT', alg: 'ES256' };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
@@ -357,18 +367,21 @@ async function createVapidJWT(audience, subject, privateKeyBase64) {
   const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
   const unsignedToken = `${headerB64}.${payloadB64}`;
 
-  // Import private key
-  const keyData = base64UrlToArrayBuffer(privateKeyBase64);
+  // Import private key (JWK 경유)
+  // - d: 32바이트 private scalar (base64url)
+  // - x, y: 32바이트 public 좌표 (uncompressed publicKey에서 추출)
+  const privateRaw = new Uint8Array(base64UrlToArrayBuffer(privateKeyBase64));
+  const publicRaw = new Uint8Array(base64UrlToArrayBuffer(publicKeyBase64));
+  const jwk = rawP256PrivateToJwk(privateRaw, publicRaw);
   const key = await crypto.subtle.importKey(
-    'raw',
-    keyData,
+    'jwk',
+    jwk,
     { name: 'ECDSA', namedCurve: 'P-256' },
-  false,
+    false,
     ['sign']
   );
 
-  // ES256 서명 생성 (DER → raw r||s 변환은 Web Crypto가 자동 처리)
-  // Web Crypto의 ECDSA sign은 raw format (r || s, 각 32바이트)
+  // ES256 서명 생성. Web Crypto의 ECDSA sign output은 raw r||s (64바이트), VAPID 사양과 일치.
   const signature = await crypto.subtle.sign(
     { name: 'ECDSA', hash: 'SHA-256' },
     key,
@@ -379,131 +392,5 @@ async function createVapidJWT(audience, subject, privateKeyBase64) {
   return `${unsignedToken}.${sigB64}`;
 }
 
-// ── AES-128-GCM 페이로드 암호화 (RFC 8291) ──
-
-async function encryptPayload(payload, p256dhBase64, authBase64) {
-  // 1. 클라이언트 공개키(p256dh)와 인증 시크릿(auth) 디코딩
-  const clientPublicKey = base64UrlToArrayBuffer(p256dhBase64);
-  const authSecret = base64UrlToArrayBuffer(authBase64);
-
-  // 2. 서버 임시 ECDH 키쌍 생성
-  const serverKeys = await crypto.subtle.generateKey(
-    { name: 'ECDH', namedCurve: 'P-256' },
-    true,
-    ['deriveBits']
-  );
-
-  // 3. ECDH 공유 비밀 생성
-  const clientKey = await crypto.subtle.importKey(
-    'raw',
-    clientPublicKey,
-    { name: 'ECDH', namedCurve: 'P-256' },
-    false,
-    []
-  );
-
-  const sharedSecret = await crypto.subtle.deriveBits(
-    { name: 'ECDH', public: clientKey },
-    serverKeys.privateKey,
-    256
-  );
-
-  // 4. 솔트 생성 (16바이트 랜덤)
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-
-  // 5. PRK 생성 (HKDF)
-  const authInfo = new TextEncoder().encode('Content-Encoding: auth\0');
-  const ikm = await hkdfExtract(new Uint8Array(authSecret), new Uint8Array(sharedSecret));
-  const prk = await hkdfExpand(ikm, combineInfo(authInfo, 32), 32);
-
-  // 6. 콘텐츠 암호화 키 + nonce 도출
-  const serverPublicKeyRaw = await crypto.subtle.exportKey('raw', serverKeys.publicKey);
-  const keyInfo = createKeyInfo(new Uint8Array(clientPublicKey), new Uint8Array(serverPublicKeyRaw));
-  const nonceInfo = createNonceInfo(new Uint8Array(clientPublicKey), new Uint8Array(serverPublicKeyRaw));
-
-  const cekIkm = await hkdfExtract(salt, new Uint8Array(prk));
-  const cek = await hkdfExpand(cekIkm, keyInfo, 16);
-  const nonce = await hkdfExpand(cekIkm, nonceInfo, 12);
-
-  // 7. AES-128-GCM 암호화
-  const paddedPayload = addPadding(new TextEncoder().encode(payload));
-  const key = await crypto.subtle.importKey(
-    'raw',
-    cek,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt']
-  );
-
-  const encrypted = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: nonce },
-    key,
-    paddedPayload
-  );
-
-  // 8. aes128gcm 헤더 + 암호문 조합
-  const header = new Uint8Array(21 + serverPublicKeyRaw.byteLength);
-  header.set(salt, 0);                                         // salt (16)
-  header.set(new Uint8Array(new Uint32Array([4096]).buffer).reverse(), 16);  // rs (4)
-  header[20] = serverPublicKeyRaw.byteLength;                  // idlen (1)
-  header.set(new Uint8Array(serverPublicKeyRaw), 21);          // keyid
-
-  const result = new Uint8Array(header.length + encrypted.byteLength);
-  result.set(header, 0);
-  result.set(new Uint8Array(encrypted), header.length);
-
-  return result.buffer;
-}
-
-// ── 헬퍼 함수들 ──
-
-function base64UrlToArrayBuffer(base64) {
-  const padding = '='.repeat((4 - base64.length % 4) % 4);
-  const raw = atob(base64.replace(/-/g, '+').replace(/_/g, '/') + padding);
-  const arr = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-  return arr.buffer;
-}
-
-function arrayBufferToBase64Url(buffer) {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-}
-
-async function hkdfExtract(salt, ikm) {
-  const key = await crypto.subtle.importKey('raw', salt, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  return new Uint8Array(await crypto.subtle.sign('HMAC', key, ikm));
-}
-
-async function hkdfExpand(prk, info, length) {
-  const key = await crypto.subtle.importKey('raw', prk, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const infoWithCounter = new Uint8Array(info.length + 1);
-  infoWithCounter.set(info, 0);
-  infoWithCounter[info.length] = 1;
-  const result = new Uint8Array(await crypto.subtle.sign('HMAC', key, infoWithCounter));
-  return result.slice(0, length);
-}
-
-function combineInfo(info, length) {
-  return info;
-}
-
-function createKeyInfo(clientPublicKey, serverPublicKey) {
-  const info = new TextEncoder().encode('Content-Encoding: aes128gcm\0');
-  return info;
-}
-
-function createNonceInfo(clientPublicKey, serverPublicKey) {
-  const info = new TextEncoder().encode('Content-Encoding: nonce\0');
-  return info;
-}
-
-function addPadding(data) {
-  // RFC 8188: delimiter byte (0x02) + data
-  const padded = new Uint8Array(data.length + 1);
-  padded.set(data, 0);
-  padded[data.length] = 2; // delimiter
-  return padded;
-}
+// 암호화 로직은 ./push-crypto.js 로 추출 (RFC 8291 aes128gcm).
+// 여기서는 encryptPayload / base64UrlToArrayBuffer / arrayBufferToBase64Url 을 import해서 사용.
