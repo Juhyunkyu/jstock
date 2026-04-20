@@ -170,6 +170,7 @@ export default {
   // Cron 핸들러
   async scheduled(event, env, ctx) {
     const cron = event.cron;
+    console.log(`[Scheduled] cron=${cron} fired at ${new Date().toISOString()}`);
     // 정규장 알림 체크 (2분마다, UTC 14-20 = ET 10-16)
     if (cron.startsWith('*/2')) {
       ctx.waitUntil(runAlertCheck(env));
