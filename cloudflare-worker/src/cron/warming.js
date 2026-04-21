@@ -20,6 +20,7 @@
  */
 
 import { warmCalendarData } from '../handlers/calendar.js';
+import { fetchFearGreed } from '../lib/fearGreed.js';
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -190,23 +191,9 @@ async function warmFinnhubQuotes(env, tickers) {
 }
 
 async function warmGlobalData(env) {
-  // Fear & Greed Index
-  try {
-    const fgResp = await fetch(
-      'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/',
-      {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'https://edition.cnn.com/',
-        },
-      }
-    );
-    if (fgResp.ok) {
-      const data = await fgResp.text();
-      await env.CACHE_KV.put('fear_greed:latest', data, { expirationTtl: 3600 });
-      console.log('[Cron] Fear & Greed warmed');
-    }
-  } catch (e) { console.error('[Cron] Fear & Greed warming failed:', e.message); }
+  // Fear & Greed Index — helper writes both `fear_greed:latest` (6h TTL) and `fear_greed:last_known` (no TTL).
+  const fg = await fetchFearGreed(env);
+  console.log(`[Cron] Fear & Greed warmed: source=${fg.source} score=${fg.score ?? 'null'}`);
 
   // Exchange Rate USD/KRW (Twelve Data)
   if (env.TWELVE_DATA_API_KEY) {

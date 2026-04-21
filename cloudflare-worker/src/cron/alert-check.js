@@ -16,6 +16,7 @@ import {
   arrayBufferToBase64Url,
   rawP256PrivateToJwk,
 } from './push-crypto.js';
+import { fetchFearGreed } from '../lib/fearGreed.js';
 
 const ALERTS_KV_KEY = 'alerts:config';
 const PUSH_SUB_KV_KEY = 'push:subscription';
@@ -36,20 +37,24 @@ export async function runAlertCheckDebug(env) {
     if (!configRaw?.alerts?.length) { debug.steps.push('No alerts'); return debug; }
     if (!subscription?.endpoint) { debug.steps.push('No push subscription'); return debug; }
 
-    // Fear&Greed
+    // Fear&Greed — delegated to helper (cache → fetch(retry) → fallback).
     const hasFG = configRaw.alerts.some(a => a.type === 'fear_greed');
     if (hasFG) {
+      // Peek cache first for the legacy `fgCached` debug field (back-compat).
       const cached = await env.CACHE_KV.get('fear_greed:latest', 'json');
       debug.fgCached = cached?.fear_and_greed?.score ?? 'MISS';
-      if (debug.fgCached === 'MISS') {
-        const fgResp = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata/', {
-          headers: { 'User-Agent': 'Mozilla/5.0', 'Referer': 'https://edition.cnn.com/' },
-        });
-        debug.fgFetchStatus = fgResp.status;
-        if (fgResp.ok) {
-          const data = await fgResp.json();
-          debug.fgFetchScore = data?.fear_and_greed?.score;
-        }
+
+      const fg = await fetchFearGreed(env);
+      debug.fgScore = fg.score;
+      debug.fgSource = fg.source;
+      if (fg.cachedAt) debug.fgCachedAt = fg.cachedAt;
+
+      // Legacy fgFetchStatus semantics: populated only when we actually went to network.
+      if (fg.source === 'fresh') {
+        debug.fgFetchStatus = 200;
+        debug.fgFetchScore = fg.score;
+      } else if (fg.source === 'fallback') {
+        debug.fgFetchStatus = 'failed';
       }
     }
 
@@ -132,36 +137,16 @@ export async function runAlertCheck(env) {
     }
   }
 
-  // 4. Fear&Greed 값 조회 (KV 캐시 → 미스 시 CNN 직접 호출)
+  // 4. Fear&Greed 값 조회 — helper가 cache → fetch(3s timeout + 1 retry) → last_known fallback 처리.
   let fearGreedValue = null;
   const hasFearGreedAlert = alerts.some(a => a.type === 'fear_greed');
   if (hasFearGreedAlert) {
-    // KV 캐시 먼저 시도
-    const cached = await env.CACHE_KV.get('fear_greed:latest', 'json');
-    if (cached?.fear_and_greed?.score != null) {
-      fearGreedValue = Math.round(cached.fear_and_greed.score);
-    } else {
-      // 캐시 미스 — CNN 직접 호출
-      try {
-        const fgResp = await fetch(
-          'https://production.dataviz.cnn.io/index/fearandgreed/graphdata/',
-          {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-              'Referer': 'https://edition.cnn.com/',
-            },
-          }
-        );
-        if (fgResp.ok) {
-          const data = await fgResp.json();
-          if (data?.fear_and_greed?.score != null) {
-            fearGreedValue = Math.round(data.fear_and_greed.score);
-            // KV 캐시 갱신 (1시간 TTL)
-            await env.CACHE_KV.put('fear_greed:latest', JSON.stringify(data), { expirationTtl: 3600 });
-          }
-        }
-      } catch (e) {
-        console.error('[AlertCheck] Fear&Greed fetch failed:', e.message);
+    const fg = await fetchFearGreed(env);
+    if (fg.score != null) {
+      fearGreedValue = fg.score;
+      if (fg.source === 'fallback') {
+        const ageMin = Math.round((Date.now() - (fg.cachedAt ?? 0)) / 60000);
+        console.warn(`[AlertCheck] Using F&G fallback (${ageMin}min stale)`);
       }
     }
   }
