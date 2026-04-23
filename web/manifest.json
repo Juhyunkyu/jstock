@@ -1,8 +1,11 @@
 {
     "name": "알파 사이클",
     "short_name": "알파 사이클",
-    "start_url": ".",
+    "id": "/jstock/",
+    "scope": "/jstock/",
+    "start_url": "/jstock/",
     "display": "standalone",
+    "display_override": ["standalone"],
     "background_color": "#FFFFFF",
     "theme_color": "#2563EB",
     "description": "레버리지 ETF 매매 관리 앱",

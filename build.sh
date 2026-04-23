@@ -37,6 +37,14 @@ echo "Building Alpha Cycle (release)..."
 if [ -f web/push-sw-handlers.js ]; then
   cat web/push-sw-handlers.js >> build/web/flutter_service_worker.js
   echo "Push handlers appended to flutter_service_worker.js"
+
+  # Verify push handler was appended successfully
+  # (set -e 하에서 grep 실패가 바로 exit 되지 않도록 if 조건으로 감쌈)
+  if ! grep -q "addEventListener('push'" build/web/flutter_service_worker.js; then
+    echo "ERROR: Push handler missing from built SW — build failed" >&2
+    exit 1
+  fi
+  echo "[build] Push handler verified in SW"
 fi
 
 echo "Build complete! Run with: python3 serve_nocache.py 8080"
