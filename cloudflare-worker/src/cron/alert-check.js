@@ -254,10 +254,11 @@ export async function runAlertCheck(env) {
     console.log(`[AlertCheck] Removed ${alertsToRemove.length} one-shot alert(s), ${remaining.length} remaining`);
   }
 
-  // 6. Web Push 전송
+  // 6. Web Push 전송 + 관측성 로깅
   if (notifications.length > 0) {
     for (const notif of notifications) {
-      await sendWebPush(env, subscription, notif);
+      const result = await sendWebPush(env, subscription, notif);
+      await logPushAttempt(env, subscription, notif, result);
     }
     console.log(`[AlertCheck] Sent ${notifications.length} push notification(s)`);
   }
@@ -276,6 +277,7 @@ export async function runAlertCheck(env) {
  * 현재는 제목/본문을 KV에 저장하고 SW에서 fetch하는 방식으로 우회합니다.
  */
 async function sendWebPush(env, subscription, notification) {
+  const startedAt = Date.now();
   try {
     // 알림 데이터를 KV에 임시 저장 (SW가 fetch)
     const notifKey = `push:pending:${Date.now()}`;
@@ -292,7 +294,12 @@ async function sendWebPush(env, subscription, notification) {
 
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.error('[AlertCheck] VAPID keys not configured');
-      return;
+      return {
+        status: -1,
+        ok: false,
+        latencyMs: Date.now() - startedAt,
+        error: 'VAPID keys not configured',
+      };
     }
 
     // JWT 생성 (VAPID)
@@ -320,7 +327,10 @@ async function sendWebPush(env, subscription, notification) {
       body: encrypted,
     });
 
-    if (resp.status === 201 || resp.status === 200) {
+    const latencyMs = Date.now() - startedAt;
+    const ok = resp.status === 201 || resp.status === 200;
+
+    if (ok) {
       console.log(`[AlertCheck] Push sent: ${notification.title}`);
     } else if (resp.status === 410) {
       // Gone — 구독 만료, KV에서 삭제
@@ -329,8 +339,21 @@ async function sendWebPush(env, subscription, notification) {
     } else {
       console.error(`[AlertCheck] Push failed: HTTP ${resp.status}`);
     }
+
+    return {
+      status: resp.status,
+      ok,
+      latencyMs,
+      error: null,
+    };
   } catch (e) {
     console.error(`[AlertCheck] Push error: ${e.message}`);
+    return {
+      status: -1,
+      ok: false,
+      latencyMs: Date.now() - startedAt,
+      error: e.message,
+    };
   }
 }
 
@@ -379,3 +402,89 @@ export async function createVapidJWT(audience, subject, privateKeyBase64, public
 
 // 암호화 로직은 ./push-crypto.js 로 추출 (RFC 8291 aes128gcm).
 // 여기서는 encryptPayload / base64UrlToArrayBuffer / arrayBufferToBase64Url 을 import해서 사용.
+
+// ── Push 발송 관측성 로깅 ──
+//
+// KV write 실패는 본 push 경로 영향 없어야 함 → 전체 try/catch로 격리.
+// 3개 키 동시 업데이트:
+//   push:log:{yyyymmdd}:{hhmmss}:{nanoid6}   TTL 7일   — 개별 시도 레코드
+//   push:stats:counter                        TTL 없음   — 누적 카운터
+//   push:last                                 TTL 없음   — 최신 시도 스냅샷
+//
+// 카운터는 read-modify-write (race 존재 가능). 관측성 > 정확도 기조로 race 무시.
+// endpoint 전체를 저장하면 구독 키가 포함되어 보안 위험 → hostname만 저장.
+async function logPushAttempt(env, subscription, notif, result) {
+  try {
+    const now = new Date();
+    const iso = now.toISOString();
+    const yyyymmdd = iso.slice(0, 10).replace(/-/g, '');
+    const hhmmss = iso.slice(11, 19).replace(/:/g, '');
+    const nanoid6 = crypto.randomUUID().slice(0, 6);
+
+    let endpointHost = '';
+    try {
+      endpointHost = new URL(subscription.endpoint).hostname;
+    } catch {
+      endpointHost = 'unknown';
+    }
+
+    const ts = now.getTime();
+
+    // 1) 개별 로그 (7일 TTL)
+    const logKey = `push:log:${yyyymmdd}:${hhmmss}:${nanoid6}`;
+    const logRecord = {
+      ticker: notif.tag ? notif.tag.split('-').slice(1).join('-') || null : null,
+      title: notif.title,
+      body: notif.body,
+      tag: notif.tag,
+      status: result.status,
+      ok: result.ok,
+      latencyMs: result.latencyMs,
+      error: result.error,
+      endpointHost,
+      ts,
+    };
+    await env.CACHE_KV.put(logKey, JSON.stringify(logRecord), {
+      expirationTtl: 604800, // 7일
+    });
+
+    // 2) 누적 카운터 (read-modify-write, race는 무시)
+    const counterRaw = await env.CACHE_KV.get('push:stats:counter', 'json');
+    const counter = counterRaw || {
+      sent: 0,
+      failed: 0,
+      expired: 0,
+      errored: 0,
+      total: 0,
+      updatedAt: null,
+    };
+
+    if (result.status === -1) {
+      counter.errored = (counter.errored || 0) + 1;
+    } else if (result.status === 201 || result.status === 200) {
+      counter.sent = (counter.sent || 0) + 1;
+    } else if (result.status === 410) {
+      counter.expired = (counter.expired || 0) + 1;
+    } else {
+      counter.failed = (counter.failed || 0) + 1;
+    }
+    counter.total = (counter.total || 0) + 1;
+    counter.updatedAt = iso;
+
+    await env.CACHE_KV.put('push:stats:counter', JSON.stringify(counter));
+
+    // 3) 최신 시도 스냅샷 (덮어쓰기)
+    const last = {
+      ticker: logRecord.ticker,
+      status: result.status,
+      ok: result.ok,
+      latencyMs: result.latencyMs,
+      error: result.error,
+      ts,
+    };
+    await env.CACHE_KV.put('push:last', JSON.stringify(last));
+  } catch (e) {
+    // KV write 실패는 push 경로에 영향 없도록 조용히 로그만 남김
+    console.error(`[AlertCheck] logPushAttempt failed: ${e.message}`);
+  }
+}
